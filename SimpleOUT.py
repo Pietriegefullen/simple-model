@@ -33,13 +33,13 @@ def simplefun(xdata, k, h): # xdata muss eingegeben werden für curve_fit in mul
     for t in range(1,101): # iteriert über 100 Zeitschritte
         
     
-        L = Cdec(Cpool[-1],Microben[-1], CH4[-1], CO2[-1],k, h)
+        delta = Cdec(Cpool[-1],Microben[-1], CH4[-1], CO2[-1],k, h)
         
-        Cpool.append(L[0])# hängt den Wert aus jedem Zeitschrit aus Cdec return [0] an.
-        Microben.append(L[1])
-        CH4.append(L[2])
-        CO2.append(L[3])
-        Cv.append(L[4])
+        Cpool.append(Cpool[-1] + delta[0])# hängt den Wert aus jedem Zeitschrit aus Cdec return [0] an.
+        Microben.append(Microben[-1] + delta[1])
+        CH4.append(CH4[-1] + delta[2])
+        CO2.append(CO2[-1] + delta[3])
+        Cv.append(Cv[-1] + delta[4])
        
     CCH4CO2 = Cpool + CH4 + CO2 # setzt die drei für uns interessanten Ausgaben zu einer 
     #Ausgabe zusammen um in Curvefit ein least square nutzen zu können. 
