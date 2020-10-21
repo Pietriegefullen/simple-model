@@ -7,7 +7,7 @@ from scipy.special import expit
 n = 101
 x = np.linspace(0,100,n)
 xneg = np.linspace(100,0,n) # n equal steps between 100 and 0
-
+Temperature = np.linspace(0,20, n)
 
 #creating noise to add to the data out of uniform distribution 
 noiseCO2 = np.random.uniform(-2,2,(n,))
@@ -41,17 +41,32 @@ for i in range(0,101,1):
 
 Cpool =  list(np.exp(0.05*xneg) +noiseCpool)
 
-
-
 plt.clf()
-plt.plot(CO2)
-plt.plot(Methane)
-plt.plot(Cpool)
+plt.plot(CO2, label="CO2")
+plt.plot(Methane, label="CH4")
+plt.plot(Cpool, label="Cpool")
+#plt.plot(Temperature)
+plt.legend()
+
+
 
 aCpool = np.expand_dims(np.array(Cpool), axis = 1)
 aMeth = np.expand_dims(np.array(Methane),axis = 1)
 aCO2 = np.expand_dims(np.array(CO2), axis = 1)
 
 Mockdata = np.concatenate((aCpool,aMeth,aCO2),axis = None)
+
+#-------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
 
 
