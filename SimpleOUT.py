@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 import numpy as np
 #
+
+
 # ruft Cdec für 100 Zeitschritte auf 
 
 # Parameter:
@@ -19,16 +21,17 @@ def optifun(xdata,k,h, c4ant):
     xtage = xdata[0:int(len(xdata)/2)]
     #print(type(xtage))
     CH4, CO2 = simplefun(xtage,k,h, c4ant)
-    return CH4 + CO2
+    return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
     
     
 
 
 def simplefun(xtage, k, h, c4ant): # xdata muss eingegeben werden für curve_fit in multifit
     n = max(xtage)
+    
     # Festgelegte Initialwerte
     C_init = 140
-    Microben_init = 0.01
+    Microben_init = 0.001
     CH4_init = 0
     CO2_init = 0
     Cused_init = 0
@@ -40,7 +43,7 @@ def simplefun(xtage, k, h, c4ant): # xdata muss eingegeben werden für curve_fit
     CH4 = [CH4_init]
     CO2 = [CO2_init]
     Cused = [Cused_init]
-    CCH4CO2 =[]
+    
 
     
     for t in range(1,n+1): # iteriert über 100 Zeitschritte
@@ -53,9 +56,6 @@ def simplefun(xtage, k, h, c4ant): # xdata muss eingegeben werden für curve_fit
         CH4.append(CH4[-1] + delta[2])
         CO2.append(CO2[-1] + delta[3])
         Cused.append(Cused[-1] + delta[4])
-       
-    CCH4CO2 = Cpool + CH4 + CO2 # setzt die drei für uns interessanten Ausgaben zu einer 
-    #Ausgabe zusammen um in Curvefit ein least square nutzen zu können. 
 
     if False:
         plt.close('all') #closes all previous plots

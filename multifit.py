@@ -4,15 +4,19 @@ Created on Tue Oct 13 09:45:44 2020
 
 @author: Lara
 """
+
 #import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 from scipy import stats
 import numpy as np
-from Realdata import Realdata
+
+from Realdata import load_realdata
 from SimpleOUT import simplefun
 from SimpleOUT import optifun
 
+#%%
+Realdata = load_realdata()
 # Fitting the parameters: 
 
 xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage an denen wir Messwerte haben, Länge 44
@@ -20,7 +24,7 @@ xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 
 ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
 
 # p0 sind die initial parameter values
-optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001, 0.5],bounds=((-np.inf, -np.inf, 0), (np.inf, np.inf, 1)))
+optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.01, 0.5],bounds=((0, .01, 0), (np.inf, 10, 1)))
 
 
 k_opt = optimal_parameters[0] # abbaugeschwindigkeit (Fressgeschwindigkeit)
@@ -35,6 +39,9 @@ print("c2ant is", c2ant_opt)
 
 #%%
 # calculating the model output with optimal parameters:
+#k_opt = .001
+#h_opt = .01
+#c4ant_opt = .5
 CCH4CO2opt = simplefun(xlist, k_opt, h_opt,c4ant_opt)
 CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
 
