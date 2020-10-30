@@ -14,35 +14,45 @@ import numpy as np
 # Eine Liste mit den Werten von Cpool, CH4 und CO2. Brauchen wir um den least square
 # nicht nur für jede Kurve einzeln sondern global zu berechnen. Ein k und ein h, statt 3.
 
-def simplefun(xdata, k, h, n = 101): # xdata muss eingegeben werden für curve_fit in multifit
+def optifun(xdata,k,h, c4ant):
+    #print(xdata)
+    xtage = xdata[0:int(len(xdata)/2)]
+    #print(type(xtage))
+    CH4, CO2 = simplefun(xtage,k,h, c4ant)
+    return CH4 + CO2
     
+    
+
+
+def simplefun(xtage, k, h, c4ant): # xdata muss eingegeben werden für curve_fit in multifit
+    n = max(xtage)
     # Festgelegte Initialwerte
     C_init = 140
     Microben_init = 0.01
     CH4_init = 0
     CO2_init = 0
-    Cv_init = 0
-    Temperature = np.linspace(0,20, n)
+    Cused_init = 0
+
 
     
     Cpool = [C_init]
     Microben = [Microben_init]
     CH4 = [CH4_init]
     CO2 = [CO2_init]
-    Cv = [Cv_init]
+    Cused = [Cused_init]
     CCH4CO2 =[]
 
     
-    for t in range(1,n): # iteriert über 100 Zeitschritte
+    for t in range(1,n+1): # iteriert über 100 Zeitschritte
         
     
-        delta = Cdec(Cpool[-1],Microben[-1], CH4[-1], CO2[-1],k, h)
+        delta = Cdec(Cpool[-1],Microben[-1], CH4[-1], CO2[-1],k, h, c4ant)
         
         Cpool.append(Cpool[-1] + delta[0])# hängt den Wert aus jedem Zeitschrit aus Cdec return [0] an.
         Microben.append(Microben[-1] + delta[1])
         CH4.append(CH4[-1] + delta[2])
         CO2.append(CO2[-1] + delta[3])
-        Cv.append(Cv[-1] + delta[4])
+        Cused.append(Cused[-1] + delta[4])
        
     CCH4CO2 = Cpool + CH4 + CO2 # setzt die drei für uns interessanten Ausgaben zu einer 
     #Ausgabe zusammen um in Curvefit ein least square nutzen zu können. 
@@ -74,7 +84,8 @@ def simplefun(xdata, k, h, n = 101): # xdata muss eingegeben werden für curve_f
         plt.legend()
         
         plt.figure()
-        plt.plot(Cv, label = "Cv")
+        plt.plot(Cused, label = "Cused")
     
-    
-    return CCH4CO2
+    CH4 = [CH4[i] for i in xtage]
+    CO2 = [CO2[i] for i in xtage]
+    return CH4, CO2
