@@ -20,18 +20,21 @@
 
 
 
-def Cdec(Cpool,Microben,CH4, CO2, k, h, c4ant):
-    Cused = Cpool * (k * Microben)    
-    
+def Cdec(Cpool,Microben_CH4, Microben_CO2, CH4, CO2, k_CH4, k_CO2,  h_CH4, h_CO2, c4ant):
+    Cused = (Cpool * (k_CH4 * Microben_CH4)) + (Cpool * (k_CO2 * Microben_CO2))  
+    Cused_CH4 = Cpool * (k_CH4 * Microben_CH4)
+    Cused_CO2 = Cpool * (k_CO2 * Microben_CO2)
    
     deltaCpool = - Cused
-    deltaMicroben = h * Microben 
-    deltaCH4 = (Cused * c4ant) 
-    deltaCO2 = (Cused * (1-c4ant))
+    deltaMicroben_CH4 = h_CH4 * Microben_CH4
+    deltaMicroben_CO2 = h_CO2 * Microben_CO2
+    
+    deltaCH4 = (Cused_CH4 * c4ant) 
+    deltaCO2 = (Cused_CH4 * (1-c4ant)) + Cused_CO2
     deltaCused = Cused
     
  
-    return deltaCpool, deltaMicroben, deltaCH4,deltaCO2, deltaCused
+    return deltaCpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaCH4, deltaCO2, deltaCused
 
 
 

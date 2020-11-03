@@ -23,16 +23,20 @@ xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage a
 xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
 ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
 
-# p0 sind die initial parameter values
-optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.01, 0.5],bounds=((0, .01, 0), (np.inf, 10, 1)))
+# p0 sind die initial parameter values, in der Reihenfolge k_CH4,k_CO2, h_CH4,h_CO2, c4ant
+optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,0.01,0.01, 0.5],bounds=((0,0, 0,0, 0), (np.inf,np.inf,10, 10, 1)))
 
 
-k_opt = optimal_parameters[0] # abbaugeschwindigkeit (Fressgeschwindigkeit)
-h_opt = optimal_parameters[1] # Microbenwachstum
-c4ant_opt = optimal_parameters[2]
-c2ant_opt = 1-optimal_parameters[2]
-print("k_opt is",k_opt)
-print("h_opt is",h_opt)
+k_CH4_opt = optimal_parameters[0] # abbaugeschwindigkeit (Fressgeschwindigkeit)
+k_CO2_opt = optimal_parameters[1] # abbaugeschwindigkeit (Fressgeschwindigkeit)
+h_CH4_opt = optimal_parameters[2] # Microbenwachstum
+h_CO2_opt = optimal_parameters[3] # Microbenwachstum
+c4ant_opt = optimal_parameters[4]
+c2ant_opt = 1-optimal_parameters[4]
+print("k_CH4_opt is",k_CH4_opt)
+print("k_CO2_opt is",k_CO2_opt)
+print("h_CH4_opt is",h_CH4_opt)
+print("h_CO2_opt is",h_CO2_opt)
 print("c4ant is", c4ant_opt)
 print("c2ant is", c2ant_opt)
 
@@ -42,7 +46,7 @@ print("c2ant is", c2ant_opt)
 #k_opt = .001
 #h_opt = .01
 #c4ant_opt = .5
-CCH4CO2opt = simplefun(xlist, k_opt, h_opt,c4ant_opt)
+CCH4CO2opt = simplefun(xlist, k_CH4_opt, k_CO2_opt, h_CH4_opt,h_CO2_opt,c4ant_opt)
 CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
 
 #%% plots manuel erstellen
