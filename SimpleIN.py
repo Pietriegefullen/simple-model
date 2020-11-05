@@ -20,21 +20,51 @@
 
 
 
-def Cdec(Cpool,Microben_CH4, Microben_CO2, CH4, CO2, k_CH4, k_CO2,  h_CH4, h_CO2, c4ant):
-    Cused = (Cpool * (k_CH4 * Microben_CH4)) + (Cpool * (k_CO2 * Microben_CO2))  
-    Cused_CH4 = Cpool * (k_CH4 * Microben_CH4)
-    Cused_CO2 = Cpool * (k_CO2 * Microben_CO2)
-   
-    deltaCpool = - Cused
-    deltaMicroben_CH4 = h_CH4 * Microben_CH4
-    deltaMicroben_CO2 = h_CO2 * Microben_CO2
+def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, FermCO2, Acetate, CH4, CO2, k_CH4, k_CO2, k_alte,  h_CH4, h_CO2, h_alte, ac):
     
-    deltaCH4 = (Cused_CH4 * c4ant) 
-    deltaCO2 = (Cused_CH4 * (1-c4ant)) + Cused_CO2
+     
+    #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate
+    Cpool_abbau_Ferm = Cpool* (k_CO2 * Microben_CO2)
+    Cused_CO2_resp = (1-ac) * Cpool_abbau_Ferm
+    Cused_CO2_ac = ac * Cpool_abbau_Ferm # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
+   
+    Acetate = Cused_CO2_ac
+    
+    # AltE haben vorrecht auf Acetate consumption
+    if AltEpool > 1:
+        Cused_AltE_resp = Acetate * k_alte * Microben_AltE
+        
+        deltaAltEpool = -AltEpool * k_alte * Microben_AltE
+        Cused_CH4ac_resp = 0
+        Cused_CO2ac_resp = 0
+        deltaMicroben_CH4 = 0
+    else:   
+        # Acetate geht zu gleichen Teilen in CH4 und CO2 (stochiometrie)
+        Acetate_Dinner = Acetate * (k_CH4 * Microben_CH4)
+        Cused_CH4ac_resp = 0.5 *  Acetate_Dinner
+        Cused_CO2ac_resp = 0.5 *  Acetate_Dinner
+        Cused_AltE_resp = 0
+        deltaAltEpool = 0
+        deltaMicroben_CH4 = h_CH4 * Microben_CH4
+        
+    #nur Ferm verbrauchen Cpool C
+    Cused = Cused_CO2_resp + Cused_CO2_ac 
+        
+    # Microbenwachstum
+    deltaCpool = - Cused
+    #deltaMicroben_CH4 = h_CH4 * Microben_CH4
+    deltaMicroben_CO2 = h_CO2 * Microben_CO2
+    deltaMicroben_AltE = h_alte * Microben_AltE
+    
+    # CH4 nur aus Acetate, CO2 aus Acetat und Ferm
+    deltaCH4 = Cused_CH4ac_resp 
+    deltaCO2 = Cused_CO2ac_resp  + Cused_CO2_resp + Cused_AltE_resp
     deltaCused = Cused
+    deltaFermCO2 = Cused_CO2ac_resp
+    deltaAcetate = Acetate
     
  
-    return deltaCpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaCH4, deltaCO2, deltaCused
+    return deltaCpool, deltaAltEpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaMicroben_AltE, deltaCH4, deltaCO2, deltaCused, deltaFermCO2, deltaAcetate
 
 
 

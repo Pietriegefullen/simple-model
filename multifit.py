@@ -23,22 +23,27 @@ xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage a
 xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
 ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
 
-# p0 sind die initial parameter values, in der Reihenfolge k_CH4,k_CO2, h_CH4,h_CO2, c4ant
-optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,0.01,0.01, 0.5],bounds=((0,0, 0,0, 0), (np.inf,np.inf,10, 10, 1)))
+# p0 sind die initial parameter values, in der Reihenfolge k_CH4,k_CO2,k_alte, h_CH4,h_CO2, h_alte ac
+optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,0.001,0.01,0.01,0.01, 0], bounds=((0,0,0,0, 0,0, 0), (10,10,10,10, 10,10, 1)))
+
 
 
 k_CH4_opt = optimal_parameters[0] # abbaugeschwindigkeit (Fressgeschwindigkeit)
 k_CO2_opt = optimal_parameters[1] # abbaugeschwindigkeit (Fressgeschwindigkeit)
-h_CH4_opt = optimal_parameters[2] # Microbenwachstum
-h_CO2_opt = optimal_parameters[3] # Microbenwachstum
-c4ant_opt = optimal_parameters[4]
-c2ant_opt = 1-optimal_parameters[4]
+k_alte_opt = optimal_parameters[2]
+h_CH4_opt = optimal_parameters[3] # Microbenwachstum
+h_CO2_opt = optimal_parameters[4] # Microbenwachstum
+h_alte_opt = optimal_parameters[5]
+ac_opt = optimal_parameters[6]
+#c2ant_opt = 1-optimal_parameters[4]
 print("k_CH4_opt is",k_CH4_opt)
 print("k_CO2_opt is",k_CO2_opt)
+print("k_alte_opt is",k_alte_opt)
 print("h_CH4_opt is",h_CH4_opt)
 print("h_CO2_opt is",h_CO2_opt)
-print("c4ant is", c4ant_opt)
-print("c2ant is", c2ant_opt)
+print("h_alte_opt is",h_alte_opt)
+print("ac is", ac_opt)
+#print("c2ant is", c2ant_opt)
 
 
 #%%
@@ -46,8 +51,9 @@ print("c2ant is", c2ant_opt)
 #k_opt = .001
 #h_opt = .01
 #c4ant_opt = .5
-CCH4CO2opt = simplefun(xlist, k_CH4_opt, k_CO2_opt, h_CH4_opt,h_CO2_opt,c4ant_opt)
+CCH4CO2opt = simplefun(xlist, k_CH4_opt, k_CO2_opt, h_alte_opt, h_CH4_opt,h_CO2_opt, h_alte_opt,ac_opt)
 CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
+
 
 #%% plots manuel erstellen
 CH4opt = CCH4CO2opt[0]
@@ -68,12 +74,24 @@ plt.title('CO2')
 plt.close('all')
 for x, a in zip([0,44],["CH4","CO2"]):  
     plt.figure()
-    plt.plot(xlist,[ydata[i] for i in range(x,44+x)], label = "Observed")
-    plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,44+x)], label = "Predicted")
+    plt.plot(xlist,[ydata[i] for i in range(x,44+x)],"ro", label = "Observed")
+    plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,44+x)],label = "Predicted")
     plt.show()
     plt.ylabel(a)
     plt.legend()
             
+    #%%
+plt.figure()
+plt.plot( CCH4CO2opt[2], label='AltEpool')
+plt.title('AltEpool')
+
+plt.figure()
+plt.plot( CCH4CO2opt[3], label='CO2ace')
+plt.title('CO2ace')
+
+plt.figure()
+plt.plot( CCH4CO2opt[4], label='Acetate')
+plt.title('Acetate')
 
 #%%
 # Goodness of fit with R^2
