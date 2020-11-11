@@ -18,58 +18,75 @@
 # Returns:
 # Cpool, Microben, CH4, CO2, Cv
 
+#import numpy as np
 
-
-def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, FermCO2, Acetate, CH4, CO2, k_CH4, k_CO2, k_alte,  h_CH4, h_CO2, h_alte, ac):
+def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2, f_alte,  w_CH4, w_CO2, w_alte, w_CH4_heil):
     
      
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate
-    Cpool_abbau_Ferm = Cpool* (k_CO2 * Microben_CO2)
-    Cused_CO2_resp = (1-ac) * Cpool_abbau_Ferm
-    Cused_CO2_ac = ac * Cpool_abbau_Ferm # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
+    Cpool_Ferm_Abbau =  (f_CO2 * Microben_CO2) 
+    Cused_Ferm_resp = (1-0.67) * Cpool_Ferm_Abbau
+    Cused_Ferm_Ace = 0.67 * Cpool_Ferm_Abbau # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
    
-    Acetate = Cused_CO2_ac
+    Ace_Ferm_prod = Cused_Ferm_Ace
     
-    # AltE haben vorrecht auf Acetate consumption
-    if AltEpool > 1:
-        Cused_AltE_resp = Acetate * k_alte * Microben_AltE
+    
+    # Alt e
+    # IN: Acetat und Alt e 1:1
+    # Out: CO2, Mukrobenwachstum
+    # nur solange Alt e UND Acetat vorhanden
+#    if AltEpool > 0 and Acetate > 0:
+#        Ace_used_AltE_resp = -f_alte * Microben_AltE
+#        deltaMicroben_AltE = 
+#    else:
+#        Ace_used_AltE_resp = 0
+#        deltaMicroben_AltE = 
         
-        deltaAltEpool = -AltEpool * k_alte * Microben_AltE
-        Cused_CH4ac_resp = 0
-        Cused_CO2ac_resp = 0
+    # AltE haben vorrecht auf Acetate consumption
+    if AltEpool > 0.1:
+        Ace_used_AltE_resp = Ace_Ferm_prod * f_alte * Microben_AltE
+        
+        deltaAltEpool =  0 if Microben_AltE <= 0 else (- f_alte * Microben_AltE)
+        deltaMicroben_AltE = 0 if Microben_AltE <= 0 else -.1#(Microben_AltE * (50- AltEpool))
+        Ace_used_Aceto_resp_CH4 = 0
+        Ace_used_Aceto_resp_CO2 = 0
         deltaMicroben_CH4 = 0
+        deltaMicroben_CH4_krank = 0
+        Ace_used_Aceto = 0
     else:   
         # Acetate geht zu gleichen Teilen in CH4 und CO2 (stochiometrie)
-        Acetate_Dinner = Acetate * (k_CH4 * Microben_CH4)
-        Cused_CH4ac_resp = 0.5 *  Acetate_Dinner
-        Cused_CO2ac_resp = 0.5 *  Acetate_Dinner
-        Cused_AltE_resp = 0
+        Ace_used_Aceto = Ace_Ferm_prod * f_CH4 * Microben_CH4
+        Ace_used_Aceto_resp_CH4 = 0.5 *  Ace_used_Aceto
+        Ace_used_Aceto_resp_CO2 = 0.5 *  Ace_used_Aceto
+        Ace_used_AltE_resp = 0
         deltaAltEpool = 0
-        deltaMicroben_CH4 = h_CH4 * Microben_CH4
+        deltaMicroben_AltE = 0
+        # geschädigte Microben reparieren sich
         
+       
+    Microben_CH4_geheilt = 0 if Microben_CH4_krank <= 0 else w_CH4_heil * (Ace_Ferm_prod - Ace_used_Aceto)
+    deltaMicroben_CH4_krank = - Microben_CH4_geheilt
+    deltaMicroben_CH4 = w_CH4 *  Microben_CH4  +  Microben_CH4_geheilt
+    deltaMicroben_CH4=0   
+    deltaMicroben_CH4_krank=0
     #nur Ferm verbrauchen Cpool C
-    Cused = Cused_CO2_resp + Cused_CO2_ac 
+    Cused_tot = Cpool_Ferm_Abbau 
         
     # Microbenwachstum
-    deltaCpool = - Cused
+    deltaCpool = - Cused_tot
     #deltaMicroben_CH4 = h_CH4 * Microben_CH4
-    deltaMicroben_CO2 = h_CO2 * Microben_CO2
-    deltaMicroben_AltE = h_alte * Microben_AltE
+    deltaMicroben_CO2 = w_CO2 * Microben_CO2
+    
     
     # CH4 nur aus Acetate, CO2 aus Acetat und Ferm
-    deltaCH4 = Cused_CH4ac_resp 
-    deltaCO2 = Cused_CO2ac_resp  + Cused_CO2_resp + Cused_AltE_resp
-    deltaCused = Cused
-    deltaFermCO2 = Cused_CO2ac_resp
-    deltaAcetate = Acetate
-    
+    deltaCH4 = Ace_used_Aceto_resp_CH4 
+    deltaCO2 = Ace_used_Aceto_resp_CO2  + Cused_Ferm_resp + Ace_used_AltE_resp
+   # deltaCused = Cused
+    deltaAceCO2 = Ace_used_Aceto_resp_CO2
+    deltaAcetate =  Ace_Ferm_prod - Ace_used_AltE_resp - Ace_used_Aceto
+    deltaAltEpool = Ace_used_AltE_resp
  
-    return deltaCpool, deltaAltEpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaMicroben_AltE, deltaCH4, deltaCO2, deltaCused, deltaFermCO2, deltaAcetate
-
-
-
-
-
+    return deltaCpool, deltaAltEpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaMicroben_AltE, deltaCH4, deltaCO2, deltaAceCO2, deltaAcetate, deltaMicroben_CH4_krank
 
 
 
