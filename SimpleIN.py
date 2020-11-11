@@ -28,41 +28,52 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
     Cused_Ferm_resp = (1-0.67) * Cpool_Ferm_Abbau
     Cused_Ferm_Ace = 0.67 * Cpool_Ferm_Abbau # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
    
-    Ace_Ferm_prod = Cused_Ferm_Ace
+    Ace_Ferm_prod = Cused_Ferm_Ace # Acetate das in diesem Schritt entsteht    
     
-    Acetate = Acetate + Ace_Ferm_prod
+    #Acetate_tot = 0 if Acetate + Ace_Ferm_prod <= 0 else  Acetate + Ace_Ferm_prod
+    Acetate_tot  = 0 if  Acetate <= 0 else Acetate
+    
     # Alt e
     # IN: Acetat und Alt e 1:1
     # Out: CO2, Mukrobenwachstum
     # nur solange Alt e UND Acetat vorhanden
     
-    if AltEpool > 0 and Acetate > 0:
-        Ace_used_AltE_resp = f_alte * Microben_AltE * Acetate * 2 *AltEpool #1 Acetate wird zu zwei CO2
-        deltaMicroben_AltE = Microben_AltE * f_alte
-        deltaAltEpool =  AltEpool - Ace_used_AltE_resp/2 # pro Acetate 1 AltE- aufgebraucht?
-        Ace_used_Aceto = 0
-        Ace_used_Aceto_resp_CH4 = 0
-        Ace_used_Aceto_resp_CO2 = 0
-        deltaMicroben_CH4 = 0
-        deltaMicroben_CH4_krank = 0
-        Microben_CH4_geheilt = 0
-    else:
-        Ace_used_AltE_resp = 0
-        deltaMicroben_AltE = Microben_AltE * - f_alte
+
+    f_alte = max(Acetate_tot * AltEpool, 0)
+    Ace_used_AltE_resp = f_alte * Microben_AltE *2
+    #Ace_used_AltE_resp = Acetate_tot if temp >= Acetate_tot  else  temp #1 Acetate wird zu zwei CO2
+    #Ace_used_AltE_resp = f_alte * Microben_AltE * Acetate_tot  * 2 *AltEpool
+    deltaMicroben_AltE = Microben_AltE * w_alte * f_alte
+    deltaAltEpool = - min(Ace_used_AltE_resp/2, AltEpool) # pro Acetate 1 AltE- aufgebraucht?
+    deltaAcetate_AltE = -min(Ace_used_AltE_resp/2, Acetate)
+    
+    
+    Ace_used_Aceto = 0
+    Ace_used_Aceto_resp_CH4 = 0
+    Ace_used_Aceto_resp_CO2 = 0
+    deltaMicroben_CH4 = 0
+    deltaMicroben_CH4_krank = 0
+    Microben_CH4_geheilt = 0
+    deltaAcetate_Aceto = 0
+        
+    if AltEpool <= 0:
+        #Ace_used_AltE_resp = 0
+        deltaMicroben_AltE = Microben_AltE * - w_alte
         
         
-        Microben_CH4_geheilt = 0 if Microben_CH4_krank <= 0 else w_CH4_heil * Microben_CH4_krank 
+        Microben_CH4_geheilt = 0 if Microben_CH4_krank <= 0 else (w_CH4_heil * Microben_CH4_krank)
         deltaMicroben_CH4_krank = - Microben_CH4_geheilt
         deltaMicroben_CH4 = w_CH4 *  Microben_CH4  +  Microben_CH4_geheilt
+   
      # Aceto
     # IN: Acetat 
     # Out: CO2, CH4 1:1
     # nur solange Acetat und Microben_CH4 vorhanden    
-        Ace_used_Aceto = Acetate * f_CH4 * Microben_CH4
+        Ace_used_Aceto = min(Acetate_tot  * f_CH4 * Microben_CH4, Acetate)
+        deltaAcetate_Aceto = -Ace_used_Aceto
         Ace_used_Aceto_resp_CH4 = 0.5 *  Ace_used_Aceto
         Ace_used_Aceto_resp_CO2 = 0.5 *  Ace_used_Aceto
-        
-       
+
     
         
     #nur Ferm verbrauchen Cpool C
@@ -79,38 +90,13 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
     deltaCO2 = Ace_used_Aceto_resp_CO2  + Cused_Ferm_resp + Ace_used_AltE_resp
    # deltaCused = Cused
     deltaAceCO2 = Ace_used_Aceto_resp_CO2
-    deltaAcetate =  Ace_Ferm_prod - Ace_used_AltE_resp - Ace_used_Aceto
-    deltaAltEpool =  Ace_used_AltE_resp
+    deltaAcetate =  Ace_Ferm_prod + deltaAcetate_AltE + deltaAcetate_Aceto
  
     return deltaCpool, deltaAltEpool, deltaMicroben_CH4, deltaMicroben_CO2, deltaMicroben_AltE, deltaCH4, deltaCO2, deltaAceCO2, deltaAcetate, deltaMicroben_CH4_krank
 
 
 
-    # AltE haben vorrecht auf Acetate consumption
-#    if AltEpool > 0.1:
-#        Ace_used_AltE_resp = Ace_Ferm_prod * f_alte * Microben_AltE
-#        
-#        deltaAltEpool =  0 if Microben_AltE <= 0 else (- f_alte * Microben_AltE)
-#        deltaMicroben_AltE = 0 if Microben_AltE <= 0 else -.1#(Microben_AltE * (50- AltEpool))
-#        Ace_used_Aceto_resp_CH4 = 0
-#        Ace_used_Aceto_resp_CO2 = 0
-#        deltaMicroben_CH4 = 0
-#        deltaMicroben_CH4_krank = 0
-#        Ace_used_Aceto = 0
-#    else:   
-#        # Acetate geht zu gleichen Teilen in CH4 und CO2 (stochiometrie)
-#        Ace_used_Aceto = Ace_Ferm_prod * f_CH4 * Microben_CH4
-#        Ace_used_Aceto_resp_CH4 = 0.5 *  Ace_used_Aceto
-#        Ace_used_Aceto_resp_CO2 = 0.5 *  Ace_used_Aceto
-#        Ace_used_AltE_resp = 0
-#        deltaAltEpool = 0
-#        deltaMicroben_AltE = 0
-#        # geschädigte Microben reparieren sich
-        
-
-
-
-
+  
 
 
 

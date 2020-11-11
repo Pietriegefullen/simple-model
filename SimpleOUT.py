@@ -31,15 +31,15 @@ def simplefun(xtage, f_CH4, f_CO2, f_alte, w_CH4, w_CO2, w_alte, w_CH4_heil): # 
     
     # Festgelegte Initialwerte
     C_init = 100
-    AltE_init = 505
+    AltE_init = 5
     Microben_CH4_init = 0
-    Microben_CO2_init = 0.01
+    Microben_CO2_init = 0.1
     Microben_AltE_init= 0.01
     Microben_CH4_krank_init = 0.01
     CH4_init = 0
     CO2_init = 0
     Cused_init = 0
-    Acetate_init = 0
+    Acetate_init = 0.01
     AceCO2_init = 0
     
     Cpool = [C_init]
