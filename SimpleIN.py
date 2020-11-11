@@ -40,14 +40,13 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
     
 
     f_alte = max(Acetate_tot * AltEpool, 0)
-    Ace_used_AltE_resp = f_alte * Microben_AltE *2
+    Ace_used_AltE_resp = f_alte * Microben_AltE
     #Ace_used_AltE_resp = Acetate_tot if temp >= Acetate_tot  else  temp #1 Acetate wird zu zwei CO2
     #Ace_used_AltE_resp = f_alte * Microben_AltE * Acetate_tot  * 2 *AltEpool
     deltaMicroben_AltE = Microben_AltE * w_alte * f_alte
-    deltaAltEpool = - min(Ace_used_AltE_resp/2, AltEpool) # pro Acetate 1 AltE- aufgebraucht?
-    deltaAcetate_AltE = -min(Ace_used_AltE_resp/2, Acetate)
-    
-    
+    deltaAltEpool = - min(Ace_used_AltE_resp, AltEpool) # pro Acetate 1 AltE- aufgebraucht?
+    deltaAcetate_AltE = -min(Ace_used_AltE_resp, Acetate)
+
     Ace_used_Aceto = 0
     Ace_used_Aceto_resp_CH4 = 0
     Ace_used_Aceto_resp_CO2 = 0
@@ -58,13 +57,14 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
         
     if AltEpool <= 0:
         #Ace_used_AltE_resp = 0
-        deltaMicroben_AltE = Microben_AltE * - w_alte
+        deltaMicroben_AltE = - min(Microben_AltE * w_alte, Microben_AltE)
         
-        
+           
         Microben_CH4_geheilt = 0 if Microben_CH4_krank <= 0 else (w_CH4_heil * Microben_CH4_krank)
         deltaMicroben_CH4_krank = - Microben_CH4_geheilt
         deltaMicroben_CH4 = w_CH4 *  Microben_CH4  +  Microben_CH4_geheilt
-   
+        
+        
      # Aceto
     # IN: Acetat 
     # Out: CO2, CH4 1:1
