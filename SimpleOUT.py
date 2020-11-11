@@ -31,7 +31,7 @@ def simplefun(xtage, f_CH4, f_CO2, f_alte, w_CH4, w_CO2, w_alte, w_CH4_heil): # 
     
     # Festgelegte Initialwerte
     C_init = 100
-    AltE_init = 50
+    AltE_init = 505
     Microben_CH4_init = 0
     Microben_CO2_init = 0.01
     Microben_AltE_init= 0.01

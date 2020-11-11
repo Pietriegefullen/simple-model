@@ -24,7 +24,7 @@ xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 
 ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
 
 # p0 sind die initial parameter values, in der Reihenfolge f_CH4,f_CO2,f_alte, w_CH4,w_CO2, w_alte, w_CH4_heil
-optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,0.001,   0.01,0.01,-0.5, 0.01], bounds=((0,0,0,0,0,-1, 0), (10,10,1,10, 10,0, 1)))
+optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,0.001,   0.01,0.01, 0.01, 0.01], bounds=((0,0,0,0,0,0, 0), (10,10,1,10, 10,10, 1)))
 
 
 
