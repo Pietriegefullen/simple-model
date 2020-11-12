@@ -19,20 +19,32 @@
 # Cpool, Microben, CH4, CO2, Cv
 
 #import numpy as np
+#Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2, f_alte,  w_CH4, w_CO2, w_alte, w_CH4_heil
 
-def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2, f_alte,  w_CH4, w_CO2, w_alte, w_CH4_heil):
+def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2,  w_CH4, w_CO2, w_alte, w_CH4_heil):
     
      
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate
-    Cpool_Ferm_Abbau =  (f_CO2 * Microben_CO2) 
-    Cused_Ferm_resp = (1-0.67) * Cpool_Ferm_Abbau
-    Cused_Ferm_Ace = 0.67 * Cpool_Ferm_Abbau # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
-   
-    Ace_Ferm_prod = Cused_Ferm_Ace # Acetate das in diesem Schritt entsteht    
-    
-    #Acetate_tot = 0 if Acetate + Ace_Ferm_prod <= 0 else  Acetate + Ace_Ferm_prod
-    Acetate_tot  = 0 if  Acetate <= 0 else Acetate
-    
+    if Acetate < 10:
+        Cpool_Ferm_Abbau =  (f_CO2 * Microben_CO2) 
+        Cused_Ferm_resp = (1-0.67) * Cpool_Ferm_Abbau
+        Cused_Ferm_Ace = 0.67 * Cpool_Ferm_Abbau # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
+        deltaMicroben_CO2 = w_CO2 * Microben_CO2 
+        
+        Ace_Ferm_prod = Cused_Ferm_Ace # Acetate das in diesem Schritt entsteht    
+        
+        #Acetate_tot = 0 if Acetate + Ace_Ferm_prod <= 0 else  Acetate + Ace_Ferm_prod
+        Acetate_tot  = 0 if  Acetate <= 0 else Acetate
+    else:
+        Cpool_Ferm_Abbau = 0
+        Cused_Ferm_resp = (1-0.67) * Cpool_Ferm_Abbau
+        Cused_Ferm_Ace = 0.67 * Cpool_Ferm_Abbau # ac anteil vom gefressenen der in Acetate umgewandelt wird                 
+        deltaMicroben_CO2 = w_CO2 * Microben_CO2 *0
+        
+        Ace_Ferm_prod = Cused_Ferm_Ace # Acetate das in diesem Schritt entsteht    
+        
+        #Acetate_tot = 0 if Acetate + Ace_Ferm_prod <= 0 else  Acetate + Ace_Ferm_prod
+        Acetate_tot  = 0 if  Acetate <= 0 else Acetate
     # Alt e
     # IN: Acetat und Alt e 1:1
     # Out: CO2, Mukrobenwachstum
@@ -55,7 +67,7 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
     Microben_CH4_geheilt = 0
     deltaAcetate_Aceto = 0
         
-    if AltEpool <= 0:
+    if AltEpool <= 0.01 :
         #Ace_used_AltE_resp = 0
         deltaMicroben_AltE = - min(Microben_AltE * w_alte, Microben_AltE)
         
@@ -82,7 +94,7 @@ def Cdec(Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, A
     # Microbenwachstum
     deltaCpool = - Cused_tot
     #deltaMicroben_CH4 = h_CH4 * Microben_CH4
-    deltaMicroben_CO2 = w_CO2 * Microben_CO2
+    
     
     
     # CH4 nur aus Acetate, CO2 aus Acetat und Ferm

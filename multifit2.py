@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import numpy as np
 
-from Realdata import load_realdata
+from Realdataall import load_realdata
 from SimpleOUT import simplefun
 from SimpleOUT import optifun
 
@@ -24,7 +24,7 @@ xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 
 ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
 
 # p0 sind die initial parameter values, in der Reihenfolge f_CH4,f_CO2,f_alte, w_CH4,w_CO2, w_alte, w_CH4_heil
-optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001, 0.01,0.01, 0.01, 0.01], bounds=((0,0,0,0,0, 0), (10,10,10, 10,10, 1)))
+optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001,   0.01,0.01, 0.01, 0.01], bounds=((0,0,0,0,0, 0), (10,10,10,10,10, 1)))
 
 
 
@@ -102,13 +102,14 @@ plt.title('Acetate')
 plt.figure()
 plt.plot( CCH4CO2opt[5], label='Cpool')
 plt.title('Cpool')
-#%%
+
 plt.figure()
 plt.plot( CCH4CO2opt[6], label='Microben_CH4')
 plt.title('Microben_CH4')
 #axes = plt.gca()
 #axes.set_ylim([0,200000])
-#%%
+#np.min(np.where(np.array(CCH4CO2opt[6][0:100]) >0))
+
 
 plt.figure()
 plt.plot( CCH4CO2opt[7], label='Microben_CO2')
