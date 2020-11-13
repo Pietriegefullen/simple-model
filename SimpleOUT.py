@@ -30,10 +30,10 @@ def simplefun(xtage, f_CH4, f_CO2,  w_CH4, w_CO2, w_alte, w_CH4_heil): # xdata m
     n = max(xtage)
     
     # Festgelegte Initialwerte
-    C_init = 1000
+    C_init = 100
     AltE_init = 4
     Microben_CH4_init = 0
-    Microben_CO2_init = 0.001
+    Microben_CO2_init = 0.01
     Microben_AltE_init= 0.001
     Microben_CH4_krank_init = 0.001
     CH4_init = 0
@@ -41,6 +41,7 @@ def simplefun(xtage, f_CH4, f_CO2,  w_CH4, w_CO2, w_alte, w_CH4_heil): # xdata m
     Cused_init = 0
     Acetate_init = 0.01
     AceCO2_init = 0
+    H2_init = 0 
     
     Cpool = [C_init]
     AltEpool = [AltE_init]
@@ -53,12 +54,13 @@ def simplefun(xtage, f_CH4, f_CO2,  w_CH4, w_CO2, w_alte, w_CH4_heil): # xdata m
     Cused = [Cused_init]
     Acetate = [Acetate_init]
     AceCO2 = [AceCO2_init]
+    H2 = [H2_init]
 
     
     for t in range(1,n+1): # iteriert über 100 Zeitschritte
 
-                #Cpool,          AltEpool,  Microben_CH4,     Microben_CO2,    Microben_AltE,     FermCO2,  Acetate,  Microben_CH4_krank, CH4, CO2,
-        delta = Cdec(Cpool[-1], AltEpool[-1],Microben_CH4[-1],Microben_CO2[-1], Microben_AltE[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], Microben_CH4_krank[-1], f_CH4, f_CO2, w_CH4, w_CO2, w_alte, w_CH4_heil)
+            
+        delta = Cdec(Cpool[-1], AltEpool[-1],Microben_CH4[-1],Microben_CO2[-1], Microben_AltE[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], Microben_CH4_krank[-1], H2[-1], f_CH4, f_CO2, w_CH4, w_CO2, w_alte, w_CH4_heil)
         
         Cpool.append(Cpool[-1] + delta[0])# hängt den Wert aus jedem Zeitschrit aus Cdec return [0] an.
         AltEpool.append(AltEpool[-1] + delta[1])
@@ -71,7 +73,7 @@ def simplefun(xtage, f_CH4, f_CO2,  w_CH4, w_CO2, w_alte, w_CH4_heil): # xdata m
         AceCO2.append(AceCO2[-1] + delta[7])
         Acetate.append(Acetate[-1] + delta[8])
         Microben_CH4_krank.append(Microben_CH4_krank[-1] + delta[9])
-        
+        H2.append(H2[-1] + delta[10])
     if False:
         plt.close('all') #closes all previous plots
         #plt.plot(Cmet)

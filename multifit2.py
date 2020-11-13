@@ -16,8 +16,10 @@ from SimpleOUT import simplefun
 from SimpleOUT import optifun
 
 #%%
-Realdata = load_realdata()
+for i in [0,3]:
+    Realdata = load_realdata(i)
 # Fitting the parameters: 
+#%%    
 
 xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage an denen wir Messwerte haben, Länge 44
 xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen

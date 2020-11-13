@@ -6,6 +6,9 @@ Created on Tue Oct 13 09:45:44 2020
 """
 
 #import matplotlib.pyplot as plt
+import os
+os.chdir('/Users/Lara/Desktop/simple model')
+    
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 from scipy import stats
