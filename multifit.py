@@ -81,7 +81,6 @@ for x, a in zip([0,44],["CH4","CO2"]):
     plt.figure()
     plt.plot(xlist,[ydata[i] for i in range(x,44+x)],"ro", label = "Observed")
     plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,44+x)],label = "Predicted")
-    plt.show()
     plt.ylabel(a)
     plt.legend()
             
@@ -186,7 +185,7 @@ R2all = 1 - (SStotall / SSresall)
 print("R2all is", R2all)
 
 
-
+plt.show()
 
 
 
