@@ -15,6 +15,7 @@ from Realdataall import load_realdata
 from SimpleOUT import simplefun
 from SimpleOUT import optifun
 
+plt.close('all')
 #%% die drei verschiedenen Datensätze 
 Data1 = [0]
 Data1and2 = [0,3]
@@ -29,33 +30,51 @@ for m in Data1:
     xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
     ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
     
-    # p0 sind die initial parameter values, in der Reihenfolge f_A_CH4,f_CO2,f_H_CH4, w_A_CH4,w_CO2, w_alte, w_A_CH4_heil, w_H_CH4
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.001,0.001, 0.001,  0.01,0.01, 0.01, 0.01,0.01], bounds=((0,0,0,0,0,0,0,0), (10,10,10,10,50, 1,10,10)))
+    
+    # w_A_CH4, w_CO2, w_alte, w_A_CH4_heil,  w_Homo
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [ 0.01, 0.01, 0.01,0.01], bounds=((0,0,0,0), (10,1,10,20)))
     
     
-    
-    f_A_CH4_opt = optimal_parameters[0] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
-    f_CO2_opt = optimal_parameters[1] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
-    f_H_CH4_opt = optimal_parameters[2]
-    w_A_CH4_opt = optimal_parameters[3] # Mikrobenwachstum
-    w_CO2_opt = optimal_parameters[4] # Mikrobenwachstum
-    w_alte_opt = optimal_parameters[5]# Mikrobenwachstum
-    w_A_CH4_heil_opt = optimal_parameters[6] # Mikrobenheilrate
-    w_H_CH4_opt = optimal_parameters[7]
-    print("f_A_CH4_opt is",f_A_CH4_opt)
-    print("f_CO2_opt is",f_CO2_opt)
-    print("f_H_CH4_opt is",f_H_CH4_opt)
+#    f_A_CH4_opt = optimal_parameters[0] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
+#    f_CO2_opt = optimal_parameters[1] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
+#    f_H_CH4_opt = optimal_parameters[2]
+#    w_A_CH4_opt = optimal_parameters[3] # Mikrobenwachstum
+#    w_CO2_opt = optimal_parameters[4] # Mikrobenwachstum
+#    w_alte_opt = optimal_parameters[5]# Mikrobenwachstum
+#    w_A_CH4_heil_opt = optimal_parameters[6] # Mikrobenheilrate
+#    w_H_CH4_opt = optimal_parameters[7]
+#    w_Homo_opt = optimal_parameters[8]
+#    print("f_A_CH4_opt is",f_A_CH4_opt)
+#    print("f_CO2_opt is",f_CO2_opt)
+#    print("f_H_CH4_opt is",f_H_CH4_opt)
+#    print("w_A_CH4_opt is",w_A_CH4_opt)
+#    print("w_CO2_opt is",w_CO2_opt)
+#    print("w_alte_opt is",w_alte_opt)
+#    print("w_A_CH4_heil is", w_A_CH4_heil_opt)
+#    print("w_H_CH4_opt is",w_H_CH4_opt)
+#    print("w_Homo_opt is",w_Homo_opt)
+  
+    w_A_CH4_opt = optimal_parameters[0] # Mikrobenwachstum
+    #w_CO2_opt = optimal_parameters[3] # Mikrobenwachstum
+    w_alte_opt = optimal_parameters[1]# Mikrobenwachstum
+    w_A_CH4_heil_opt = optimal_parameters[2] # Mikrobenheilrate
+    #w_H_CH4_opt = optimal_parameters[5]
+    w_Homo_opt = optimal_parameters[3]
+   
     print("w_A_CH4_opt is",w_A_CH4_opt)
-    print("w_CO2_opt is",w_CO2_opt)
+   # print("w_CO2_opt is",w_CO2_opt)
     print("w_alte_opt is",w_alte_opt)
     print("w_A_CH4_heil is", w_A_CH4_heil_opt)
-    print("w_H_CH4_opt is",w_H_CH4_opt)
+   # print("w_H_CH4_opt is",w_H_CH4_opt)
+    print("w_Homo_opt is",w_Homo_opt)
+    
     
     
     #%%
     # calculating the model output with optimal parameters:
 
-    CCH4CO2opt = simplefun(xlist, f_A_CH4_opt, f_CO2_opt,f_H_CH4_opt,  w_A_CH4_opt,w_CO2_opt, w_alte_opt, w_A_CH4_heil_opt, w_H_CH4_opt)
+    #CCH4CO2opt = simplefun(xlist, f_A_CH4_opt, f_CO2_opt,f_H_CH4_opt,  w_A_CH4_opt,w_CO2_opt, w_alte_opt, w_A_CH4_heil_opt, w_Homo_opt)
+    CCH4CO2opt = simplefun(xlist, w_A_CH4_opt, w_alte_opt, w_A_CH4_heil_opt, w_Homo_opt)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
     
