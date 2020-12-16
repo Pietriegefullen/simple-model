@@ -22,11 +22,13 @@ from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo
 #Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2, f_alte,  w_CH4, w_CO2, w_alte, w_CH4_heil
 
 #def Cdec(Cpool, AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2, f_A_CH4, f_CO2, f_H_CH4, w_A_CH4, w_CO2, w_alte, w_A_CH4_heil, w_H_CH4, w_Homo):
-def Cdec(C_lab, C_stab , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2,  w_A_CH4,  w_alte, w_A_CH4_heil, w_Homo):    
+def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2, Vmax):    
      
+    
+    
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate, CO2 und H2
-    deltaM_CO2, deltaC_lab, deltaC_stab =   Fermenters(M_CO2, C_lab, C_stab)
-    Ace_Ferm_prod =-(deltaC_lab + deltaC_stab)
+    deltaM_CO2, deltaCpool, _ =   Fermenters(M_CO2, Cpool, 0, Vmax)
+    Ace_Ferm_prod =-(deltaCpool)
     CO2_Ferm_prod = Ace_Ferm_prod * 0.5 
     H2_Ferm_prod = Ace_Ferm_prod * (1/6)
 
@@ -55,7 +57,8 @@ def Cdec(C_lab, C_stab , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4,
     # nur solange Alt e UND Acetat vorhanden
     deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate_tot, AltEpool)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 #1 Acetate wird zu zwei CO2
-   
+    deltaAltEpool  = 0 if  AltEpool + deltaAltEpool < 0 else deltaAltEpool
+    
     #Ace_used_AltE_resp = Acetate_tot if temp >= Acetate_tot  else  temp #1 Acetate wird zu zwei CO2
     
 
@@ -69,7 +72,7 @@ def Cdec(C_lab, C_stab , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4,
     deltaM_Homo = 0  
     
     # ACETO ACETO ACETO ACETO 
-    if AltEpool <= 0 :
+    if AltEpool <= 0.1 :
         #Ace_used_AltE_resp = 0
         # STerben muss noch ins microbenskriot deltaM_AltE = - min(M_AltE * w_alte, M_AltE) # damit keine negativen Microben entstehen
         
@@ -117,12 +120,12 @@ def Cdec(C_lab, C_stab , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4,
     deltaAceCO2 = deltaCO2_A
     deltaAcetate =  Ace_Ferm_prod + deltaAcetate_AltE + deltaAcetate_A + Ace_Homo_prod
     deltaH2 = H2_Ferm_prod - deltaH2_Homo - deltaH2_Hydro
-    deltaM_H_CH4 =  M_H_CH4 
    # deltaM_Homo = deltaM_Homo
     deltaM_A_CH4_krank = 0
-    
+    deltaCpool  = 0 if  Cpool + deltaCpool < 0 else deltaCpool
+   
  
-    return deltaC_lab, deltaC_stab, deltaAltEpool, deltaM_A_CH4, deltaM_CO2, deltaM_H_CH4, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaAceCO2, deltaAcetate, deltaM_A_CH4_krank, deltaH2
+    return deltaCpool, deltaAltEpool, deltaM_A_CH4, deltaM_CO2, deltaM_H_CH4, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaAceCO2, deltaAcetate, deltaM_A_CH4_krank, deltaH2
 
 
 

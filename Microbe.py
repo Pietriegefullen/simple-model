@@ -29,19 +29,21 @@ def AutoMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Km2, Vprod_max, Stoch):
     deltaBiomass = ATP * Yatp # growth rate = deltaBiomass1 = ATPprod*Yatp*Substrate
     
     deltaSub2 = Stoch*deltaSub1
-       
+           
     return deltaBiomass, -deltaSub1, -deltaSub2
 
 
-def Fermenters(Biomass, Sub1, Sub2):
+def Fermenters(Biomass, Sub1, Sub2 , Vmax):
     
     ATPprod = 4 # stochiometrie
     Yatp = 10 # Fenchel 
     Km1 = 10 / SOIL_DENSITY # 10 from Song
-    Vmax = 0.5/ SOIL_DENSITY # 0.5 from Song
-
+    #Vmax = 0.5/ SOIL_DENSITY # 0.5 from Song
+    
+    Vmax = Vmax/SOIL_DENSITY
     
     deltaBiomass, deltaSub1, deltaSub2 = HeteroMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Vmax)
+    
     
     return deltaBiomass, deltaSub1, deltaSub2
 

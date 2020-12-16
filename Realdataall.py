@@ -36,7 +36,7 @@ def load_realdata(m):
     Realdata  = df
     #plt.plot(Realdata[:,m+1], 'ro',label="CH4")
     #plt.plot(Realdata[:,m+2],'bo',label ="CO2")
-    plt.legend()
+    #plt.legend()
     
     Realdata = df[:,m:m+3]
     
