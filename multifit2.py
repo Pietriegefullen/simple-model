@@ -31,54 +31,24 @@ for m in Data1:
     ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
     
     
-    #  Vmax, Stoch
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.5, 1], bounds=((0,0), (100,100)))
+    #  Fitted Parameters are Vmax, Stoch, Vprod_max
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [1500000, 1, 30e6], bounds=((0,0,0), (100000000,10, 10e7)))
+   
+
+    Vmax_Ferm_opt = optimal_parameters[0] # 
+    print("Vmax_Ferm_opt is", Vmax_Ferm_opt)
     
+    Stoch_ALtE_opt = optimal_parameters[1] #
+    print("Stoch_ALtE_opt is", Stoch_ALtE_opt)
     
-#    f_A_CH4_opt = optimal_parameters[0] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
-#    f_CO2_opt = optimal_parameters[1] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
-#    f_H_CH4_opt = optimal_parameters[2]
-#    w_A_CH4_opt = optimal_parameters[3] # Mikrobenwachstum
-#    w_CO2_opt = optimal_parameters[4] # Mikrobenwachstum
-#    w_alte_opt = optimal_parameters[5]# Mikrobenwachstum
-#    w_A_CH4_heil_opt = optimal_parameters[6] # Mikrobenheilrate
-#    w_H_CH4_opt = optimal_parameters[7]
-#    w_Homo_opt = optimal_parameters[8]
-#    print("f_A_CH4_opt is",f_A_CH4_opt)
-#    print("f_CO2_opt is",f_CO2_opt)
-#    print("f_H_CH4_opt is",f_H_CH4_opt)
-#    print("w_A_CH4_opt is",w_A_CH4_opt)
-#    print("w_CO2_opt is",w_CO2_opt)
-#    print("w_alte_opt is",w_alte_opt)
-#    print("w_A_CH4_heil is", w_A_CH4_heil_opt)
-#    print("w_H_CH4_opt is",w_H_CH4_opt)
-#    print("w_Homo_opt is",w_Homo_opt)
-  
-#    w_A_CH4_opt = optimal_parameters[0] # Mikrobenwachstum
-#    #w_CO2_opt = optimal_parameters[3] # Mikrobenwachstum
-#    w_alte_opt = optimal_parameters[1]# Mikrobenwachstum
-#    w_A_CH4_heil_opt = optimal_parameters[2] # Mikrobenheilrate
-#    #w_H_CH4_opt = optimal_parameters[5]
-#    w_Homo_opt = optimal_parameters[3]
-#   
-#    print("w_A_CH4_opt is",w_A_CH4_opt)
-#   # print("w_CO2_opt is",w_CO2_opt)
-#    print("w_alte_opt is",w_alte_opt)
-#    print("w_A_CH4_heil is", w_A_CH4_heil_opt)
-#   # print("w_H_CH4_opt is",w_H_CH4_opt)
-#    print("w_Homo_opt is",w_Homo_opt)
-    
-    Vmax_opt = optimal_parameters[0] # Mikrobenwachstum
-    print("Vmax_opt is", Vmax_opt)
-    
-    Stoch_opt = optimal_parameters[1] # Mikrobenwachstum
-    print("Stoch_opt is", Stoch_opt)
+    Vprod_max_AltE_opt = optimal_parameters[2] # 
+    print("Vprod_max_AltE is", Vprod_max_AltE_opt)
     
     #%%
     # calculating the model output with optimal parameters:
 
-    #CCH4CO2opt = simplefun(xlist, f_A_CH4_opt, f_CO2_opt,f_H_CH4_opt,  w_A_CH4_opt,w_CO2_opt, w_alte_opt, w_A_CH4_heil_opt, w_Homo_opt)
-    CCH4CO2opt = simplefun(xlist,  Vmax_opt,Stoch_opt)
+   
+    CCH4CO2opt = simplefun(xlist,  Vmax_Ferm_opt, Stoch_ALtE_opt, Vprod_max_AltE_opt)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
     
@@ -114,9 +84,6 @@ for m in Data1:
     plt.figure()
     plt.plot( CCH4CO2opt[6], label='Aceto_Microben_CH4')
     plt.title('Aceto_Microben_CH4')
-    #axes = plt.gca()
-    #axes.set_ylim([0,200000])
-    #np.min(np.where(np.array(CCH4CO2opt[6][0:100]) >0))
     
     plt.figure()
     plt.plot( CCH4CO2opt[7], label='Fermentierer_CO2')

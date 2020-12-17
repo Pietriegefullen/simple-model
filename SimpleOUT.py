@@ -1,13 +1,12 @@
-import matplotlib.pyplot as plt
 from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 
 # OPTIFUN 
 # optifun bringt simplefun in ein format das von scipy für Curvefit benötigt wird
 
-def optifun(xdata, Vmax, Stoch):    
+def optifun(xdata, Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE):    
     xtage = xdata[0:int(len(xdata)/2)]
  
-    CH4, CO2, _,_,_,_,_,_,_,_,_ = simplefun(xtage, Vmax, Stoch)
+    CH4, CO2, _,_,_,_,_,_,_,_,_ = simplefun(xtage, Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
     
 # SIMPELFUN 
@@ -22,27 +21,26 @@ def optifun(xdata, Vmax, Stoch):
 
 
 
-def simplefun(xtage, Vmax, Stoch):    
+def simplefun(xtage, Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE):    
     n = max(xtage)
     
     # Festgelegte Initialwerte
-    m_gluc = 180 # molar mass of glucose, g pro mol
-    m_cell = 162 # molar mass of cellulose, g pro mol
+    m_gluc = 180 # molar mass of glucose, g dw pro mol
+    m_cell = 162 # molar mass of cellulose, g dw pro mol
     TOC = 0.04 # Knoblauchs Daten , g dw
-    labile = 0.005 # Knoblauchs Daten, g dw
-    #Cpool_init = 50
-    Cpool_init = TOC*labile/m_gluc + TOC*(1-labile)/m_cell
-
-    AltE_init = 0.000146 # cf. Yao, Conrad 1999
-    M_A_CH4_init = 0.0002 # Monteux 2020
-    M_CO2_init = 0.0002 # Monteux 2020
-    M_AltE_init= 0.0002 # Monteux 2020
-    M_A_CH4_krank_init = 0.0002 # Monteux 2020
-    M_H_CH4_init = 0.0002 # Monteux 2020
-    M_Homo_init = 0.0002 # Monteux 2020
+    labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
+    Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
+    # die werte sind alle in mikroMol pro gram Trockengewicht
+    AltE_init = 146  # cf. Yao, Conrad 1999, Mikromol pro g dw
+    M_A_CH4_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_CO2_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_AltE_init= 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_A_CH4_krank_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_H_CH4_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_Homo_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0
-    Acetate_init = 0.01
+    Acetate_init = 0.1
     AceCO2_init = 0
     H2_init = 0
     
@@ -65,7 +63,7 @@ def simplefun(xtage, Vmax, Stoch):
 
             
       
-        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], M_A_CH4_krank[-1], H2[-1], Vmax, Stoch)
+        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], M_A_CH4_krank[-1], H2[-1], Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE)
         
         
         Cpool.append(Cpool[-1] + delta[0])

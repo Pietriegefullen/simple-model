@@ -9,7 +9,7 @@ Created on Thu Nov 12 10:03:03 2020
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 def load_realdata(m):
     
@@ -19,8 +19,6 @@ def load_realdata(m):
     df = pd.read_excel(r'C:/Users/Lara/Desktop/simple model/Trainingdatafull.xlsx')
     
     df = df.values
-    
-    
         
     df[:,m] = np.around(df[:,m]) # rundet die Tage auf ganze tage (trotzdem floats)
     
@@ -34,9 +32,7 @@ def load_realdata(m):
     #Realdata = np.c_[df[:,0],Cpoolval, df[:,1],df[:,2]]
     # =============================================================================
     Realdata  = df
-    #plt.plot(Realdata[:,m+1], 'ro',label="CH4")
-    #plt.plot(Realdata[:,m+2],'bo',label ="CO2")
-    #plt.legend()
+
     
     Realdata = df[:,m:m+3]
     
