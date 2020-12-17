@@ -104,14 +104,14 @@ def Acetoclast(Biomass,Acetate):
 
 
 
-def AltE(Biomass, Acetate, AltEpool):
+def AltE(Biomass, Acetate, AltEpool, Stoch):
     
     ATPprod = 2 # laut Fenchel maximalwert, theoretisch kleiner
     Yatp = 10 # Fenchel 
     Km1 = 0.01 / SOIL_DENSITY # 
     Km2 = 0 # damit alt e Pool keine michaelis menten gleichung hat 
     Vprod_max = 0.3/ SOIL_DENSITY # geschätzt
-    Stoch = 1
+    Stoch = Stoch
     
 
     deltaBiomass, deltaAcetate, deltaAltE = AutoMicrobe(Biomass,  Acetate, AltEpool, ATPprod, Yatp, Km1, Km2, Vprod_max, Stoch)

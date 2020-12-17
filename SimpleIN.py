@@ -22,21 +22,19 @@ from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo
 #Cpool, AltEpool, Microben_CH4, Microben_CO2, Microben_AltE, CH4, CO2, AceCO2, Acetate, Microben_CH4_krank, f_CH4, f_CO2, f_alte,  w_CH4, w_CO2, w_alte, w_CH4_heil
 
 #def Cdec(Cpool, AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2, f_A_CH4, f_CO2, f_H_CH4, w_A_CH4, w_CO2, w_alte, w_A_CH4_heil, w_H_CH4, w_Homo):
-def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2, Vmax):    
+def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, M_A_CH4_krank, H2, Vmax, Stoch):    
      
     
-    
+    # FERM FERM FERM FERM FERM 
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate, CO2 und H2
     deltaM_CO2, deltaCpool, _ =   Fermenters(M_CO2, Cpool, 0, Vmax)
     Ace_Ferm_prod =-(deltaCpool)
+    # Produziert:
     CO2_Ferm_prod = Ace_Ferm_prod * 0.5 
     H2_Ferm_prod = Ace_Ferm_prod * (1/6)
 
-    
-    
-
     Acetate_tot  = 0 if  Acetate <= 0 else Acetate
-  
+    
 #    # HOMO HOMO HOMO HOMO HOMO HOMO HOMO 4H2 + 2CO2→CH3COOH + 2H2O
 #
     deltaCO2_Homo = 0
@@ -52,14 +50,13 @@ def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, Ac
     
     
     # ALT E ALT E ALT E ALT E 
-    # IN: Acetat und Alt e 1:1
+    # IN: Acetat und Alt e 1:1 ?????
     # Out: CO2, Mikrobenwachstum
     # nur solange Alt e UND Acetat vorhanden
-    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate_tot, AltEpool)
+    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate_tot, AltEpool, Stoch)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 #1 Acetate wird zu zwei CO2
     deltaAltEpool  = 0 if  AltEpool + deltaAltEpool < 0 else deltaAltEpool
     
-    #Ace_used_AltE_resp = Acetate_tot if temp >= Acetate_tot  else  temp #1 Acetate wird zu zwei CO2
     
 
     deltaAcetate_A = 0
@@ -72,6 +69,9 @@ def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, Ac
     deltaM_Homo = 0  
     
     # ACETO ACETO ACETO ACETO 
+
+  
+    
     if AltEpool <= 0.1 :
         #Ace_used_AltE_resp = 0
         # STerben muss noch ins microbenskriot deltaM_AltE = - min(M_AltE * w_alte, M_AltE) # damit keine negativen Microben entstehen
@@ -101,9 +101,10 @@ def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, Ac
         #im If weil solange Alt E- hat Hydro Thermodynamische Vorteile, 
         #weil S und Fe H2 verbrauchen und der partialdruck zu gering ist (Ye 2013). Sonst 0
         
-        deltaM_A_CH4, deltaAcetate_A =   Homo(M_Homo, CO2, H2)
-        deltaH2_Homo  = - deltaAcetate_A * 4
-        deltaCO2_Homo = - deltaAcetate_A * 2 
+        deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   Homo(M_Homo, CO2, H2)
+        #deltaM_H_CH4, deltaAcetate_A , =   Homo(M_Homo, CO2, H2)
+        deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 H2 wird ein Acetate
+ 
         
         
 
@@ -118,7 +119,7 @@ def Cdec(Cpool , AltEpool, M_A_CH4, M_CO2, M_AltE, M_H_CH4, M_Homo, CH4, CO2, Ac
     deltaCO2 =  deltaCO2_A  + CO2_Ferm_prod + deltaCO2_Alte + deltaCO2_Homo  + deltaCO2_Hydro
    # deltaCused = Cused
     deltaAceCO2 = deltaCO2_A
-    deltaAcetate =  Ace_Ferm_prod + deltaAcetate_AltE + deltaAcetate_A + Ace_Homo_prod
+    deltaAcetate =  Ace_Ferm_prod + deltaAcetate_AltE + deltaAcetate_A + deltaAcetate_Homo 
     deltaH2 = H2_Ferm_prod - deltaH2_Homo - deltaH2_Hydro
    # deltaM_Homo = deltaM_Homo
     deltaM_A_CH4_krank = 0

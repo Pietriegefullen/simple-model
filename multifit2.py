@@ -31,8 +31,8 @@ for m in Data1:
     ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
     
     
-    #  Vmax
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [ 50.0], bounds=((0), (100)))
+    #  Vmax, Stoch
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.5, 1], bounds=((0,0), (100,100)))
     
     
 #    f_A_CH4_opt = optimal_parameters[0] # Abbaugeschwindigkeit (Fressgeschwindigkeit)
@@ -71,11 +71,14 @@ for m in Data1:
     Vmax_opt = optimal_parameters[0] # Mikrobenwachstum
     print("Vmax_opt is", Vmax_opt)
     
+    Stoch_opt = optimal_parameters[1] # Mikrobenwachstum
+    print("Stoch_opt is", Stoch_opt)
+    
     #%%
     # calculating the model output with optimal parameters:
 
     #CCH4CO2opt = simplefun(xlist, f_A_CH4_opt, f_CO2_opt,f_H_CH4_opt,  w_A_CH4_opt,w_CO2_opt, w_alte_opt, w_A_CH4_heil_opt, w_Homo_opt)
-    CCH4CO2opt = simplefun(xlist,  Vmax_opt)
+    CCH4CO2opt = simplefun(xlist,  Vmax_opt,Stoch_opt)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
     
