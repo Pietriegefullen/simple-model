@@ -40,7 +40,7 @@ def simplefun(xtage, Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE):
     M_Homo_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0
-    Acetate_init = 0.1
+    Acetate_init = 0
     AceCO2_init = 0
     H2_init = 0
     
@@ -65,13 +65,14 @@ def simplefun(xtage, Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE):
       
         delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], M_A_CH4_krank[-1], H2[-1], Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE)
         
+        #deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo
         
         Cpool.append(Cpool[-1] + delta[0])
         AltEpool.append(AltEpool[-1] + delta[1])
         M_A_CH4.append(M_A_CH4[-1] + delta[2])
         M_CO2.append(M_CO2[-1] + delta[3])
-        M_AltE.append(M_AltE[-1] + delta[4])
-        M_H_CH4.append(M_H_CH4[-1] + delta[5])
+        M_H_CH4.append(M_H_CH4[-1] + delta[4])
+        M_AltE.append(M_AltE[-1] + delta[5])
         M_Homo.append(M_Homo[-1] + delta[6])
         CH4.append(CH4[-1] + delta[7])
         CO2.append(CO2[-1] + delta[8])

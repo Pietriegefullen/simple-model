@@ -32,7 +32,7 @@ for m in Data1:
     
     
     #  Fitted Parameters are Vmax, Stoch, Vprod_max
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [1500000, 1, 30e6], bounds=((0,0,0), (100000000,10, 10e7)))
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [.5, 5, .3], bounds=((0,.1,0), (10,100, 10)))
    
 
     Vmax_Ferm_opt = optimal_parameters[0] # 
@@ -54,10 +54,11 @@ for m in Data1:
     
     #%% Obs and Pred für CH4 und CO2 geplotted
     #plt.close('all')
-    for x, a in zip([0,44],["CH4","CO2"]):  
+    data_len = len(Realdata)
+    for x, a in zip([0,data_len],["CH4","CO2"]):  
         plt.figure()
-        plt.plot(xlist,[ydata[i] for i in range(x,44+x)],"ro", label = "Observed")
-        plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,44+x)],label = "Predicted")
+        plt.plot(xlist,[ydata[i] for i in range(x,data_len+x)],"ro", label = "Observed")
+        plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,data_len+x)],label = "Predicted")
         plt.ylabel(a)
         plt.legend()
                 
@@ -70,7 +71,7 @@ for m in Data1:
     plt.title('AltEpool')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[3], label='AceCO2')
+    plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
     plt.title('AceCO2')
     
     plt.figure()
@@ -82,20 +83,20 @@ for m in Data1:
     plt.title('Cpool')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[6], label='Aceto_Microben_CH4')
-    plt.title('Aceto_Microben_CH4')
+    plt.plot( CCH4CO2opt[6], label='Acetoclastische_Mikroben')
+    plt.title('Acetoclastische_Mikroben')
     
     plt.figure()
     plt.plot( CCH4CO2opt[7], label='Fermentierer_CO2')
     plt.title('Fermentierer_CO2')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[8], label=' Microben_AltE')
-    plt.title(' Microben_AltE')
+    plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
+    plt.title(' AltE_Microben')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[9], label=' Hydro_Microben_CH4')
-    plt.title(' Hydro_Microben_CH4')
+    plt.plot( CCH4CO2opt[9], label=' Hydro_Microben')
+    plt.title(' Hydro_Microben')
     
     plt.figure()
     plt.plot( CCH4CO2opt[10], label=' H2')

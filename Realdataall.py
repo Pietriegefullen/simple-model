@@ -31,13 +31,15 @@ def load_realdata(m):
     # Cpoolval =  list(np.exp(0.05*xneg) + noiseCpool)
     #Realdata = np.c_[df[:,0],Cpoolval, df[:,1],df[:,2]]
     # =============================================================================
-    Realdata  = df
 
     
+    Realdata  = df
+    
     Realdata = df[:,m:m+3]
+    
+    #Realdata = Realdata[Realdata[:,0]>200,:] # throw out all data before day 200
     
     return Realdata
 
 
 #%%
-

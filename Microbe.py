@@ -5,7 +5,7 @@ Created on Mon Dec  7 13:38:25 2020
 @author: Lara
 """
 
-SOIL_DENSITY = 1.3 * 10**6 # g/m3 # 1.3 dry density for clay from Knoblauch data
+SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 
 
 def HeteroMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Vmax): 
@@ -25,7 +25,6 @@ def HeteroMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Vmax):
 #-----------------------------------------------------------------------------------------------------------------------------
 
 def AutoMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Km2, Vprod_max, Stoch): 
-    
     deltaSub1 = Sub1 / (Km1 + Sub1) * Sub2 / (Km2 + Sub2) * Vprod_max  * Biomass # Gram pro mikromol
     ATP = deltaSub1 * ATPprod # gram ATP
     deltaBiomass = ATP * Yatp # growth rate = deltaBiomass1 = ATPprod*Yatp*Substrate
@@ -40,7 +39,7 @@ def Fermenters(Biomass, Sub1, Sub2 , Vmax_Ferm):
     
     ATPprod = 4 # stochiometrie Mikromol
     Yatp = 10e-6 # Fenchel  g pro mikromol ATP 
-    Km1 = 10e6 / SOIL_DENSITY # 10 from Song  mikromol pro gram 
+    Km1 = 10 / SOIL_DENSITY # 10 from Song  mikromol pro gram 
     #Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
     
     Vmax = Vmax_Ferm/SOIL_DENSITY
@@ -58,7 +57,7 @@ def AltE(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE):
     
     ATPprod = 2 # laut Fenchel maximalwert, theoretisch kleiner
     Yatp = 10e-6 # Fenchel 
-    Km1 = 0.01e6 / SOIL_DENSITY # 
+    Km1 = 0.01 / SOIL_DENSITY # 
     Km2 = 0 # damit alt e Pool keine michaelis menten gleichung hat 
     #Vprod_max = 0.3* 10**6/ SOIL_DENSITY # geschätzt
     Vprod_max = Vprod_max_AltE/ SOIL_DENSITY # geschätzt
@@ -66,7 +65,7 @@ def AltE(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE):
     
 
     deltaBiomass, deltaAcetate, deltaAltE = AutoMicrobe(Biomass,  Acetate, AltEpool, ATPprod, Yatp, Km1, Km2, Vprod_max, Stoch)
-    
+        
     return deltaBiomass, deltaAcetate, deltaAltE
 
 
@@ -77,9 +76,9 @@ def Hydrotrophes(Biomass, CO2, H2):
     
     ATPprod = 2 # laut Fenchel maximalwert, theoretisch kleiner
     Yatp = 10e-6 # Fenchel 
-    Km1 = 0.05e6 / SOIL_DENSITY # 0.05 from Song
-    Km2 = 0.01e6 / SOIL_DENSITY # 0.01 from Song
-    Vprod_max = 0.15* 10e6/ SOIL_DENSITY # 0.15 from Song
+    Km1 = 0.05 / SOIL_DENSITY # 0.05 mikromol pro cm^3 from Song
+    Km2 = 0.01 / SOIL_DENSITY # 0.01 mikromol pro cm^3 from Song
+    Vprod_max = 0.15 / SOIL_DENSITY # 0.15 mikromol pro cm^3 from Song
     Stoch = 4 # Stochiomitry: 4 H2 + 1 CO2 -> 1 CH4 + 2 H2O
     
 
@@ -94,9 +93,9 @@ def Homo(Biomass, CO2, H2):
     
     ATPprod = 5 # Hugenholtz, eigentlich sollte es mehr sein 
     Yatp = 10e-6 #Fenchel
-    Km1 = 0.05e6 / SOIL_DENSITY # 0.05 from Song
-    Km2 = 0.01e6 / SOIL_DENSITY # 0.01 from Song
-    Vprod_max = 0.15 * 10**6/ SOIL_DENSITY # 0.15 from Song
+    Km1 = 0.05 / SOIL_DENSITY # 0.05 from Song
+    Km2 = 0.01 / SOIL_DENSITY # 0.01 from Song
+    Vprod_max = 0.15 / SOIL_DENSITY # 0.15 from Song
     Stoch = 2 # weil nur ein substrat (Acetate),song/fenchel : 4H2 + 2CO2 → CH3COOH+ 2H2O, 2CO2 + 8H2  = CH3COOH +H2O. Laut Fenchel
     
 
@@ -110,9 +109,9 @@ def Acetoclast(Biomass,Acetate):
     
     ATPprod = 1 #  weniger als Hydro
     Yatp = 10e-6 #Fenchel
-    Km1 = 0.05e6 / SOIL_DENSITY # song
+    Km1 = 0.05 / SOIL_DENSITY # song
     Km2 = 0 / SOIL_DENSITY # 
-    Vprod_max = 0.5* 10**6/ SOIL_DENSITY # song
+    Vprod_max = 0.5/ SOIL_DENSITY # song
     Stoch = 1
     
 

@@ -24,11 +24,10 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     Acetate_tot  = 0 if  Acetate <= 0 else Acetate
     
     # ALT E ALT E ALT E ALT E 
-
     # nur solange Alt e UND Acetat vorhanden
     deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate_tot, AltEpool, Stoch_ALtE, Vprod_max_AltE)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 #1 Acetate wird zu zwei CO2
-    deltaAltEpool  = 0 if  AltEpool + deltaAltEpool < 0 else deltaAltEpool
+    deltaAltEpool  = - min(-deltaAltEpool, AltEpool)
     
     # HOMO HOMO HOMO HOMO  
 
