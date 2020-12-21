@@ -31,8 +31,8 @@ for m in Data1:
     ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
     
     
-    #  Fitted Parameters are Vmax, Stoch, Vprod_max
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [.5, 5, .3], bounds=((0,.1,0), (10,100, 10)))
+    #  Fitted Parameters are Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [.5, 5, .3, 3,2,2,5,1], bounds=((0,.1,0,0,0,0,0,0), (10,100, 10,5,5,5,10,5)))
    
 
     Vmax_Ferm_opt = optimal_parameters[0] # 
@@ -44,11 +44,14 @@ for m in Data1:
     Vprod_max_AltE_opt = optimal_parameters[2] # 
     print("Vprod_max_AltE is", Vprod_max_AltE_opt)
     
+    ATPprod_Ferm_opt = optimal_parameters[3] # 
+    print("ATPprod_Ferm is", ATPprod_Ferm_opt)
+    
     #%%
     # calculating the model output with optimal parameters:
 
-   
-    CCH4CO2opt = simplefun(xlist,  Vmax_Ferm_opt, Stoch_ALtE_opt, Vprod_max_AltE_opt)
+    Fitters_opt = optimal_parameters
+    CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
     

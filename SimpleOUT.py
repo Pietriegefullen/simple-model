@@ -3,10 +3,14 @@ from SimpleIN import Cdec # importiert das eigentliche mathematische Model
 # OPTIFUN 
 # optifun bringt simplefun in ein format das von scipy für Curvefit benötigt wird
 
-def optifun(xdata, Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE):    
+
+#%%
+
+
+def optifun(xdata, *Fitters):    
     xtage = xdata[0:int(len(xdata)/2)]
  
-    CH4, CO2, _,_,_,_,_,_,_,_,_ = simplefun(xtage, Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE)
+    CH4, CO2, _,_,_,_,_,_,_,_,_ = simplefun(xtage,*Fitters)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
     
 # SIMPELFUN 
@@ -21,7 +25,7 @@ def optifun(xdata, Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE):
 
 
 
-def simplefun(xtage, Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE):    
+def simplefun(xtage, *Fitters):    
     n = max(xtage)
     
     # Festgelegte Initialwerte
@@ -63,7 +67,7 @@ def simplefun(xtage, Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE):
 
             
       
-        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], M_A_CH4_krank[-1], H2[-1], Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE)
+        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], M_A_CH4_krank[-1], H2[-1], *Fitters)
         
         #deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo
         
