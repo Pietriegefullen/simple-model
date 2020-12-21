@@ -36,12 +36,12 @@ def simplefun(xtage, *Fitters):
     Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
     # die werte sind alle in mikroMol pro gram Trockengewicht
     AltE_init = 146  # cf. Yao, Conrad 1999, Mikromol pro g dw
-    M_A_CH4_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
-    M_CO2_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
-    M_AltE_init= 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
-    M_A_CH4_krank_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
-    M_H_CH4_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
-    M_Homo_init = 0.0002 # Monteux 2020, g Mikrobielles C pro g dw
+    M_A_CH4_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
+    M_CO2_init = 0.2 # # Monteux 2020, mg Mikrobielles C pro g dw
+    M_AltE_init= 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
+    M_A_CH4_krank_init = 0.2# Monteux 2020, mg Mikrobielles C pro g dw
+    M_H_CH4_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
+    M_Homo_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0
     Acetate_init = 0

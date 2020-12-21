@@ -32,21 +32,37 @@ for m in Data1:
     
     
     #  Fitted Parameters are Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [.5, 5, .3, 3,2,2,5,1], bounds=((0,.1,0,0,0,0,0,0), (10,100, 10,5,5,5,10,5)))
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.0005, 5, 0.0003, 3,2,2,5,1], bounds=((0,.1,0,1,1,1,1,1), (1,30, 1,5,5,5,10,5)))
    
-
-    Vmax_Ferm_opt = optimal_parameters[0] # 
-    print("Vmax_Ferm_opt is", Vmax_Ferm_opt)
-    
-    Stoch_ALtE_opt = optimal_parameters[1] #
-    print("Stoch_ALtE_opt is", Stoch_ALtE_opt)
-    
-    Vprod_max_AltE_opt = optimal_parameters[2] # 
-    print("Vprod_max_AltE is", Vprod_max_AltE_opt)
-    
-    ATPprod_Ferm_opt = optimal_parameters[3] # 
-    print("ATPprod_Ferm is", ATPprod_Ferm_opt)
-    
+    names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace"]
+#
+#    for k, n in enumerate(names):
+#        print(n, "is", optimal_parameters[k])
+#        
+    for n, p in zip(names, optimal_parameters):
+        print(n, "is", p)
+        
+ 
+#        >>> letters = ['a', 'b', 'c']
+#>>> numbers = [0, 1, 2]
+#>>> for l, n in zip(letters, numbers):
+#...     print(f'Letter: {l}')
+#...     print(f'Number: {n}')
+#...
+#        
+        
+#    Vmax_Ferm_opt = optimal_parameters[0] # 
+#    print("Vmax_Ferm_opt is", Vmax_Ferm_opt)
+#    
+#    Stoch_ALtE_opt = optimal_parameters[1] #
+#    print("Stoch_ALtE_opt is", Stoch_ALtE_opt)
+#    
+#    Vprod_max_AltE_opt = optimal_parameters[2] # 
+#    print("Vprod_max_AltE is", Vprod_max_AltE_opt)
+#    
+#    ATPprod_Ferm_opt = optimal_parameters[3] # 
+#    print("ATPprod_Ferm is", ATPprod_Ferm_opt)
+#    
     #%%
     # calculating the model output with optimal parameters:
 
