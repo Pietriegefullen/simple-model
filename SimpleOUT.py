@@ -38,7 +38,7 @@ def simplefun(xtage, *Fitters):
     AltE_init = 146  # cf. Yao, Conrad 1999, Mikromol pro g dw
     M_A_CH4_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
     M_CO2_init = 0.2 # # Monteux 2020, mg Mikrobielles C pro g dw
-    M_AltE_init= 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
+    M_AltE_init= 0.5 # Monteux 2020, mg Mikrobielles C pro g dw
     M_A_CH4_krank_init = 0.2# Monteux 2020, mg Mikrobielles C pro g dw
     M_H_CH4_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
     M_Homo_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw

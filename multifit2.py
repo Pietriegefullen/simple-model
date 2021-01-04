@@ -31,10 +31,14 @@ for m in Data1:
     ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
     
     
-    #  Fitted Parameters are Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, p0 = [0.0005, 5, 0.0003, 3,2,2,5,1], bounds=((0,.1,0,1,1,1,1,1), (1,30, 1,5,5,5,10,5)))
+    #  Fitted Parameters are Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace
+    # Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, 
+                                       p0 =    [0.0005,   20,     0.0003,   3, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
+                                       bounds=((0.0001,   5,       0.00029,  1, 1, 1, 1, 1, 8.5e-3,8.5e-3,8.5e-3,8.5e-3,8.5e-3), 
+                                               ( .1,    100,        .1,      5, 5, 5,10, 5 ,12e-3 ,12e-3 ,12e-3 ,12e-3 ,12e-3  )))
    
-    names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace"]
+    names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace" ,"Yatp_Ferm", "Yatp_AltE", "Yatp_Hydro","Yatp_Homo","Yatp_Ace"]
 #
 #    for k, n in enumerate(names):
 #        print(n, "is", optimal_parameters[k])
@@ -45,7 +49,7 @@ for m in Data1:
  
 #        >>> letters = ['a', 'b', 'c']
 #>>> numbers = [0, 1, 2]
-#>>> for l, n in zip(letters, numbers):
+#>>> for l, n in zip(letters, numbers): 
 #...     print(f'Letter: {l}')
 #...     print(f'Number: {n}')
 #...
@@ -91,7 +95,7 @@ for m in Data1:
     
     plt.figure()
     plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
-    plt.title('AceCO2')
+    plt.title('CO2 aus Acetate')
     
     plt.figure()
     plt.plot( CCH4CO2opt[4], label='Acetate')
