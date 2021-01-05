@@ -11,72 +11,50 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import numpy as np
 
+#Importieren benutzter Funktionen und Daten
 from Realdataall import load_realdata
 from SimpleOUT import simplefun
 from SimpleOUT import optifun
 
 plt.close('all')
-#%% die drei verschiedenen Datensätze 
+#die drei verschiedenen Datensätze 
 Data1 = [0]
 Data1and2 = [0,3]
-Data1and3and4 =[0,3,6]
+Data1and2and3 =[0,3,6]
 
-for m in Data1:
+for m in Data1and2and3:
     Realdata = load_realdata(m)
-    # Fitting the parameters: 
-    #%%    
+    # Fitting the parameters:    
     
-    xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage an denen wir Messwerte haben, Länge 44
+    xlist = [int(Realdata[i,0]) for i in range(len(Realdata[:,0]))] # int der Tage an denen wir Messwerte haben
     xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
-    ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll. Länge 88
+    ydata = list(Realdata[:,1]) + list(Realdata[:,2]) # meine Realdata an die gefittet werden soll.
     
     
-    #  Fitted Parameters are Vmax_Ferm, Stoch_ALtE, Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace
-    # Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, 
-                                       p0 =    [0.0005,   20,     0.0003,   3, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
+    #  Fitted Parameters are: 
+    # Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,
+    # ATPprod_Homo,ATPprod_Ace, Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
+                                       p0 =    [0.0005,  20,       0.0003,   3, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
                                        bounds=((0.0001,   5,       0.00029,  1, 1, 1, 1, 1, 8.5e-3,8.5e-3,8.5e-3,8.5e-3,8.5e-3), 
                                                ( .1,    100,        .1,      5, 5, 5,10, 5 ,12e-3 ,12e-3 ,12e-3 ,12e-3 ,12e-3  )))
    
     names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace" ,"Yatp_Ferm", "Yatp_AltE", "Yatp_Hydro","Yatp_Homo","Yatp_Ace"]
-#
-#    for k, n in enumerate(names):
-#        print(n, "is", optimal_parameters[k])
-#        
+
+    #Printing the Parameter and its value
+    
     for n, p in zip(names, optimal_parameters):
         print(n, "is", p)
         
- 
-#        >>> letters = ['a', 'b', 'c']
-#>>> numbers = [0, 1, 2]
-#>>> for l, n in zip(letters, numbers): 
-#...     print(f'Letter: {l}')
-#...     print(f'Number: {n}')
-#...
-#        
-        
-#    Vmax_Ferm_opt = optimal_parameters[0] # 
-#    print("Vmax_Ferm_opt is", Vmax_Ferm_opt)
-#    
-#    Stoch_ALtE_opt = optimal_parameters[1] #
-#    print("Stoch_ALtE_opt is", Stoch_ALtE_opt)
-#    
-#    Vprod_max_AltE_opt = optimal_parameters[2] # 
-#    print("Vprod_max_AltE is", Vprod_max_AltE_opt)
-#    
-#    ATPprod_Ferm_opt = optimal_parameters[3] # 
-#    print("ATPprod_Ferm is", ATPprod_Ferm_opt)
-#    
-    #%%
-    # calculating the model output with optimal parameters:
-
+    #Calculating the model output with optimal parameters:
+    
     Fitters_opt = optimal_parameters
     CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
     
-    #%% Obs and Pred für CH4 und CO2 geplotted
-    #plt.close('all')
+#### Observed and Predicted für CH4 und CO2 geplotted
+
     data_len = len(Realdata)
     for x, a in zip([0,data_len],["CH4","CO2"]):  
         plt.figure()
@@ -85,7 +63,6 @@ for m in Data1:
         plt.ylabel(a)
         plt.legend()
                 
-        #%%
         
     # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4, M_CO2, M_AltE, M_Hyd
     
@@ -118,21 +95,19 @@ for m in Data1:
     plt.title(' AltE_Microben')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[9], label=' Hydro_Microben')
-    plt.title(' Hydro_Microben')
-    
-    plt.figure()
-    plt.plot( CCH4CO2opt[10], label=' H2')
+    plt.plot( CCH4CO2opt[9], label=' H2')
     plt.title('H2')
     
-    #%%
+    plt.figure()
+    plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
+    plt.title(' Hydro_Microben')
+    
     # Goodness of fit with R^2 automatic
         
     _ ,_ , R2, _ , _ = stats.linregress(CCH4CO2optList, y=ydata)
     print("R2 is", R2)
     
-    #%%
-    
+################ ab hier ist es uninteressant #################################   
     #--calculating R^2 by hand-----------------------------------------------------
     # Aufteilen von CCH4CO2opt in die jeweiligen pools und Berechnung des mean
     
@@ -178,7 +153,6 @@ for m in Data1:
     SSresCH4 = np.sum(SSresCH4)
     SSresCO2 = np.sum(SSresCO2)
     SSresall = np.sum(SSresall)
-    
     
     
     R2CH4 = 1 - (SStotCH4 / SSresCH4)

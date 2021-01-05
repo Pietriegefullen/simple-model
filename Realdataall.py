@@ -15,7 +15,6 @@ def load_realdata(m):
     
     os.chdir('/Users/Lara/Desktop/simple model')
     
-    
     df = pd.read_excel(r'C:/Users/Lara/Desktop/simple model/Trainingdatafull.xlsx')
     
     df = df.values
@@ -31,8 +30,6 @@ def load_realdata(m):
     # Cpoolval =  list(np.exp(0.05*xneg) + noiseCpool)
     #Realdata = np.c_[df[:,0],Cpoolval, df[:,1],df[:,2]]
     # =============================================================================
-
-    
     Realdata  = df
     
     Realdata = df[:,m:m+3]
@@ -42,4 +39,4 @@ def load_realdata(m):
     return Realdata
 
 
-#%%
+
