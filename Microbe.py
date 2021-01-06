@@ -14,9 +14,10 @@ SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 
 def HeteroMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Vmax): 
     MM1 = Sub1 / (Km1 + Sub1) if Sub1 > 0 else 0 # vermeidet negative Werte
-    deltaSub1 = MM1 * Vmax  * Biomass 
+    MM2 = Sub2 / (1 + Sub2) if Sub2 > 0 else 0
+    deltaSub1 =  MM1 * Vmax  * Biomass 
     ATP = deltaSub1 * ATPprod 
-    deltaBiomass1 = ATP * Yatp 
+    deltaBiomass1 = ATP * Yatp *(1-MM2)
     
 #    #Stabil pool 
 #    MM2 = Sub2 / (5*Km1 + Sub2) if Sub2 > 0 else 0 # die 5 ist erfunden!!!! 
@@ -26,6 +27,9 @@ def HeteroMicrobe(Biomass, Sub1, Sub2, ATPprod, Yatp, Km1, Vmax):
     deltaSub2 = 0
  
     deltaBiomass = deltaBiomass1  #+ deltaBiomass2
+    
+    if Sub2 > 2:
+        deltaBiomass1 = 0
     
     return deltaBiomass, -deltaSub1, -deltaSub2
 

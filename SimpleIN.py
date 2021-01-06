@@ -48,17 +48,18 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     # FERM FERM FERM FERM FERM 
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate, CO2 und H2
     # Die Aufteilung folgt Conrad und wird so auch von Song genutzt
-    deltaM_Ferm, deltaCpool, _ =   Fermenters(M_Ferm, Cpool, 0, Vmax_Ferm, ATPprod_Ferm, Yatp_Ferm)
+    deltaM_Ferm, deltaCpool, _ =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, ATPprod_Ferm, Yatp_Ferm)
     deltaAce_Ferm = - (deltaCpool)
     # Produziert:
     deltaCO2_Ferm = deltaAce_Ferm * 0.5 
-    deltaH2_Ferm = deltaAce_Ferm * (1/6)
+    deltaH2_Ferm = deltaAce_Ferm *(1/6)
     
     # ALT E ALT E ALT E ALT E 
     # nur solange AltE UND Acetat vorhanden
     deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, ATPprod_AltE, Yatp_AltE)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
-##    
+    deltaH2_Alte = 0 # was ist der wirkliche Wert? 
+ 
 #    manueller ALtE Abbau (um die anderen Prozesse früher in Gang zu bringen, eigentlich kein echter Teil des Models
 #    deltaAltEpool = - min(AltEpool, 2)  
 #    deltaAcetate_AltE = - min(-deltaAltEpool *0.01, Acetate)
@@ -113,7 +114,8 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
         # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O
         #im If weil, Alt E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
         
-        deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   Homo(M_Homo, CO2, H2,ATPprod_Homo,Yatp_Homo)
+        deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo =   Homo(M_Homo, CO2, H2, ATPprod_Homo,Yatp_Homo)
+       # deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   0,0,0
         deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
         
        
@@ -123,7 +125,7 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     # DELTA DELTA DELTA
     deltaCO2 =      deltaCO2_Ferm   + deltaCO2_Alte         + deltaCO2_A       + deltaCO2_Hydro    + deltaCO2_Homo  
     deltaAcetate =  deltaAce_Ferm   + deltaAcetate_AltE     + deltaAcetate_A                       + deltaAcetate_Homo 
-    deltaH2 =       deltaH2_Ferm                                               + deltaH2_Hydro     + deltaH2_Homo          
+    deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro     + deltaH2_Homo          
     deltaCH4 =                                                deltaCH4_A       + deltaCH4_Hydro 
     
     deltaCpool =   -min(-deltaCpool, Cpool)

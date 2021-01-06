@@ -6,7 +6,7 @@ from SimpleIN import Cdec # importiert das eigentliche mathematische Model
 def optifun(xdata, *Fitters):    
     xtage = xdata[0:int(len(xdata)/2)]
  
-    CH4, CO2, _,_,_,_,_,_,_,_,_ = simplefun(xtage,*Fitters)
+    CH4, CO2, _,_,_,_,_,_,_,_,_ ,_= simplefun(xtage,*Fitters)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
 # CH4 und CO2 werden aneinandergehängt um einen abhängigen Least Sqaure zu berechnen und nicht jeweils einen unabhängigen pro Kurve  
     
@@ -24,23 +24,23 @@ def simplefun(xtage, *Fitters):
     Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
     
     # die Werte sind alle in mikroMol pro gram Trockengewicht
-    AltE_init = 146          # cf. Yao, Conrad 1999, Mikromol pro g dw
-    M_A_CH4_init = 0.02      # Monteux 2020, mg Mikrobielles C pro g dw
-    M_CO2_init = 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
+    AltE_init = 146          # cf. Yao, Conrad 1999, Mikromol pro g dw, Philben gibt werte um die 6 an. 
+    M_A_CH4_init = 0.001     # Monteux 2020, mg Mikrobielles C pro g dw
+    M_Ferm_init = 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
     M_AltE_init= 0.5         # Monteux 2020, mg Mikrobielles C pro g dw
     M_A_CH4_krank_init = 0.2 # Monteux 2020, mg Mikrobielles C pro g dw
     M_H_CH4_init = 0.2       # Monteux 2020, mg Mikrobielles C pro g dw
     M_Homo_init = 0.2        # Monteux 2020, mg Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0
-    Acetate_init = 0
+    Acetate_init = 0.01         # Philben wert knapp über 0 
     AceCO2_init = 0
     H2_init = 0
     
     Cpool    = [Cpool_init]
     AltEpool = [AltE_init]
     M_A_CH4  = [M_A_CH4_init]
-    M_CO2    = [M_CO2_init]
+    M_Ferm    = [M_Ferm_init]
     M_AltE   = [M_AltE_init]
     M_A_CH4_krank = [M_A_CH4_krank_init]
     M_H_CH4  = [M_H_CH4_init]
@@ -54,13 +54,13 @@ def simplefun(xtage, *Fitters):
     
     for t in range(1, n+1): # iteriert über n+1 Zeitschritte (n = max(xtage))
 
-        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_CO2[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1], M_A_CH4_krank[-1], *Fitters)
+        delta = Cdec(Cpool[-1], AltEpool[-1],M_A_CH4[-1],M_Ferm[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1], M_A_CH4_krank[-1], *Fitters)
 
         
         Cpool.append(Cpool[-1] +       delta[0])
         AltEpool.append(AltEpool[-1] + delta[1])
         M_A_CH4.append(M_A_CH4[-1] +   delta[2])
-        M_CO2.append(M_CO2[-1] +       delta[3])
+        M_Ferm.append(M_Ferm[-1] +       delta[3])
         M_H_CH4.append(M_H_CH4[-1] +   delta[4])
         M_AltE.append(M_AltE[-1] +     delta[5])
         M_Homo.append(M_Homo[-1] +     delta[6])
@@ -75,4 +75,4 @@ def simplefun(xtage, *Fitters):
     CH4 = [CH4[i] for i in xtage]
     CO2 = [CO2[i] for i in xtage]
 
-    return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_CO2, M_AltE, H2, M_H_CH4
+    return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo

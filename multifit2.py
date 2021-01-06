@@ -22,7 +22,7 @@ Data1 = [0]
 Data1and2 = [0,3]
 Data1and2and3 =[0,3,6]
 
-for m in Data1and2and3:
+for m in Data1:#and2and3:
     Realdata = load_realdata(m)
     # Fitting the parameters:    
     
@@ -35,9 +35,9 @@ for m in Data1and2and3:
     # Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,
     # ATPprod_Homo,ATPprod_Ace, Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace
     optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
-                                       p0 =    [0.0005,  20,       0.0003,   3, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
-                                       bounds=((0.0001,   5,       0.00029,  1, 1, 1, 1, 1, 8.5e-3,8.5e-3,8.5e-3,8.5e-3,8.5e-3), 
-                                               ( .1,    100,        .1,      5, 5, 5,10, 5 ,12e-3 ,12e-3 ,12e-3 ,12e-3 ,12e-3  )))
+                                       p0 =    [0.1,  100,       0.9,       4, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
+                                       bounds=((0.001,   99,       0.029,   3, 1, 1, 1, 1, 8.5e-3,8.5e-3,8.5e-3,8.5e-3,8.5e-3), 
+                                               ( .5,    101,        1.9,     5, 5, 5,5, 5 ,12e-3 ,12e-3 ,12e-3 ,12e-3 ,12e-3  )))
    
     names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace" ,"Yatp_Ferm", "Yatp_AltE", "Yatp_Hydro","Yatp_Homo","Yatp_Ace"]
 
@@ -87,8 +87,8 @@ for m in Data1and2and3:
     plt.title('Acetoclastische_Mikroben')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[7], label='Fermentierer_CO2')
-    plt.title('Fermentierer_CO2')
+    plt.plot( CCH4CO2opt[7], label='Fermentierer')
+    plt.title('Fermentierer')
     
     plt.figure()
     plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
@@ -101,6 +101,10 @@ for m in Data1and2and3:
     plt.figure()
     plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
     plt.title(' Hydro_Microben')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
+    plt.title(' Homo_Microben')
     
     # Goodness of fit with R^2 automatic
         
