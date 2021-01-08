@@ -32,23 +32,64 @@ for m in Data1:#and2and3:
     
     
     #  Fitted Parameters are: 
-    # Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,
-    # ATPprod_Homo,ATPprod_Ace, Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace
-    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
-                                       p0 =    [0.1,  100,       0.9,       4, 2, 2, 5, 1, 10e-3,10e-3,10e-3,10e-3,10e-3], 
-                                       bounds=((0.001,   99,       0.029,   3, 1, 1, 1, 1, 8.5e-3,8.5e-3,8.5e-3,8.5e-3,8.5e-3), 
-                                               ( .5,    101,        1.9,     5, 5, 5,5, 5 ,12e-3 ,12e-3 ,12e-3 ,12e-3 ,12e-3  )))
-   
-    names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace" ,"Yatp_Ferm", "Yatp_AltE", "Yatp_Hydro","Yatp_Homo","Yatp_Ace"]
+    #    Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro,
+    #Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
 
+    # Boundaries für w aus bekannten YATP und ATP P
+    
+    
+    p0 = [ 0.5,     # Vmax Ferm
+           7,       # Stoch AltE
+           0.9,     # Vmax AltE
+           0.05,    # Vmax Homo
+           0.05,    # Vmax Hydro
+           0.38,    # Vmax Ace
+           0.04,    # w Ferm
+           0.02,    # w AltE
+           0.02,    # w Hydro
+           0.05,    # w Homo
+           0.03,    # w Ace
+           0.001,   # Sensenmann
+           7]       # AltE pool init
+    
+    bounds = [[0.01, 1.00],     # Vmax Ferm
+              [5,    8],        # Stoch AltE
+              [0.029, 1.9],     # Vmax AltE
+              [0.005, 1],       # Vmax Homo
+              [0.03,  1],       # Vmax Hydro
+              [0.37, 0.39],     # Vmax Ace
+              [0.03, 0.05],     # w Ferm
+              [0.01, 0.05],     # w AltE
+              [0.01, 0.05],     # w Hydro
+              [0.01, 0.05],     # w Homo
+              [0.01, 0.05],     # w Ace
+              [0,    0.006],    # Sensenmann
+              [5,   10]]        # AltE pool init
+           
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
+                                       p0 = p0, 
+                                       bounds=tuple(zip(*bounds)))
+    
+    #names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE", "ATPprod_Ferm","ATPprod_AltE","ATPprod_Hydro","ATPprod_Homo","ATPprod_Ace" ,"Yatp_Ferm", "Yatp_AltE", "Yatp_Hydro","Yatp_Homo","Yatp_Ace"]
+    names = ["Vmax_Ferm", "Stoch_ALtE","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "AltEpool"]
+    units = ["μmol/mg",    "-",         "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-", "μmol"]
+    song =  ["0.5",           "",       "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",     "",     ""  ]
     #Printing the Parameter and its value
     
-    for n, p in zip(names, optimal_parameters):
-        print(n, "is", p)
-        
+    for n, p, u in zip(names, optimal_parameters, units):
+        print("{:<18} {:6.3f} {:<10}".format(n,p,u))
+    
+    # for comparison with Song
+    SOIL_DENSITY = 1.3
+    print('')
+    for n, p, u, s in zip(names, optimal_parameters, units, song):
+        if n.startswith("V"):
+            print("{:<18} {:6.3f} {:<10} ({:})".format(n,p*SOIL_DENSITY,"mol/m^3", s))
+            
+            
     #Calculating the model output with optimal parameters:
     
-    Fitters_opt = optimal_parameters
+  #  Fitters_opt = optimal_parameters
     CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
        
@@ -64,7 +105,8 @@ for m in Data1:#and2and3:
         plt.legend()
                 
         
-    # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4, M_CO2, M_AltE, M_Hyd
+    # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
+    #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
     
     plt.figure()
     plt.plot( CCH4CO2opt[2], label='AltEpool')
@@ -105,6 +147,18 @@ for m in Data1:#and2and3:
     plt.figure()
     plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
     plt.title(' Homo_Microben')
+    
+    #plt.figure()
+    #plt.plot( CCH4CO2opt[12], label=' AltE_init')
+    #plt.title(' AltE_init')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
+    plt.title('deltaH2_Hydro')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
+    plt.title('deltaH2_Homo')
     
     # Goodness of fit with R^2 automatic
         
