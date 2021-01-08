@@ -39,24 +39,25 @@
 from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
 
 
-def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, M_A_CH4_krank, *Fitters):    
-     
+def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2,  *Fitters):         
     
-    Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, ATPprod_Ferm, ATPprod_AltE, ATPprod_Hydro,ATPprod_Homo,ATPprod_Ace, Yatp_Ferm, Yatp_AltE, Yatp_Hydro,Yatp_Homo,Yatp_Ace = Fitters
+    Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
     
     
     # FERM FERM FERM FERM FERM 
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate, CO2 und H2
     # Die Aufteilung folgt Conrad und wird so auch von Song genutzt
-    deltaM_Ferm, deltaCpool, _ =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, ATPprod_Ferm, Yatp_Ferm)
+    #deltaM_Ferm, deltaCpool, _ =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, ATPprod_Ferm, Yatp_Ferm)
+    deltaM_Ferm, deltaCpool, _, Tot_Ferm =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, w_Ferm, Sensenmann)
     deltaAce_Ferm = - (deltaCpool)
     # Produziert:
     deltaCO2_Ferm = deltaAce_Ferm * 0.5 
-    deltaH2_Ferm = deltaAce_Ferm *(1/6)
+    deltaH2_Ferm = deltaAce_Ferm *(1/6)  
+  
     
     # ALT E ALT E ALT E ALT E 
     # nur solange AltE UND Acetat vorhanden
-    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, ATPprod_AltE, Yatp_AltE)
+    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
     deltaH2_Alte = 0 # was ist der wirkliche Wert? 
  
@@ -65,28 +66,31 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
 #    deltaAcetate_AltE = - min(-deltaAltEpool *0.01, Acetate)
 #    deltaCO2_Alte = - deltaAcetate_AltE * 2
 #    deltaM_AltE = 0
-    
-    # HOMO HOMO HOMO HOMO  
-    deltaCO2_Homo = 0
-    deltaH2_Homo  = 0
-    deltaAcetate_Homo  = 0   
-    deltaM_Homo = 0  
-
-    # ACETO ACETO ACETO ACETO 
-    deltaAcetate_A = 0
-    deltaCH4_A = 0
-    deltaCO2_A = 0
-    deltaM_A = 0
-    
-    #HYDRO HYDRO HYDRO HYDRO
-    deltaCH4_Hydro = 0
-    deltaCO2_Hydro = 0
-    deltaH2_Hydro = 0
-    deltaM_Hydro = 0
-
+#    
+#    # HOMO HOMO HOMO HOMO  
+#    deltaCO2_Homo = 0
+#    deltaH2_Homo  = 0
+#    deltaAcetate_Homo  = 0   
+#    deltaM_Homo = 0  
+#
+#    # ACETO ACETO ACETO ACETO 
+#    deltaAcetate_A = 0
+#    deltaCH4_A = 0
+#    deltaCO2_A = 0
+#    deltaM_A = 0
+#    
+#    #HYDRO HYDRO HYDRO HYDRO
+#    deltaCH4_Hydro = 0
+#    deltaCO2_Hydro = 0
+#    deltaH2_Hydro = 0
+#    deltaM_Hydro = 0
+#
+#    Tot_Homo = 0
+#    Tot_Hyd = 0 
+#    Tot_Ace = 0
   
     
-    if AltEpool <= 0: # termodyn, AltE besser als Methanogen (Gao 2019), AltE müssen leer sein bevor Ace anfängt
+#    if AltEpool <= 0: # termodyn, AltE besser als Methanogen (Gao 2019), AltE müssen leer sein bevor Ace anfängt
         # Sterben muss noch ins MiKrobenskript 
         
     # Relikt aus Vorgängermodel, im Moment nicht funktionsfähig
@@ -95,30 +99,28 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
        # deltaM_A_CH4 = w_A_CH4 *  M_A_CH4  +  M_A_CH4_geheilt
         
         
-    # ACETO ACETO ACETO ACETO  
-    
-        deltaM_A, deltaAcetate_A =   Acetoclast(M_A, Acetate,ATPprod_Ace,Yatp_Ace)
-        deltaCH4_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CH4
-        deltaCO2_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CO2
-    
+# ACETO ACETO ACETO ACETO  
 
-        #HYDRO HYDRO HYDRO HYDRO 4H2 + CO2 → CH4 + 2H2O, Fenchel -131kj/mol
-        #Evtl aus dem If Statement raus
-        #Hydrogenotrophy hat Thermodynamische Vorteile vor Homo, bei hohen Temp
+    deltaM_A, deltaAcetate_A,Tot_Ace =   Acetoclast(M_A, Acetate,w_Ace, Vprod_max_Ace, Sensenmann)
+    deltaCH4_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CH4
+    deltaCO2_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CO2
+
+
+    #HYDRO HYDRO HYDRO HYDRO 4H2 + CO2 → CH4 + 2H2O, Fenchel -131kj/mol
+    #Evtl aus dem If Statement raus
+    #Hydrogenotrophy hat Thermodynamische Vorteile vor Homo, bei hohen Temp
    
-        deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro =   Hydrotrophes(M_Hydro, CO2, H2,ATPprod_Hydro,Yatp_Hydro)
-        deltaCH4_Hydro = - deltaCO2_Hydro # pro mol CO2 entsteht 1 mol CH4 
-        
-        
-      
-        # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O
-        #im If weil, Alt E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
-        
-        deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo =   Homo(M_Homo, CO2, H2, ATPprod_Homo,Yatp_Homo)
-       # deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   0,0,0
-        deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
-        
-       
+    deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro, Tot_Hyd =   Hydrotrophes(M_Hydro, CO2, H2, w_Hydro, Vprod_max_Hydro, Sensenmann)
+    deltaCH4_Hydro = - deltaCO2_Hydro # pro mol CO2 entsteht 1 mol CH4 
+    
+    
+  
+    # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O
+    #im If weil, Alt E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
+    
+    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vprod_max_Homo, Sensenmann)
+   # deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   0,0,0
+    deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
     
  
     
@@ -128,15 +130,15 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro     + deltaH2_Homo          
     deltaCH4 =                                                deltaCH4_A       + deltaCH4_Hydro 
     
-    deltaCpool =   -min(-deltaCpool, Cpool)
+    deltaCpool =   -min(-deltaCpool, Cpool) + Tot_Homo +  Tot_Hyd + Tot_Ace + Tot_ALtE + Tot_Ferm
     deltaAcetate = -min(-deltaAcetate, Acetate)
     deltaH2 =      -min(-deltaH2, H2)
     deltaCO2 =     -min(-deltaCO2, CO2)
     
-    deltaM_A_CH4_krank = 0 # Relikt
- 
-    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaM_A_CH4_krank
 
+ 
+    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaH2_Hydro, deltaH2_Homo
+    
 
 
   
