@@ -11,7 +11,9 @@ SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 ################## Heteromikrobe ##############################################
 #Yatp: wie viel ATP kann der Mikrobentyp aus dem Substrattyp gewinnen
 #ATP:  in mikromol
+# w : fasst Yatp und ATP zusammen, die Boundaries wurden entsprechend angepasst
 #Substrat : in Mikromol
+#Sensenmann: fixe Sterberate für alle Mikroben, 0.06 bei Song, ohne Begründung
 
 def HeteroMicrobe(Biomass, Sub1, Sub2, w, Km1, Vmax, Sensenmann):  #ATPprod, Yatp, 
     MM1 = Sub1 / (Km1 + Sub1) if Sub1 > 0 else 0 # vermeidet negative Werte
@@ -79,7 +81,8 @@ def AltE(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max,w_AltE,Sensenmann):
 
 
 
-def Hydrotrophes(Biomass, CO2, H2, w_Hydro, Vprod_max,Sensenmann):
+def Hydrotrophes(Biomass, CO2, H2, w_Hydro, Vprod_max,Sensenmann ):
+    #Sensenmann = 0
     Km1 = 0.05 / SOIL_DENSITY     # 0.05 mikromol pro cm^3 from Song
     Km2 = 0.01 / SOIL_DENSITY     # 0.01 mikromol pro cm^3 from Song
     #Vprod_max = 0.15 / SOIL_DENSITY # 0.15 mikromol pro cm^3 from Song
@@ -91,6 +94,7 @@ def Hydrotrophes(Biomass, CO2, H2, w_Hydro, Vprod_max,Sensenmann):
 
 
 def Homo(Biomass, CO2, H2, w_Homo, Vprod_max, Sensenmann):
+    #Sensenmann = 0
     Km1 = 0.05 / SOIL_DENSITY    # 0.05 from Song
     Km2 = 0.01 / SOIL_DENSITY    # 0.01 from Song
     #Vprod_max = 0.15 / SOIL_DENSITY # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro

@@ -41,7 +41,7 @@ from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importier
 
 def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2,  *Fitters):         
     
-    Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
+    Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE = Fitters
     
     
     # FERM FERM FERM FERM FERM 
@@ -130,11 +130,10 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro     + deltaH2_Homo          
     deltaCH4 =                                                deltaCH4_A       + deltaCH4_Hydro 
     
-    deltaCpool =   -min(-deltaCpool, Cpool) + Tot_Homo +  Tot_Hyd + Tot_Ace + Tot_ALtE + Tot_Ferm
+    deltaCpool =   -min(-deltaCpool, Cpool)  +  Tot_Hyd + Tot_Ace + Tot_ALtE + Tot_Ferm #+ Tot_Homo
     deltaAcetate = -min(-deltaAcetate, Acetate)
     deltaH2 =      -min(-deltaH2, H2)
     deltaCO2 =     -min(-deltaCO2, CO2)
-    
 
  
     return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaH2_Hydro, deltaH2_Homo

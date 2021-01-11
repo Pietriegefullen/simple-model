@@ -29,12 +29,12 @@ def simplefun(xtage, *Fitters):
     M_A_CH4_init = 0.001     # Monteux 2020, mg Mikrobielles C pro g dw
     M_Ferm_init = 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
     M_AltE_init= 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
-    deltaH2_Hydro = 0   
+    deltaH2_Hydro = 0        # für plot in multifit
     M_H_CH4_init = 0.2       # Monteux 2020, mg Mikrobielles C pro g dw
     M_Homo_init = 0.2        # Monteux 2020, mg Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0
-    Acetate_init = 0.01         # Philben wert knapp über 0 
+    Acetate_init = 0        # Philben wert ca 3, in mikromol pro g 
     AceCO2_init = 0
     H2_init = 0
     deltaH2_Homo_init = 0
