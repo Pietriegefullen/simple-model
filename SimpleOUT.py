@@ -30,7 +30,7 @@ def simplefun(xtage, *Fitters):
     M_Ferm_init = 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
     M_AltE_init= 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
     deltaH2_Hydro = 0        # für plot in multifit
-    M_H_CH4_init = 0.2       # Monteux 2020, mg Mikrobielles C pro g dw
+    M_H_CH4_init = 0.2     # Monteux 2020, mg Mikrobielles C pro g dw
     M_Homo_init = 0.2        # Monteux 2020, mg Mikrobielles C pro g dw
     CH4_init = 0
     CO2_init = 0

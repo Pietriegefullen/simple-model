@@ -22,7 +22,7 @@ Data1 = [0]
 Data1and2 = [0,3]
 Data1and2and3 =[0,3,6]
 
-for m in Data1and2and3:
+for m in Data1:#and2and3:
     Realdata = load_realdata(m)
     # Fitting the parameters:    
     
@@ -37,42 +37,52 @@ for m in Data1and2and3:
     # Boundaries für w aus bekannten YATP und ATP prod. Wachstumsfaktoren.
     
     
-    p0 = [ 0.5,     # Vmax Ferm
-           0.9,     # Vmax AltE
+    p0 = [ 0.01,     # Vmax Ferm
+           0.1,     # Vmax AltE
            0.05,    # Vmax Homo
            0.05,    # Vmax Hydro
-           0.38,    # Vmax Ace
+           0.15,    # Vmax Ace
            0.04,    # w Ferm
            0.02,    # w AltE
            0.02,    # w Hydro
            0.05,    # w Homo
            0.03,    # w Ace
-           0.001,   # Sensenmann
+           0.0001,   # Sensenmann
            2,       # Stoch AltE
-           7]       # AltE pool init
+           7,      # AltE pool init
+           10,      # Kmb ferm, for inverse M-M Biomass
+           10,      # Kmh ferm, for hemmung of fermenters by acetate
+           10,      # Kmb AltE
+           10,      # Kmb auto
+           10]      # Kmb hydro
     
-    bounds = [[0.01, 1.00],     # Vmax Ferm
+    bounds = [[0.01, 0.10],     # Vmax Ferm
               [0.029, 1.9],     # Vmax AltE
               [0.005, 1],       # Vmax Homo
-              [0.03,  1],       # Vmax Hydro
-              [0.37, 0.39],     # Vmax Ace
+              [0.03,  0.2],       # Vmax Hydro
+              [0.05, 0.39],     # Vmax Ace
               [0.03, 0.05],     # w Ferm
               [0.01, 0.05],     # w AltE
               [0.01, 0.05],     # w Hydro
               [0.01, 0.05],     # w Homo
               [0.01, 0.05],     # w Ace
-              [0,    0.006],    # Sensenmann
+              [0.00005, 0.001],    # Sensenmann
               [1,    8],        # Stoch AltE
-              [5,   10]]        # AltE pool init
+              [5,   10],        # AltE pool init
+              [ 1, 10 ],        # Kmb ferm
+              [ 1, 10 ],        # Kmh ferm
+              [ 1, 10 ],        # Kmb AltE
+              [ 1, 10 ],        # Kmb Auto
+              [ 1, 10 ]]        # Kmh Hydro
            
     optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
                                        p0 = p0, 
                                        bounds=tuple(zip(*bounds)))
     
    
-    names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "AltEpool"]
-    units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-","μmol"]
-    song =  ["0.5",                "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",    "",  "",     ""  ]
+    names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "AltEpool", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro"]
+    units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-","μmol", "mg" , "μmol", "mg", "mg", "mg"]
+    song =  ["0.5",                "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",    "",  "",     "" ,"", "", "" , "", "", ""]
    
     #Printing the Parameter and its value
     for n, p, u in zip(names, optimal_parameters, units):
