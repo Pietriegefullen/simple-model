@@ -16,6 +16,9 @@ def load_realdata(m):
     os.chdir('/Users/Lara/Desktop/simple model')
     
     df = pd.read_excel(r'C:/Users/Lara/Desktop/simple model/Trainingdatafull.xlsx')
+    df = df.apply(pd.to_numeric, errors='coerce') # Macht " nicht zahlen" zu Nan
+    df = df.dropna() #  löscht Zeilen mit NaN
+    
     
     df = df.values
         

@@ -6,7 +6,7 @@ from SimpleIN import Cdec # importiert das eigentliche mathematische Model
 def optifun(xdata, *Fitters):    
     xtage = xdata[0:int(len(xdata)/2)]
  
-    CH4, CO2, _,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
+    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
 # CH4 und CO2 werden aneinandergehängt um einen abhängigen Least Sqaure zu berechnen und nicht jeweils einen unabhängigen pro Kurve  
     
@@ -38,6 +38,10 @@ def simplefun(xtage, *Fitters):
     AceCO2_init = 0
     H2_init = 0
     deltaH2_Homo_init = 0
+    CO2_Hydro_init= 0
+    CH4_Hydro_init = 0
+    H2_Ferm2_init = 0
+    M_Ferm2_init = 0.2
     
     Cpool    = [Cpool_init]
     AltEpool = [AltE_init]
@@ -53,19 +57,23 @@ def simplefun(xtage, *Fitters):
     AceCO2   = [AceCO2_init]
     H2       = [H2_init]
     deltaH2_Homo = [deltaH2_Homo_init]
+    CO2_Hydro = [CO2_Hydro_init]
+    CH4_Hydro = [CH4_Hydro_init]
+    H2_Ferm2 = [H2_Ferm2_init]
+    M_Ferm2 = [M_Ferm2_init]
 
     
     for t in range(1, n+1): # iteriert über n+1 Zeitschritte (n = max(xtage))
 
-        delta = Cdec(Cpool[-1], AltEpool[-1], M_A_CH4[-1],M_Ferm[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1], *Fitters)
+        delta = Cdec(Cpool[-1], AltEpool[-1], M_A_CH4[-1],M_Ferm[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1],CO2_Hydro[-1], CH4_Hydro[-1], H2_Ferm2[-1], M_Ferm2[-1], *Fitters)
 
         
         Cpool.append(Cpool[-1] +       delta[0])
         AltEpool.append(AltEpool[-1] + delta[1])
         M_A_CH4.append(M_A_CH4[-1] +   delta[2])
         M_Ferm.append(M_Ferm[-1] +     delta[3])
-        M_H_CH4.append(M_H_CH4[-1] +   delta[4])
-        M_AltE.append(M_AltE[-1] +     delta[5])
+        M_AltE.append(M_AltE[-1] +     delta[4])
+        M_H_CH4.append(M_H_CH4[-1] +   delta[5])
         M_Homo.append(M_Homo[-1] +     delta[6])
         CH4.append(CH4[-1] +           delta[7])
         CO2.append(CO2[-1] +           delta[8])
@@ -74,10 +82,15 @@ def simplefun(xtage, *Fitters):
         H2.append(H2[-1] +             delta[11])
         deltaH2_Hydro.append(          delta[12])
         deltaH2_Homo.append(           delta[13])
+        CO2_Hydro.append(              delta[14])
+        CH4_Hydro.append(              delta[15])
+        H2_Ferm2.append(               delta[16])
+        M_Ferm2.append( M_Ferm2[-1] +  delta[17])
+    
     
     CH4 = [CH4[i] for i in xtage]
     CO2 = [CO2[i] for i in xtage]
     
  
 
-    return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,deltaH2_Homo
+    return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2

@@ -39,7 +39,7 @@
 from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
 
 
-def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2,  *Fitters):         
+def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  *Fitters):         
     
     Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Auto, Kmb_Hydro = Fitters
     
@@ -55,11 +55,18 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     deltaH2_Ferm = deltaAce_Ferm *(1/6) 
   
     
+    
+    #deltaM_Ferm2, deltaCpool2, _, Tot_Ferm2 =   Fermenters(M_Ferm2, Cpool, Acetate, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
+    # Produziert:
+    #deltaH2_Ferm2 =  -deltaCpool2 * 1.2 # 1.2 aus cabrol2017microbial
+    deltaH2_Ferm2 = 0
+    deltaM_Ferm2 = 0
+    
     # ALT E ALT E ALT E ALT E 
     # nur solange AltE UND Acetat vorhanden
     deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann, Kmb_AltE)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
-    deltaH2_Alte = 0 # was ist der wirkliche Wert? 
+    deltaH2_Alte = - deltaAcetate_AltE * 0 # was ist der wirkliche Wert? 
  
 #    manueller ALtE Abbau (um die anderen Prozesse früher in Gang zu bringen, eigentlich kein echter Teil des Models
 #    deltaAltEpool = - min(AltEpool, 2)  
@@ -118,16 +125,16 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O
     #im If weil, Alt E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
     
-    #deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vprod_max_Homo, Sensenmann)
+    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vprod_max_Homo, Sensenmann)
    # deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   0,0,0
-    #deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
-    deltaM_Homo = 0   
-    deltaH2_Homo = 0
+    deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
+    #deltaM_Homo = 0   
+    #deltaH2_Homo = 0
     
     # DELTA DELTA DELTA
-    deltaCO2 =      deltaCO2_Ferm   + deltaCO2_Alte         + deltaCO2_A       + deltaCO2_Hydro    #+ deltaCO2_Homo  
-    deltaAcetate =  deltaAce_Ferm   + deltaAcetate_AltE     + deltaAcetate_A                       #+ deltaAcetate_Homo 
-    deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro     #+ deltaH2_Homo          
+    deltaCO2 =      deltaCO2_Ferm   + deltaCO2_Alte         + deltaCO2_A       + deltaCO2_Hydro                   + deltaCO2_Homo  
+    deltaAcetate =  deltaAce_Ferm   + deltaAcetate_AltE     + deltaAcetate_A                                      + deltaAcetate_Homo 
+    deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro   + deltaH2_Ferm2  + deltaH2_Homo          
     deltaCH4 =                                                deltaCH4_A       + deltaCH4_Hydro 
     
     m_C = 12.01*1e-3 # molar mass of carbon
@@ -137,7 +144,7 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     deltaCO2 =     -min(-deltaCO2, CO2)
 
  
-    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaH2_Hydro, deltaH2_Homo
+    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaH2_Hydro, deltaH2_Homo, deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
     
 
 
