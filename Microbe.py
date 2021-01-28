@@ -43,7 +43,7 @@ def HeteroMicrobe(Biomass, Sub1, Sub2, w, Km1, Vmax, Sensenmann, Kmb, Kmh):  #AT
 def AutoMicrobe(Biomass, Sub1, Sub2, w, Km1, Km2, Vprod_max, Stoch, Sensenmann, Kmb): # ATPprod, Yatp, 
     MM_1 = Sub1 / (Km1 + Sub1) if Sub1 > 0 else 0
     MM_2 = Sub2 / (Km2 + Sub2) if Sub2 > 0 else 0
-    MMB = Biomass / (Kmb + Biomass) if Biomass >0 else 0 
+    MMB = Biomass / (Kmb + Biomass) if Biomass >0 else 0
 
     deltaSub1Resp = MM_1 * MM_2  * Vprod_max * Biomass# * MMB # micromol
     deltaSub1Grow = deltaSub1Resp * w/m_C     # micromol 

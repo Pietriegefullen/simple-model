@@ -16,6 +16,7 @@ from scipy import stats
 from Readalldata import load_realdata
 from SimpleOUT import simplefun
 from SimpleOUT import optifun
+from Babypascal import Pascal_Pa
 
 plt.close('all')
 #die drei verschiedenen Datensätze 
@@ -105,7 +106,8 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
   #  Fitters_opt = optimal_parameters
     CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
-       
+      
+    Pascal_Pa (n= max(CCH4CO2opt[9]))
     
 #### Observed and Predicted für CH4 und CO2 geplotted
 
