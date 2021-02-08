@@ -1,4 +1,6 @@
 from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
+from scipy.integrate import odeint
+import numpy as np
 
 # OPTIFUN 
 # optifun bringt simplefun in ein format (added xdata), das von scipy für Curvefit benötigt wird
@@ -6,11 +8,59 @@ from SimpleIN import Cdec # importiert das eigentliche mathematische Model
 def optifun(xdata, *Fitters):    
     xtage = xdata[0:int(len(xdata)/2)]
  
-    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
+    #CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
+    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplesolve(xtage,*Fitters)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
 # CH4 und CO2 werden aneinandergehängt um einen abhängigen Least Sqaure zu berechnen und nicht jeweils einen unabhängigen pro Kurve  
     
 # SIMPELFUN, der Euler Forward Mechanismus
+
+def simplesolve(xtage,*Fitters ):
+    
+    # Festgelegte Initialwerte
+    # Die Berechnung hier für Cpool ist noch für zwei Pools gedacht. Momentan nicht relevant
+    m_gluc = 180   # molar mass of glucose, g dw pro mol
+    m_cell = 162   # molar mass of cellulose, g dw pro mol
+    TOC = 0.04     # Knoblauchs Daten , g dw
+    labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
+    Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
+    
+    # die Werte sind alle in mikroMol pro gram Trockengewicht
+    AltE_init = Fitters[-1] # 7 #146       # 146 cf. Yao, Conrad 1999 (Hyun2017 sagt werte um 100 sind extrem hoch), Philben: 6 jeweils Mikromol pro g dw
+    Fitters = Fitters[:-1]
+    M_A_CH4_init = 0.001     # Monteux 2020, mg Mikrobielles C pro g dw
+    M_Ferm_init = 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
+    M_AltE_init= 0.2         # Monteux 2020, mg Mikrobielles C pro g dw
+    deltaH2_Hydro = 0        # für plot in multifit
+    M_H_CH4_init = 0.2     # Monteux 2020, mg Mikrobielles C pro g dw
+    M_Homo_init = 0.2        # Monteux 2020, mg Mikrobielles C pro g dw
+    CH4_init = 0
+    CO2_init = 0
+    Acetate_init = 0        # Philben wert ca 3, in mikromol pro g 
+    AceCO2_init = 0
+    H2_init = 0
+    deltaH2_Homo_init = 0
+    CO2_Hydro_init= 0
+    CH4_Hydro_init = 0
+    H2_Ferm2_init = 0
+    M_Ferm2_init = 0.2
+    
+    xs = np.linspace(0,max(xtage), max(xtage)+1)
+    y0 = Cpool_init,  AltE_init,  M_A_CH4_init,  M_Ferm_init,  M_AltE_init, M_H_CH4_init,  M_Homo_init,  CH4_init,  CO2_init,  AceCO2_init, Acetate_init,  H2_init,  CO2_Hydro_init,  CH4_Hydro_init, H2_Ferm2_init,  M_Ferm2_init
+    
+    ys = odeint(Cdec, y0, xs, args = (Fitters,))
+    
+    Cpool, AltEpool, M_A_CH4, M_Ferm, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, H2,  CO2_Hydro, CH4_Hydro, H2_Ferm2, M_Ferm2 = zip(*ys)
+    
+   # AltEpool[0::int(1/step)]
+
+   
+    CH4 = [CH4[int(i)] for i in xtage]
+    CO2 = [CO2[int(i)] for i in xtage]
+
+
+    return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,[0 for _ in range(len(CO2))], CO2_Hydro, CH4_Hydro,H2_Ferm2
+    
 
 def simplefun(xtage, *Fitters):    
     
@@ -96,7 +146,8 @@ def simplefun(xtage, *Fitters):
     
     CH4 = [CH4[int(i/step)] for i in xtage]
     CO2 = [CO2[int(i/step)] for i in xtage]
-    AltEpool = AltEpool[0::int(1/step)] # von 0 bis Ende in Schritten von 24, damit der Plot nicht in Stunden sondern in Tagen ist
+    
+    AltEpool = AltEpool[0::int(1/step)] # von 0 bis Ende in Schritten von , damit der Plot nicht in Stunden sondern in Tagen ist
     AceCO2 = AceCO2[0::int(1/step)]
     Acetate= Acetate[0::int(1/step)]
     Cpool= Cpool[0::int(1/step)]

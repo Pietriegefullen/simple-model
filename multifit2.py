@@ -4,7 +4,7 @@ Created on Tue Oct 13 09:45:44 2020
 
 @author: Lara
 """
-
+import os
 #import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
@@ -14,9 +14,9 @@ from scipy import stats
 #Importieren benutzter Funktionen und Daten
 #from Realdataall import load_realdata
 from Readalldata import load_realdata
-from SimpleOUT import simplefun
+from SimpleOUT import simplefun, simplesolve
 from SimpleOUT import optifun
-from Babypascal import Pascal_Pa
+from Babypascal import Mol_nach_Pa
 
 plt.close('all')
 #die drei verschiedenen Datensätze 
@@ -43,7 +43,7 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     
     
     p0 = [ 0.1,    # Vmax Ferm 0.01  roden2003competition wert ist 17 !
-           0.8,     # Vmax AltE 0.9
+           0.3,     # Vmax AltE 0.9
            0.133,    # Vmax Homo 0.05
            0.086,    # Vmax Hydro 0.05
            0.207,    # Vmax Ace 0.15   roden2003competition wert ist 15 !
@@ -52,7 +52,7 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
            0.024,    # w Hydro 0.02
            0.049,    # w Homo 0.05
            0.04,    # w Ace 0.03
-           0.000,   # Sensenmann 0.0001
+           0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
            4,        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
            5.75,      # AltE pool init 7
            10,      # Kmb ferm, for inverse M-M Biomass 10
@@ -61,7 +61,7 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
            10,      # Kmb auto 10
            10]      # Kmb hydro 10
     
-    bounds = [[0.01, 0.10],     # Vmax Ferm
+    bounds = [[0.01, 0.11],     # Vmax Ferm
               [0.029, 1.9],     # Vmax AltE
               [0.005, 1],       # Vmax Homo
               [0.03,  0.2],       # Vmax Hydro
@@ -71,9 +71,9 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
               [0.01, 0.05],     # w Hydro
               [0.01, 0.05],     # w Homo
               [0.01, 0.05],     # w Ace
-              [-0.000000001, 0.0000000001],    # Sensenmann
+              [-0.000000001, 0.0000844],    # Sensenmann
               [1,    8],        # Stoch AltE
-              [5,   10],        # AltE pool init
+              [2,   10],        # AltE pool init
               [ 1, 10 ],        # Kmb ferm
               [ 1, 10 ],        # Kmh ferm
               [ 1, 10 ],        # Kmb AltE
@@ -84,6 +84,9 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
                                        p0 = p0, 
                                        bounds=tuple(zip(*bounds)))
     
+    optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
+                                       p0 = optimal_parameters, 
+                                       bounds=tuple(zip(*bounds)))
    
     names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "AltEpool", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro"]
     units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-","μmol", "mg" , "μmol", "mg", "mg", "mg"]
@@ -104,25 +107,27 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     #Calculating the model output with optimal parameters:
     
   #  Fitters_opt = optimal_parameters
-    CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
+    #CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
+    CCH4CO2opt = simplesolve(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
       
-    Pascal_Pa (n= max(CCH4CO2opt[9]))
+    Mol_nach_Pa(n= max(CCH4CO2opt[9]))
     
 #### Observed and Predicted für CH4 und CO2 geplotted
 
     data_len = len(Realdata)
-    for x, a in zip([0,data_len],["CH4","CO2"]):  
+    for x, a in zip([0,data_len],["CH4","CO2"]):
         plt.figure()
         plt.plot(xlist,[ydata[i] for i in range(x,data_len+x)],"ro", label = "Observed")
         plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,data_len+x)],label = "Predicted")
         plt.ylabel(a)
         plt.legend()
-   
+        save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_'+str(m)+'.png')
+        plt.savefig(save_path)
     _ ,_ , R2, _ , _ = stats.linregress(CCH4CO2optList, y=ydata)
     print("R2 is", R2)
     
-             
+     
 #%%      
     # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
     #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
@@ -130,42 +135,52 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     plt.figure()
     plt.plot( CCH4CO2opt[2], label='AltEpool')
     plt.title('AltEpool')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')
     
     plt.figure()
     plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
     plt.title('CO2 aus Acetate')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
     
     plt.figure()
     plt.plot( CCH4CO2opt[4], label='Acetate')
     plt.title('Acetate')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
     
     plt.figure()
     plt.plot( CCH4CO2opt[5], label='Cpool')
     plt.title('Cpool')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Cpool.png')
     
     plt.figure()
     plt.plot( CCH4CO2opt[6], label='Acetoclastische_Mikroben')
     plt.title('Acetoclastische_Mikroben')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetoclastic_Mikroben.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[7], label='Fermentierer')
     plt.title('Fermentierer')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Fermentation_Mikroben.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
     plt.title(' AltE_Microben')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltE_Mikroben.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[9], label=' H2')
     plt.title('H2')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
     plt.title(' Hydro_Microben')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Hydro_Mikroben.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
     plt.title(' Homo_Microben')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Homo_Mikroben.png')    
     
     #plt.figure()
     #plt.plot( CCH4CO2opt[12], label=' AltE_init')
@@ -174,22 +189,27 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     plt.figure()
     plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
     plt.title('deltaH2_Hydro')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')        
     
     plt.figure()
     plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
     plt.title('deltaH2_Homo')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
     
     plt.figure()
     plt.plot( CCH4CO2opt[15], label='CO2 aus Hydro')
     plt.title('CO2 aus Hydro')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_aus_Hydro.png')    
 
     plt.figure()
     plt.plot( CCH4CO2opt[16], label='CH4 aus Hydro')
     plt.title('CH4 aus Hydro')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CH4_aus_Hydro.png')    
     
     plt.figure()
     plt.plot( CCH4CO2opt[17], label='H2 aus Ferm2')
     plt.title('H2 aus Ferm2')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2_aus_Ferm.png')    
 
 
     

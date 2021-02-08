@@ -39,8 +39,9 @@
 from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
 
 
-def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  *Fitters):         
-    
+#def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
+def Cdec(y, x, Fitters):         
+    Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2 = y
     Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Auto, Kmb_Hydro = Fitters
     
     
@@ -66,7 +67,7 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     # nur solange AltE UND Acetat vorhanden
     deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann, Kmb_AltE)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
-    deltaH2_Alte = - deltaAcetate_AltE * 0 # was ist der wirkliche Wert? 
+    deltaH2_Alte = - deltaAcetate_AltE #* 0 # was ist der wirkliche Wert? 
  
 #    manueller ALtE Abbau (um die anderen Prozesse früher in Gang zu bringen, eigentlich kein echter Teil des Models
 #    deltaAltEpool = - min(AltEpool, 2)  
@@ -143,8 +144,8 @@ def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A,
     deltaH2 =      -min(-deltaH2, H2)
     deltaCO2 =     -min(-deltaCO2, CO2)
 
- 
-    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_Hydro, deltaM_AltE, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2 ,deltaH2_Hydro, deltaH2_Homo, deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
+
+    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_AltE, deltaM_Hydro, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2,  deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
     
 
 

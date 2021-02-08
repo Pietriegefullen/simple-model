@@ -45,10 +45,10 @@ def AutoMicrobe(Biomass, Sub1, Sub2, w, Km1, Km2, Vprod_max, Stoch, Sensenmann, 
     MM_2 = Sub2 / (Km2 + Sub2) if Sub2 > 0 else 0
     MMB = Biomass / (Kmb + Biomass) if Biomass >0 else 0
 
-    deltaSub1Resp = MM_1 * MM_2  * Vprod_max * Biomass# * MMB # micromol
+    deltaSub1Resp = MM_1 * MM_2  * Vprod_max * Biomass #* MMB # micromol
     deltaSub1Grow = deltaSub1Resp * w/m_C     # micromol 
-    deltaSub1 = deltaSub1Resp + deltaSub1Grow
-    deltaSub2 = Stoch * deltaSub1
+    deltaSub1 = deltaSub1Resp + deltaSub1Grow 
+    deltaSub2 = Stoch * deltaSub1 
     
     limited = False
     if deltaSub2 > Sub2:
