@@ -8,14 +8,16 @@ Created on Mon Jan 25 11:06:34 2021
 #import os
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
-
+#m = 0
 def load_realdata(m):
     
     #os.chdir('/Users/Lara/Desktop/simple model')
     
-    df = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Trainingdatafull.xlsx')
-    
+    df = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Trainingdatafull.xlsx',
+                       engine = 'openpyxl')
+
     df = df.apply(pd.to_numeric, errors='coerce') # Macht " nicht zahlen" zu Nan
     df = df.dropna() #  löscht Zeilen mit NaN
     
@@ -23,8 +25,26 @@ def load_realdata(m):
         
     df[:,m] = np.around(df[:,m]) # rundet die Tage auf ganze tage (trotzdem floats)
     
-    df[:,m+1][np.where(df[:,m+1]<0)] = 0 # Messfehler mit neg. CH4 werten zu 0 
-    df[:,m+2][np.where(df[:,m+2]<0)] = 0 # Messfehler mit neg. CO2 werten zu 0 
+    #df[:,m+1][np.where(df[:,m+1]<0)] = 0 # Messfehler mit neg. CH4 werten zu 0 
+    #df[:,m+2][np.where(df[:,m+2]<0)] = 0 # Messfehler mit neg. CO2 werten zu 0 
+    
+    
+    #CH4Listneg= []
+    #CH4Listneg.append(df[:,m+1][np.where(df[:,m+1]<0)])  
+    #indexList = []
+    #indexList = list(df[:,m+1]).index(df[:,m+1][np.where(df[:,m+1]<0)])
+    indexListCH4 = np.where(np.isin(df[:,m+1],df[:,m+1][np.where(df[:,m+1]<0)]))
+    indexListCO2 = np.where(np.isin(df[:,m+1],df[:,m+1][np.where(df[:,m+1]<0)]))
+    #print(indexListCH4[0])
+    #print(len(indexListCH4[0]))
+    #print(indexListCH4)
+    
+    for p in range(len(indexListCH4[0])):   
+        df[:,m+1][indexListCH4[0][p]] = df[:,m+1][indexListCH4[0][p]-1]  # Messfehler mit neg. CH4 werten zum vorherigen wert
+        
+    for r in range(len(indexListCO2)):   
+        df[:,m+1][indexListCO2[r]] = df[:,m+1][indexListCO2[r]-1]  # Messfehler mit neg. CO2 werten zum vorherigen wert
+                            
     
     #adding mock C data to realdata
     # =============================================================================
@@ -43,4 +63,20 @@ def load_realdata(m):
     
     return Realdata
 
-#Realdata = load_realdata(9)
+if __name__=='__main__':
+    Realdata = load_realdata(0)
+    
+    plt.figure()
+    plt.plot(Realdata[:,0], Realdata[:,2])
+    a = [5]* len(Realdata[:,0])
+    plt.plot(Realdata[:,0], a)
+    plt.show()  
+    #%%
+    plt.close('all')
+    
+    plt.figure(2)
+    #126 tag bis  277
+    plt.plot(Realdata[9:18,2])
+    plt.show()  
+
+

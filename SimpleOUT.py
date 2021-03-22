@@ -45,7 +45,7 @@ def simplesolve(xtage,*Fitters ):
     H2_Ferm2_init = 0
     M_Ferm2_init = 0.2
     
-    xs = np.linspace(0,max(xtage), max(xtage)+1)
+    xs = np.linspace(0,int(max(xtage)), int(max(xtage)+1))
     y0 = Cpool_init,  AltE_init,  M_A_CH4_init,  M_Ferm_init,  M_AltE_init, M_H_CH4_init,  M_Homo_init,  CH4_init,  CO2_init,  AceCO2_init, Acetate_init,  H2_init,  CO2_Hydro_init,  CH4_Hydro_init, H2_Ferm2_init,  M_Ferm2_init
     
     ys = odeint(Cdec, y0, xs, args = (Fitters,))
