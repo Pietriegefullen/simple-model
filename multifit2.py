@@ -196,17 +196,17 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     #plt.plot( CCH4CO2opt[12], label=' AltE_init')
     #plt.title(' AltE_init')
     
-    plt.figure()
-    plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
-    plt.title('deltaH2_Hydro')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
-    plt.ylabel('μmol')        
+    # plt.figure()
+    # plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
+    # plt.title('deltaH2_Hydro')
+    # plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
+    # # plt.ylabel('μmol')        
     
-    plt.figure()
-    plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
-    plt.title('deltaH2_Homo')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
-    plt.ylabel('μmol')
+    # plt.figure()
+    # plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
+    # plt.title('deltaH2_Homo')
+    # plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
+    # plt.ylabel('μmol')
     
     plt.figure()
     plt.plot( CCH4CO2opt[15], label='CO2 aus Hydro')
@@ -225,12 +225,31 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     plt.title('H2 aus Ferm2')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2_aus_Ferm.png')  
     plt.ylabel('μmol')
+#%%
+    # Wie viel CO2 wird nicht aus Acetate produziert
+
+    difference = [a - b for a, b in zip(CCH4CO2opt[1], CCH4CO2opt[3])]
+    
+    # zip_object = zip(CCH4CO2opt[1], CCH4CO2opt[3])
+    # difference = []
+
+    # for CCH4CO2opt[1], CCH4CO2opt[3] in zip_object:
+
+    #     difference.append(CCH4CO2opt[1] - CCH4CO2opt[3])
 
 
+
+    plt.figure()
+    plt.plot(difference, label='CO2 ohne Aceto')
+    plt.title('CO2 ohne Aceto')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ohneAceto.png')  
+    plt.ylabel('μmol')
+
+    #CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,[0 for _ in range(len(CO2))], CO2_Hydro, CH4_Hydro,H2_Ferm2
     
     # Goodness of fit with R^2 automatic
         
-
+#%%
 ################ ab hier ist es uninteressant #################################   
 #    #--calculating R^2 by hand-----------------------------------------------------
 #    # Aufteilen von CCH4CO2opt in die jeweiligen pools und Berechnung des mean
