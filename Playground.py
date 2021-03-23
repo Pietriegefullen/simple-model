@@ -71,6 +71,8 @@ for m in Data1and2and3and4and5and6and7and8and9:
 
     plt.show()
     
+#%%
+
 
 
 

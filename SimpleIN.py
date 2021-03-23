@@ -3,10 +3,10 @@
 
 ################## Variabeln:##################################################
 # Cpool:     Cpool der von den Fermentierern genutzt werden kann (Mikromol pro g dw)
-# AltEpool : Noch zu reduzierende Alternative E Akzeptoren (Mikromol pro g dw)
+# FEpool : Noch zu reduzierende FEernative E Akzeptoren (Mikromol pro g dw)
 # M_A:       Mikrobielle Biomasse der Acetoclastischen Methanogenese
 # M_Ferm:    Mikrobielle Biomasse der Fermentierer
-# M_AltE:    Mikrobielle Biomasse der Mikroben die Alternative E nutzen
+# M_FE:    Mikrobielle Biomasse der Mikroben die Fernative E nutzen
 # M_Hydro:   Mikrobielle Biomasse der Hydrogenotrophen Methanogenen
 # M_Homo:    Mikrobielle Biomasse der Homoacetoclasten
 # CH4:       CH4 Pool
@@ -19,15 +19,15 @@
 
 #################### Parameter:################################################
 # Vmax_Ferm:      Maximale Abbaurate der Fermentierer
-# Stoch_ALtE:     Stochiometrischer Wert für AltE und Acetate
-# Vprod_max_AltE: Maximale Abbaurate der Mikroben, die AltE nutzen
+# Stoch_FE:     Stochiometrischer Wert für FE und Acetate
+# Vprod_max_FE: Maximale Abbaurate der Mikroben, die FE nutzen
 # ATPprod_Ferm:   Mol ATP produziert pro mol Glukose von Fermentierern 
-# ATPprod_AltE:   Mol ATP produziert pro mol Acetate von Mikroben, die AltE nutzen
+# ATPprod_FE:   Mol ATP produziert pro mol Acetate von Mikroben, die FE nutzen
 # ATPprod_Hydro:  Mol ATP produziert pro mol H2 & CO2 von Hydrogenotropen
 # ATPprod_Homo:   Mol ATP produziert pro mol H2 & CO2 von Homoacetogenen
 # ATPprod_Ace:    Mol ATP produziert pro mol Acetate von Acetoclasten
 # Yatp_Ferm:      g C Biomasse die Fermentierer aus 1 Mol ATP aufbauen
-# Yatp_AltE:      g C Biomasse die Mikroben, die Alt E nutzen,  aus 1 Mol ATP aufbauen
+# Yatp_FE:      g C Biomasse die Mikroben, die F E nutzen,  aus 1 Mol ATP aufbauen
 # Yatp_Hydro:     g C Biomasse die Hydrogenotrophe aus 1 Mol ATP aufbauen
 # Yatp_Homo:      g C Biomasse die Homoacetogene aus 1 Mol ATP aufbauen
 # Yatp_Ace        g C Biomasse die Acetoclasten aus 1 Mol ATP aufbauen
@@ -36,20 +36,40 @@
 #delta"Pool" :  Die Änderungen in den entsprechenden Pools
 
 
-from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
+from Microbe import Fermenters, Hydrotrophes, FE, Acetoclast, Homo,Gibbsreaction # Importiert Funktionen aus dem Skript "Microbe"
 
 
-#def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
-def Cdec(y, x, Fitters):         
-    Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2 = y
-    Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Auto, Kmb_Hydro = Fitters
+
+#def Cdec(Cpool, FEpool, M_A, M_Ferm, M_FE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
+# when using odeint, Cdec must have the following form: Cdec(y, x, ...) 
+def Cdec(y, x, Fitters):
+    
+    Cpool, FEpool, M_A, M_Ferm, M_FE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2 = y
+
+    Vmax_Ferm,Vprod_max_FE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_FE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_FE, Fe_init, Kmb_Ferm, Kmh_Ferm, Kmb_FE, Kmb_Auto, Kmb_Hydro = Fitters
+    T  = 277.15
+    Hion = 10**-7
+    H2O = 14000
+        
+    GstAceto = (-50.72 + -586.77) - ( -369.31 + -237.15)
+    GstHydro= (0.25*-50.72 +0.75*-237.13) - (0.25*-586.77 +0 + 0.25*0)
+    GstFe = (9*0 + 2*-586.77+ 8*-78.9)- (-369.31+4*-237.13 + 8*-4.7)
+    GstHomo = (-396.46 +0+2*-237.13) - (4*0 +2*-394.36)
+    GstFerm = (2*-396.46+2*-394.36+4*0)- (-910 +2*-237.13)
+        
     
     
     # FERM FERM FERM FERM FERM 
     #Ferm atmen einen Teil Cpool und machen einen Teil zu Acetate, CO2 und H2
     # Die Aufteilung folgt Conrad und wird so auch von Song genutzt
     #deltaM_Ferm, deltaCpool, _ =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, ATPprod_Ferm, Yatp_Ferm)
-    deltaM_Ferm, deltaCpool, _, Tot_Ferm =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
+    
+    productsFerm = [(2,Acetate),(2,CO2),(4,H2)]
+    reactantsFerm= [(1, Cpool),(2,H2O)]
+    GrFerm = Gibbsreaction(GstFerm, T , reactantsFerm, productsFerm)
+    
+    
+    deltaM_Ferm, deltaCpool, _, Tot_Ferm =   Fermenters(M_Ferm, Cpool, Acetate, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm,GrFerm)
     deltaAce_Ferm = - (deltaCpool)
     # Produziert:
     deltaCO2_Ferm = deltaAce_Ferm * 0.5 
@@ -63,17 +83,24 @@ def Cdec(y, x, Fitters):
     deltaH2_Ferm2 = 0
     deltaM_Ferm2 = 0
     
-    # ALT E ALT E ALT E ALT E 
-    # nur solange AltE UND Acetat vorhanden
-    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann, Kmb_AltE)
-    deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
-    deltaH2_Alte = - deltaAcetate_AltE #* 0 # was ist der wirkliche Wert? 
+    # FE FE FE FE 
+    productsFe = [(9,Hion),(2, CO2),(8,Fe_init-FEpool)]
+    reactantsFe= [(1,Acetate),(4,H2O),(8,FEpool)]
+    GrFe = Gibbsreaction(GstFe, T , reactantsFe, productsFe)
+    
+    # nur solange FE UND Acetat vorhanden
+    deltaM_FE, deltaAcetate_FE, deltaFEpool, Tot_FE =   FE(M_FE, Acetate, FEpool, Stoch_FE, Vprod_max_FE, w_FE, Sensenmann, Kmb_FE, GrFe)
+    deltaCO2_Fe = - deltaAcetate_FE * 2 # pro 1 Acetate entstehen zwei CO2
+    deltaH2_Fe = - deltaAcetate_FE #* 0 # was ist der wirkliche Wert? 
+    
+    
+    
  
-#    manueller ALtE Abbau (um die anderen Prozesse früher in Gang zu bringen, eigentlich kein echter Teil des Models
-#    deltaAltEpool = - min(AltEpool, 2)  
-#    deltaAcetate_AltE = - min(-deltaAltEpool *0.01, Acetate)
-#    deltaCO2_Alte = - deltaAcetate_AltE * 2
-#    deltaM_AltE = 0
+#    manueller FE Abbau (um die anderen Prozesse früher in Gang zu bringen, eigentlich kein echter Teil des Models
+#    deltaFEpool = - min(FEpool, 2)  
+#    deltaAcetate_FE = - min(-deltaFEpool *0.01, Acetate)
+#    deltaCO2_Fe = - deltaAcetate_FE * 2
+#    deltaM_FE = 0
 #    
 #    # HOMO HOMO HOMO HOMO  
 #    deltaCO2_Homo = 0
@@ -98,7 +125,7 @@ def Cdec(y, x, Fitters):
 #    Tot_Ace = 0
   
     
-#    if AltEpool <= 0: # termodyn, AltE besser als Methanogen (Gao 2019), AltE müssen leer sein bevor Ace anfängt
+#    if FEpool <= 0: # termodyn, FE besser als Methanogen (Gao 2019), FE müssen leer sein bevor Ace anfängt
         # Sterben muss noch ins MiKrobenskript 
         
     # Relikt aus Vorgängermodel, im Moment nicht funktionsfähig
@@ -108,8 +135,11 @@ def Cdec(y, x, Fitters):
         
         
 # ACETO ACETO ACETO ACETO  
+    reactantsAceto = [(1,Acetate),(1, H2O)]
+    productsAceto= [(1,CH4),(1,CO2)]
+    GrAceto = Gibbsreaction(GstAceto, T , reactantsAceto, productsAceto)
 
-    deltaM_A, deltaAcetate_A,Tot_Ace =   Acetoclast(M_A, Acetate,w_Ace, Vprod_max_Ace, Sensenmann, Kmb_Auto)
+    deltaM_A, deltaAcetate_A,Tot_Ace =   Acetoclast(M_A, Acetate,w_Ace, Vprod_max_Ace, Sensenmann, Kmb_Auto, GrAceto )
     deltaCH4_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CH4
     deltaCO2_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CO2
 
@@ -118,34 +148,42 @@ def Cdec(y, x, Fitters):
     #Evtl aus dem If Statement raus
     #Hydrogenotrophy hat Thermodynamische Vorteile vor Homo, bei hohen Temp
    
-    deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro, Tot_Hyd =   Hydrotrophes(M_Hydro, CO2, H2, w_Hydro, Vprod_max_Hydro, Sensenmann, Kmb_Hydro)
+    productsHydro = [(1,CH4),(3,H2O)]
+    reactantsHydro= [(1,CO2),(4,H2),(1,Hion)]
+    GrHydro = Gibbsreaction(GstHydro, T , reactantsHydro, productsHydro)
+    
+    deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro, Tot_Hyd =   Hydrotrophes(M_Hydro, CO2, H2, w_Hydro, Vprod_max_Hydro, Sensenmann, Kmb_Hydro, GrHydro)
     deltaCH4_Hydro = - deltaCO2_Hydro # pro mol CO2 entsteht 1 mol CH4 
     
     
   
     # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O
-    #im If weil, Alt E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
+    #im If weil, F E- verbrauchen H2 und senken den H2 Partialdruck, den Homo braucht(Ye 2013) 
     
-    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vprod_max_Homo, Sensenmann)
+    productsHomo = [(1,Acetate),(1,Hion), (1,H2O)]
+    reactantsHomo= [(4,H2),(2, CO2)]
+    GrHomo = Gibbsreaction(GstHomo, T , reactantsHomo, productsHomo)
+    
+    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vprod_max_Homo, Sensenmann,GrHomo)
    # deltaM_Homo_CH4, deltaCO2_Homo ,deltaH2_Homo =   0,0,0
     deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
     #deltaM_Homo = 0   
     #deltaH2_Homo = 0
     
     # DELTA DELTA DELTA
-    deltaCO2 =      deltaCO2_Ferm   + deltaCO2_Alte         + deltaCO2_A       + deltaCO2_Hydro                   + deltaCO2_Homo  
-    deltaAcetate =  deltaAce_Ferm   + deltaAcetate_AltE     + deltaAcetate_A                                      + deltaAcetate_Homo 
-    deltaH2 =       deltaH2_Ferm    + deltaH2_Alte                             + deltaH2_Hydro   + deltaH2_Ferm2  + deltaH2_Homo          
+    deltaCO2 =      deltaCO2_Ferm   + deltaCO2_Fe         + deltaCO2_A       + deltaCO2_Hydro                   + deltaCO2_Homo  
+    deltaAcetate =  deltaAce_Ferm   + deltaAcetate_FE     + deltaAcetate_A                                      + deltaAcetate_Homo 
+    deltaH2 =       deltaH2_Ferm    + deltaH2_Fe                             + deltaH2_Hydro   + deltaH2_Ferm2  + deltaH2_Homo          
     deltaCH4 =                                                deltaCH4_A       + deltaCH4_Hydro 
     
     m_C = 12.01*1e-3 # molar mass of carbon
-    deltaCpool =   -min(-deltaCpool, Cpool)  +  (Tot_Hyd + Tot_Ace + Tot_ALtE + Tot_Ferm)/m_C #+ Tot_Homo
+    deltaCpool =   -min(-deltaCpool, Cpool)  +  (Tot_Hyd + Tot_Ace + Tot_FE + Tot_Ferm)/m_C #+ Tot_Homo
     deltaAcetate = -min(-deltaAcetate, Acetate)
     deltaH2 =      -min(-deltaH2, H2)
     deltaCO2 =     -min(-deltaCO2, CO2)
 
-
-    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_AltE, deltaM_Hydro, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2,  deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
+   # print(GrAceto)
+    return deltaCpool, deltaFEpool, deltaM_A, deltaM_Ferm, deltaM_FE, deltaM_Hydro, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2,  deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
     
 
 

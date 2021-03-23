@@ -37,49 +37,95 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     
     
     # Fitted Parameters are: 
-    # Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro,
-    # Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
+    # Vmax_Ferm, Stoch_FE,Vprod_max_FE, Vprod_max_Homo, Vprod_max_Hydro,
+    # Vprod_max_Ace, w_Ferm, w_FE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
     # Boundaries für w aus bekannten YATP und ATP prod. Wachstumsfaktoren.
     
     
-    p0 = [ 0.1,    # Vmax Ferm 0.01  roden2003competition wert ist 17 !
-           0.3,     # Vmax AltE 0.9
-           0.133,    # Vmax Homo 0.05
-           0.086,    # Vmax Hydro 0.05
-           0.207,    # Vmax Ace 0.15   roden2003competition wert ist 15 !
-           0.05,    # w Ferm 0.04
-           0.013,    # w AltE 0.02
-           0.024,    # w Hydro 0.02
-           0.049,    # w Homo 0.05
-           0.04,    # w Ace 0.03
-           0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
-           4,        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
-           5.75,      # AltE pool init 7
-           10,      # Kmb ferm, for inverse M-M Biomass 10
-           10,      # Kmh ferm, for hemmung of fermenters by acetate 10
-           10,      # Kmb AltE 10
-           10,      # Kmb auto 10
-           10]      # Kmb hydro 10
+    p0 = [  0.1,      # Vmax Ferm 0.01  roden2003competition wert ist 17 !
+            0.3,      # Vmax FE 0.9
+            0.133,    # Vmax Homo 0.05
+            0.086,    # Vmax Hydro 0.05
+            0.207,    # Vmax Ace 0.15   roden2003competition wert ist 15 !
+            0.05,     # w Ferm 0.04
+            0.013,    # w FE 0.02
+            0.024,    # w Hydro 0.02
+            0.049,    # w Homo 0.05
+            0.04,    # w Ace 0.03
+            0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
+            4,        # Stoch FE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
+            5.75,      # FE pool init 7
+            10,      # Kmb ferm, for inverse M-M Biomass 10
+            10,      # Kmh ferm, for hemmung of fermenters by acetate 10
+            10,      # Kmb FE 10
+            10,      # Kmb auto 10
+            10       # Kmb hydro 10
+            ]      
     
     bounds = [[0.01, 0.11],     # Vmax Ferm
-              [0.029, 1.9],     # Vmax AltE
+              [0.029, 1.9],     # Vmax FE
               [0.005, 1],       # Vmax Homo
               [0.03,  0.2],       # Vmax Hydro
               [0.05, 0.39],     # Vmax Ace
               [0.03, 0.05],     # w Ferm
-              [0.01, 0.05],     # w AltE
+              [0.01, 0.05],     # w FE
               [0.01, 0.05],     # w Hydro
               [0.01, 0.05],     # w Homo
               [0.01, 0.05],     # w Ace
-              [-0.000000001, 0.0000844],    # Sensenmann
-              [1,    8],        # Stoch AltE
-              [2,   10],        # AltE pool init
+              [0.00000811, 0.0000844],    # Sensenmann
+              [1,    8],        # Stoch FE
+              [2,   100],        # FE pool init
               [ 1, 10 ],        # Kmb ferm
               [ 1, 10 ],        # Kmh ferm
-              [ 1, 10 ],        # Kmb AltE
+              [ 1, 10 ],        # Kmb FE
               [ 1, 10 ],        # Kmb Auto
-              [ 1, 10 ]]        # Kmh Hydro
-           
+              [ 1, 10 ]         # Kmh Hydro
+              ]        
+    
+    
+    
+        
+    # p0 = [ 0.3,      # Vmax Ferm 0.01  roden2003competition wert ist 17 !
+    #         0.3,      # Vmax FE 0.9
+    #         0.133,    # Vmax Homo 0.05
+    #         0.086,    # Vmax Hydro 0.05
+    #         0.207,    # Vmax Ace 0.15   roden2003competition wert ist 15 !
+    #         0.05,     # w Ferm 0.04
+    #         0.07,    # w FE 0.02
+    #         0.03,    # w Hydro 0.02
+    #         0.05,    # w Homo 0.05
+    #         0.04,    # w Ace 0.03
+    #         0.00000000000001,          #0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
+    #         8,        # Stoch FE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
+    #         50,      # FE pool init 7
+    #         10,      # Kmb ferm, for inverse M-M Biomass 10
+    #         10,      # Kmh ferm, for hemmung of fermenters by acetate 10
+    #         10,      # Kmb FE 10
+    #         10,      # Kmb auto 10
+    #         10       # Kmb hydro 10
+    #         ]      
+    
+    # bounds = [[0.01, 0.9],     # Vmax Ferm
+    #           [0.029, 1.9],     # Vmax FE
+    #           [0.005, 1],       # Vmax Homo
+    #           [0.03,  0.2],       # Vmax Hydro
+    #           [0.05, 0.39],     # Vmax Ace
+    #           [0.03, 0.5],     # w Ferm
+    #           [0.03, 0.5],     # w FE
+    #           [0.01, 0.5],     # w Hydro
+    #           [0.03, 0.5],     # w Homo
+    #           [0.03, 0.5],     # w Ace
+    #           [-0.000000000000001, 0.00000000000002],      #[-0.000000001, 0.0000844],    # Sensenmann
+    #           [1,    8],        # Stoch FE
+    #           [2,   100],        # FE pool init
+    #           [ 1, 10 ],        # Kmb ferm
+    #           [ 1, 10 ],        # Kmh ferm
+    #           [ 1, 10 ],        # Kmb FE
+    #           [ 1, 10 ],        # Kmb Auto
+    #           [ 1, 10 ]         # Kmh Hydro
+    #           ]  
+    
+    
     optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
                                        p0 = p0, 
                                        bounds=tuple(zip(*bounds)))
@@ -88,7 +134,7 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
                                        p0 = optimal_parameters, 
                                        bounds=tuple(zip(*bounds)))
    
-    names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "AltEpool", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro"]
+    names = ["Vmax_Ferm","Vprod_max_FE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_FE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_FE", "FEpool", "KmB ferm", "Kmh ferm", "Kmb Fe", "Kmb Auto", "Kmb Hydro"]
     units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-","μmol", "mg" , "μmol", "mg", "mg", "mg"]
     song =  ["0.5",                "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",    "",  "",     "" ,"", "", "" , "", "", ""]
    
@@ -129,26 +175,26 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     
      
 #%%      
-    # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
-    #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
+    # return order CH4, CO2, FEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_FE, M_Hyd
+    #              CH4, CO2, FEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_FE, H2, M_H_CH4, M_Homo, FE_init, deltaCO2_Hydro
     
     plt.figure()
-    plt.plot( CCH4CO2opt[2], label='AltEpool')
-    plt.title('AltEpool')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')    
-    plt.ylabel('mg Mikrobielles C pro g dw')
+    plt.plot( CCH4CO2opt[2], label='FEpool')
+    plt.title('FEpool')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/FEpool.png')    
+    plt.ylabel('μmol Fe')
     
     plt.figure()
     plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
     plt.title('CO2 aus Acetate')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
-    plt.ylabel('mg Mikrobielles C pro g dw')
+    plt.ylabel(' μmol CO2 ')
     
     plt.figure()
     plt.plot( CCH4CO2opt[4], label='Acetate')
     plt.title('Acetate')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
-    plt.ylabel('μmol')
+    plt.ylabel('μmol Acetate')
     
     plt.figure()
     plt.plot( CCH4CO2opt[5], label='Cpool')
@@ -169,9 +215,9 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
-    plt.title(' AltE_Microben')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltE_Mikroben.png') 
+    plt.plot( CCH4CO2opt[8], label=' FE_Microben')
+    plt.title(' FE_Microben')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/FE_Mikroben.png') 
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
@@ -193,8 +239,8 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     #plt.figure()
-    #plt.plot( CCH4CO2opt[12], label=' AltE_init')
-    #plt.title(' AltE_init')
+    #plt.plot( CCH4CO2opt[12], label=' FE_init')
+    #plt.title(' FFE_init')
     
     plt.figure()
     plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
