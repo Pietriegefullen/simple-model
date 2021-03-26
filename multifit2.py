@@ -111,7 +111,7 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     CCH4CO2opt = simplesolve(xlist,  *optimal_parameters)
     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
       
-    Mol_nach_Pa(n= max(CCH4CO2opt[9]))
+    #Mol_nach_Pa(n= max(CCH4CO2opt[9])) # if I want to know how much Preassure I have of H2
     
 #### Observed and Predicted für CH4 und CO2 geplotted
 #%%
@@ -129,121 +129,172 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
     
      
 #%%      
-    # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
-    #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
+    # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro, deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo
+    # return CH4, CO2, Cpool, AltEpool, M_A_CH4, M_Ferm, M_AltE, M_H_CH4, M_Homo, AceCO2, Acetate, H2, deltaH2_Homo,  CO2_Hydro, CH4_Hydro, H2_Ferm2, M_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo,H2_Hydro
     
     plt.figure()
-    plt.plot( CCH4CO2opt[2], label='AltEpool')
-    plt.title('AltEpool')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')    
-    plt.ylabel('mg Mikrobielles C pro g dw')
-    
-    plt.figure()
-    plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
-    plt.title('CO2 aus Acetate')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
-    plt.ylabel('mg Mikrobielles C pro g dw')
-    
-    plt.figure()
-    plt.plot( CCH4CO2opt[4], label='Acetate')
-    plt.title('Acetate')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
-    plt.ylabel('μmol')
-    
-    plt.figure()
-    plt.plot( CCH4CO2opt[5], label='Cpool')
+    plt.plot( CCH4CO2opt[2], label='Cpool')
     plt.title('Cpool')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Cpool.png')
-    plt.ylabel('mikromol pro g dw')
+    plt.ylabel('μmol pro g dw')   
     
     plt.figure()
-    plt.plot( CCH4CO2opt[6], label='Acetoclastische_Mikroben')
+    plt.plot( CCH4CO2opt[3], label='AltEpool')
+    plt.title('AltEpool')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')    
+    plt.ylabel('μmol pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[4], label='Acetoclastische_Mikroben')
     plt.title('Acetoclastische_Mikroben')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetoclastic_Mikroben.png')  
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[7], label='Fermentierer')
+    plt.plot( CCH4CO2opt[5], label='Fermentierer')
     plt.title('Fermentierer')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Fermentation_Mikroben.png')  
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
+    plt.plot( CCH4CO2opt[6], label=' AltE_Microben')
     plt.title(' AltE_Microben')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltE_Mikroben.png') 
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[9], label=' H2') #typically in the nanomolar range (10 to 180 nM, correponding to about 8 to 140 ppmv in the gas phase [Table conrad
-    plt.title('H2')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2.png') 
-    plt.ylabel('μmol')
-    
-    plt.figure()
-    plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
+    plt.plot( CCH4CO2opt[7], label=' Hydro_Microben')
     plt.title(' Hydro_Microben')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Hydro_Mikroben.png')    
     plt.ylabel('mg Mikrobielles C pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
+    plt.plot( CCH4CO2opt[8], label=' Homo_Microben')
     plt.title(' Homo_Microben')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Homo_Mikroben.png') 
     plt.ylabel('mg Mikrobielles C pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[9], label='CO2 aus Acetate')
+    plt.title('CO2 aus Acetate')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
+    plt.ylabel('μmol pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[10], label='Acetate')
+    plt.title('Acetate insgesamt')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
+    plt.ylabel('μmol pro g dw')
+    
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[11], label=' H2') #typically in the nanomolar range (10 to 180 nM, correponding to about 8 to 140 ppmv in the gas phase [Table conrad
+    plt.title('H2 insgesamt')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2.png') 
+    plt.ylabel('μmol pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[12], label='H2 Aufnahme durch Homo')
+    plt.title('H2 verbraucht durch Homo')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
+    plt.ylabel('μmol pro g dw')
     
     #plt.figure()
     #plt.plot( CCH4CO2opt[12], label=' AltE_init')
     #plt.title(' AltE_init')
     
-    # plt.figure()
-    # plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
-    # plt.title('deltaH2_Hydro')
-    # plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
-    # # plt.ylabel('μmol')        
-    
-    # plt.figure()
-    # plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
-    # plt.title('deltaH2_Homo')
-    # plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
-    # plt.ylabel('μmol')
-    
     plt.figure()
-    plt.plot( CCH4CO2opt[15], label='CO2 aus Hydro')
-    plt.title('CO2 aus Hydro')
-    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_aus_Hydro.png')
-    plt.ylabel('μmol')    
+    plt.plot( CCH4CO2opt[13], label='H2 Aufnahme durch Hydro')
+    plt.title('H2 verbraucht durch Hydro')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
+    plt.ylabel('μmol pro g dw') 
 
     plt.figure()
-    plt.plot( CCH4CO2opt[16], label='CH4 aus Hydro')
+    plt.plot( CCH4CO2opt[14], label='CH4 aus Hydro')
     plt.title('CH4 aus Hydro')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CH4_aus_Hydro.png') 
-    plt.ylabel('μmol')
+    plt.ylabel('μmol pro g dw')
     
     plt.figure()
-    plt.plot( CCH4CO2opt[17], label='H2 aus Ferm2')
+    plt.plot( CCH4CO2opt[15], label='H2 aus Ferm2')
     plt.title('H2 aus Ferm2')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2_aus_Ferm.png')  
-    plt.ylabel('μmol')
+    plt.ylabel('μmol pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[17], label='CO2_Ferm')
+    plt.title('CO2 aus Ferm')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_Ferm.png')  
+    plt.ylabel('μmol pro g dw')
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[18], label='CO2_Alte')
+    plt.title('CO2 aus Alte')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_Alte')  
+    plt.ylabel('μmol pro g dw')
+    
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[19], label='CO2 aufgenommen durch Homo')
+    plt.title('CO2 aufgenommen durch Homo')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2 aufgenommen durch Homo.png')  
+    plt.ylabel('μmol pro g dw')       
+    
+    
+    plt.figure()
+    plt.plot( CCH4CO2opt[20], label='CO2 Aufnahme durch Hydro')
+    plt.title('CO2 aus Hydro')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_aus_Hydro.png')
+    plt.ylabel('μmol pro g dw')    
+
+
 #%%
     # Wie viel CO2 wird nicht aus Acetate produziert
 
-    difference = [a - b for a, b in zip(CCH4CO2opt[1], CCH4CO2opt[3])]
+    difference = [a - b for a, b in zip(CCH4CO2opt[1], CCH4CO2opt[9])]
     
-    # zip_object = zip(CCH4CO2opt[1], CCH4CO2opt[3])
-    # difference = []
-
-    # for CCH4CO2opt[1], CCH4CO2opt[3] in zip_object:
-
-    #     difference.append(CCH4CO2opt[1] - CCH4CO2opt[3])
-
-
+    List1 = [10, 6]
+    List2 = [1,2]
+    
+    differencelist = [c - d for c, d in zip(List1, List2)]
+    differencelist
+    
+    
 
     plt.figure()
     plt.plot(difference, label='CO2 ohne Aceto')
     plt.title('CO2 ohne Aceto')
     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ohneAceto.png')  
-    plt.ylabel('μmol')
+    plt.ylabel('μmol pro g dw')
+    
+
+    #all different contributers to CO2 includin takeup
+    plt.figure()
+    plt.plot(xlist,CCH4CO2opt[1], 'r', label='CO2 Insgesamt')
+    plt.plot( CCH4CO2opt[9],'b', label='CO2 aus Acetate')
+    plt.plot( CCH4CO2opt[17],'g', label='CO2 Ferm')
+    plt.plot( CCH4CO2opt[18], 'y', label='CO2 aus AltE')
+    plt.plot( CCH4CO2opt[20],'coral',label='CO2 Aufnahme durch Hydro')
+    plt.plot( CCH4CO2opt[19],'navy' ,label='CO2 Aufnahme durch Homo')
+    plt.plot( CCH4CO2opt[10], 'lime', label='Acetate')
+    plt.ylabel('μmol pro g dw')
+    plt.legend()
+    plt.title('CO2 Anteilig')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2Anteilig.png')  
+   
+    
+    plt.figure()
+    plt.plot(CCH4CO2opt[11], label=' H2')
+    plt.plot(CCH4CO2opt[13], label='H2 Aufgenommen durch Hydro')
+    plt.plot(CCH4CO2opt[12], label='H2 Aufgenommen durch Homo')
+    plt.ylabel('μmol pro g dw')
+    plt.legend()
+    plt.title('CO2 Anteilig')
+    plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2Anteilig.png')  
+   
+    
+   
+    
 
     #CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,[0 for _ in range(len(CO2))], CO2_Hydro, CH4_Hydro,H2_Ferm2
     
