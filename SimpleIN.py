@@ -39,10 +39,10 @@
 from Microbe import Fermenters, Hydrotrophes, FE, Acetoclast, Homo,Gibbsreaction # Importiert Funktionen aus dem Skript "Microbe"
 
 
-
-#def Cdec(Cpool, FEpool, M_A, M_Ferm, M_FE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
-# when using odeint, Cdec must have the following form: Cdec(y, x, ...) 
-def Cdec(y, x, Fitters):
+#def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
+def Cdec(y, x, Fitters):         
+    Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo,H2_Hydro = y
+    Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Auto, Kmb_Hydro = Fitters
     
     Cpool, FEpool, M_A, M_Ferm, M_FE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2 = y
 
@@ -182,12 +182,9 @@ def Cdec(y, x, Fitters):
     deltaH2 =      -min(-deltaH2, H2)
     deltaCO2 =     -min(-deltaCO2, CO2)
 
-   # print(GrAceto)
-    return deltaCpool, deltaFEpool, deltaM_A, deltaM_Ferm, deltaM_FE, deltaM_Hydro, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2,  deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2
+    #print(deltaH2_Hydro)
     
-
-
+    return deltaCpool, deltaAltEpool, deltaM_A, deltaM_Ferm, deltaM_AltE, deltaM_Hydro, deltaM_Homo, deltaCH4, deltaCO2, deltaCO2_A, deltaAcetate, deltaH2, deltaH2_Homo,  deltaCO2_Hydro, deltaCH4_Hydro, deltaH2_Ferm2, deltaM_Ferm2, deltaCO2_Ferm, deltaCO2_Alte, deltaCO2_Homo, deltaH2_Hydro 
+    
   
-
-
 

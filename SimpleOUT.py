@@ -9,7 +9,7 @@ def optifun(xdata, *Fitters):
     xtage = xdata[0:int(len(xdata)/2)]
  
     #CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
-    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplesolve(xtage,*Fitters)
+    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplesolve(xtage,*Fitters)
     return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
 # CH4 und CO2 werden aneinandergehängt um einen abhängigen Least Sqaure zu berechnen und nicht jeweils einen unabhängigen pro Kurve  
     
@@ -44,24 +44,34 @@ def simplesolve(xtage,*Fitters ):
     CH4_Hydro_init = 0
     H2_Ferm2_init = 0
     M_Ferm2_init = 0.2
+    CO2_Ferm_init = 0
+    CO2_Alte_init = 0
+    CO2_Homo_init = 0
+    H2_Hydro_init = 0
+    
     
     xs = np.linspace(0,int(max(xtage)), int(max(xtage)+1))
-    y0 = Cpool_init,  FE_init,  M_A_CH4_init,  M_Ferm_init,  M_FE_init, M_H_CH4_init,  M_Homo_init,  CH4_init,  CO2_init,  AceCO2_init, Acetate_init,  H2_init,  CO2_Hydro_init,  CH4_Hydro_init, H2_Ferm2_init,  M_Ferm2_init
+    y0 = Cpool_init,  AltE_init,  M_A_CH4_init,  M_Ferm_init,  M_AltE_init, M_H_CH4_init,  M_Homo_init,  CH4_init,  CO2_init, AceCO2_init, Acetate_init,  H2_init, deltaH2_Homo_init, CO2_Hydro_init,  CH4_Hydro_init, H2_Ferm2_init,  M_Ferm2_init,  CO2_Ferm_init , CO2_Alte_init , CO2_Homo_init, H2_Hydro_init
     
     ys = odeint(Cdec, y0, xs, args = (Fitters,))
     
-    Cpool, FEpool, M_A_CH4, M_Ferm, M_FE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, H2,  CO2_Hydro, CH4_Hydro, H2_Ferm2, M_Ferm2 = zip(*ys)
+    Cpool, AltEpool, M_A_CH4, M_Ferm, M_AltE, M_H_CH4, M_Homo, CH4, CO2, AceCO2, Acetate, H2, deltaH2_Homo,  CO2_Hydro, CH4_Hydro, H2_Ferm2, M_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo,H2_Hydro = zip(*ys)
     
-   # FEpool[0::int(1/step)]
+    # , , , , , , , , , , , deltaH2_Homo,  CO2_Hydro, CH4_Hydro, , , , , 
+    #return , , , , , , ,                 deltaCO2_Hydro, deltaCH4_Hydro, , , , ,  
+   
+    
+   # AltEpool[0::int(1/step)]
 
    
     CH4 = [CH4[int(i)] for i in xtage]
     CO2 = [CO2[int(i)] for i in xtage]
 
 
-    return CH4, CO2, FEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_FE, H2, M_H_CH4, M_Homo, FE_init, deltaH2_Hydro,[0 for _ in range(len(CO2))], CO2_Hydro, CH4_Hydro,H2_Ferm2
+    return CH4, CO2, Cpool, AltEpool, M_A_CH4, M_Ferm, M_AltE, M_H_CH4, M_Homo, AceCO2, Acetate, H2, deltaH2_Homo,  CO2_Hydro, CH4_Hydro, H2_Ferm2, M_Ferm2,                 CO2_Ferm,CO2_Alte, CO2_Homo,H2_Hydro
+    #return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro, deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo, H2_Hydro
+    # anstatt delta H2 Homo [0 for _ in range(len(CO2))]
     
-
 def simplefun(xtage, *Fitters):    
     
     step = 1/24.0
@@ -91,11 +101,15 @@ def simplefun(xtage, *Fitters):
     Acetate_init = 0        # Philben wert ca 3, in mikromol pro g 
     AceCO2_init = 0
     H2_init = 0
-    deltaH2_Homo_init = 0
+    H2_Homo_init = 0
     CO2_Hydro_init= 0
     CH4_Hydro_init = 0
     H2_Ferm2_init = 0
     M_Ferm2_init = 0.2
+    CO2_Ferm_init = 0
+    CO2_Alte_init = 0
+    CO2_Homo_init = 0
+    H2_Hydro_init= 0
     
     Cpool    = [Cpool_init]
     FEpool = [FE_init]
@@ -110,18 +124,21 @@ def simplefun(xtage, *Fitters):
     Acetate  = [Acetate_init]
     AceCO2   = [AceCO2_init]
     H2       = [H2_init]
-    deltaH2_Homo = [deltaH2_Homo_init]
+    H2_Homo  = [H2_Homo_init]
     CO2_Hydro = [CO2_Hydro_init]
     CH4_Hydro = [CH4_Hydro_init]
-    H2_Ferm2 = [H2_Ferm2_init]
-    M_Ferm2 = [M_Ferm2_init]
-
+    H2_Ferm2 =  [H2_Ferm2_init]
+    M_Ferm2 =  [M_Ferm2_init]
+    CO2_Ferm = [CO2_Ferm_init]
+    CO2_Alte = [CO2_Alte_init]
+    CO2_Homo = [CO2_Homo_init]
+    H2_Hydro = [H2_Hydro_init]
     
     for t in number_steps: # iteriert über n+1 Zeitschritte (n = max(xtage))
 
-        delta = Cdec(Cpool[-1], FEpool[-1], M_A_CH4[-1],M_Ferm[-1], M_FE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1],CO2_Hydro[-1], CH4_Hydro[-1], H2_Ferm2[-1], M_Ferm2[-1], *Fitters)
+        delta = Cdec(Cpool[-1], AltEpool[-1], M_A_CH4[-1],M_Ferm[-1], M_AltE[-1],M_H_CH4[-1],M_Homo[-1], CH4[-1], CO2[-1], AceCO2[-1], Acetate[-1], H2[-1],H2_Homo[-1], CO2_Hydro[-1], CH4_Hydro[-1], H2_Ferm2[-1], M_Ferm2[-1], CO2_Ferm[-1], CO2_Alte[-1],CO2_Homo[-1],H2_Hydro[-1], *Fitters)
 
-        
+                                                                                                                
         Cpool.append(Cpool[-1] +       step*delta[0])
         FEpool.append(FEpool[-1] + step*delta[1])
         M_A_CH4.append(M_A_CH4[-1] +   step*delta[2])
@@ -134,34 +151,48 @@ def simplefun(xtage, *Fitters):
         AceCO2.append(AceCO2[-1] +     step*delta[9])
         Acetate.append(Acetate[-1] +   step*delta[10])
         H2.append(H2[-1] +             step*delta[11])
-        deltaH2_Hydro.append(          step*delta[12])
-        deltaH2_Homo.append(           step*delta[13])
-        CO2_Hydro.append(              step*delta[14])
-        CH4_Hydro.append(              step*delta[15])
-        H2_Ferm2.append(               step*delta[16])
-        M_Ferm2.append( M_Ferm2[-1] +  step*delta[17])
+        H2_Homo.append(H2_Homo[-1]+    step*delta[12])         
+        CO2_Hydro.append(CO2_Hydro[-1]+step*delta[13])
+        CH4_Hydro.append(CH4_Hydro[-1]+step*delta[14])
+        H2_Ferm2.append(H2_Ferm2[-1]+  step*delta[15])
+        M_Ferm2.append( M_Ferm2[-1] +  step*delta[16])
+        CO2_Ferm.append(CO2_Ferm[-1]+  step*delta[17])
+        CO2_Alte.append(CO2_Alte[-1]+  step*delta[18])
+        CO2_Homo.append(CO2_Homo[-1]+  step*delta[19])
+        H2_Hydro.append(H2_Hydro[-1]+  step*delta[20])                                                                                                  
+   # AltEpool[0::int(1/step)]
+
     
-    
-   # FEpool[0::int(1/step)]
+    Cpool= Cpool[0::int(1/step)]
+    AltEpool = AltEpool[0::int(1/step)] # von 0 bis Ende in Schritten von , damit der Plot nicht in Stunden sondern in Tagen ist
+    M_A_CH4= M_A_CH4[0::int(1/step)]
+    M_Ferm= M_Ferm[0::int(1/step)]
+    M_AltE= M_AltE[0::int(1/step)]
+    M_H_CH4= M_H_CH4[0::int(1/step)]
+    M_Homo= M_Homo[0::int(1/step)]
+    AltE_init= AltE_init
     
     CH4 = [CH4[int(i/step)] for i in xtage]
     CO2 = [CO2[int(i/step)] for i in xtage]
     
-    FEpool = FEpool[0::int(1/step)] # von 0 bis Ende in Schritten von , damit der Plot nicht in Stunden sondern in Tagen ist
     AceCO2 = AceCO2[0::int(1/step)]
     Acetate= Acetate[0::int(1/step)]
-    Cpool= Cpool[0::int(1/step)]
-    M_A_CH4= M_A_CH4[0::int(1/step)]
-    M_Ferm= M_Ferm[0::int(1/step)]
-    M_FE= M_FE[0::int(1/step)]
     H2= H2[0::int(1/step)]
-    M_H_CH4= M_H_CH4[0::int(1/step)]
-    M_Homo= M_Homo[0::int(1/step)]
-    FE_init= FE_init
-    deltaH2_Hydro= deltaH2_Hydro[0::int(1/step)]
-    deltaH2_Homo= deltaH2_Homo[0::int(1/step)]
+    H2_Homo = H2_Homo[0::int(1/step)]
     CO2_Hydro= CO2_Hydro[0::int(1/step)]
     CH4_Hydro= CH4_Hydro[0::int(1/step)]
     H2_Ferm2= H2_Ferm2[0::int(1/step)]
+    M_Ferm2= M_Ferm2[0::int(1/step)]
+    CO2_Ferm = CO2_Ferm[0::int(1/step)]    
+    CO2_Alte = CO2_Alte[0::int(1/step)]
+    CO2_Homo = CO2_Homo[0::int(1/step)]
+  
+    H2_Hydro= H2_Hydro[0::int(1/step)]
 
-    return CH4, CO2, FEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_FE, H2, M_H_CH4, M_Homo, FE_init, deltaH2_Hydro,deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2
+
+    
+    return Cpool, AltEpool,M_A_CH4,M_Ferm, M_AltE,M_H_CH4,M_Homo, AltE_init, CH4, CO2 , AceCO2, Acetate, H2, H2_Homo, CO2_Hydro ,CH4_Hydro,  H2_Ferm2, M_Ferm2, CO2_Ferm,CO2_Alte,CO2_Homo, H2_Hydro
+   
+
+    #print(deltaH2_Hydro)
+   # return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2, CO2_Ferm, CO2_Alte,CO2_Homo
