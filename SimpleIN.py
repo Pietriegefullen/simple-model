@@ -42,7 +42,7 @@ from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importier
 #def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
 def Cdec(y, x, Fitters):         
     Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, deltaH2_Homo, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2, CO2_Ferm, CO2_Alte, CO2_Homo,H2_Hydro = y
-    Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Auto, Kmb_Hydro = Fitters
+    Vmax_Ferm,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro, Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann, Stoch_ALtE, Kmb_Ferm, Kmh_Ferm, Kmb_AltE, Kmb_Ac, Kmb_Hydro = Fitters
     
     
     # FERM FERM FERM FERM FERM 
@@ -98,18 +98,12 @@ def Cdec(y, x, Fitters):
 #    Tot_Ace = 0
   
     
-#    if AltEpool <= 0: # termodyn, AltE besser als Methanogen (Gao 2019), AltE müssen leer sein bevor Ace anfängt
-        # Sterben muss noch ins MiKrobenskript 
-        
-    # Relikt aus Vorgängermodel, im Moment nicht funktionsfähig
-       # M_A_CH4_geheilt = 0 if M_A_CH4_krank <= 0 else (w_A_CH4_heil * M_A_CH4_krank)
-       # deltaM_A_CH4_krank = - M_A_CH4_geheilt
-       # deltaM_A_CH4 = w_A_CH4 *  M_A_CH4  +  M_A_CH4_geheilt
+
         
         
 # ACETO ACETO ACETO ACETO  
 
-    deltaM_A, deltaAcetate_A,Tot_Ace =   Acetoclast(M_A, Acetate,w_Ace, Vprod_max_Ace, Sensenmann, Kmb_Auto)
+    deltaM_A, deltaAcetate_A,Tot_Ace =   Acetoclast(M_A, Acetate,w_Ace, Vprod_max_Ace, Sensenmann, Kmb_Ac)
     deltaCH4_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CH4
     deltaCO2_A = - deltaAcetate_A * 0.5 # pro mol Acetate entsteht 0.5 Mol CO2
 

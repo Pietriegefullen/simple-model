@@ -81,7 +81,7 @@ def Fermenters(Biomass, Sub1, Sub2 , Vmax, w_Ferm, Sensenmann, Kmb, Kmh):
 
 
 
-def AltE(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max,w_AltE,Sensenmann, Kmb):
+def Fe(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max,w_AltE,Sensenmann, Kmb):
     Km1 = 0.005/SOIL_DENSITY   #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
     Km2 = 0                     # damit AltE Pool keine michaelis menten gleichung hat 
     #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
