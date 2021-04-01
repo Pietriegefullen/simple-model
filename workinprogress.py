@@ -7,8 +7,12 @@ Created on Fri Mar 26 13:27:41 2021
 
 import numpy as np
 import scipy
+from scipy import optimize
+from scipy.integrate import odeint
 import pandas as pd
 import matplotlib as plt
+from Microbe import Fermenters, Hydrotrophes, Fe, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
+
 # variablen die optimiert werden
 changeables_order = ['Vmax_Ferm', 
                    'w_Ferm',
@@ -70,7 +74,7 @@ def load_data(specimen_index):
     
     data_array = data_df.values
         
-    data_array[:,m] = np.around(data_array[:,day_column_index]) # rundet die Tage auf ganze tage (trotzdem floats)
+    data_array[:,day_column_index] = np.around(data_array[:,day_column_index]) # rundet die Tage auf ganze tage (trotzdem floats)
     
     #erstellt Liste wo negative Werte vorhanden sind die ersetzt werden müssen
     indexListCH4 = np.where(np.isin(data_array[:,CH4_column_index],data_array[:,CH4_column_index][np.where(data_array[:,CH4_column_index]<0)]))
@@ -87,7 +91,9 @@ def load_data(specimen_index):
     Realdata = {'measured_time': data_array[:,day_column_index],
                 'CO2':data_array[:,CH4_column_index],
                 'CH4':data_array[:,CO2_column_index]}
-   
+
+    return Realdata
+
 
 def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die parameter? 
     system_dict = dict(zip(pool_order, system_state_array))
@@ -102,7 +108,7 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     M_Homo_pool = system_dict['M_Homo_pool']
     M_Ferm2_pool = system_dict['M_Ferm2_pool']
     CH4_pool = system_dict['CH4_pool']
-    CH4_Hydro_pool = system_dict['Ch4_Hydro_pool']
+    CH4_Hydro_pool = system_dict['CH4_Hydro_pool']
     CO2_pool = system_dict['CO2_pool']
     CO2_Ac_pool = system_dict['CO2_Ac_pool']
     CO2_Hydro_pool = system_dict['CO2_Hydro_pool']
@@ -115,10 +121,28 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     H2_Hydro_pool = system_dict['H2_Hydro_pool']
 
     
+    Vmax_Ferm= model_parameter_dict['Vmax_Ferm']
+    w_Ferm= model_parameter_dict['w_Ferm']
+    Sensenmann= model_parameter_dict['Sensenmann']
+    Kmb_Ferm= model_parameter_dict['Kmb_Ferm']
+    Kmh_Ferm= model_parameter_dict['Kmh_Ferm']
+    Stoch_Fe= model_parameter_dict['Stoch_Fe']
+    Vmax_Fe= model_parameter_dict['Vmax_Fe']
+    w_Fe = model_parameter_dict['w_Fe']
+    Kmb_Fe = model_parameter_dict['Kmb_Fe']
+    w_Ac= model_parameter_dict['w_Ac']
+    Vmax_Ac= model_parameter_dict['Vmax_Ac']
+    Kmb_Ac= model_parameter_dict['Kmb_Ac']
+    w_Hydro= model_parameter_dict['w_Hydro']
+    Vmax_Hydro= model_parameter_dict['Vmax_Hydro']
+    Kmb_Hydro = model_parameter_dict['Kmb_Hydro']
+    w_Homo = model_parameter_dict['w_Homo']
+    Vmax_Homo = model_parameter_dict['Vmax_Homo']
+
 
 
     # FERM FERM FERM 
-    deltaM_Ferm, deltaCpool, _, Tot_Ferm =   Fermenters(M_Ferm, C_pool, Acetate, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
+    deltaM_Ferm, deltaCpool, _, Tot_Ferm =   Fermenters(M_Ferm_pool, C_pool, Acetate_pool, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
     deltaAcetate_Ferm = - (deltaCpool)
     # Produziert:
     deltaCO2_Ferm = deltaAcetate_Ferm * 0.5 
@@ -132,29 +156,29 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     deltaM_Ferm2 = 0
     
     # FE FE FE FE
-    deltaM_Fe, deltaAcetate_Fe, deltaFe_pool, Tot_Fe =   Fe(M_Fe, Acetate, Fe_pool, Stoch_Fe, Vmax_Fe, w_FE, Sensenmann, Kmb_Fe)
+    deltaM_Fe, deltaAcetate_Fe, deltaFe_pool, Tot_Fe =   Fe(M_Fe_pool, Acetate_pool, Fe_pool, Stoch_Fe, Vmax_Fe, w_Fe, Sensenmann, Kmb_Fe)
     deltaCO2_Fe = - deltaAcetate_Fe * 2 # pro 1 Acetate entstehen zwei CO2
     deltaH2_Fe = - deltaAcetate_Fe #* 0 # was ist der wirkliche Wert? 
     
     # ACETO ACETO ACETO   
-    deltaM_Ac, deltaAcetate_Ac,Tot_Ac =   Acetoclast(M_Ac, Acetate, w_Ac, Vmax_Ac, Sensenmann, Kmb_Ac)
+    deltaM_Ac, deltaAcetate_Ac,Tot_Ac =   Acetoclast(M_Ac_pool, Acetate_pool, w_Ac, Vmax_Ac, Sensenmann, Kmb_Ac)
     deltaCH4_Ac = - deltaAcetate_Ac * 0.5 # pro mol Acetate entsteht 0.5 Mol CH4
     deltaCO2_Ac = - deltaAcetate_Ac * 0.5 # pro mol Acetate entsteht 0.5 Mol CO2
     
     # HYDRO HYDRO HYDRO
-    deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro, Tot_Hydro =   Hydrotrophes(M_Hydro, CO2, H2, w_Hydro, Vmax_Hydro, Sensenmann, Kmb_Hydro)
+    deltaM_Hydro, deltaCO2_Hydro, deltaH2_Hydro, Tot_Hydro =   Hydrotrophes(M_Hydro_pool, CO2_pool, H2_pool, w_Hydro, Vmax_Hydro, Sensenmann, Kmb_Hydro)
     deltaCH4_Hydro = - deltaCO2_Hydro # pro mol CO2 entsteht 1 mol CH4 
     
     # HOMO HOMO HOMO
-    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo, CO2, H2, w_Homo, Vmax_Homo, Sensenmann)
+    deltaM_Homo, deltaCO2_Homo ,deltaH2_Homo, Tot_Homo =   Homo(M_Homo_pool, CO2_pool, H2_pool, w_Homo, Vmax_Homo, Sensenmann)
     deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
 
     
     m_C = 12.01*1e-3 # molar mass of carbon
     changes_dict                    = dict()
-    changes_dict['C_pool']          = -min(Cpool,-deltaCpool) +  (Tot_Hydro + Tot_Ac + Tot_Fe + Tot_Ferm + Tot_Homo)/m_C
+    changes_dict['C_pool']          = -min(C_pool,-deltaCpool) +  (Tot_Hydro + Tot_Ac + Tot_Fe + Tot_Ferm + Tot_Homo)/m_C
     changes_dict['Fe_pool']         = deltaFe_pool
-    changes_dict['Acetate_pool']    = -min(Acetate, -(deltaAcetate_Ferm + deltaAcetate_Fe + deltaAcetate_Ac + deltaAcetate_Homo ))  
+    changes_dict['Acetate_pool']    = -min(Acetate_pool, -(deltaAcetate_Ferm + deltaAcetate_Fe + deltaAcetate_Ac + deltaAcetate_Homo ))  
     changes_dict['M_Ac_pool']       = deltaM_Ac
     changes_dict['M_Ferm_pool']     = deltaM_Ferm
     changes_dict['M_Fe_pool']       = deltaM_Fe
@@ -162,14 +186,14 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     changes_dict['M_Homo_pool']     = deltaM_Homo
     changes_dict['M_Ferm2_pool']    = deltaM_Ferm2
     changes_dict['CH4_pool']        = deltaCH4_Ac + deltaCH4_Hydro 
-    changes_dict['Ch4_Hydro_pool']  = deltaCH4_Hydro
-    changes_dict['CO2_pool']        = -min(CO2, -(deltaCO2_Ferm + deltaCO2_Fe + deltaCO2_Ac + deltaCO2_Hydro + deltaCO2_Homo))  
+    changes_dict['CH4_Hydro_pool']  = deltaCH4_Hydro
+    changes_dict['CO2_pool']        = -min(CO2_pool, -(deltaCO2_Ferm + deltaCO2_Fe + deltaCO2_Ac + deltaCO2_Hydro + deltaCO2_Homo))  
     changes_dict['CO2_Ac_pool']     = deltaCO2_Ac
     changes_dict['CO2_Hydro_pool']  = deltaCO2_Hydro
     changes_dict['CO2_Ferm_pool']   = deltaCO2_Ferm
     changes_dict['CO2_Fe_pool']     = deltaCO2_Fe
     changes_dict['CO2_Homo_pool']   = deltaCO2_Homo
-    changes_dict['H2_pool']         = -min(H2, -(deltaH2_Ferm + deltaH2_Fe + deltaH2_Hydro + deltaH2_Ferm2  + deltaH2_Homo ))  
+    changes_dict['H2_pool']         = -min(H2_pool, -(deltaH2_Ferm + deltaH2_Fe + deltaH2_Hydro + deltaH2_Ferm2  + deltaH2_Homo ))  
     changes_dict['H2_Homo_pool']    = deltaH2_Homo
     changes_dict['H2_Ferm2_pool']   = deltaH2_Ferm2
     changes_dict['H2_Hydro_pool']   = deltaH2_Hydro
@@ -189,7 +213,7 @@ def predictor(t_out, initial_pool_values_dict, model_parameters_dict):
     pool_values_at_time_points = odeint(Cdec, 
                                         initial_pool_values_array, 
                                         t_out, 
-                                        args = model_parameters_dict,
+                                        args = (model_parameters_dict,),
                                         tfirst = True)
     pool_values_at_time_points = np.transpose(pool_values_at_time_points)
     # VOR dem transponieren ist der output von odeint ein 2D array mit
@@ -232,8 +256,8 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
                                 initial_pool_dict, 
                                 model_parameters_dict)
     
-    CO2_predicted = y_predicted_dict['CO2']
-    CH4_predicted = y_predicted_dict['CH4']
+    CO2_predicted = y_predicted_dict['CO2_pool']
+    CH4_predicted = y_predicted_dict['CH4_pool']
     
     CO2_measured = measured_data_dict['CO2']
     CH4_measured = measured_data_dict['CH4']
@@ -271,10 +295,10 @@ def fit_my_model(Realdata):
     fixed_quantities_dict['CO2_pool'] = 0
     fixed_quantities_dict['CO2_Hydro_pool']= 0
     fixed_quantities_dict['CO2_Ferm_pool'] = 0
-    fixed_quantities_dict['CO2_Alte_pool'] = 0
+    fixed_quantities_dict['CO2_Fe_pool'] = 0
     fixed_quantities_dict['CO2_Homo_pool'] = 0
     fixed_quantities_dict['Acetate_pool'] = 0        # Philben wert ca 3, in mikromol pro g 
-    fixed_quantities_dict['AcCO2_pool'] = 0
+    fixed_quantities_dict['CO2_Ac_pool'] = 0
     fixed_quantities_dict['H2_pool'] = 0
     fixed_quantities_dict['H2_Homo_pool'] = 0
     fixed_quantities_dict['H2_Ferm2_pool'] = 0
@@ -361,8 +385,12 @@ def plot_my_data(specimen_index):
 
 
 
+#%%
 
+#fit_my_model([0])
+testdata = load_data(0)
 
+#%%
 
 
 # xopt = [3.456, 7.45]
