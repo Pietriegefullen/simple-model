@@ -55,11 +55,11 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
            0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
            4,        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
            5.75,      # AltE pool init 7
-           10,      # Kmb ferm, for inverse M-M Biomass 10
-           10,      # Kmh ferm, for hemmung of fermenters by acetate 10
-           10,      # Kmb AltE 10
-           10,      # Kmb auto 10
-           10]      # Kmb hydro 10
+           20,      # Kmb ferm, for inverse M-M Biomass 10
+           20,      # Kmh ferm, for hemmung of fermenters by acetate 10
+           20,      # Kmb AltE 10
+           20,      # Kmb ace 10
+           20]      # Kmb hydro 10
     
     bounds = [[0.01, 0.11],     # Vmax Ferm
               [0.029, 1.9],     # Vmax AltE
@@ -73,12 +73,12 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
               [0.01, 0.05],     # w Ace
               [-0.000000001, 0.0000844],    # Sensenmann
               [1,    8],        # Stoch AltE
-              [2,   10],        # AltE pool init
-              [ 1, 10 ],        # Kmb ferm
-              [ 1, 10 ],        # Kmh ferm
-              [ 1, 10 ],        # Kmb AltE
-              [ 1, 10 ],        # Kmb Auto
-              [ 1, 10 ]]        # Kmh Hydro
+              [2,  30],        # AltE pool init
+              [ 1, 30 ],        # Kmb ferm
+              [ 1, 30 ],        # Kmh ferm
+              [ 1, 30 ],        # Kmb AltE
+              [ 1, 30 ],        # Kmb Ace
+              [ 1, 30 ]]        # Kmh Hydro
            
     optimal_parameters , _ = curve_fit(optifun, xdata, ydata, #method="dogbox",
                                        p0 = p0, 

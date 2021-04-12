@@ -32,7 +32,7 @@ def HeteroMicrobe(Biomass, Sub1, Sub2, w, Km1, Vmax, Sensenmann, Kmb, Kmh):  #AT
 
  
     ToteMicroben = Biomass * Sensenmann
-    deltaBiomass = deltaSub1Grow * m_C   - ToteMicroben #* (1-MM2)
+    deltaBiomass = deltaSub1Grow * m_C  * (1-MM2) - ToteMicroben #* (1-MM2)
     # schink1997energetics, Acetate hemmt ab 10 mikromol (für ein bestimmtes Bakterium)
     deltaSub2 = 0
  

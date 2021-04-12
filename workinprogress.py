@@ -4,14 +4,18 @@ Created on Fri Mar 26 13:27:41 2021
 
 @author: Lara
 """
-
+import os
 import numpy as np
 import scipy
 from scipy import optimize
 from scipy.integrate import odeint
+from scipy import stats
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 from Microbe import Fermenters, Hydrotrophes, Fe, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
+
+
+import time
 
 # variablen die optimiert werden
 changeables_order = ['Vmax_Ferm', 
@@ -89,13 +93,13 @@ def load_data(specimen_index):
     
     #umwandeln der daten in dict für "fit my model"                        
     Realdata = {'measured_time': data_array[:,day_column_index],
-                'CO2':data_array[:,CH4_column_index],
-                'CH4':data_array[:,CO2_column_index]}
+                'CH4':data_array[:,CH4_column_index],
+                'CO2':data_array[:,CO2_column_index]}
 
     return Realdata
 
 
-def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die parameter? 
+def Cdec(t, system_state_array, model_parameter_dict):# fehlen hier die parameter? 
     system_dict = dict(zip(pool_order, system_state_array))
     
     C_pool = system_dict['C_pool']
@@ -174,6 +178,8 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     deltaAcetate_Homo  = - deltaH2_Homo * 4 # aus 4 mol H2 wird ein mol Acetate
 
     
+  
+    
     m_C = 12.01*1e-3 # molar mass of carbon
     changes_dict                    = dict()
     changes_dict['C_pool']          = -min(C_pool,-deltaCpool) +  (Tot_Hydro + Tot_Ac + Tot_Fe + Tot_Ferm + Tot_Homo)/m_C
@@ -201,6 +207,8 @@ def Cdec(time, system_state_array, model_parameter_dict):# fehlen hier die param
     
     changes_to_system_list = [changes_dict[key] for key in pool_order]
     changes_to_system_state_array = np.array(changes_to_system_list)
+    
+    
     return changes_to_system_state_array
 
 
@@ -210,11 +218,16 @@ def predictor(t_out, initial_pool_values_dict, model_parameters_dict):
     initial_pool_values_list = [initial_pool_values_dict[key] for key in pool_order] # diese zeile sorgt für die richtige reihenfolge für Cdec
     initial_pool_values_array = np.array(initial_pool_values_list)
     
+    
+    #odeint_start = time.time()
     pool_values_at_time_points = odeint(Cdec, 
                                         initial_pool_values_array, 
                                         t_out, 
                                         args = (model_parameters_dict,),
                                         tfirst = True)
+    #odeint_time = time.time() - odeint_start
+    #print('odeint time', odeint_time)
+    
     pool_values_at_time_points = np.transpose(pool_values_at_time_points)
     # VOR dem transponieren ist der output von odeint ein 2D array mit
     # einer Zeile für jeden Zeitpunkt,
@@ -228,7 +241,8 @@ def predictor(t_out, initial_pool_values_dict, model_parameters_dict):
 
 
 def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict):  
-    
+    print('')
+   # print('ls call')
     # in den folgenden beiden blöcken werden die variablen und fixen
     # parameter neu geordnet, weil predictor() die parameter getrennt haben 
     # will, je nach dem, ob sie initiale pool-pegel sind oder andere modell-parameter
@@ -252,10 +266,12 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
         else:
             model_parameters_dict[key] = fixed_quantities_dict[key]
     
+    #predictor_start = time.time()
     y_predicted_dict = predictor(measured_data_dict['measured_time'],
                                 initial_pool_dict, 
                                 model_parameters_dict)
-    
+   # predictor_time = time.time() - predictor_start
+    #print('predictor time', predictor_time)
     CO2_predicted = y_predicted_dict['CO2_pool']
     CH4_predicted = y_predicted_dict['CH4_pool']
     
@@ -306,33 +322,42 @@ def fit_my_model(Realdata):
 
     
     # unterkringelt (zu optimierende parameter)
-    changeables_initial_guess_dict = dict()
-    changeables_initial_guess_dict['Vmax_Ferm'] = 0.1  # Vmax Ferm 0.01  roden2003competition wert ist 17 !
-    changeables_initial_guess_dict['w_Ferm']    = 0.05    # w Ferm 0.04
-    changeables_initial_guess_dict['Kmb_Ferm']  = 10     # Kmb ferm, for inverse M-M Biomass 10
-    changeables_initial_guess_dict['Kmh_Ferm']  = 10      # Kmh ferm, for hemmung of fermenters by acetate 10
-    changeables_initial_guess_dict['Vmax_Fe']   = 0.3    # Vmax Fe 0.9
-    changeables_initial_guess_dict['w_Fe']      = 0.013    # w Fe 0.02
-    changeables_initial_guess_dict['Stoch_Fe']  = 4        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
-    changeables_initial_guess_dict['Kmb_Fe' ]   = 10      # Kmb Fe 10            
-    changeables_initial_guess_dict['Vmax_Ac']   = 0.207    # Vmax Ac 0.15   roden2003competition wert ist 15 !
-    changeables_initial_guess_dict['w_Ac']      = 0.04    # w Ac 0.03
-    changeables_initial_guess_dict['Kmb_Ac']    = 10     # Kmb Ac 10
-    changeables_initial_guess_dict['Vmax_Homo'] = 0.133   # Vmax Homo 0.05
-    changeables_initial_guess_dict['w_Homo']    = 0.049    # w Homo 0.05
-    changeables_initial_guess_dict['Vmax_Hydro']= 0.086    # Vmax Hydro 0.05
-    changeables_initial_guess_dict['w_Hydro']   = 0.024    # w Hydro 0.02
-    changeables_initial_guess_dict['Kmb_Hydro'] = 10
-    changeables_initial_guess_dict['Sensenmann']= 0.0000833   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
-    changeables_initial_guess_dict['Fe_pool']   = 5.75
+    changeables_initial_guess_dict = dict() # erst startwert, dann lower, dann upper bound
+    changeables_initial_guess_dict['Vmax_Ferm'] = (0.1 ,    0.01,   0.11)     # Vmax Ferm 0.01  roden2003competition wert ist 17 !
+    changeables_initial_guess_dict['w_Ferm']    = (0.05,    0.03,   0.05)     # w Ferm 0.04
+    changeables_initial_guess_dict['Kmb_Ferm']  = (10,      1,      10)     # Kmb ferm, for inverse M-M Biomass 10
+    changeables_initial_guess_dict['Kmh_Ferm']  = (5,      1,      10)       # Kmh ferm, for hemmung of fermenters by acetate 10
+    changeables_initial_guess_dict['Vmax_Fe']   = (0.6 ,    0.029,  1.9)     # Vmax Fe 0.9
+    changeables_initial_guess_dict['w_Fe']      = (0.013,   0.01,   0.05)    # w Fe 0.02
+    changeables_initial_guess_dict['Stoch_Fe']  = (4 ,      1,      8 )       # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
+    changeables_initial_guess_dict['Kmb_Fe' ]   = (10  ,    1,      10)     # Kmb Fe 10            
+    changeables_initial_guess_dict['Vmax_Ac']   = (0.174 ,  0.05,   0.39)   # Vmax Ac 0.15   roden2003competition wert ist 15 !
+    changeables_initial_guess_dict['w_Ac']      = (0.04,    0.01,   0.05)    # w Ac 0.03
+    changeables_initial_guess_dict['Kmb_Ac']    = (10,      1,      10)      # Kmb Ac 10
+    changeables_initial_guess_dict['Vmax_Homo'] = (0.27,   0.005,  1)   # Vmax Homo 0.05
+    changeables_initial_guess_dict['w_Homo']    = (0.049,   0.01,   0.05)  # w Homo 0.05
+    changeables_initial_guess_dict['Vmax_Hydro']= (0.076,   0.03,   0.2)    # Vmax Hydro 0.05
+    changeables_initial_guess_dict['w_Hydro']   = (0.024,   0.01,   0.05)  # w Hydro 0.02
+    changeables_initial_guess_dict['Kmb_Hydro'] = (10,      1,      10)
+    changeables_initial_guess_dict['Sensenmann']= (0.0000833,-0.000000001, 0.0000844)   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
+    changeables_initial_guess_dict['Fe_pool']   = (6.48,    1,      100)
     
     
-    changeables_initial_guess_list = [changeables_initial_guess_dict[key] for key in changeables_order]
+
+    
+    changeables_initial_guess_list = [changeables_initial_guess_dict[key][0] for key in changeables_order]
+    changeables_initial_guess_lower = [changeables_initial_guess_dict[key][1] for key in changeables_order]
+    changeables_initial_guess_upper = [changeables_initial_guess_dict[key][2] for key in changeables_order]
+    changeables_initial_guess_bounds = list(zip(changeables_initial_guess_lower, changeables_initial_guess_upper))
     changeables_initial_guess_array = np.array(changeables_initial_guess_list)
-    changeables_optimal_array = scipy.optimize.minimize(least_squares_error, 
+    print('start min')
+    optimization_result = scipy.optimize.minimize(least_squares_error, 
                                                  changeables_initial_guess_array,
-                                                 args = (fixed_quantities_dict, Realdata))
-    
+                                                 args = (fixed_quantities_dict, Realdata),
+                                                 bounds= changeables_initial_guess_bounds,
+                                                 options = {'maxiter':200000,
+                                                            'disp':True})
+    changeables_optimal_array = optimization_result.x
     changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
     
     
@@ -350,46 +375,59 @@ def fit_my_model(Realdata):
         else:
             optimal_model_parameters_dict[key] = fixed_quantities_dict[key]
             
+    print(optimal_model_parameters_dict)
+            
     return initial_pool_dict, optimal_model_parameters_dict
     
 
 # plots
 def plot_my_data(specimen_index): 
-    
     Realdata = load_data(specimen_index)
-    
-    optimal_model_parameters_dict, initial_pool_dict =  fit_my_model(Realdata)
+    initial_pool_dict, optimal_model_parameters_dict =  fit_my_model(Realdata)
+    print('end min')
+    last_day = int(max(Realdata['measured_time']))
+    days_for_plot = np.linspace(0,last_day, num = last_day+1)
+    pool_value_dict = predictor(days_for_plot, initial_pool_dict, optimal_model_parameters_dict) 
 
-    pool_value_dict = predictor(np.linespace(0,max(Realdata['measured_time'])), initial_pool_dict, optimal_model_parameters_dict) 
-
-    data_len = len(Realdata)
-    for x, a, col in zip([0,data_len],["CH4","CO2"], ["r", "b"]):
+    for a, col in zip(["CH4","CO2"], ["r", "b"]):
         plt.figure()
-        plt.plot(xlist,[ydata[i] for i in range(x,data_len+x)],col+"o", label = "Observed")
-        plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,data_len+x)],"k-",label = "Predicted")
+        plt.plot(Realdata['measured_time'], Realdata[a], col+"o", label = "Observed")
+        plt.plot(days_for_plot, pool_value_dict[a+'_pool'], "k-",label = "Predicted")
         plt.ylabel(a)
         plt.legend()
-        save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_'+str(m)+'.png')
+        
+        save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
         plt.savefig(save_path)
-    _ ,_ , R2, _ , _ = stats.linregress(CCH4CO2optList, y=ydata)
-    print("R2 is", R2)
+        
+        _ ,_ , R2, _ , _ = stats.linregress(Realdata[a], y=pool_value_dict[a+'_pool'][Realdata['measured_time'].astype(int)])
+        print("R2 for "+a+" is", R2)
+
+    # TODO: measured_time counts from 0 or 1?
 
 
 
-    for pool_name in pool_value_dict: 
+    for pool_name, pool_curve in pool_value_dict.items(): 
         plt.figure()
-        plt.plot(np.linespace(0,max(Realdata['measured_time'])), pool_value_dict[pool_name], label= pool_name)
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
         plt.title(pool_name)
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name + '.png') 
+        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
         #plt.ylabel('mg Mikrobielles C pro g dw')
+        
+    
+
+    for pool_name, pool_curve in pool_value_dict.items(): 
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
+        plt.title(pool_name)
+        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
 
 
+plot_my_data(0)
 
 #%%
 
-#fit_my_model([0])
-testdata = load_data(0)
 
+testdata = load_data(0)
+initial_pool_dict, optimal_model_parameters_dict = fit_my_model(testdata)
 #%%
 
 

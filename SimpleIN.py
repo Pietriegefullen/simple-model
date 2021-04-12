@@ -36,7 +36,7 @@
 #delta"Pool" :  Die Änderungen in den entsprechenden Pools
 
 
-from Microbe import Fermenters, Hydrotrophes, AltE, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
+from Microbe import Fermenters, Hydrotrophes, Fe, Acetoclast, Homo # Importiert Funktionen aus dem Skript "Microbe"
 
 
 #def Cdec(Cpool, AltEpool, M_A, M_Ferm, M_AltE, M_Hydro, M_Homo, CH4, CO2, CO2_A, Acetate, H2, CO2_Hydro, CH4_Hydro,H2_Ferm2, M_Ferm2,  Fitters):         
@@ -65,7 +65,7 @@ def Cdec(y, x, Fitters):
     
     # ALT E ALT E ALT E ALT E 
     # nur solange AltE UND Acetat vorhanden
-    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   AltE(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann, Kmb_AltE)
+    deltaM_AltE, deltaAcetate_AltE, deltaAltEpool, Tot_ALtE =   Fe(M_AltE, Acetate, AltEpool, Stoch_ALtE, Vprod_max_AltE, w_AltE, Sensenmann, Kmb_AltE)
     deltaCO2_Alte = - deltaAcetate_AltE * 2 # pro 1 Acetate entstehen zwei CO2
     deltaH2_Alte = - deltaAcetate_AltE #* 0 # was ist der wirkliche Wert? 
  
