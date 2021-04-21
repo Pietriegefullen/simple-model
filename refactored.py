@@ -54,6 +54,25 @@ fitters_order = ['Vmax_Ferm',
                  'Kmb_Hydro',
                  'Fe']
 
+parameter_units = {'Vmax_Ferm':"μmol/mg",         
+                   'Vprod_max_AltE':"μmol/mg",       
+                   'Vprod_max_Homo':"μmol/mg",      
+                   'Vprod_max_Hydro':"μmol/mg",          
+                   'Vprod_max_Ace':"μmol/mg",      
+                   'w_Ferm':"mg/μmol",
+                   'w_AltE':"mg/μmol",
+                   'w_Hydro':"mg/μmol",
+                   'w_Homo':"mg/μmol",
+                   'w_Ace':"mg/μmol",
+                   'Sensenmann':"-", 
+                   'Stoch_ALtE':"-",
+                   'Kmb_Ferm':"mg" ,
+                   'Kmh_Ferm':"μmol", 
+                   'Kmb_AltE':"mg",
+                   'Kmb_Auto':"mg",
+                   'Kmb_Hydro':"mg",
+                   'Fe':"μmol"}
+
 def load_data(specimen_index):
     # TODO load Corg content of samples Datei Corg_Probennummern
     
@@ -91,16 +110,6 @@ def load_data(specimen_index):
 
     return Realdata
 
-
-def optifun(xdata, *Fitters):    
-    xtage = xdata[0:int(len(xdata)/2)]
- 
-    #CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplefun(xtage,*Fitters)
-    CH4, CO2,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_= simplesolve(xtage,*Fitters)
-    return CH4 + CO2 # setzt die für uns interessanten Ausgaben in curvefit format zusammen
-# CH4 und CO2 werden aneinandergehängt um einen abhängigen Least Sqaure zu berechnen und nicht jeweils einen unabhängigen pro Kurve  
-    
-# SIMPELFUN, der Euler Forward Mechanismus
 
 def curve_wrapper(fixed_quantities):
     def merged_curves(t, *changeables):
@@ -189,6 +198,71 @@ def simplesolve(xtage,*Fitters ):
     return CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaH2_Hydro,[0 for _ in range(len(CO2))], CO2_Hydro, CH4_Hydro,H2_Ferm2
     
 
+def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index): 
+    plt.close('all')
+
+    measurement_days = Realdata['measured_time'].astype(int)
+
+    for a, col in zip(["CH4","CO2"], ["r", "b"]):
+        
+        plt.figure()
+        plt.plot(measurement_days, Realdata[a], col+"o", label = "Observed")
+        plt.plot(pool_value_dict[a], "k-",label = "Predicted")
+        plt.ylabel(a)
+        plt.legend()
+        
+        save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
+        plt.savefig(save_path)
+                
+        # berechne R^2
+        measured_values = Realdata[a]
+        predicted_values = pool_value_dict[a][measurement_days]
+        mean_measured_value = np.mean(measured_values)
+        residuals = measured_values - predicted_values
+        residual_sum_of_squares = np.sum(residuals**2)
+        total_sum_of_squares = np.sum((measured_values - mean_measured_value)**2)
+        r_squared = 1 - residual_sum_of_squares/total_sum_of_squares
+        
+        # adjust R^2 for number of degrees of freedom
+        n = measurement_days.size # number of measurements
+        p = len(fitters_order) # number of explanatory terms
+        adjusted_r_squared = 1 - (1-r_squared)*(n-1)/(n-p-1)
+        
+#        _ ,_ , R2, _ , _ = stats.linregress(y = Realdata[a], x=pool_value_dict[a+'_pool'][measurement_days])
+#        print("R2 for "+a+" is", R2)
+        print("r2 for "+a+" is", r_squared)
+        print("r2adj  "+a+" is", adjusted_r_squared)
+
+    # TODO: measured_time counts from 0 or 1?
+
+
+
+    for pool_name, pool_curve in pool_value_dict.items(): 
+        plt.figure()
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
+        plt.title(pool_name)
+        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
+        #plt.ylabel('mg Mikrobielles C pro g dw')
+
+    
+    # for _ in pool_value_dict.keys():
+    #     if "CO2" in  pool_value_dict.keys():
+    #         all_CO2_contributers = dict()
+    #         all_CO2_contributers= pool_value_dict.items()
+    #         wanted_keys = pool_value_dict.keys()
+            
+    # all_CO2_contributers2 = dict((k, pool_value_dict[k]) for k in wanted_keys if k in pool_value_dict)
+            
+    
+    all_CO2_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CO2" in pool_name:
+            all_CO2_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CO2_contributers.items():
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
+    plt.legend()
+
 if __name__ == '__main__':
     plt.close('all')
 
@@ -206,11 +280,11 @@ if __name__ == '__main__':
         measurement_days = Realdata['measured_time']
         merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
 
-        fixed_quantities = dict()
-        fixed_quantities['M_Ac'] = 0.001
-        fixed_quantities['M_Ferm'] = 0.2
-        fixed_quantities['M_Fe'] = 0.2
-        fixed_quantities['M_Ferm2'] = 0.2    
+        fixed_quantities_dict = dict()
+        fixed_quantities_dict['M_Ac'] = 0.001
+        fixed_quantities_dict['M_Ferm'] = 0.2
+        fixed_quantities_dict['M_Fe'] = 0.2
+        fixed_quantities_dict['M_Ferm2'] = 0.2    
 
         initial_guess_dict = dict()
         initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01, 0.11)
@@ -237,7 +311,7 @@ if __name__ == '__main__':
         lower_bounds = [initial_guess_dict[key][1] for key in fitters_order]
         upper_bounds = [initial_guess_dict[key][2] for key in fitters_order]
         
-        merged_curves = curve_wrapper(fixed_quantities)
+        merged_curves = curve_wrapper(fixed_quantities_dict)
         optimal_parameters , _ = curve_fit(merged_curves,
                                            measurement_days, 
                                            merged_measurements, #method="dogbox",
@@ -248,45 +322,68 @@ if __name__ == '__main__':
                                            merged_measurements, #method="dogbox",
                                            p0 = optimal_parameters, 
                                            bounds=(lower_bounds, upper_bounds))
-       
-        names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro", "AltEpool"]
-        units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-", "mg" , "μmol", "mg", "mg", "mg","μmol"]
+        changeables_optimal_dict = dict(zip(fitters_order, optimal_parameters))
+        
+        # TODO: print song for comparison
         song =  ["0.5",                "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",    "",  "",     "" ,"", "", "" , "", "", ""]
-       
+        # SOIL_DENSITY = 1.3        
+               # print("{:<18} {:6.3f} {:<10} ({:})".format(n,p*SOIL_DENSITY,"mol/m^3", s))
+
         #Printing the Parameter and its value
-        for n, p, u in zip(names, optimal_parameters, units):
-            print("{:<18} {:6.3f} {:<10}".format(n,p,u))
+        for parameter_name in changeables_optimal_dict.keys():
+            p = changeables_optimal_dict[parameter_name]
+            u = parameter_units[parameter_name]
+            print("{:<18} {:6.3f} {:<10}".format(parameter_name,p,u))
         
-        # for comparison with Song
-        SOIL_DENSITY = 1.3
-        print('')
-        for n, p, u, s in zip(names, optimal_parameters, units, song):
-            if n.startswith("V"):
-                print("{:<18} {:6.3f} {:<10} ({:})".format(n,p*SOIL_DENSITY,"mol/m^3", s))
-                
-                
+
         #Calculating the model output with optimal parameters:
+        initial_pool_dict = dict()
+        optimal_model_parameters_dict = dict()
         
-      #  Fitters_opt = optimal_parameters
-        #CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
-        CCH4CO2opt = simplesolve(xlist,  *optimal_parameters)
-        CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
+        for key in changeables_optimal_dict:
+            if key in cdec_pool_order:
+                initial_pool_dict[key] = changeables_optimal_dict[key]
+            else:
+                optimal_model_parameters_dict[key] = changeables_optimal_dict[key]
+                
+        for key in fixed_quantities_dict:
+            if key in cdec_pool_order:
+                initial_pool_dict[key] = fixed_quantities_dict[key]
+            else:
+                optimal_model_parameters_dict[key] = fixed_quantities_dict[key]
+
+        all_days = np.arange(max(Realdata['measured_time'])+1)
+        pool_value_dict = predictor(all_days, initial_pool_dict, optimal_model_parameters_dict)
+            
+        # for key, curve in pool_value_dict.items():
+        #     plt.figure()
+        #     plt.plot(all_days, curve)
+        #     if key in Realdata:
+        #         plt.plot(Realdata['measured_time'], Realdata[key], 'o')
+            
+        
+        # plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
+        print(xlist)
+    #   #  Fitters_opt = optimal_parameters
+    #     #CCH4CO2opt = simplefun(xlist,  *optimal_parameters)
+    #     CCH4CO2opt = simplesolve(xlist,  *optimal_parameters)
+    #     CCH4CO2optList = list(CCH4CO2opt[0]) + list(CCH4CO2opt[1])
           
-        Mol_nach_Pa(n= max(CCH4CO2opt[9]))
+    #     Mol_nach_Pa(n= max(CCH4CO2opt[9]))
         
-    #### Observed and Predicted für CH4 und CO2 geplotted
-    #%%
-        data_len = len(xlist)
-        for x, a, col in zip([0,data_len],["CH4","CO2"], ["r", "b"]):
-            plt.figure()
-            plt.plot(xlist,[ydata[i] for i in range(x,data_len+x)],col+"o", label = "Observed")
-            plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,data_len+x)],"k-",label = "Predicted")
-            plt.ylabel(a)
-            plt.legend()
-            save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_'+str(specimen_index)+'.png')
-            plt.savefig(save_path)
-        _ ,_ , R2, _ , _ = stats.linregress(CCH4CO2optList, y=ydata)
-        print("R2 is", R2)
+    # #### Observed and Predicted für CH4 und CO2 geplotted
+    # #%%
+    #     data_len = len(xlist)
+    #     for x, a, col in zip([0,data_len],["CH4","CO2"], ["r", "b"]):
+    #         plt.figure()
+    #         plt.plot(xlist,[ydata[i] for i in range(x,data_len+x)],col+"o", label = "Observed")
+    #         plt.plot(xlist,[CCH4CO2optList[i] for i in range(x,data_len+x)],"k-",label = "Predicted")
+    #         plt.ylabel(a)
+    #         plt.legend()
+    #         save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_'+str(specimen_index)+'.png')
+    #         plt.savefig(save_path)
+    #     _ ,_ , R2, _ , _ = stats.linregress(CCH4CO2optList, y=ydata)
+    #     print("R2 is", R2)
         
          
     # #%%      
