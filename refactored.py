@@ -66,23 +66,7 @@ def optifun(xdata, *Fitters):
     
 # SIMPELFUN, der Euler Forward Mechanismus
 
-def solve(t, *Fitters):
-    cdec_pool_order = ['C',
-                      'Fe',
-                      'M_Ac',
-                      'M_Ferm',
-                      'M_Fe',
-                      'M_Hydro',
-                      'M_Homo',
-                      'CH4',
-                      'CO2',
-                      'CO2_Ac',
-                      'Acetate',
-                      'H2',
-                      'CO2_Hydro',
-                      'CH4_Hydro',
-                      'H2_Ferm2',
-                      'M_Ferm2']
+def merged_curves(t, *Fitters):
     
     initial_pool_values = dict()    
     initial_pool_values['M_Ac'] = 0.001
@@ -91,9 +75,6 @@ def solve(t, *Fitters):
     initial_pool_values['M_Ferm2'] = 0.2
     #initial_pool_values['Fe'] = model_parameters['Fe_init']
     initial_pool_values['Fe'] = Fitters[-1]
-    
-    initial_system_state = np.array([initial_pool_values[pool_name] if pool_name in initial_pool_values else 0 
-                                     for pool_name in cdec_pool_order])
     
     fitters_order = ['Vmax_Ferm',
                      'Vprod_max_AltE',
@@ -112,15 +93,57 @@ def solve(t, *Fitters):
                      'Kmb_AltE',
                      'Kmb_Auto',
                      'Kmb_Hydro']
+    model_parameters = dict(zip(fitters_order,Fitters[:-1]))
+    pool_dict = predictor(t,initial_pool_values, model_parameters)
+    merged = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
+    return merged
 
-    fitters = Fitters[:-1]#[model_parameters[parameter_name] for parameter_name in fitters_order]
+def predictor(t, initial_pool_values, model_parameters):
+    cdec_pool_order = ['C',
+                      'Fe',
+                      'M_Ac',
+                      'M_Ferm',
+                      'M_Fe',
+                      'M_Hydro',
+                      'M_Homo',
+                      'CH4',
+                      'CO2',
+                      'CO2_Ac',
+                      'Acetate',
+                      'H2',
+                      'CO2_Hydro',
+                      'CH4_Hydro',
+                      'H2_Ferm2',
+                      'M_Ferm2']
+    
+    initial_system_state = np.array([initial_pool_values[pool_name] if pool_name in initial_pool_values else 0 
+                                     for pool_name in cdec_pool_order])
+
+    fitters_order = ['Vmax_Ferm',
+                     'Vprod_max_AltE',
+                     'Vprod_max_Homo',
+                     'Vprod_max_Hydro',
+                     'Vprod_max_Ace',
+                     'w_Ferm',
+                     'w_AltE',
+                     'w_Hydro', 
+                     'w_Homo',
+                     'w_Ace',
+                     'Sensenmann',
+                     'Stoch_ALtE',
+                     'Kmb_Ferm',
+                     'Kmh_Ferm',
+                     'Kmb_AltE',
+                     'Kmb_Auto',
+                     'Kmb_Hydro']
+    fitters = [model_parameters[parameter_name] for parameter_name in fitters_order]
     
     pool_curves = odeint(SimpleIN.Cdec, initial_system_state, t, args = (fitters,))
     pool_curves = pool_curves.transpose()
     
     pool_dict = dict(zip(cdec_pool_order, pool_curves))
-    merged = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
-    return merged
+
+    return pool_dict
 
 
 def simplesolve(xtage,*Fitters ):
@@ -231,11 +254,11 @@ if __name__ == '__main__':
         measurement_days = Realdata['measured_time']
         merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
 
-        optimal_parameters , _ = curve_fit(solve, measurement_days, merged_measurements, #method="dogbox",
+        optimal_parameters , _ = curve_fit(merged_curves, measurement_days, merged_measurements, #method="dogbox",
                                            p0 = p0, 
                                            bounds=tuple(zip(*bounds)))
         
-        optimal_parameters , _ = curve_fit(solve, measurement_days, merged_measurements, #method="dogbox",
+        optimal_parameters , _ = curve_fit(merged_curves, measurement_days, merged_measurements, #method="dogbox",
                                            p0 = optimal_parameters, 
                                            bounds=tuple(zip(*bounds)))
        
@@ -279,103 +302,103 @@ if __name__ == '__main__':
         print("R2 is", R2)
         
          
-    #%%      
-        # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
-        #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
+    # #%%      
+    #     # return order CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_CH4,    M_CO2, M_AltE, M_Hyd
+    #     #              CH4, CO2, AltEpool, AceCO2, Acetate, Cpool, M_A_CH4, M_Ferm, M_AltE, H2, M_H_CH4, M_Homo, AltE_init, deltaCO2_Hydro
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[2], label='AltEpool')
-        plt.title('AltEpool')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')    
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[2], label='AltEpool')
+    #     plt.title('AltEpool')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltEpool.png')    
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
-        plt.title('CO2 aus Acetate')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[3], label='CO2 aus Acetate')
+    #     plt.title('CO2 aus Acetate')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2ausAcetate.png')
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[4], label='Acetate')
-        plt.title('Acetate')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
-        plt.ylabel('μmol')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[4], label='Acetate')
+    #     plt.title('Acetate')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetate.png')
+    #     plt.ylabel('μmol')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[5], label='Cpool')
-        plt.title('Cpool')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Cpool.png')
-        plt.ylabel('mikromol pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[5], label='Cpool')
+    #     plt.title('Cpool')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Cpool.png')
+    #     plt.ylabel('mikromol pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[6], label='Acetoclastische_Mikroben')
-        plt.title('Acetoclastische_Mikroben')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetoclastic_Mikroben.png')  
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[6], label='Acetoclastische_Mikroben')
+    #     plt.title('Acetoclastische_Mikroben')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Acetoclastic_Mikroben.png')  
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[7], label='Fermentierer')
-        plt.title('Fermentierer')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Fermentation_Mikroben.png')  
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[7], label='Fermentierer')
+    #     plt.title('Fermentierer')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Fermentation_Mikroben.png')  
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
-        plt.title(' AltE_Microben')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltE_Mikroben.png') 
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[8], label=' AltE_Microben')
+    #     plt.title(' AltE_Microben')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/AltE_Mikroben.png') 
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[9], label=' H2') #typically in the nanomolar range (10 to 180 nM, correponding to about 8 to 140 ppmv in the gas phase [Table conrad
-        plt.title('H2')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2.png') 
-        plt.ylabel('μmol')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[9], label=' H2') #typically in the nanomolar range (10 to 180 nM, correponding to about 8 to 140 ppmv in the gas phase [Table conrad
+    #     plt.title('H2')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2.png') 
+    #     plt.ylabel('μmol')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
-        plt.title(' Hydro_Microben')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Hydro_Mikroben.png')    
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[10], label=' Hydro_Microben')
+    #     plt.title(' Hydro_Microben')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Hydro_Mikroben.png')    
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
-        plt.title(' Homo_Microben')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Homo_Mikroben.png') 
-        plt.ylabel('mg Mikrobielles C pro g dw')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[11], label=' Homo_Microben')
+    #     plt.title(' Homo_Microben')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/Homo_Mikroben.png') 
+    #     plt.ylabel('mg Mikrobielles C pro g dw')
         
-        #plt.figure()
-        #plt.plot( CCH4CO2opt[12], label=' AltE_init')
-        #plt.title(' AltE_init')
+    #     #plt.figure()
+    #     #plt.plot( CCH4CO2opt[12], label=' AltE_init')
+    #     #plt.title(' AltE_init')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
-        plt.title('deltaH2_Hydro')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
-        plt.ylabel('μmol')        
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[13], label='deltaH2_Hydro')
+    #     plt.title('deltaH2_Hydro')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Hydro.png')
+    #     plt.ylabel('μmol')        
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
-        plt.title('deltaH2_Homo')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
-        plt.ylabel('μmol')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[14], label='deltaH2_Homo')
+    #     plt.title('deltaH2_Homo')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/deltaH2_Homo.png')
+    #     plt.ylabel('μmol')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[15], label='CO2 aus Hydro')
-        plt.title('CO2 aus Hydro')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_aus_Hydro.png')
-        plt.ylabel('μmol')    
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[15], label='CO2 aus Hydro')
+    #     plt.title('CO2 aus Hydro')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CO2_aus_Hydro.png')
+    #     plt.ylabel('μmol')    
     
-        plt.figure()
-        plt.plot( CCH4CO2opt[16], label='CH4 aus Hydro')
-        plt.title('CH4 aus Hydro')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CH4_aus_Hydro.png') 
-        plt.ylabel('μmol')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[16], label='CH4 aus Hydro')
+    #     plt.title('CH4 aus Hydro')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/CH4_aus_Hydro.png') 
+    #     plt.ylabel('μmol')
         
-        plt.figure()
-        plt.plot( CCH4CO2opt[17], label='H2 aus Ferm2')
-        plt.title('H2 aus Ferm2')
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2_aus_Ferm.png')  
-        plt.ylabel('μmol')
+    #     plt.figure()
+    #     plt.plot( CCH4CO2opt[17], label='H2 aus Ferm2')
+    #     plt.title('H2 aus Ferm2')
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/H2_aus_Ferm.png')  
+    #     plt.ylabel('μmol')
     
     
         
