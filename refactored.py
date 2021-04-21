@@ -18,6 +18,42 @@ import SimpleIN
 from Babypascal import Mol_nach_Pa
 
 
+cdec_pool_order = ['C',
+                  'Fe',
+                  'M_Ac',
+                  'M_Ferm',
+                  'M_Fe',
+                  'M_Hydro',
+                  'M_Homo',
+                  'CH4',
+                  'CO2',
+                  'CO2_Ac',
+                  'Acetate',
+                  'H2',
+                  'CO2_Hydro',
+                  'CH4_Hydro',
+                  'H2_Ferm2',
+                  'M_Ferm2']
+
+fitters_order = ['Vmax_Ferm',
+                 'Vprod_max_AltE',
+                 'Vprod_max_Homo',
+                 'Vprod_max_Hydro',
+                 'Vprod_max_Ace',
+                 'w_Ferm',
+                 'w_AltE',
+                 'w_Hydro', 
+                 'w_Homo',
+                 'w_Ace',
+                 'Sensenmann',
+                 'Stoch_ALtE',
+                 'Kmb_Ferm',
+                 'Kmh_Ferm',
+                 'Kmb_AltE',
+                 'Kmb_Auto',
+                 'Kmb_Hydro',
+                 'Fe']
+
 def load_data(specimen_index):
     # TODO load Corg content of samples Datei Corg_Probennummern
     
@@ -66,77 +102,37 @@ def optifun(xdata, *Fitters):
     
 # SIMPELFUN, der Euler Forward Mechanismus
 
-def merged_curves(t, *Fitters):
-    
-    initial_pool_values = dict()    
-    initial_pool_values['M_Ac'] = 0.001
-    initial_pool_values['M_Ferm'] = 0.2
-    initial_pool_values['M_Fe'] = 0.2
-    initial_pool_values['M_Ferm2'] = 0.2
-    #initial_pool_values['Fe'] = model_parameters['Fe_init']
-    initial_pool_values['Fe'] = Fitters[-1]
-    
-    fitters_order = ['Vmax_Ferm',
-                     'Vprod_max_AltE',
-                     'Vprod_max_Homo',
-                     'Vprod_max_Hydro',
-                     'Vprod_max_Ace',
-                     'w_Ferm',
-                     'w_AltE',
-                     'w_Hydro', 
-                     'w_Homo',
-                     'w_Ace',
-                     'Sensenmann',
-                     'Stoch_ALtE',
-                     'Kmb_Ferm',
-                     'Kmh_Ferm',
-                     'Kmb_AltE',
-                     'Kmb_Auto',
-                     'Kmb_Hydro']
-    model_parameters = dict(zip(fitters_order,Fitters[:-1]))
-    pool_dict = predictor(t,initial_pool_values, model_parameters)
-    merged = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
-    return merged
+def curve_wrapper(fixed_quantities):
+    def merged_curves(t, *changeables):
+        
+        changeables_dict = dict(zip(fitters_order, changeables))
+        
+        initial_pool_values = dict()
+        for pool_name in cdec_pool_order:
+            if pool_name in fixed_quantities:
+                initial_pool_values[pool_name] = fixed_quantities[pool_name]
+            elif pool_name in changeables_dict:
+                initial_pool_values[pool_name] = changeables_dict[pool_name]
+            else:
+                initial_pool_values[pool_name] = 0
+        
+        model_parameters = dict()
+        for key, value in changeables_dict.items():
+            if not key in cdec_pool_order:
+                model_parameters[key] = value
+                
+        pool_dict = predictor(t,initial_pool_values, model_parameters)
+        
+        merged = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
+        return merged
+    return merged_curves
 
 def predictor(t, initial_pool_values, model_parameters):
-    cdec_pool_order = ['C',
-                      'Fe',
-                      'M_Ac',
-                      'M_Ferm',
-                      'M_Fe',
-                      'M_Hydro',
-                      'M_Homo',
-                      'CH4',
-                      'CO2',
-                      'CO2_Ac',
-                      'Acetate',
-                      'H2',
-                      'CO2_Hydro',
-                      'CH4_Hydro',
-                      'H2_Ferm2',
-                      'M_Ferm2']
     
     initial_system_state = np.array([initial_pool_values[pool_name] if pool_name in initial_pool_values else 0 
                                      for pool_name in cdec_pool_order])
 
-    fitters_order = ['Vmax_Ferm',
-                     'Vprod_max_AltE',
-                     'Vprod_max_Homo',
-                     'Vprod_max_Hydro',
-                     'Vprod_max_Ace',
-                     'w_Ferm',
-                     'w_AltE',
-                     'w_Hydro', 
-                     'w_Homo',
-                     'w_Ace',
-                     'Sensenmann',
-                     'Stoch_ALtE',
-                     'Kmb_Ferm',
-                     'Kmh_Ferm',
-                     'Kmb_AltE',
-                     'Kmb_Auto',
-                     'Kmb_Hydro']
-    fitters = [model_parameters[parameter_name] for parameter_name in fitters_order]
+    fitters = [model_parameters[parameter_name] for parameter_name in fitters_order if parameter_name in model_parameters]
     
     pool_curves = odeint(SimpleIN.Cdec, initial_system_state, t, args = (fitters,))
     pool_curves = pool_curves.transpose()
@@ -206,61 +202,52 @@ if __name__ == '__main__':
         xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
         ydata = list(Realdata['CH4']) + list(Realdata['CO2']) # meine Realdata an die gefittet werden soll.
         
-        
-        # Fitted Parameters are: 
-        # Vmax_Ferm, Stoch_ALtE,Vprod_max_AltE, Vprod_max_Homo, Vprod_max_Hydro,
-        # Vprod_max_Ace, w_Ferm, w_AltE, w_Hydro, w_Homo, w_Ace, Sensenmann = Fitters
-        # Boundaries für w aus bekannten YATP und ATP prod. Wachstumsfaktoren.
-        
-        
-        p0 = [ 0.1,    # Vmax Ferm 0.01  roden2003competition wert ist 17 !
-               0.3,     # Vmax AltE 0.9
-               0.133,    # Vmax Homo 0.05
-               0.086,    # Vmax Hydro 0.05
-               0.207,    # Vmax Ace 0.15   roden2003competition wert ist 15 !
-               0.05,    # w Ferm 0.04
-               0.013,    # w AltE 0.02
-               0.024,    # w Hydro 0.02
-               0.049,    # w Homo 0.05
-               0.04,    # w Ace 0.03
-               0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
-               4,        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
-               10,      # Kmb ferm, for inverse M-M Biomass 10
-               10,      # Kmh ferm, for hemmung of fermenters by acetate 10
-               10,      # Kmb AltE 10
-               10,      # Kmb auto 10
-               10,      # Kmb hydro 10
-               5.75]      # AltE pool init 7
-        
-        bounds = [[0.01, 0.11],     # Vmax Ferm
-                  [0.029, 1.9],     # Vmax AltE
-                  [0.005, 1],       # Vmax Homo
-                  [0.03,  0.2],       # Vmax Hydro
-                  [0.05, 0.39],     # Vmax Ace
-                  [0.03, 0.05],     # w Ferm
-                  [0.01, 0.05],     # w AltE
-                  [0.01, 0.05],     # w Hydro
-                  [0.01, 0.05],     # w Homo
-                  [0.01, 0.05],     # w Ace
-                  [-0.000000001, 0.0000844],    # Sensenmann
-                  [1,    8],        # Stoch AltE
-                  [ 1, 10 ],        # Kmb ferm
-                  [ 1, 10 ],        # Kmh ferm
-                  [ 1, 10 ],        # Kmb AltE
-                  [ 1, 10 ],        # Kmb Auto
-                  [ 1, 10 ],        # Kmh Hydro
-                  [2,   10]]        # AltE pool init
-               
+
         measurement_days = Realdata['measured_time']
         merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
 
-        optimal_parameters , _ = curve_fit(merged_curves, measurement_days, merged_measurements, #method="dogbox",
-                                           p0 = p0, 
-                                           bounds=tuple(zip(*bounds)))
+        fixed_quantities = dict()
+        fixed_quantities['M_Ac'] = 0.001
+        fixed_quantities['M_Ferm'] = 0.2
+        fixed_quantities['M_Fe'] = 0.2
+        fixed_quantities['M_Ferm2'] = 0.2    
+
+        initial_guess_dict = dict()
+        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01, 0.11)
+        initial_guess_dict['Vprod_max_AltE'] =  (0.3,   0.029, 1.9)
+        initial_guess_dict['Vprod_max_Homo'] =  (0.133, 0.005, 1.)
+        initial_guess_dict['Vprod_max_Hydro'] = (0.086, 0.03, 0.2)
+        initial_guess_dict['Vprod_max_Ace'] =   (0.207, 0.05, 0.39)
+        initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
+        initial_guess_dict['w_AltE'] =          (0.013, 0.01, 0.05)
+        initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
+        initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
+        initial_guess_dict['w_Ace'] =           (0.04,  0.01, 0.05)
+        initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
+        initial_guess_dict['Stoch_ALtE'] =      (4,     1,  8)
+        initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
+        initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
+        initial_guess_dict['Kmb_AltE'] =        (10,    1,  10)
+        initial_guess_dict['Kmb_Auto'] =        (10,    1,  10)
+        initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
+        initial_guess_dict['Fe'] =              (5.75,  2,  10)
+
+
+        initial_guess = [initial_guess_dict[key][0] for key in fitters_order]
+        lower_bounds = [initial_guess_dict[key][1] for key in fitters_order]
+        upper_bounds = [initial_guess_dict[key][2] for key in fitters_order]
         
-        optimal_parameters , _ = curve_fit(merged_curves, measurement_days, merged_measurements, #method="dogbox",
+        merged_curves = curve_wrapper(fixed_quantities)
+        optimal_parameters , _ = curve_fit(merged_curves,
+                                           measurement_days, 
+                                           merged_measurements, #method="dogbox",
+                                           p0 = initial_guess, 
+                                           bounds=(lower_bounds, upper_bounds))
+        optimal_parameters , _ = curve_fit(merged_curves, 
+                                           measurement_days, 
+                                           merged_measurements, #method="dogbox",
                                            p0 = optimal_parameters, 
-                                           bounds=tuple(zip(*bounds)))
+                                           bounds=(lower_bounds, upper_bounds))
        
         names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro", "AltEpool"]
         units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-", "mg" , "μmol", "mg", "mg", "mg","μmol"]
