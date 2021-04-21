@@ -54,12 +54,12 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
            0.04,    # w Ace 0.03
            0.0000833,   # Sensenmann 0.0001   delattre2020thermodynamic nimmt 8.33*10^-4 h^-1für alle mikroben
            4,        # Stoch AltE 7  #  philben2020anaerobic nehmen einen Wert von 4 für Fe3 an
-           5.75,      # AltE pool init 7
            10,      # Kmb ferm, for inverse M-M Biomass 10
            10,      # Kmh ferm, for hemmung of fermenters by acetate 10
            10,      # Kmb AltE 10
            10,      # Kmb auto 10
-           10]      # Kmb hydro 10
+           10,      # Kmb hydro 10
+           5.57]    # AltE pool init 7
     
     bounds = [[0.01, 0.11],     # Vmax Ferm
               [0.029, 1.9],     # Vmax AltE
@@ -88,8 +88,8 @@ for m in Data1:#and2and3and4and5and6and7and8and9:
                                        p0 = optimal_parameters, 
                                        bounds=tuple(zip(*bounds)))
    
-    names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "AltEpool", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro"]
-    units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-","μmol", "mg" , "μmol", "mg", "mg", "mg"]
+    names = ["Vmax_Ferm","Vprod_max_AltE","Vprod_max_Homo", "Vprod_max_Hydro", "Vprod_max_Ace", "w_Ferm","w_AltE","w_Hydro","w_Homo","w_Ace", "Sensenmann", "Stoch_ALtE", "KmB ferm", "Kmh ferm", "Kmb alte", "Kmb Auto", "Kmb Hydro", "AltEpool"]
+    units = ["μmol/mg",           "μmol/mg",       "μmol/mg",       "μmol/mg",          "μmol/mg",      "mg/μmol","mg/μmol","mg/μmol","mg/μmol","mg/μmol", "-",  "-", "mg" , "μmol", "mg", "mg", "mg","μmol"]
     song =  ["0.5",                "",            "0.15",           "0.15",            "0.5",         "",         "",     "",     "",         "",    "",  "",     "" ,"", "", "" , "", "", ""]
    
     #Printing the Parameter and its value
