@@ -13,80 +13,12 @@ import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 from scipy.integrate import odeint
 import SimpleIN
+import model
+from order import pool_order, changeables_order, parameter_units
 
 #Importieren benutzter Funktionen und Daten
 from Babypascal import Mol_nach_Pa
 
-
-pool_order = ['C',
-            'Fe',
-            'M_Ac',
-            'M_Ferm',
-            'M_Fe',
-            'M_Hydro',
-            'M_Homo',
-            'CH4',
-            'CO2',
-            'CO2_Ac',
-            'Acetate',
-            'H2',
-            'CO2_Hydro',
-            'CH4_Hydro',
-            'H2_Ferm2',
-            'M_Ferm2']
-
-changeables_order = ['Vmax_Ferm',
-                     'Vprod_max_AltE',
-                     'Vprod_max_Homo',
-                     'Vprod_max_Hydro',
-                     'Vprod_max_Ace',
-                     'w_Ferm',
-                     'w_AltE',
-                     'w_Hydro', 
-                     'w_Homo',
-                     'w_Ace',
-                     'Sensenmann',
-                     'Stoch_ALtE',
-                     'Kmb_Ferm',
-                     'Kmh_Ferm',
-                     'Kmb_AltE',
-                     'Kmb_Auto',
-                     'Kmb_Hydro',
-                     'Fe']
-
-parameter_units = {'Vmax_Ferm':'μmol/mg',         
-                   'Vprod_max_AltE':'μmol/mg',       
-                   'Vprod_max_Homo':'μmol/mg',      
-                   'Vprod_max_Hydro':'μmol/mg',          
-                   'Vprod_max_Ace':'μmol/mg',      
-                   'w_Ferm':'mg/μmol',
-                   'w_AltE':'mg/μmol',
-                   'w_Hydro':'mg/μmol',
-                   'w_Homo':'mg/μmol',
-                   'w_Ace':'mg/μmol',
-                   'Sensenmann':'-', 
-                   'Stoch_ALtE':'-',
-                   'Kmb_Ferm':'mg' ,
-                   'Kmh_Ferm':'μmol', 
-                   'Kmb_AltE':'mg',
-                   'Kmb_Auto':'mg',
-                   'Kmb_Hydro':'mg',
-                   'Fe':'μmol',
-                   'C':'μmol',
-                   'M_Ac':'mg',
-                   'M_Ferm':'mg',
-                   'M_Fe':'mg',
-                   'M_Hydro':'mg',
-                   'M_Homo':'mg',
-                   'CH4':'μmol',
-                   'CO2':'μmol',
-                   'CO2_Ac':'μmol',
-                   'Acetate':'μmol',
-                   'H2':'μmol',
-                   'CO2_Hydro':'μmol',
-                   'CH4_Hydro':'μmol',
-                   'H2_Ferm2':'μmol',
-                   'M_Ferm2':'mg'}
 
 def load_data(specimen_index):
     # TODO load Corg content of samples Datei Corg_Probennummern
@@ -155,10 +87,11 @@ def predictor(t, initial_pool_values, model_parameters):
     
     initial_system_state = np.array([initial_pool_values[pool_name] if pool_name in initial_pool_values else 0 
                                      for pool_name in pool_order])
-
-    fitters = [model_parameters[parameter_name] for parameter_name in changeables_order if parameter_name in model_parameters]
     
-    pool_curves = odeint(SimpleIN.Cdec, initial_system_state, t, args = (fitters,))
+    cdec = model.Cdec_wrapper(model_parameters)
+    pool_curves = odeint(cdec, 
+                         initial_system_state, 
+                         t)
     pool_curves = pool_curves.transpose()
     
     pool_dict = dict(zip(pool_order, pool_curves))
@@ -249,21 +182,21 @@ def fit_my_model(specimens):
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
         initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01, 0.11)
-        initial_guess_dict['Vprod_max_AltE'] =  (0.3,   0.029, 1.9)
-        initial_guess_dict['Vprod_max_Homo'] =  (0.133, 0.005, 1.)
-        initial_guess_dict['Vprod_max_Hydro'] = (0.086, 0.03, 0.2)
-        initial_guess_dict['Vprod_max_Ace'] =   (0.207, 0.05, 0.39)
+        initial_guess_dict['Vmax_Fe'] =         (0.3,   0.029, 1.9)
+        initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
+        initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
+        initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
         initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
-        initial_guess_dict['w_AltE'] =          (0.013, 0.01, 0.05)
+        initial_guess_dict['w_Fe'] =            (0.013, 0.01, 0.05)
         initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
         initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
-        initial_guess_dict['w_Ace'] =           (0.04,  0.01, 0.05)
+        initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
         initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-        initial_guess_dict['Stoch_ALtE'] =      (4,     1,  8)
+        initial_guess_dict['Stoch_Fe'] =        (4,     1,  8)
         initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
         initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmb_AltE'] =        (10,    1,  10)
-        initial_guess_dict['Kmb_Auto'] =        (10,    1,  10)
+        initial_guess_dict['Kmb_Fe'] =          (10,    1,  10)
+        initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
         initial_guess_dict['Fe'] =              (5.75,  2,  10)
 
