@@ -8,16 +8,14 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from scipy import stats
+
 import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 from scipy.integrate import odeint
-import SimpleIN
+
+
 import model
 from order import pool_order, changeables_order, parameter_units
-
-#Importieren benutzter Funktionen und Daten
-from Babypascal import Mol_nach_Pa
 
 
 def load_data(specimen_index):
@@ -85,6 +83,8 @@ def curve_wrapper(fixed_quantities):
 
 def predictor(t, initial_pool_values, model_parameters):
     
+    # alle pools, für die kein initialer zustand explizit definiert ist,
+    # werden zum startzeitpunkt (t=0) zu null gesetzt.
     initial_system_state = np.array([initial_pool_values[pool_name] if pool_name in initial_pool_values else 0 
                                      for pool_name in pool_order])
     
@@ -155,15 +155,6 @@ def fit_my_model(specimens):
     
     for specimen_index in specimens:#and2and3and4and5and6and7and8and9:
         Realdata = load_data(specimen_index)
-        # Fitting the parameters:    
-        
-        xlist = [int(measurement_day) for measurement_day in Realdata['measured_time']] # int der Tage an denen wir Messwerte haben
-        xdata = xlist + xlist  # aneinandergehängt, weil wir die werte sowohl für CH4 als auch CO2 brauchen
-        ydata = list(Realdata['CH4']) + list(Realdata['CO2']) # meine Realdata an die gefittet werden soll.
-        
-
-        measurement_days = Realdata['measured_time']
-        merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
 
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
@@ -200,11 +191,20 @@ def fit_my_model(specimens):
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
         initial_guess_dict['Fe'] =              (5.75,  2,  10)
 
-
+        # vorbereitung des startpunktes für die optimierung und der bounds 
+        # für curve_fit
         initial_guess = [initial_guess_dict[key][0] for key in changeables_order]
         lower_bounds = [initial_guess_dict[key][1] for key in changeables_order]
         upper_bounds = [initial_guess_dict[key][2] for key in changeables_order]
-        
+
+        # gemessene daten aus Realdata laden und zusammenhängen, um CO2 und CH4
+        # gleichzeitig zu fitten.
+        measurement_days = Realdata['measured_time']
+        merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
+
+        # curve_wrapper hängt die vorhersagen für CO2 und CH4 hintereinander
+        # damit curve_fit gleichzeitig gegen die gemessenen daten für CH4 und 
+        # CO2 fitten kann.
         merged_curves = curve_wrapper(fixed_quantities_dict)
         optimal_parameters , _ = curve_fit(merged_curves,
                                            measurement_days, 
