@@ -21,7 +21,15 @@ pool_order = ['C',
             'CO2_Hydro',
             'CH4_Hydro',
             'H2_Ferm2',
-            'M_Ferm2']
+            'M_Ferm2',
+            'CO2_Ferm',
+            'CO2_Fe',
+            'CO2_Homo',
+            'H2_Homo',
+            'H2_Hydro']
+
+
+
 
 changeables_order = ['Vmax_Ferm',
                      'Vmax_Fe',

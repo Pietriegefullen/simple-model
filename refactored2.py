@@ -162,7 +162,7 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         plt.title(pool_name)
         try:
             plt.ylabel(parameter_units[pool_name])
-        except:
+        except KeyError:
             pass
         plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
 
