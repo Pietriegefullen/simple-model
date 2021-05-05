@@ -4,11 +4,13 @@ Created on Tue Oct 13 09:45:44 2020
 
 @author: Lara
 """
+
+import copy
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-
+import scipy.io as sio
 import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 from scipy.integrate import odeint
@@ -16,6 +18,71 @@ from scipy.integrate import odeint
 
 import model
 from order import pool_order, changeables_order, parameter_units
+
+os.chdir('C:/Users/Lara/Desktop/simple model')
+
+def load_matlab():
+    
+    Data = sio.loadmat('ActivityData_04062016', appendmat=True)
+    
+    anaerobic_indices = np.nonzero(Data['anaerobic'])[1] # die indizes im Matlab für alle anaeroben proben
+    prob_array = Data['prob'] # das array mit den Probennummern
+    measurement_time = Data['duration'] # das array mit allen Messtagen
+    
+    # erstelle die äußerste struktur, ein leeres dict für jede probe hat
+    superdata = dict()
+    for index_for_anaerobic_sample in anaerobic_indices:
+        prob_name = prob_array[0,index_for_anaerobic_sample] #holt aus prob_array den probennamen an der indexstelle von index_for_anaerobic _sample.
+        
+        keys_so_far = [ k[:4]  for k in superdata.keys()] #schreibt die ersten vier ziffern aller keys die wir schon haben in eine liste
+        replica_count = keys_so_far.count(str(prob_name)) # zählt wie viele keys aus der liste die gleichen 4 anfangsziffern haben wie die aktuelle probname
+        
+        replica_name = str(prob_name) + str(replica_count)
+        superdata[replica_name] = dict()
+        
+        superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
+        superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
+        superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
+        # analog für co2, ch4, ...
+        
+    Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
+    
+    for meta_prob_names in Metadata['Probe']:
+        for replica_name_iter in superdata.keys():
+            if str(meta_prob_names) in replica_name_iter:
+            #if str(meta_prob_names) == replica_name_iter[:4]:
+                index = np.where(Metadata['Probe'] == meta_prob_names)[0]
+                for key in Metadata.keys():
+                    superdata[replica_name_iter][key] = np.array(Metadata[key][index])
+     
+    replica_list = list(superdata.keys())    
+    
+    for key in superdata.keys():
+        for index in range(len(superdata[key]['CH4'])):
+            if superdata[key]['CH4'][index] < 0 :
+                superdata[key]['CH4'][index] = superdata[key]['CH4'][index-1]
+            if np.isnan(superdata[key]['CH4'][index]):
+                superdata[key]['CH4'][index] = 0    
+    
+            if superdata[key]['CO2'][index] < 0 :
+                superdata[key]['CO2'][index] = superdata[key]['CO2'][index-1]         
+            if  np.isnan(superdata[key]['CO2'][index]):
+                superdata[key]['CO2'][index] = 0
+
+             
+    superdata_carex = copy.deepcopy(superdata)
+    for key in superdata.keys():
+        FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
+        for column_name in ['CO2','CH4','measured_time']:
+            superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
+            superdata[key][column_name] = superdata[key][column_name][:FirstNan]
+             
+                    
+                    
+                     
+    return superdata, replica_list, superdata_carex
+
+
 
 
 def load_data(specimen_index):
@@ -185,8 +252,10 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
 def fit_my_model(specimens):
     plt.close('all')
     
-    for specimen_index in specimens:#and2and3and4and5and6and7and8and9:
-        Realdata = load_data(specimen_index)
+    superdata, replica_list, supercarex = load_matlab()
+    
+    for specimen_index in specimens: #and2and3and4and5and6and7and8and9:
+        Realdata = superdata[replica_list[specimen_index]]
 
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
@@ -285,7 +354,7 @@ def fit_my_model(specimens):
         
 
 if __name__ == '__main__':
-    specimens = [0]#,1,2,3,4,5,6,7]
+    specimens = [10]#,1,2,3,4,5,6,7]
     fit_my_model(specimens)
     
 
