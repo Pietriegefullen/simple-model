@@ -9,11 +9,14 @@ import copy
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import scipy
+from scipy import optimize
+from scipy.integrate import odeint, solve_ivp
+from scipy import stats
 from scipy.optimize import curve_fit
 import scipy.io as sio
 import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
-from scipy.integrate import odeint
 
 
 import model
@@ -77,10 +80,27 @@ def load_matlab():
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
              
-                    
-                    
-                     
-    return superdata, replica_list, superdata_carex
+ 
+    for key in superdata:
+        plt.figure()  
+        plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
+        plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
+        plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
+     
+        
+    superdata_Kuru = copy.deepcopy(superdata)
+    for key in superdata.keys():
+        if not superdata[key]['Site']=='K':
+            del superdata_Kuru[key]        
+    replica_list_Kuru = list(superdata_Kuru.keys()) 
+        
+    superdata_Sam = copy.deepcopy(superdata)
+    for key in superdata.keys():
+        if not superdata[key]['Site']=='S':
+            del superdata_Sam[key]        
+    replica_list_Sam = list(superdata_Sam.keys())                    
+            
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam
 
 
 
@@ -165,6 +185,53 @@ def curve_merger_wrapper(fixed_quantities):
     # merged_curves
     return merged_curves_pred
 
+
+def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict):  
+   # print('')
+   # print('ls call')
+    # in den folgenden beiden blöcken werden die variablen und fixen
+    # parameter neu geordnet, weil predictor() die parameter getrennt haben 
+    # will, je nach dem, ob sie initiale pool-pegel sind oder andere modell-parameter
+    #
+    # dazu gehen wir alle pools durch, und prüfen, ob sich der entsprechende 
+    # startwert im dict changeables_array, oder im dict fixed_quantities_dict befindet.
+
+    changeables_dict = dict(zip(changeables_order, changeables_array))
+    
+    initial_pool_dict = dict()
+    model_parameters_dict = dict()
+    for key in changeables_dict:
+        if key in pool_order:
+            initial_pool_dict[key] = changeables_dict[key]
+        else:
+            model_parameters_dict[key] = changeables_dict[key]
+            
+    for key in fixed_quantities_dict:
+        if key in pool_order:
+            initial_pool_dict[key] = fixed_quantities_dict[key]
+        else:
+            model_parameters_dict[key] = fixed_quantities_dict[key]
+    
+    #predictor_start = time.time()
+    y_predicted_dict = predictor(measured_data_dict['measured_time'],
+                                initial_pool_dict, 
+                                model_parameters_dict)
+   # predictor_time = time.time() - predictor_start
+    #print('predictor time', predictor_time)
+    CO2_predicted = y_predicted_dict['CO2']
+    CH4_predicted = y_predicted_dict['CH4']
+    
+    CO2_measured = measured_data_dict['CO2']
+    CH4_measured = measured_data_dict['CH4']
+    
+    error_CO2 = CO2_predicted - CO2_measured
+    error_CH4 = CH4_predicted - CH4_measured
+    
+    sum_of_squared_residuals = np.sum(error_CO2**2 + error_CH4**2) 
+
+    return sum_of_squared_residuals 
+
+
 def predictor(t, initial_pool_values, model_parameters):
     
     # alle pools, für die kein initialer zustand explizit definiert ist,
@@ -189,9 +256,8 @@ def predictor(t, initial_pool_values, model_parameters):
     return pool_dict
 
 
-
 def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index): 
-    plt.close('all')
+    #plt.close('all')
 
     measurement_days = Realdata['measured_time'].astype(int)
 
@@ -223,15 +289,15 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         print("r2 for "+a+" is", r_squared)
         print("r2adj  "+a+" is", adjusted_r_squared)
 
-    for pool_name, pool_curve in pool_value_dict.items(): 
-        plt.figure()
-        plt.plot(days_for_plot, pool_curve, label= pool_name)
-        plt.title(pool_name)
-        try:
-            plt.ylabel(parameter_units[pool_name])
-        except:
-            pass
-        plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
+    # for pool_name, pool_curve in pool_value_dict.items(): 
+    #     plt.figure()
+    #     plt.plot(days_for_plot, pool_curve, label= pool_name)
+    #     plt.title(pool_name)
+    #     try:
+    #         plt.ylabel(parameter_units[pool_name])
+    #     except:
+    #         pass
+    #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
 
 
     all_CO2_contributers = dict()
@@ -244,18 +310,18 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     plt.legend()
 
 
-
-
-
-
-
-def fit_my_model(specimens):
+def fit_my_model(specimens, Site, opt):
     plt.close('all')
     
-    superdata, replica_list, supercarex = load_matlab()
+    superdata, replica_list, supercarex, super_Kuru, super_Sam, replica_list_Kuru , replica_list_Sam = load_matlab()
     
     for specimen_index in specimens: #and2and3and4and5and6and7and8and9:
-        Realdata = superdata[replica_list[specimen_index]]
+        if Site == "S":
+            Realdata = super_Sam[replica_list_Sam[specimen_index]]
+        elif Site == "K":
+            Realdata = super_Kuru[replica_list_Kuru[specimen_index]]   
+        else:
+            Realdata = superdata[replica_list[specimen_index]]
 
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
@@ -266,14 +332,14 @@ def fit_my_model(specimens):
         labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
         Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
         fixed_quantities_dict['C'] = Cpool_init
-        fixed_quantities_dict['M_Ac'] = 0.001
+        #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
         fixed_quantities_dict['M_Ferm'] = 0.2
         fixed_quantities_dict['M_Fe'] = 0.2
         fixed_quantities_dict['M_Ferm2'] = 0.2 
 
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
-        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01, 0.11)
+        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01,0.11)  
         initial_guess_dict['Vmax_Fe'] =         (0.3,   0.029, 1.9)
         initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
         initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
@@ -291,7 +357,7 @@ def fit_my_model(specimens):
         initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
         initial_guess_dict['Fe'] =              (5.75,  2,  10)
-        
+        initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
 
         # vorbereitung des startpunktes für die optimierung und der bounds 
         # für curve_fit
@@ -307,18 +373,34 @@ def fit_my_model(specimens):
         # curve_wrapper hängt die vorhersagen für CO2 und CH4 hintereinander
         # damit curve_fit gleichzeitig gegen die gemessenen daten für CH4 und 
         # CO2 fitten kann.
-        curve_merger = curve_merger_wrapper(fixed_quantities_dict)
-        optimal_parameters , _ = curve_fit(curve_merger,
-                                           measurement_days, 
-                                           merged_measurements, #method="dogbox",
-                                           p0 = initial_guess_array, 
-                                           bounds=(lower_bounds, upper_bounds))
-        optimal_parameters , _ = curve_fit(curve_merger, 
-                                           measurement_days, 
-                                           merged_measurements, #method="dogbox",
-                                           p0 = optimal_parameters, 
-                                           bounds=(lower_bounds, upper_bounds))
-        changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
+        if opt =='Curve':
+            print('using curve_fit')
+            curve_merger = curve_merger_wrapper(fixed_quantities_dict)
+            optimal_parameters , _ = curve_fit(curve_merger,
+                                               measurement_days, 
+                                               merged_measurements, #method="dogbox",
+                                               p0 = initial_guess_array, 
+                                               bounds=(lower_bounds, upper_bounds))
+            optimal_parameters , _ = curve_fit(curve_merger, 
+                                               measurement_days, 
+                                               merged_measurements, #method="dogbox",
+                                               p0 = optimal_parameters, 
+                                               bounds=(lower_bounds, upper_bounds))
+            changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
+            
+        else:
+             print('using minimize')
+             initial_guess_lower = [initial_guess_dict[key][1] for key in changeables_order]
+             initial_guess_upper = [initial_guess_dict[key][2] for key in changeables_order]
+             initial_guess_bounds = list(zip(initial_guess_lower, initial_guess_upper))
+             optimization_result = scipy.optimize.minimize(least_squares_error, 
+                                                      initial_guess_array,
+                                                      args = (fixed_quantities_dict, Realdata),
+                                                      bounds= initial_guess_bounds,
+                                                      options = {'maxiter':200000,
+                                                                'disp':True})
+             changeables_optimal_array = optimization_result.x
+             changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
 
         #Printing the Parameter and its value
         for parameter_name in changeables_optimal_dict.keys():
@@ -354,8 +436,14 @@ def fit_my_model(specimens):
         
 
 if __name__ == '__main__':
-    specimens = [10]#,1,2,3,4,5,6,7]
-    fit_my_model(specimens)
+    #specimenlistmax = [*range(0, 35, 1)]
+    specimenlist_all= [i for i in range(34)]
+    specimenlist_Sam= [i for i in range(18)]
+    specimenlist_Kuru= [i for i in range(16)]
+    #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
+    
+    specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]   
+    fit_my_model(specimens, Site = "K", opt = 'Curve')
     
 
 

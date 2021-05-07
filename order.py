@@ -48,7 +48,8 @@ changeables_order = ['Vmax_Ferm',
                      'Kmb_Fe',
                      'Kmb_Ac',
                      'Kmb_Hydro',
-                     'Fe']
+                     'Fe',
+                     'M_Ac'    ]
 
 parameter_units = {'Vmax_Ferm':'μmol/mg',         
                    'Vmax_Fe':'μmol/mg',       

@@ -14,7 +14,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 def load_matlab():
     
     Data = sio.loadmat('ActivityData_04062016', appendmat=True)
@@ -71,16 +70,36 @@ def load_matlab():
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
              
-                    
-                    
-                     
-    return superdata, replica_list, superdata_carex
+ 
+    for key in superdata:
+        plt.figure()  
+        plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
+        plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
+        plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
+     
+        
+    superdata_Kuru = copy.deepcopy(superdata)
+    for key in superdata.keys():
+        if not superdata[key]['Site']=='K':
+            del superdata_Kuru[key]        
+    replica_list_Kuru = list(superdata_Kuru.keys()) 
+        
+    superdata_Sam = copy.deepcopy(superdata)
+    for key in superdata.keys():
+        if not superdata[key]['Site']=='S':
+            del superdata_Sam[key]        
+    replica_list_Sam = list(superdata_Sam.keys())   
+    print(len(replica_list_Sam) , "Proben Sam")                 
+    print(len(replica_list_Kuru) , "Proben Kuru")  
+    print(len(replica_list) , "Proben insgesamt")          
+
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam
+
+
 
 
 if __name__ == '__main__':
     
-    print("Current Working Directory " , os.getcwd())
-    
     
    
-    superdata, replica_list, supercarex = load_matlab()
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam = load_matlab()
