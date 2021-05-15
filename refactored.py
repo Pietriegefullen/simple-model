@@ -373,6 +373,11 @@ def fit_my_model(specimens, Site, opt):
         # curve_wrapper hängt die vorhersagen für CO2 und CH4 hintereinander
         # damit curve_fit gleichzeitig gegen die gemessenen daten für CH4 und 
         # CO2 fitten kann.
+        print(merged_measurements)
+        print(type(measurement_days))
+        print(initial_guess_array)
+        print(lower_bounds)
+        print(upper_bounds)
         if opt =='Curve':
             print('using curve_fit')
             curve_merger = curve_merger_wrapper(fixed_quantities_dict)
@@ -387,18 +392,18 @@ def fit_my_model(specimens, Site, opt):
                                                p0 = optimal_parameters, 
                                                bounds=(lower_bounds, upper_bounds))
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
-            
+            print(optimal_parameters)
         else:
              print('using minimize')
-             initial_guess_lower = [initial_guess_dict[key][1] for key in changeables_order]
-             initial_guess_upper = [initial_guess_dict[key][2] for key in changeables_order]
-             initial_guess_bounds = list(zip(initial_guess_lower, initial_guess_upper))
+
+             initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
              optimization_result = scipy.optimize.minimize(least_squares_error, 
                                                       initial_guess_array,
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
                                                       options = {'maxiter':200000,
                                                                 'disp':True})
+             print(optimization_result)
              changeables_optimal_array = optimization_result.x
              changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
 
@@ -441,8 +446,8 @@ if __name__ == '__main__':
     specimenlist_Sam= [i for i in range(18)]
     specimenlist_Kuru= [i for i in range(16)]
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
-    
-    specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]   
+    #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    specimens = [0]
     fit_my_model(specimens, Site = "K", opt = 'Curve')
     
 
