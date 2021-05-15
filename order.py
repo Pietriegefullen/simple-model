@@ -31,25 +31,27 @@ pool_order = ['C',
 
 
 
-changeables_order = ['Vmax_Ferm',
-                     'Vmax_Fe',
-                     'Vmax_Homo',
-                     'Vmax_Hydro',
+changeables_order = [
+                     'Vmax_Ferm',
+                     # 'Vmax_Fe',
+                     # 'Vmax_Homo',
+                     # 'Vmax_Hydro',
                      'Vmax_Ac',
-                     'w_Ferm',
+                     # 'w_Ferm',
                      'w_Fe',
-                     'w_Hydro', 
-                     'w_Homo',
+                     # 'w_Hydro', 
+                     # 'w_Homo',
                      'w_Ac',
                      'Sensenmann',
-                     'Stoch_Fe',
-                     'Kmb_Ferm',
-                     'Kmh_Ferm',
-                     'Kmb_Fe',
-                     'Kmb_Ac',
-                     'Kmb_Hydro',
+                     # 'Stoch_Fe',
+                     # 'Kmb_Ferm',
+                     # 'Kmh_Ferm',
+                     # 'Kmb_Fe',
+                     # 'Kmb_Ac',
+                     # 'Kmb_Hydro',
                      'Fe',
-                     'M_Ac'    ]
+                     'M_Ac'
+                     ]
 
 parameter_units = {'Vmax_Ferm':'μmol/mg',         
                    'Vmax_Fe':'μmol/mg',       

@@ -81,11 +81,11 @@ def load_matlab():
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
              
  
-    for key in superdata:
-        plt.figure()  
-        plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
-        plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
-        plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
+    # for key in superdata:
+    #     plt.figure()  
+    #     plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
+    #     plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
+    #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
      
         
     superdata_Kuru = copy.deepcopy(superdata)
@@ -174,6 +174,9 @@ def curve_merger_wrapper(fixed_quantities):
         for key, value in changeables_dict.items():
             if not key in pool_order:
                 model_parameters[key] = value
+        for key, value in fixed_quantities.items():
+            if not key in pool_order:
+                model_parameters[key] = value
                 
         pool_dict = predictor(t,initial_pool_values, model_parameters)
         
@@ -184,7 +187,6 @@ def curve_merger_wrapper(fixed_quantities):
     # diese ZEile gehört zu curve_wrapper. zurückgegeben wird hier die funktion
     # merged_curves
     return merged_curves_pred
-
 
 def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict):  
    # print('')
@@ -227,12 +229,31 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
     error_CO2 = CO2_predicted - CO2_measured
     error_CH4 = CH4_predicted - CH4_measured
     
-    sum_of_squared_residuals = np.sum(error_CO2**2 + error_CH4**2) 
+    weight_CO2 = 1.
+    weight_CH4 = 1.
+    sum_of_squared_residuals = np.sum(weight_CO2*error_CO2**2 + weight_CH4*error_CH4**2) 
 
     return sum_of_squared_residuals 
 
 
 def predictor(t, initial_pool_values, model_parameters):
+    print_on_call = True
+    print_only_changeables = True
+    
+    if print_on_call:
+        print('')
+        print('calling predictor:')
+        print('initial pool values:')
+        for k, v in initial_pool_values.items():
+            changeable = '*' if k in changeables_order else ''
+            if not print_only_changeables or k in changeables_order:
+                print('   {:20s}'.format(k), '{:8.4f}'.format(v), '{}'.format(changeable))
+        print('model parameters:')
+        for k, v in model_parameters.items():
+            changeable = '*' if k in changeables_order else ''
+            if not print_only_changeables or k in changeables_order:
+                print('   {:20s}'.format(k), '{:8.4f}'.format(v), '{}'.format(changeable))
+        print('')
     
     # alle pools, für die kein initialer zustand explizit definiert ist,
     # werden zum startzeitpunkt (t=0) zu null gesetzt.
@@ -339,24 +360,24 @@ def fit_my_model(specimens, Site, opt):
 
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
-        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01,0.11)  
-        initial_guess_dict['Vmax_Fe'] =         (0.3,   0.029, 1.9)
-        initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
-        initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
-        initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
-        initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
-        initial_guess_dict['w_Fe'] =            (0.013, 0.01, 0.05)
-        initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
-        initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
-        initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
-        initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-        initial_guess_dict['Stoch_Fe'] =        (4,     1,  8)
-        initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmb_Fe'] =          (10,    1,  10)
-        initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
-        initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
-        initial_guess_dict['Fe'] =              (5.75,  2,  10)
+        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0., 1.)  
+        initial_guess_dict['Vmax_Fe'] =         (0.3,   0., np.inf)
+        initial_guess_dict['Vmax_Homo'] =       (0.133, 0., np.inf)
+        initial_guess_dict['Vmax_Hydro'] =      (0.086, 0., np.inf)
+        initial_guess_dict['Vmax_Ac'] =         (0.207, 0., np.inf)
+        initial_guess_dict['w_Ferm'] =          (0.05,  0., np.inf)
+        initial_guess_dict['w_Fe'] =            (0.03, 0., 2.)
+        initial_guess_dict['w_Hydro'] =         (0.024, 0., np.inf)
+        initial_guess_dict['w_Homo'] =          (0.049, 0., np.inf)
+        initial_guess_dict['w_Ac'] =            (0.04,  0., np.inf)
+        initial_guess_dict['Sensenmann'] =      (.0004, 0., 1.)
+        initial_guess_dict['Stoch_Fe'] =        (4.,     1.,  10.)
+        initial_guess_dict['Kmb_Ferm'] =        (8.,    1.,  10.)
+        initial_guess_dict['Kmh_Ferm'] =        (8.,    1.,  10.)
+        initial_guess_dict['Kmb_Fe'] =          (1.,    1.,  10.)
+        initial_guess_dict['Kmb_Ac'] =          (8.,    1.,  10.)
+        initial_guess_dict['Kmb_Hydro'] =       (8.,    1.,  10.)
+        initial_guess_dict['Fe'] =              (100.,  0.,  100.)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
 
         # vorbereitung des startpunktes für die optimierung und der bounds 
@@ -364,6 +385,11 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
         lower_bounds = [initial_guess_dict[key][1] for key in changeables_order]
         upper_bounds = [initial_guess_dict[key][2] for key in changeables_order]
+
+        # schreibe die werte, die zwar im initial_guess_dict definiert sind, 
+        # aber trotzdem während der optimierung festgehalten werden sollen, 
+        # in das dict für die nicht mit-optimierten werte.
+        fixed_quantities_dict.update({k:v[0] for k,v in initial_guess_dict.items() if not k in changeables_order})
 
         # gemessene daten aus Realdata laden und zusammenhängen, um CO2 und CH4
         # gleichzeitig zu fitten.
@@ -386,11 +412,11 @@ def fit_my_model(specimens, Site, opt):
                                                merged_measurements, #method="dogbox",
                                                p0 = initial_guess_array, 
                                                bounds=(lower_bounds, upper_bounds))
-            optimal_parameters , _ = curve_fit(curve_merger, 
-                                               measurement_days, 
-                                               merged_measurements, #method="dogbox",
-                                               p0 = optimal_parameters, 
-                                               bounds=(lower_bounds, upper_bounds))
+            # optimal_parameters , _ = curve_fit(curve_merger, 
+            #                                    measurement_days, 
+            #                                    merged_measurements, #method="dogbox",
+            #                                    p0 = optimal_parameters, 
+            #                                    bounds=(lower_bounds, upper_bounds))
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
             print(optimal_parameters)
         else:
