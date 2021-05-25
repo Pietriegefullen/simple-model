@@ -33,11 +33,12 @@ def load_matlab():
         replica_name = str(prob_name) + str(replica_count)
         superdata[replica_name] = dict()
         
+        # erstellt das dict für die anaeroben proben
         superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
         superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
-        # analog für co2, ch4, ...
         
+    # fügt den Proben jeweils die relevanten Metadaten hinzu    
     Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
     
     for meta_prob_names in Metadata['Probe']:
@@ -50,6 +51,7 @@ def load_matlab():
      
     replica_list = list(superdata.keys())    
     
+    #ersetzt negative messwerte mit den jeweils vorherigen messwerten, und nan mit 0 
     for key in superdata.keys():
         for index in range(len(superdata[key]['CH4'])):
             if superdata[key]['CH4'][index] < 0 :
@@ -62,38 +64,89 @@ def load_matlab():
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
 
-             
+     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
+    superdata_all = copy.deepcopy(superdata)
     for key in superdata.keys():
         FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
         for column_name in ['CO2','CH4','measured_time']:
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
-             
+            superdata_all[key][column_name] = superdata_all[key][column_name][:]
  
-    for key in superdata:
-        plt.figure()  
-        plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
-        plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
-        plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
+    # for key in superdata:
+    #     plt.figure()  
+    #     plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
+    #     plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
+    #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
      
-        
+    
+    #erstellt einen Datensatz nur für die Kurunak daten
     superdata_Kuru = copy.deepcopy(superdata)
     for key in superdata.keys():
         if not superdata[key]['Site']=='K':
             del superdata_Kuru[key]        
     replica_list_Kuru = list(superdata_Kuru.keys()) 
-        
+    
+    #erstellt einen datensatz nur für die Samoylov daten    
     superdata_Sam = copy.deepcopy(superdata)
     for key in superdata.keys():
         if not superdata[key]['Site']=='S':
             del superdata_Sam[key]        
-    replica_list_Sam = list(superdata_Sam.keys())   
-    print(len(replica_list_Sam) , "Proben Sam")                 
-    print(len(replica_list_Kuru) , "Proben Kuru")  
-    print(len(replica_list) , "Proben insgesamt")          
+    replica_list_Sam = list(superdata_Sam.keys())      
 
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam
+
+# Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
+    Carex_addition = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Carex_addition_2021_clean.xlsx',engine = 'openpyxl')
+    Carex = np.array(Carex_addition)     
+    #Proben = np.unique(Carex[:,0])     
+   # Probenfree = np.unique(Proben[~np.isnan(Proben)])
+    
+   # vergleich der keys mit den Probennamen des array und ermitteln der Indizes
+    for key in superdata_carex.keys():
+        indices = []
+        
+        for i in range(len([Carex[:,0]][0])):
+            if str(int([Carex[i,0]][0])) == str(key):
+                indices.append(i)
+        #hier werden die neuen Werte eingefügt
+        superdata_carex[key]['measured_time'] = Carex[indices,1]
+        superdata_carex[key]['CO2'] = Carex[indices,2]
+        superdata_carex[key]['CH4'] = Carex[indices,3]
+        
+        superdata_carex[key]['measured_time']=[int(i) for i in superdata_carex[key]['measured_time']]# von float to int
+        
+    superdata_2021_all = copy.deepcopy(superdata)
+   
+    
+    for key in  superdata_2021_all.keys():
+        #anfügen der Carextage an die nicht carextage
+          Time_to_append = [i + max(superdata_2021_all[key]['measured_time'] )  for i in superdata_carex[key]['measured_time']]
+
+          existing_time_values = superdata_2021_all[key]['measured_time']
+          time_all_values = np.concatenate([existing_time_values,Time_to_append], axis = 0)
+          superdata_2021_all[key]['measured_time'] = time_all_values
+          
+         #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
+         
+          CH4_to_append = [i + superdata_2021_all[key]['CH4'][-1]  for i in superdata_carex[key]['CH4']]
+
+          existing_CH4_values = superdata_2021_all[key]['CH4']
+          CH4_all_values = np.concatenate([existing_CH4_values,CH4_to_append], axis = 0)
+          superdata_2021_all[key]['CH4'] = CH4_all_values
+          
+          #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
+         
+          CO2_to_append = [i + superdata_2021_all[key]['CO2'][-1]  for i in superdata_carex[key]['CO2']]
+
+          existing_CO2_values = superdata_2021_all[key]['CO2']
+          CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
+          superdata_2021_all[key]['CO2'] = CO2_all_values
+          
+          
+          
+                
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all
 
 
 
@@ -102,4 +155,7 @@ if __name__ == '__main__':
     
     
    
-    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam = load_matlab()
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam, superdata_2021_all = load_matlab()
+
+
+plt.plot(superdata_2021_all['13510']['measured_time'],superdata_2021_all['13510']['CH4'])

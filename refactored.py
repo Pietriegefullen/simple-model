@@ -43,11 +43,12 @@ def load_matlab():
         replica_name = str(prob_name) + str(replica_count)
         superdata[replica_name] = dict()
         
+        # erstellt das dict für die anaeroben proben
         superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
         superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
-        # analog für co2, ch4, ...
         
+    # fügt den Proben jeweils die relevanten Metadaten hinzu    
     Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
     
     for meta_prob_names in Metadata['Probe']:
@@ -60,6 +61,7 @@ def load_matlab():
      
     replica_list = list(superdata.keys())    
     
+    #ersetzt negative messwerte mit den jeweils vorherigen messwerten, und nan mit 0 
     for key in superdata.keys():
         for index in range(len(superdata[key]['CH4'])):
             if superdata[key]['CH4'][index] < 0 :
@@ -72,14 +74,15 @@ def load_matlab():
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
 
-             
+     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
+    superdata_all = copy.deepcopy(superdata)
     for key in superdata.keys():
         FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
         for column_name in ['CO2','CH4','measured_time']:
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
-             
+            superdata_all[key][column_name] = superdata_all[key][column_name][:]
  
     # for key in superdata:
     #     plt.figure()  
@@ -87,61 +90,117 @@ def load_matlab():
     #     plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
     #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
      
-        
+    
+    #erstellt einen Datensatz nur für die Kurunak daten
     superdata_Kuru = copy.deepcopy(superdata)
     for key in superdata.keys():
         if not superdata[key]['Site']=='K':
             del superdata_Kuru[key]        
     replica_list_Kuru = list(superdata_Kuru.keys()) 
-        
+    
+    #erstellt einen datensatz nur für die Samoylov daten    
     superdata_Sam = copy.deepcopy(superdata)
     for key in superdata.keys():
         if not superdata[key]['Site']=='S':
             del superdata_Sam[key]        
-    replica_list_Sam = list(superdata_Sam.keys())                    
-            
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam
+    replica_list_Sam = list(superdata_Sam.keys())      
 
 
-
-
-def load_data(specimen_index):
-    # TODO load Corg content of samples Datei Corg_Probennummern
-    # TODO load pH values
+# Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
+    Carex_addition = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Carex_addition_2021_clean.xlsx',engine = 'openpyxl')
+    Carex = np.array(Carex_addition)     
+    #Proben = np.unique(Carex[:,0])     
+   # Probenfree = np.unique(Proben[~np.isnan(Proben)])
     
-    day_column_index = specimen_index*3
-    CH4_column_index = day_column_index + 1
-    CO2_column_index = day_column_index + 2
-    
-    
-    
-    data_df = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Trainingdatafull.xlsx',
-                       engine = 'openpyxl')
-
-    data_df = data_df.apply(pd.to_numeric, errors='coerce') # Macht " nicht zahlen" zu Nan
-    data_df = data_df.dropna() #  löscht Zeilen mit NaN
-    
-    data_array = data_df.values
+   # vergleich der keys mit den Probennamen des array und ermitteln der Indizes
+    for key in superdata_carex.keys():
+        indices = []
         
-    data_array[:,day_column_index] = np.around(data_array[:,day_column_index]) # rundet die Tage auf ganze tage (trotzdem floats)
-    
-    #erstellt Liste wo negative Werte vorhanden sind die ersetzt werden müssen
-    indexListCH4 = np.where(np.isin(data_array[:,CH4_column_index],data_array[:,CH4_column_index][np.where(data_array[:,CH4_column_index]<0)]))
-    indexListCO2 = np.where(np.isin(data_array[:,CO2_column_index],data_array[:,CO2_column_index][np.where(data_array[:,CO2_column_index]<0)]))
-
-    # ersetzt Messfehler mit neg. werten mit dem vorrangegangenen wert 
-    for p in range(len(indexListCH4[0])):   
-        data_array[:,CH4_column_index][indexListCH4[0][p]] = data_array[:,CH4_column_index][indexListCH4[0][p]-1]
+        for i in range(len([Carex[:,0]][0])):
+            if str(int([Carex[i,0]][0])) == str(key):
+                indices.append(i)
+        #hier werden die neuen Werte eingefügt
+        superdata_carex[key]['measured_time'] = Carex[indices,1]
+        superdata_carex[key]['CO2'] = Carex[indices,2]
+        superdata_carex[key]['CH4'] = Carex[indices,3]
         
-    for r in range(len(indexListCO2)):   
-        data_array[:,CH4_column_index][indexListCO2[r]] = data_array[:,CH4_column_index][indexListCO2[r]-1] 
+        superdata_carex[key]['measured_time']=[int(i) for i in superdata_carex[key]['measured_time']]# von float to int
+        
+    superdata_2021_all = copy.deepcopy(superdata)
+   
     
-    #umwandeln der daten in dict für "fit my model"                        
-    Realdata = {'measured_time': data_array[:,day_column_index],
-                'CH4':data_array[:,CH4_column_index],
-                'CO2':data_array[:,CO2_column_index]}
+    for key in  superdata_2021_all.keys():
+        #anfügen der Carextage an die nicht carextage
+          Time_to_append = [i + max(superdata_2021_all[key]['measured_time'] )  for i in superdata_carex[key]['measured_time']]
 
-    return Realdata
+          existing_time_values = superdata_2021_all[key]['measured_time']
+          time_all_values = np.concatenate([existing_time_values,Time_to_append], axis = 0)
+          superdata_2021_all[key]['measured_time'] = time_all_values
+          
+         #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
+         
+          CH4_to_append = [i + superdata_2021_all[key]['CH4'][-1]  for i in superdata_carex[key]['CH4']]
+
+          existing_CH4_values = superdata_2021_all[key]['CH4']
+          CH4_all_values = np.concatenate([existing_CH4_values,CH4_to_append], axis = 0)
+          superdata_2021_all[key]['CH4'] = CH4_all_values
+          
+          #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
+         
+          CO2_to_append = [i + superdata_2021_all[key]['CO2'][-1]  for i in superdata_carex[key]['CO2']]
+
+          existing_CO2_values = superdata_2021_all[key]['CO2']
+          CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
+          superdata_2021_all[key]['CO2'] = CO2_all_values
+          
+          
+          
+                
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all
+
+
+
+
+# Alte Funktion für die alten Daten
+# =============================================================================
+# def load_data(specimen_index):
+#     # TODO load Corg content of samples Datei Corg_Probennummern
+#     # TODO load pH values
+#     
+#     day_column_index = specimen_index*3
+#     CH4_column_index = day_column_index + 1
+#     CO2_column_index = day_column_index + 2
+#     
+#     
+#     
+#     data_df = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Trainingdatafull.xlsx',
+#                        engine = 'openpyxl')
+# 
+#     data_df = data_df.apply(pd.to_numeric, errors='coerce') # Macht " nicht zahlen" zu Nan
+#     data_df = data_df.dropna() #  löscht Zeilen mit NaN
+#     
+#     data_array = data_df.values
+#         
+#     data_array[:,day_column_index] = np.around(data_array[:,day_column_index]) # rundet die Tage auf ganze tage (trotzdem floats)
+#     
+#     #erstellt Liste wo negative Werte vorhanden sind die ersetzt werden müssen
+#     indexListCH4 = np.where(np.isin(data_array[:,CH4_column_index],data_array[:,CH4_column_index][np.where(data_array[:,CH4_column_index]<0)]))
+#     indexListCO2 = np.where(np.isin(data_array[:,CO2_column_index],data_array[:,CO2_column_index][np.where(data_array[:,CO2_column_index]<0)]))
+# 
+#     # ersetzt Messfehler mit neg. werten mit dem vorrangegangenen wert 
+#     for p in range(len(indexListCH4[0])):   
+#         data_array[:,CH4_column_index][indexListCH4[0][p]] = data_array[:,CH4_column_index][indexListCH4[0][p]-1]
+#         
+#     for r in range(len(indexListCO2)):   
+#         data_array[:,CH4_column_index][indexListCO2[r]] = data_array[:,CH4_column_index][indexListCO2[r]-1] 
+#     
+#     #umwandeln der daten in dict für "fit my model"                        
+#     Realdata = {'measured_time': data_array[:,day_column_index],
+#                 'CH4':data_array[:,CH4_column_index],
+#                 'CO2':data_array[:,CO2_column_index]}
+# 
+#     return Realdata
+# =============================================================================
 
 
 # diese Funktion erstellt für curve_fit eine funktion, die die zusammengefügten
@@ -229,6 +288,7 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
     error_CO2 = CO2_predicted - CO2_measured
     error_CH4 = CH4_predicted - CH4_measured
     
+    # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
     weight_CO2 = 1.
     weight_CH4 = 1.
     sum_of_squared_residuals = np.sum(weight_CO2*error_CO2**2 + weight_CH4*error_CH4**2) 
@@ -240,6 +300,7 @@ def predictor(t, initial_pool_values, model_parameters):
     print_on_call = True
     print_only_changeables = True
     
+    # gibt mir meine optimierten werte zurück ? 
     if print_on_call:
         print('')
         print('calling predictor:')
@@ -334,7 +395,7 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
 def fit_my_model(specimens, Site, opt):
     plt.close('all')
     
-    superdata, replica_list, supercarex, super_Kuru, super_Sam, replica_list_Kuru , replica_list_Sam = load_matlab()
+    superdata, replica_list, supercarex, super_Kuru, super_Sam, replica_list_Kuru , replica_list_Sam,superdata_2021_all = load_matlab()
     
     for specimen_index in specimens: #and2and3and4and5and6and7and8and9:
         if Site == "S":
@@ -474,6 +535,7 @@ if __name__ == '__main__':
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     specimens = [0]
+    
     fit_my_model(specimens, Site = "K", opt = 'Curve')
     
 
