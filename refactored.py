@@ -74,7 +74,7 @@ def load_matlab():
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
 
-     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
+    # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
     superdata_all = copy.deepcopy(superdata)
     for key in superdata.keys():
@@ -91,19 +91,7 @@ def load_matlab():
     #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
      
     
-    #erstellt einen Datensatz nur für die Kurunak daten
-    superdata_Kuru = copy.deepcopy(superdata)
-    for key in superdata.keys():
-        if not superdata[key]['Site']=='K':
-            del superdata_Kuru[key]        
-    replica_list_Kuru = list(superdata_Kuru.keys()) 
-    
-    #erstellt einen datensatz nur für die Samoylov daten    
-    superdata_Sam = copy.deepcopy(superdata)
-    for key in superdata.keys():
-        if not superdata[key]['Site']=='S':
-            del superdata_Sam[key]        
-    replica_list_Sam = list(superdata_Sam.keys())      
+  
 
 
 # Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
@@ -127,7 +115,7 @@ def load_matlab():
         superdata_carex[key]['measured_time']=[int(i) for i in superdata_carex[key]['measured_time']]# von float to int
         
     superdata_2021_all = copy.deepcopy(superdata)
-   
+    replica_list_superdata_2021_all = list(superdata_2021_all.keys()) 
     
     for key in  superdata_2021_all.keys():
         #anfügen der Carextage an die nicht carextage
@@ -152,13 +140,50 @@ def load_matlab():
           existing_CO2_values = superdata_2021_all[key]['CO2']
           CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
           superdata_2021_all[key]['CO2'] = CO2_all_values
+     
           
+    #erstellt einen Datensatz nur für die Kurunak daten
+    superdata_Kuru = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key]['Site']=='K':
+            del superdata_Kuru[key]        
+    replica_list_Kuru = list(superdata_Kuru.keys()) 
+    
+    #erstellt einen datensatz nur für die Samoylov daten    
+    superdata_Sam = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key]['Site']=='S':
+            del superdata_Sam[key]        
+    replica_list_Sam = list(superdata_Sam.keys())    
           
-          
+     # erstellen der Datenreihen, die vermutlich ohne FE Pool sind
+    Rep_ohne_Fe = [13690, 13531,13530,13521,13520,13742, 13741, 13740,13732,13731, 13730,13721,13720]
+
+    superdata_ohne_Fe = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key] in Rep_ohne_Fe:
+            del superdata_ohne_Fe[key]        
+    
+     
+     # erstellen der Datenreihen, die vermutlich MIT Fe Pool sind
+
+    Rep_mit_Fe = [13510,13511,13512,13670,13671,13672,13691,13692,13700,13722, 13731, 13750,13751,13752]
+    
+    superdata_mit_Fe = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key] in Rep_mit_Fe:
+            del superdata_mit_Fe[key]        
+    
                 
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe
 
-
+# superdata sind alle Datensätze VOR dem Carexexperiment,
+# superdata_carex sind die Datensätze von Christian NACH dem Carex experiment ( eigentlich alt )
+# Superdata_2021_all sind alle Datensätze vor und Nach Carex Zugabe von Knoblauch, darauf bauen auf: 
+# Superdata Kuru sind die Datensätze von Kurunak vor und nach Carex
+# Superdata_sam sind die Datensätze von Samoylov vor und nach Carex
+# superdata_ohne_Fe sind alle Datensätze deren exp  plot des CH4 vermuten lässt dass kein FE vorhanden ist
+# superdata_mit_Fe sind alle Datensätze deren exp  plot des CH4 vermuten lässt dass FE vorhanden ist
 
 
 # Alte Funktion für die alten Daten
@@ -342,14 +367,26 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     #plt.close('all')
 
     measurement_days = Realdata['measured_time'].astype(int)
-
+    print(pool_value_dict.keys())
+    
     for a, col in zip(["CH4","CO2"], ["r", "b"]):
         
         plt.figure()
         plt.plot(measurement_days, Realdata[a], col+"o", label = "Observed")
         plt.plot(pool_value_dict[a], "k-",label = "Predicted")
         plt.ylabel(a)
-        plt.legend()
+        plt.legend(Realdata['Probe'])
+        
+        
+# =============================================================================
+         #plots aller pools
+        for key in pool_value_dict.keys():
+             plt.figure()
+             plt.plot(range(0, max(measurement_days)+1), pool_value_dict[key], label = [key])
+             plt.ylabel([key])
+             plt.legend(Realdata['Probe'])
+ #=============================================================================
+        
         
         save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
         plt.savefig(save_path)
@@ -395,16 +432,20 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
 def fit_my_model(specimens, Site, opt):
     plt.close('all')
     
-    superdata, replica_list, supercarex, super_Kuru, super_Sam, replica_list_Kuru , replica_list_Sam,superdata_2021_all = load_matlab()
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe = load_matlab()
     
-    for specimen_index in specimens: #and2and3and4and5and6and7and8and9:
+    for specimen_index in specimens: 
         if Site == "S":
-            Realdata = super_Sam[replica_list_Sam[specimen_index]]
+            Realdata = superdata_Sam[replica_list_Sam[specimen_index]]
+            print(replica_list_Sam[specimen_index])
         elif Site == "K":
-            Realdata = super_Kuru[replica_list_Kuru[specimen_index]]   
-        else:
-            Realdata = superdata[replica_list[specimen_index]]
-
+            Realdata = superdata_Kuru[replica_list_Kuru[specimen_index]]   
+            print(replica_list_Kuru[specimen_index])
+        elif Site == "all":
+            Realdata = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
+            print(replica_list_superdata_2021_all[specimen_index])
+            
+        
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
         fixed_quantities_dict = dict()        
@@ -421,7 +462,7 @@ def fit_my_model(specimens, Site, opt):
 
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
-        initial_guess_dict['Vmax_Ferm'] =       (0.1,   0.01,0.11)  
+        initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)  
         initial_guess_dict['Vmax_Fe'] =         (0.3,   0.029, 1.9)
         initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
         initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
@@ -438,7 +479,7 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_dict['Kmb_Fe'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
-        initial_guess_dict['Fe'] =              (5.75,  2,  10)
+        initial_guess_dict['Fe'] =              (10.75,  2,  100)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
 
         # vorbereitung des startpunktes für die optimierung und der bounds 
@@ -460,13 +501,14 @@ def fit_my_model(specimens, Site, opt):
         # curve_wrapper hängt die vorhersagen für CO2 und CH4 hintereinander
         # damit curve_fit gleichzeitig gegen die gemessenen daten für CH4 und 
         # CO2 fitten kann.
-        print(merged_measurements)
-        print(type(measurement_days))
-        print(initial_guess_array)
-        print(lower_bounds)
-        print(upper_bounds)
+        #print(merged_measurements)
+        #print(type(measurement_days))
+        #print(initial_guess_array)
+        #print(lower_bounds)
+        #print(upper_bounds)
         if opt =='Curve':
             print('using curve_fit')
+            
             curve_merger = curve_merger_wrapper(fixed_quantities_dict)
             optimal_parameters , _ = curve_fit(curve_merger,
                                                measurement_days, 
@@ -480,7 +522,7 @@ def fit_my_model(specimens, Site, opt):
             #                                    bounds=(lower_bounds, upper_bounds))
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
             print(optimal_parameters)
-        else:
+        elif opt == "Min":
              print('using minimize')
 
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
@@ -528,15 +570,31 @@ def fit_my_model(specimens, Site, opt):
         
 
 if __name__ == '__main__':
+
+# =============================================================================
+#     Wahlmöglichkeiten um das Model laufen zu lassen 
+#
+#     Site = K , alle Kurunak daten
+#     Site = S, alle Samoylov daten
+#     Site = all, alle Daten
+#     
+#     opt = Curve , benutzt Curve fit
+#     opt = Min, benutzt Minimize
+#
+#     specimens muss die Länge des Datensatzes sein
+#     
+# =============================================================================
+
+#%%
     #specimenlistmax = [*range(0, 35, 1)]
     specimenlist_all= [i for i in range(34)]
     specimenlist_Sam= [i for i in range(18)]
     specimenlist_Kuru= [i for i in range(16)]
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
-    specimens = [0]
+    specimens = [10]
     
-    fit_my_model(specimens, Site = "K", opt = 'Curve')
+    fit_my_model(specimens, Site = "all", opt = 'Min')
     
 
 

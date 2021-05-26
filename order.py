@@ -30,25 +30,25 @@ pool_order = ['C',
 
 
 
-
+# durch auskommentieren bestimmen wir was optimiert wird und was nicht
 changeables_order = [
                      'Vmax_Ferm',
-                     # 'Vmax_Fe',
-                     # 'Vmax_Homo',
-                     # 'Vmax_Hydro',
-                     'Vmax_Ac',
-                     # 'w_Ferm',
-                     'w_Fe',
-                     # 'w_Hydro', 
-                     # 'w_Homo',
+                     #'Vmax_Fe',
+                     #'Vmax_Homo',
+                     #'Vmax_Hydro',
+                     #'Vmax_Ac',
+                     #'w_Ferm',
+                     #'w_Fe',
+                     #'w_Hydro', 
+                     #'w_Homo',
                      'w_Ac',
-                     'Sensenmann',
-                     # 'Stoch_Fe',
-                     # 'Kmb_Ferm',
-                     # 'Kmh_Ferm',
-                     # 'Kmb_Fe',
-                     # 'Kmb_Ac',
-                     # 'Kmb_Hydro',
+                     #'Sensenmann',
+                     'Stoch_Fe',
+                     #'Kmb_Ferm',
+                     #'Kmh_Ferm',
+                     #'Kmb_Fe',
+                     #'Kmb_Ac',
+                     #'Kmb_Hydro',
                      'Fe',
                      'M_Ac'
                      ]

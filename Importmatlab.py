@@ -64,7 +64,7 @@ def load_matlab():
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
 
-     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
+    # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
     superdata_all = copy.deepcopy(superdata)
     for key in superdata.keys():
@@ -81,19 +81,7 @@ def load_matlab():
     #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
      
     
-    #erstellt einen Datensatz nur für die Kurunak daten
-    superdata_Kuru = copy.deepcopy(superdata)
-    for key in superdata.keys():
-        if not superdata[key]['Site']=='K':
-            del superdata_Kuru[key]        
-    replica_list_Kuru = list(superdata_Kuru.keys()) 
-    
-    #erstellt einen datensatz nur für die Samoylov daten    
-    superdata_Sam = copy.deepcopy(superdata)
-    for key in superdata.keys():
-        if not superdata[key]['Site']=='S':
-            del superdata_Sam[key]        
-    replica_list_Sam = list(superdata_Sam.keys())      
+  
 
 
 # Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
@@ -117,7 +105,7 @@ def load_matlab():
         superdata_carex[key]['measured_time']=[int(i) for i in superdata_carex[key]['measured_time']]# von float to int
         
     superdata_2021_all = copy.deepcopy(superdata)
-   
+    replica_list_superdata_2021_all = list(superdata_2021_all.keys()) 
     
     for key in  superdata_2021_all.keys():
         #anfügen der Carextage an die nicht carextage
@@ -142,12 +130,42 @@ def load_matlab():
           existing_CO2_values = superdata_2021_all[key]['CO2']
           CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
           superdata_2021_all[key]['CO2'] = CO2_all_values
+     
           
+    #erstellt einen Datensatz nur für die Kurunak daten
+    superdata_Kuru = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key]['Site']=='K':
+            del superdata_Kuru[key]        
+    replica_list_Kuru = list(superdata_Kuru.keys()) 
+    
+    #erstellt einen datensatz nur für die Samoylov daten    
+    superdata_Sam = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key]['Site']=='S':
+            del superdata_Sam[key]        
+    replica_list_Sam = list(superdata_Sam.keys())    
           
-          
-                
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all
+     # erstellen der Datenreihen, die vermutlich ohne FE Pool sind
+    Rep_ohne_Fe = [13690, 13531,13530,13521,13520,13742, 13741, 13740,13732,13731, 13730,13721,13720]
 
+    superdata_ohne_Fe = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key] in Rep_ohne_Fe:
+            del superdata_ohne_Fe[key]        
+    
+     
+     # erstellen der Datenreihen, die vermutlich MIT Fe Pool sind
+
+    Rep_mit_Fe = [13510,13511,13512,13670,13671,13672,13691,13692,13700,13722, 13731, 13750,13751,13752]
+    
+    superdata_mit_Fe = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not superdata_2021_all[key] in Rep_mit_Fe:
+            del superdata_mit_Fe[key]        
+    
+                
+    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe
 
 
 
@@ -155,7 +173,17 @@ if __name__ == '__main__':
     
     
    
-    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam, superdata_2021_all = load_matlab()
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe = load_matlab()
 
 
 plt.plot(superdata_2021_all['13510']['measured_time'],superdata_2021_all['13510']['CH4'])
+
+
+for key in superdata_2021_all.keys():
+    plt.figure()
+    plt.plot(superdata_2021_all[key]['measured_time'],superdata_2021_all[key]['CH4'], label=key)
+    print(key)
+    plt.legend([key])
+
+
+
