@@ -21,6 +21,7 @@ import numpy as np
 
 import model
 from order import pool_order, changeables_order, parameter_units
+from scaling import scale, rescale
 
 os.chdir('C:/Users/Lara/Desktop/simple model')
 
@@ -252,7 +253,6 @@ def curve_merger_wrapper(fixed_quantities):
     # angepasst werden können. im ersten schritt des fit-algorithmus sind 
     # diese die initiual_guesses
     def merged_curves_pred(t, *changeables):
-        
         changeables_dict = dict(zip(changeables_order, changeables))
         
         initial_pool_values = dict()
@@ -271,7 +271,11 @@ def curve_merger_wrapper(fixed_quantities):
         for key, value in fixed_quantities.items():
             if not key in pool_order:
                 model_parameters[key] = value
-                
+        
+        # rescale the parameters
+        initial_pool_values = rescale(initial_pool_values)
+        model_parameters = rescale(model_parameters)
+        
         pool_dict = predictor(t,initial_pool_values, model_parameters)
         
         # nimm CO2 und CH4 und pack sie zusammen zu einer einzigen kurve.
@@ -307,6 +311,11 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
             initial_pool_dict[key] = fixed_quantities_dict[key]
         else:
             model_parameters_dict[key] = fixed_quantities_dict[key]
+    
+    
+    # rescale the parameters
+    initial_pool_dict = rescale(initial_pool_dict)
+    model_parameters_dict = rescale(model_parameters_dict)
     
     #predictor_start = time.time()
     y_predicted_dict = predictor(measured_data_dict['measured_time'],
@@ -350,6 +359,7 @@ def predictor(t, initial_pool_values, model_parameters):
             if not print_only_changeables or k in changeables_order:
                 print('   {:20s}'.format(k), '{:8.4f}'.format(v), '{}'.format(changeable))
         print('')
+    
     
     # alle pools, für die kein initialer zustand explizit definiert ist,
     # werden zum startzeitpunkt (t=0) zu null gesetzt.
@@ -492,6 +502,11 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_dict['Fe'] =              (10.75,  2,  100)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
 
+
+        # scale parameters to allow better optimization
+        initial_guess_dict = scale(initial_guess_dict)
+        
+        
         # vorbereitung des startpunktes für die optimierung und der bounds 
         # für curve_fit
         initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
@@ -531,6 +546,7 @@ def fit_my_model(specimens, Site, opt):
             #                                    p0 = optimal_parameters, 
             #                                    bounds=(lower_bounds, upper_bounds))
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
+            changeables_optimal_dict = rescale(changeables_optimal_dict)
             print(optimal_parameters)
         elif opt == "Min":
              print('using minimize')
@@ -545,6 +561,7 @@ def fit_my_model(specimens, Site, opt):
              print(optimization_result)
              changeables_optimal_array = optimization_result.x
              changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
+             changeables_optimal_dict = rescale(changeables_optimal_dict)
 
         #Printing the Parameter and its value
         for parameter_name in changeables_optimal_dict.keys():
