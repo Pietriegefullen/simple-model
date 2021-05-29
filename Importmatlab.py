@@ -37,6 +37,7 @@ def load_matlab():
         superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
         superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
+    
         
     # fügt den Proben jeweils die relevanten Metadaten hinzu    
     Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
@@ -51,8 +52,9 @@ def load_matlab():
      
     replica_list = list(superdata.keys())    
     
-    #ersetzt negative messwerte mit den jeweils vorherigen messwerten, und nan mit 0 
+    
     for key in superdata.keys():
+        #ersetzt negative messwerte mit den jeweils vorherigen messwerten, und nan mit 0 
         for index in range(len(superdata[key]['CH4'])):
             if superdata[key]['CH4'][index] < 0 :
                 superdata[key]['CH4'][index] = superdata[key]['CH4'][index-1]
@@ -63,6 +65,7 @@ def load_matlab():
                 superdata[key]['CO2'][index] = superdata[key]['CO2'][index-1]         
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
+                
 
     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
@@ -72,6 +75,10 @@ def load_matlab():
         for column_name in ['CO2','CH4','measured_time']:
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
+              # key entry ab wann Carex zugegeben wurde
+            superdata[key]['First_Carex_index'] =     len(superdata[key]['measured_time'])
+            superdata[key]['Last_non_Carex_day'] =    max(superdata[key]['measured_time'])
+            
             superdata_all[key][column_name] = superdata_all[key][column_name][:]
  
     # for key in superdata:
@@ -148,6 +155,7 @@ def load_matlab():
           
      # erstellen der Datenreihen, die vermutlich ohne FE Pool sind
     Rep_ohne_Fe = [13690, 13531,13530,13521,13520,13742, 13741, 13740,13732,13731, 13730,13721,13720]
+    #+ 13722
 
     superdata_ohne_Fe = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
@@ -164,26 +172,39 @@ def load_matlab():
         if not superdata_2021_all[key] in Rep_mit_Fe:
             del superdata_mit_Fe[key]        
     
+    print(superdata_Kuru['13510']['First_Carex_index'])
+    print(superdata_2021_all['13510']['First_Carex_index'])
+    
                 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe
 
 
 
 if __name__ == '__main__':
+
+
+# superdata sind alle Datensätze VOR dem Carexexperiment,
+# superdata_carex sind die Datensätze von Christian NACH dem Carex experiment ( eigentlich alt )
+# superdata_all sind alle Datensätze von Christian vor und nach Carex (auch alt)
+# Superdata_2021_all sind alle Datensätze vor und Nach Carex Zugabe von Knoblauch, darauf bauen auf: 
+# Superdata Kuru sind die Datensätze von Kurunak vor und nach Carex
+# Superdata_sam sind die Datensätze von Samoylov vor und nach Carex
+# superdata_ohne_Fe sind alle Datensätze deren exp  plot des CH4 vermuten lässt dass kein FE vorhanden ist
+# superdata_mit_Fe sind alle Datensätze deren exp  plot des CH4 vermuten lässt dass FE vorhanden ist
     
     
    
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe = load_matlab()
 
 
-plt.plot(superdata_2021_all['13510']['measured_time'],superdata_2021_all['13510']['CH4'])
-
-
-for key in superdata_2021_all.keys():
-    plt.figure()
-    plt.plot(superdata_2021_all[key]['measured_time'],superdata_2021_all[key]['CH4'], label=key)
-    print(key)
-    plt.legend([key])
+    plt.plot(superdata_2021_all['13510']['measured_time'],superdata_2021_all['13510']['CH4'])
+    
+    
+    for key in superdata_2021_all.keys():
+        plt.figure()
+        plt.plot(superdata_2021_all[key]['measured_time'],superdata_2021_all[key]['CH4'], label=key)
+        print(key)
+        plt.legend([key])
 
 
 
