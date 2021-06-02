@@ -400,33 +400,33 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         
 # =============================================================================
          #plots aller pools
-        for key in pool_value_dict.keys():
-             plt.figure()
-             plt.plot(range(0, max(measurement_days)+1), pool_value_dict[key], label = [key])
-             plt.ylabel([key])
-             plt.legend(Realdata['Probe'])
+    for key in pool_value_dict.keys():
+         plt.figure()
+         plt.plot(range(0, max(measurement_days)+1), pool_value_dict[key], label = [key])
+         plt.ylabel([key])
+         plt.legend(Realdata['Probe'])
  #=============================================================================
         
-        
-        save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
-        plt.savefig(save_path)
-                
-        # berechne R^2
-        measured_values = Realdata[a]
-        predicted_values = pool_value_dict[a][measurement_days]
-        mean_measured_value = np.mean(measured_values)
-        residuals = measured_values - predicted_values
-        residual_sum_of_squares = np.sum(residuals**2)
-        total_sum_of_squares = np.sum((measured_values - mean_measured_value)**2)
-        r_squared = 1 - residual_sum_of_squares/total_sum_of_squares
-        
-        # adjust R^2 for number of degrees of freedom
-        n = measurement_days.size # number of measurements
-        p = len(changeables_order) # number of explanatory terms
-        adjusted_r_squared = 1 - (1-r_squared)*(n-1)/(n-p-1)
-        
-        print("r2 for "+a+" is", r_squared)
-        print("r2adj  "+a+" is", adjusted_r_squared)
+    
+    save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
+    plt.savefig(save_path)
+            
+    # berechne R^2
+    measured_values = Realdata[a]
+    predicted_values = pool_value_dict[a][measurement_days]
+    mean_measured_value = np.mean(measured_values)
+    residuals = measured_values - predicted_values
+    residual_sum_of_squares = np.sum(residuals**2)
+    total_sum_of_squares = np.sum((measured_values - mean_measured_value)**2)
+    r_squared = 1 - residual_sum_of_squares/total_sum_of_squares
+    
+    # adjust R^2 for number of degrees of freedom
+    n = measurement_days.size # number of measurements
+    p = len(changeables_order) # number of explanatory terms
+    adjusted_r_squared = 1 - (1-r_squared)*(n-1)/(n-p-1)
+    
+    print("r2 for "+a+" is", r_squared)
+    print("r2adj  "+a+" is", adjusted_r_squared)
 
     # for pool_name, pool_curve in pool_value_dict.items(): 
     #     plt.figure()
@@ -614,9 +614,9 @@ if __name__ == '__main__':
 
 #%%
     #specimenlistmax = [*range(0, 35, 1)]
-    specimenlist_all= [i for i in range(34)]
-    specimenlist_Sam= [i for i in range(18)]
-    specimenlist_Kuru= [i for i in range(16)]
+   # specimenlist_all= [i for i in range(34)]
+    #specimenlist_Sam= [i for i in range(18)]
+    #specimenlist_Kuru= [i for i in range(16)]
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     specimens = [10]
