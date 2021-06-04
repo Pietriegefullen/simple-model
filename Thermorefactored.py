@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri Jun  4 14:55:24 2021
+
+@author: Lara
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Tue Oct 13 09:45:44 2020
 
 @author: Lara
@@ -19,7 +26,7 @@ import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
 
 
-import model
+import Thermomodel
 from order import pool_order, changeables_order, parameter_units
 from scaling import scale, rescale
 
@@ -372,7 +379,7 @@ def predictor(t, initial_pool_values, model_parameters):
     
     initial_system_state = np.array(initial_pool_list)
     
-    cdec = model.Cdec_wrapper(model_parameters) 
+    cdec = Thermomodel.Cdec_wrapper(model_parameters) 
     pool_curves = odeint(cdec, 
                          initial_system_state, 
                          t)
@@ -499,6 +506,7 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_dict['Kmb_Fe3'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
+        initial_guess_dict['Kmb_Homo'] =         (10,    1,  10)
         initial_guess_dict['Fe3'] =              (10.75,  2,  100)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
         initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
@@ -613,7 +621,7 @@ if __name__ == '__main__':
 #     
 # =============================================================================
 
-#%%
+
     #specimenlistmax = [*range(0, 35, 1)]
     #specimenlist_all= [i for i in range(34)]
     #specimenlist_Sam= [i for i in range(18)]
