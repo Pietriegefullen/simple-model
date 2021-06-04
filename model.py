@@ -69,6 +69,8 @@ def Cdec_wrapper(model_parameter_dict):
     def Cdec(system_state, t):
         pool_dict = dict(zip(pool_order, system_state))
         
+        print(system_state)
+        
         C_pool = pool_dict['C']
         Fe_pool = pool_dict['Fe']
         Acetate_pool = pool_dict['Acetate']
@@ -80,8 +82,7 @@ def Cdec_wrapper(model_parameter_dict):
         M_Ferm2_pool = pool_dict['M_Ferm2']
         CO2_pool = pool_dict['CO2']
         H2_pool = pool_dict['H2']
-        
-        
+       
         
         # FERM FERM FERM FERM FERM  Ratio aus Grant 1998
         #Ferm atmen einen Teil C_pool und machen einen Teil zu Acetate_pool, CO2 und H2

@@ -28,7 +28,8 @@ scaling_factors = {
             'Kmb_Ac':       0.1,
             'Kmb_Hydro':    0.1,
             'Fe':           0.1,
-            'M_Ac':         10
+            'M_Ac':         10,
+            'Kmb_Homo' :    0.1,
         }
 
 def scale(parameter_dict):
