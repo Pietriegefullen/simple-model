@@ -101,13 +101,14 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
         'biomass': +34.8
 
     """
-    # name as string like "Ferm"
-    
     MM_factors = list()
+    Gibbs_exists = [0]
     for educt, edu_dict in educt_dict.items():  
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
         MM_factors.append(substance_MM)
+        if ('DGf' in edu_dict):
+            Gibbs_exist = 1
         
     MM_factors_total = numpy.prod(MM_factors)
     
@@ -117,10 +118,10 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
 #-------------------------------------------------------------------------------------------------------------
     # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
     Vmax = microbe_dict['Vmax']
-    
-    #TODO: die fermentation hat keine thermodyn., stattdessen einen Hemmfaktor
-    
-    thermodynamic_factor = thermodynamics(educt_dict, product_dict)
+    if Gibbs_exists == 1:
+        thermodynamic_factor = thermodynamics(educt_dict, product_dict)
+    else:
+        thermodynamic_factor = 0 #TODO Hier gehört die acetatehemmung 
     V = Biomass * Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
     
@@ -166,23 +167,15 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
         
     return pool_change_dict
 
-def AltEPathway():
-    biomass_dict = 
-    educt_dict = 
-    product_dict = 
-    pool_change_dict = GeneralPathway(biomass_dict, educt_dict, product_dict)
-    pool_change_dict['M_Fe'] = pool_change_dict.pop('biomass')
-    return pool_change_dict
-
-
-
-
 
 
 
 
 ###############################################################################
+###############################################################################
 
+
+# TODO FERM pathway mit acetatehemmung schreiben
 def Fermenters(Biomass, Sub1, Sub2 , Vmax, w_Ferm, Sensenmann, Kmb, Kmh):
     Km1 = 10 / SOIL_DENSITY    # 10 from Song  mikromol pro gram 
     #Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
@@ -193,60 +186,170 @@ def Fermenters(Biomass, Sub1, Sub2 , Vmax, w_Ferm, Sensenmann, Kmb, Kmh):
 
 
 
-def AltE(Biomass, Acetate, AltEpool, Stoch_ALtE, Vprod_max,w_AltE,Sensenmann, Kmb):
-    Km1 = 0.005/SOIL_DENSITY   #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
-    Km2 = 0                     # damit AltE Pool keine michaelis menten gleichung hat 
-    #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
-    Stoch = Stoch_ALtE #jason 2001: ca 7 , weil acetate + 8Fe(III)  + 4H2O ---> 2HCO3 + 8Fe(II) + 9H+
-
-    deltaBiomass, deltaAcetate, deltaAltE, ToteMicroben = AutoMicrobe(Biomass,  Acetate, AltEpool, w_AltE, Km1, Km2, Vprod_max, Stoch, Sensenmann, Kmb)
-
-    return deltaBiomass, deltaAcetate, deltaAltE, ToteMicroben
 
 
 
-def Hydrotrophes(Biomass, CO2, H2, w_Hydro, Vprod_max,Sensenmann, Kmb ):
-    # thauer1993reactions unter feldbedingungen 1 mol ATP pro Mol CH4, 
-    #Sensenmann = 0
-    Km1 = 0.05 / SOIL_DENSITY     # 0.05 mikromol pro cm^3 from Song
-    Km2 = 0.01 / SOIL_DENSITY     # 0.01 mikromol pro cm^3 from Song
-    #Vprod_max = 0.15 / SOIL_DENSITY # 0.15 mikromol pro cm^3 from Song
-    Stoch = 4                     # Stochiomitry: 4 H2 + 1 CO2 -> 1 CH4 + 2 H2O
+def Fe_Pathway(pool_dict,model_parameter_dict):
+    # PATHWAY:   C2H3O2 − + 4H2O + 8Fe(III)   --->       9H+ + 2 HCO3− + 8Fe+2   Delattre 2019 , jason 2001
+ 
+    microbe_dict = {'concentration' : pool_dict['M_Fe'], 
+                    'Vmax'          : model_parameter_dict['Vmax_Fe'],          #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
+                    'growth_rate'   : model_parameter_dict['w_Fe'], 
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'Kmb'           : model_parameter_dict['Kmb']}
     
-    deltaBiomass, deltaCO2, deltaH2, ToteMicroben = AutoMicrobe(Biomass, CO2, H2, w_Hydro, Km1, Km2, Vprod_max, Stoch, Sensenmann, Kmb)
     
-    return deltaBiomass, deltaCO2, deltaH2, ToteMicroben
-
-
-def Homo(Biomass, CO2, H2, w_Homo, Vprod_max, Sensenmann):
-    #Sensenmann = 0
-    Km1 = 0.05 / SOIL_DENSITY    # 0.05 from Song, laut (van1999effects) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
-    Km2 = 0.01 / SOIL_DENSITY    # 0.01 from Song
-    #Vprod_max = 0.15 / SOIL_DENSITY # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
-    Stoch = 2                    # song/fenchel : 4H2 + 2CO2 → CH3COOH+ 2H2O, 2CO2 + 8H2  = CH3COOH +H2O., laut Thauer sind es 4 H2 + Co2 -> CH4 +2H2O
+    educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
+                                    'Stoch'          : 1                  ,
+                                    'DGf'            : -369.31            ,
+                                    'Km'             : 0.01 / SOIL_DENSITY}   , #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
     
-    deltaBiomass, deltaCO2, deltaH2, ToteMicroben = AutoMicrobe(Biomass, CO2, H2, w_Homo, Km1, Km2, Vprod_max, Stoch,Sensenmann, 0)
-    # Die Reaktionsrichtung ändert sich abhängig vom H2 Druck cabrol2017microbial
+                      'Fe3'        :{'concentration':                     ,
+                                   'Stoch'          : 8                   ,
+                                   'DGf'            : -4.7                ,
+                                   'Km'             : 0                   }   } # TODO WISO 0 ? 
+                     
     
-    return deltaBiomass, deltaCO2, deltaH2, ToteMicroben
-
-
-
-def Acetoclast(Biomass, Acetate, w_Ace, Vprod_max, Sensenmann, Kmb):
-    Km1 = 0.05 / SOIL_DENSITY #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-    Km2 = 0 / SOIL_DENSITY      # 
-    #Vprod_max = 0.5/ SOIL_DENSITY # 0.5 from song
-    Stoch = 0
+    product_dict = { 'Fe2' : {'concentration': pool_dict['Fe2'],
+                              'Stoch'        : 8               ,
+                              'DGf'          : -78.9           }  ,
+                    
+                     'CO2' : {'concentration': pool_dict['CO2'],
+                              'Stoch'        : 2               ,
+                              'DGf'          :                 }  , 
+                         
+                      'H2' : {'concentration': pool_dict['H2'],
+                              'Stoch'        : 0              ,
+                              'DGf'          :                }   }
+                                                                  
+   
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
     
-
-    deltaBiomass, deltaAcetate, _, ToteMicroben = AutoMicrobe(Biomass, Acetate, 1, w_Ace, Km1, Km2, Vprod_max, Stoch,Sensenmann, Kmb)
+    pool_change_dict['M_Fe'] = pool_change_dict.pop('biomass')
     
-    return deltaBiomass, deltaAcetate, ToteMicroben
+    
+    return pool_change_dict
 
 
 
 
 
+def Hydrotrophes_Pathway(pool_dict,model_parameter_dict):
+    # PATHWAY: 4 H2 + 1 CO2 -> 1 CH4 + 2 H2O conrad2000selective, Fenchel -131kj/mol
+    
+    microbe_dict = {'concentration' : pool_dict['M_Hydro']              , 
+                    'Vmax'          : model_parameter_dict['Vmax_Hydro'], ## 0.15 mikromol pro cm^3 from Song
+                    'growth_rate'   : model_parameter_dict['w_Hydro']   , 
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'Kmb'           : model_parameter_dict['Kmb']       }
+    
+    educt_dict = { 'H2'  : {'concentration':pool_dict['H2']  ,
+                            'Stoch'     : 4                  , 
+                            'DGf'       : 0                  ,
+                            'Km'        : 0.01 / SOIL_DENSITY},# 0.01 mikromol pro cm^3 from Song
+    
+                  'CO2'  :{'concentration': 'concentration':pool_dict['CO2'] ,
+                           'Stoch'        : 1                                ,
+                           'DGf'          : -394.36                          ,
+                           'Km'           : 0.05/SOIL_DENSITY }              } # 0.05 mikromol pro cm^3 from Song
+                    
+    
+    product_dict = {'CH4' :{'concentration': pool_dict['CH4'] ,
+                            'Stoch'        : 1                ,
+                            'DGf'          : -50.72}          }
+   
+    
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    
+    pool_change_dict['M_Hydro'] = pool_change_dict.pop('biomass')
+    
+    
+    return pool_change_dict
 
+
+
+def Homo_Pathway(pool_dict,model_parameter_dict):
+    # PATHWAY: song,fenchel,conrad2000selective : 4H2 + 2CO2 → CH3COOH+ 2H2O. Alternativ: 2CO2 + 8H2  = CH3COOH +H2O., laut Thauer sind es 4 H2 + Co2 -> CH4 +2H2O
+
+    microbe_dict = {'concentration' : pool_dict['M_Homo'], 
+                    'Vmax'          : model_parameter_dict['Vmax_Homo'] , # # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
+                    'growth_rate'   : model_parameter_dict['w_Homo']    , 
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'Kmb'           : model_parameter_dict['Kmb']       }
+    
+    educt_dict = { 'H2'  : {'concentration':pool_dict['H2']        ,
+                             'Stoch'       : 4                     ,
+                             'DGf'         : 0                     ,
+                               'Km'        : 0.01 / SOIL_DENSITY   },    # 0.01 from Song
+    
+                  'CO2'  :{'concentration' :pool_dict['CO2']       ,
+                           'Stoch'         : 2                     ,
+                           'DGf'           : -394.36               ,
+                           'Km'            : 0.05 / SOIL_DENSITY } }  # 0.05 from Song, laut (van1999effects) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
+                     
+    
+    product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,
+                                 'Stoch'        : 1                    ,
+                                 'DGf'          : -369.31}             , }
+   
+    
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    
+    pool_change_dict['M_Homo'] = pool_change_dict.pop('biomass')
+    
+    return pool_change_dict
+
+
+
+def Ac_Pathway(pool_dict,model_parameter_dict):
+    #PATHWAY:  CH3COO + H+ ->  CH4 + CO2 Fey_Conrad2000
+    
+    microbe_dict = {'concentration' : pool_dict['M_Ac'], 
+                    'Vmax'          : model_parameter_dict['Vmax_Ac'],  #Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
+                    'growth_rate'   : model_parameter_dict['w_Ac'], 
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'Kmb'           : model_parameter_dict['Kmb']}
+    
+    educt_dict = { 'Acetate' : {'concentration':pool_dict['Acetate']    ,
+                                'Stoch'        :  1                     ,
+                                 'DGf'         : -369.31                ,
+                                 'Km'          :  0.05 / SOIL_DENSITY   },   #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
+    
+                      
+    product_dict = { 'CH4' : {'concentration': pool_dict['CH4'],
+                              'Stoch'        : 1               ,
+                              'DGf'          : 186.26          },
+                    
+                     'CO2' : {'concentration': pool_dict['CO2'],
+                              'Stoch'        : 1               ,
+                              'DGf'          :-394.36          } }
+
+    
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    
+    pool_change_dict['M_Ac'] = pool_change_dict.pop('biomass')
+    
+    
+    return pool_change_dict
+
+
+
+#%%
+
+test_dict = { "Moli": {"Buy": 75,"Sell": 53,"Quantity": 300},
+             "Anna":  {"Buy": 55,"Sell": 83,"Quantity": 154}}
+
+for key, item in test_dict.items():
+    if ('Buy' in item ) :
+        print('pear')
+
+
+if ('Moli' in test_dict):
+    print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
+    print('banana')
+
+if test_dict[(list(test_dict.keys())[0])]['Buy'] in test_dict:
+    print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
+    print('banana')
 
 
