@@ -19,15 +19,24 @@ m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
 def thermodynamics_Ferm(product_dict, microbe_dict):
     # inverse mm erlaubt ? weil aceate durch enzyme abgebaut werden was einer MM folgt und Acetate unsere Hemmung auslöst. die auflösung der Hemmung 
     # ist also gleichgesetzt mit dem Abbau des acetate und die Hemmung ist deshalb der inverse abbau von Acetate
-    
+    # print('thermo fermo')
+    # print(product_dict)
     Acetate = product_dict['Acetate']['concentration']
+    # print(microbe_dict)
+    # input()
     KmA = microbe_dict['KmA_Ferm']
-    
-    return (1- ((Acetate)/KmA + Acetate))
+    # print('Fermentations ',1- Acetate/(KmA + Acetate))
+    # input('...')
+    return 1- Acetate/(KmA + Acetate)
 
 
 
 def thermodynamics(educt_dict, product_dict):
+    
+    # print('thermononfermo')
+    # print(educt_dict)
+    # print(product_dict)
+    # input()
     Edu_Q = list()
     Edu_DGf = list()
     
@@ -55,7 +64,7 @@ def thermodynamics(educt_dict, product_dict):
         Concentration = produ_dict['concentration']
         Stoch = produ_dict['Stoch']
         
-        Prod_Q.append = Concentration**Stoch
+        Prod_Q.append(Concentration**Stoch)
         
         # to get Gibbs Energy of formation of the Products
         
@@ -65,7 +74,11 @@ def thermodynamics(educt_dict, product_dict):
     Prod_DGf_total = sum(Prod_DGf)
         
            
-
+    #print('Q', Prod_Q_total, Edu_Q_total)
+    # input()
+    if Prod_Q_total == 0:
+        return 1.0
+    
     Q = Prod_Q_total/ Edu_Q_total
     DGs = Prod_DGf_total - Edu_DGf_total
     
@@ -73,10 +86,11 @@ def thermodynamics(educt_dict, product_dict):
     T = 277.15 # 4 °C in Kelvin
     
     DGr = DGs + R * T * math.log( Q )
-    
-    return 1 - np.exp(min(0, (DGr - (-26)/R*T)))
+    # print('DGr', DGr)
+    DGmin = -26
+    return 1 - np.exp(min(0, DGr - DGmin)/R*T)
 
-def GeneralPathway(microbe_dict, educt_dict, product_dict):
+def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
     Parameters
     ----------
@@ -113,15 +127,22 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
         'biomass': +34.8
 
     """
+    
+    for educt, edu_dict in educt_dict.items():  
+        if edu_dict['concentration'] <= 0:
+            return dict()
+    
+    #print('entering '+pathway_name)
+    # input()
     MM_factors = list()
-    Gibbs_exists = [0]
+    Gibbs_exists = False
     for educt, edu_dict in educt_dict.items():  
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
         MM_factors.append(substance_MM)
         if ('DGf' in edu_dict):
-            Gibbs_exist = 1
-        
+            Gibbs_exists = True
+            # print('Gibbs_exist')
     MM_factors_total = np.prod(MM_factors)
     
     # erstellen der inversen MM der Biomasse
@@ -130,11 +151,13 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
 #-------------------------------------------------------------------------------------------------------------
     # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
     Vmax = microbe_dict['Vmax']
-    if Gibbs_exists == 1:
+    if Gibbs_exists:
         thermodynamic_factor = thermodynamics(educt_dict, product_dict)
+        # print('GIbbs')
     else:
-        thermodynamic_factor = 0 #TODO Hier gehört die acetatehemmung 
-    V = Biomass * Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
+        thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict) #TODO Hier gehört die acetatehemmung 
+        # print('no_gibbs')
+    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
     
     # Mikrobenzuwachs und verbrauch von C Biomasse , ACHTUNG!! DAS IST EIGENTLICH NICHT UNBEDINGT KORRECKT, weil nur in den seltensten
@@ -160,7 +183,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
     limiting_reaction_rate = max(0,limiting_dict[limiting_educt])
 
     actual_reaction_rate = min(V,limiting_reaction_rate)
-    
+    # print(actual_reaction_rate)
+    # input('actual reactual')
+
     pool_change_dict = dict()
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
@@ -173,10 +198,11 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
          
     w = microbe_dict['growth_rate']
     dead_microbes = Biomass*microbe_dict['death_rate']
-    biomass_change = w*actual_reaction_rate - dead_microbes
+    biomass_change = w*actual_reaction_rate - dead_microbes # !TODO massenbilanz ausgleichen
 
     pool_change_dict['biomass'] = biomass_change
-        
+    # print(biomass_change)
+    # input('biomass '+pathway_name)
     return pool_change_dict
 
 
@@ -191,13 +217,14 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict):
 
 
 def Ferm_Pathway(pool_dict,model_parameter_dict):
+    # print('Ferm')
+    # input('..')
 
- 
     microbe_dict = {'concentration' : pool_dict['M_Ferm'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ferm'],          #Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
                     'growth_rate'   : model_parameter_dict['w_Ferm'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
-                    'KmA'           : model_parameter_dict['KmA_Ferm'],
+                    'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],
                     'Kmb'           : model_parameter_dict['Kmb_Ferm']}
     
     
@@ -216,11 +243,12 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                                   'Stoch'        : 1             }}
                                                                   
    
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
-    
-    pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
-    
-    
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ferm')
+
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Ferm'] = pool_change_dict.pop('biomass')
+
+
     return pool_change_dict
 
 
@@ -234,7 +262,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 
 def Fe3_Pathway(pool_dict,model_parameter_dict):
     # PATHWAY:   C2H3O2 − + 4H2O + 8Fe3(III)   --->       9H+ + 2 HCO3− + 8Fe3+2   Delattre 2019 , jason 2001
- 
+    #print('Fe3')
     microbe_dict = {'concentration' : pool_dict['M_Fe3'], 
                     'Vmax'          : model_parameter_dict['Vmax_Fe3'],          #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
                     'growth_rate'   : model_parameter_dict['w_Fe3'], 
@@ -266,10 +294,12 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                               'DGf'          :  0              }   }#TODO DIESE ZAHL IST FALSCH
                                                                   
    
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Fe3')
     
-    pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
     
+    #print(pool_change_dict['Acetate'])
     
     return pool_change_dict
 
@@ -279,7 +309,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
 
 def Hydro_Pathway(pool_dict,model_parameter_dict):
     # PATHWAY: 4 H2 + 1 CO2 -> 1 CH4 + 2 H2O conrad2000selective, Fe3nchel -131kj/mol
-    
+    # print('Hydro')
     microbe_dict = {'concentration' : pool_dict['M_Hydro']              , 
                     'Vmax'          : model_parameter_dict['Vmax_Hydro'], ## 0.15 mikromol pro cm^3 from Song
                     'growth_rate'   : model_parameter_dict['w_Hydro']   , 
@@ -302,10 +332,11 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                             'DGf'          : -50.72}          }
    
     
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Hydro')
     
-    pool_change_dict['M_Hydro'] = pool_change_dict.pop('biomass')
-    
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Hydro'] = pool_change_dict.pop('biomass')
+    # print(pool_change_dict['CH4'])
     
     return pool_change_dict
 
@@ -313,7 +344,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
 
 def Homo_Pathway(pool_dict,model_parameter_dict):
     # PATHWAY: song,Fe3nchel,conrad2000selective : 4H2 + 2CO2 → CH3COOH+ 2H2O. Alternativ: 2CO2 + 8H2  = CH3COOH +H2O., laut Thauer sind es 4 H2 + Co2 -> CH4 +2H2O
-
+    # print('Homo')
     microbe_dict = {'concentration' : pool_dict['M_Homo'], 
                     'Vmax'          : model_parameter_dict['Vmax_Homo'] , # # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
                     'growth_rate'   : model_parameter_dict['w_Homo']    , 
@@ -336,9 +367,10 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                                  'DGf'          : -369.31}             , }
    
     
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Homo')
     
-    pool_change_dict['M_Homo'] = pool_change_dict.pop('biomass')
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Homo'] = pool_change_dict.pop('biomass')
     
     return pool_change_dict
 
@@ -346,7 +378,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
 
 def Ac_Pathway(pool_dict,model_parameter_dict):
     #PATHWAY:  CH3COO + H+ ->  CH4 + CO2 Fe3y_Conrad2000
-    
+    # print('Ac')
     microbe_dict = {'concentration' : pool_dict['M_Ac'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ac'],  #Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
                     'growth_rate'   : model_parameter_dict['w_Ac'], 
@@ -368,9 +400,10 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                               'DGf'          :-394.36          } }
 
     
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict)
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ac')
     
-    pool_change_dict['M_Ac'] = pool_change_dict.pop('biomass')
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Ac'] = pool_change_dict.pop('biomass')
     
     
     return pool_change_dict
@@ -378,13 +411,22 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
 
 
 #%%
+from scipy.io import savemat
+a = [1,2,3,'dfjalkf']
 
-test_dict = { "Moli": {"Buy": 75,"Sell": 53,"Quantity": 300},
+test_dict = { "Moli": {"Buy": 'Apples',"Sell": a ,"Quantity": 300},
              "Anna":  {"Buy": 55,"Sell": 83,"Quantity": 154}}
 
 
 
 test_dict1 =  {"Buy": 75,"Sell": 53,"Quantity": 300}
+
+
+savemat("test_dict.mat", test_dict)
+
+
+
+
 test_dict2 =  {"Buy": 55,"Sell": 83,"Quantity": 154}
 test_dict3 =  {"Chicken": 55,"Sell": 83,"Quantity": 154}
 

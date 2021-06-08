@@ -490,24 +490,24 @@ def fit_my_model(specimens, Site, opt):
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
         initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)  
-        initial_guess_dict['Vmax_Fe3'] =         (0.3,   0.029, 1.9)
+        initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
         initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
         initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
         initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
         initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
-        initial_guess_dict['w_Fe3'] =            (0.013, 0.01, 0.05)
+        initial_guess_dict['w_Fe3'] =           (0.013, 0.01, 0.05)
         initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
         initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
         initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
         initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-        initial_guess_dict['Stoch_Fe3'] =        (4,     1,  8)
+        initial_guess_dict['Stoch_Fe3'] =       (4,     1,  8)
         initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
         initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmb_Fe3'] =          (10,    1,  10)
+        initial_guess_dict['Kmb_Fe3'] =         (10,    1,  10)
         initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
         initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
-        initial_guess_dict['Kmb_Homo'] =         (10,    1,  10)
-        initial_guess_dict['Fe3'] =              (10.75,  2,  100)
+        initial_guess_dict['Kmb_Homo'] =        (10,    1,  10)
+        initial_guess_dict['Fe3'] =             (10.75,  2,  100)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
         initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 
@@ -559,7 +559,6 @@ def fit_my_model(specimens, Site, opt):
             print(optimal_parameters)
         elif opt == "Min":
              print('using minimize')
-
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
              optimization_result = scipy.optimize.minimize(least_squares_error, 
                                                       initial_guess_array,
@@ -568,6 +567,8 @@ def fit_my_model(specimens, Site, opt):
                                                       options = {'maxiter':200000,
                                                                 'disp':True})
              print(optimization_result)
+
+
              changeables_optimal_array = optimization_result.x
              changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
              changeables_optimal_dict = rescale(changeables_optimal_dict)
@@ -604,6 +605,91 @@ def fit_my_model(specimens, Site, opt):
         
         print( pool_value_dict.keys())
         
+def run_my_model():
+    plt.close('all')
+    
+    
+    # define the initial pool values
+    # all pools, for which no value is speicified, will be initialized as empty
+    fixed_quantities_dict = dict()        
+    m_gluc = 180   # molar mass of glucose, g dw pro mol
+    m_cell = 162   # molar mass of cellulose, g dw pro mol
+    TOC = 0.04     # Knoblauchs Daten , g dw
+    labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
+    Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
+    fixed_quantities_dict['C'] = Cpool_init
+    #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
+    fixed_quantities_dict['M_Ferm'] = 0.2
+    fixed_quantities_dict['M_Fe3'] = 0.2
+    fixed_quantities_dict['M_Ferm2'] = 0.2 
+
+    # specify initial guesses and bounds for the parameters to be optimized
+    initial_guess_dict = dict()         #   init    lower upper
+    initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)  
+    initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
+    initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
+    initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
+    initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
+    initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
+    initial_guess_dict['w_Fe3'] =           (0.013, 0.01, 0.05)
+    initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
+    initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
+    initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
+    initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
+    initial_guess_dict['Stoch_Fe3'] =       (4,     1,  8)
+    initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
+    initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
+    initial_guess_dict['Kmb_Fe3'] =         (10,    1,  10)
+    initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
+    initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
+    initial_guess_dict['Kmb_Homo'] =        (10,    1,  10)
+    initial_guess_dict['Fe3'] =             (10.75,  2,  100)
+    initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
+    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+
+
+    # scale parameters to allow better optimization
+    initial_guess_dict = scale(initial_guess_dict)
+    
+    initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
+
+    changeables_optimal_dict = dict()
+    
+    # schreibe die werte, die zwar im initial_guess_dict definiert sind, 
+    # aber trotzdem während der optimierung Fe3stgehalten werden sollen, 
+    # in das dict für die nicht mit-optimierten werte.
+    fixed_quantities_dict.update({k:v[0] for k,v in initial_guess_dict.items() if not k in changeables_order})
+    changeables_optimal_dict.update({k:v[0] for k,v in initial_guess_dict.items() if k in changeables_order})
+
+    #Printing the Parameter and its value
+    for parameter_name in changeables_optimal_dict.keys():
+        p = changeables_optimal_dict[parameter_name]
+        u = parameter_units[parameter_name]
+        print("{:<18} {:6.3f} {:<10}".format(parameter_name,p,u))
+    
+    #Calculating the model output with optimal parameters:
+    initial_pool_dict = dict()
+    optimal_model_parameters_dict = dict()
+    
+    for key in changeables_optimal_dict:
+        if key in pool_order:
+            initial_pool_dict[key] = changeables_optimal_dict[key]
+        else:
+            optimal_model_parameters_dict[key] = changeables_optimal_dict[key]
+            
+    for key in fixed_quantities_dict:
+        if key in pool_order:
+            initial_pool_dict[key] = fixed_quantities_dict[key]
+        else:
+            optimal_model_parameters_dict[key] = fixed_quantities_dict[key]
+
+    # predict for optimal parameters
+    all_days = np.arange(4000)
+    pool_value_dict = predictor(all_days, 
+                                initial_pool_dict,
+                                optimal_model_parameters_dict)
+    
+    print( pool_value_dict.keys())
 
 if __name__ == '__main__':
 
@@ -632,6 +718,7 @@ if __name__ == '__main__':
     
     fit_my_model(specimens, Site = "all", opt = 'Min')
     
+    #run_my_model()
 
 
 
