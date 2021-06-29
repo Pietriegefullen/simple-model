@@ -127,7 +127,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         'biomass': +34.8
 
     """
-    
+    #print('life really sucks right now')
     for educt, edu_dict in educt_dict.items():  
         if edu_dict['concentration'] <= 0:
             return dict()
@@ -135,7 +135,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     #print('entering '+pathway_name)
     # input()
     MM_factors = list()
-    Gibbs_exists = False
+    Gibbs_exists = False # Bedeutet Ferm 
     for educt, edu_dict in educt_dict.items():  
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
@@ -145,17 +145,19 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
             # print('Gibbs_exist')
     MM_factors_total = np.prod(MM_factors)
     
-    # erstellen der inversen MM der Biomasse
-    Biomass = microbe_dict['concentration']
-    MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 
+   
 #-------------------------------------------------------------------------------------------------------------
     # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
     Vmax = microbe_dict['Vmax']
+    Biomass = microbe_dict['concentration']
     if Gibbs_exists:
         thermodynamic_factor = thermodynamics(educt_dict, product_dict)
+         # erstellen der inversen MM der Biomasse für die Fermentation
+        MMB = Biomass  if Biomass > 0 else 0 
         # print('GIbbs')
     else:
         thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict) #TODO Hier gehört die acetatehemmung 
+        MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 
         # print('no_gibbs')
     V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
@@ -190,15 +192,21 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
         pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate
+        #print(educt)
+        #print(Edu_Bezug_stoich)
+        #print(pool_change_dict[educt])
         
     # wie viel der jeweiligen Produkte werden produziert    
     for product, produ_dict in product_dict.items():
         normalized_stoich = produ_dict['Stoch']/Edu_Bezug_stoich
         pool_change_dict[product] = normalized_stoich*actual_reaction_rate
-         
+       # print(product) 
+       # print(Edu_Bezug_stoich)
+       # print(pool_change_dict[product] )
+        
     w = microbe_dict['growth_rate']
     dead_microbes = Biomass*microbe_dict['death_rate']
-    biomass_change = w*actual_reaction_rate - dead_microbes # !TODO massenbilanz ausgleichen
+    biomass_change = Biomass*w*actual_reaction_rate - dead_microbes # !TODO massenbilanz ausgleichen
 
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
@@ -299,7 +307,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
     
-    #print(pool_change_dict['Acetate'])
+    #print(pool_change_dict)
     
     return pool_change_dict
 
@@ -410,47 +418,51 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
 
 
 
+# =============================================================================
+# #%%
+# from scipy.io import savemat
+# a = [1,2,3,'dfjalkf']
+# 
+# test_dict = { "Moli": {"Buy": 'Apples',"Sell": a ,"Quantity": 300},
+#              "Anna":  {"Buy": 55,"Sell": 83,"Quantity": 154}}
+# 
+# 
+# 
+# test_dict1 =  {"Buy": 75,"Sell": 53,"Quantity": 300}
+# 
+# 
+# savemat("test_dict.mat", test_dict)
+# 
+# 
+# 
+# 
+# test_dict2 =  {"Buy": 55,"Sell": 83,"Quantity": 154}
+# test_dict3 =  {"Chicken": 55,"Sell": 83,"Quantity": 154}
+# 
+# test_list =[test_dict1, test_dict2, test_dict3]
+# 
+# 
+# 
+# test_summms = sum(list([dictionary['Buy'] for dictionary in test_list if 'Buy' in dictionary]))
+# print(test_summms)
+# #%%
+# =============================================================================
+
+
 #%%
-from scipy.io import savemat
-a = [1,2,3,'dfjalkf']
-
-test_dict = { "Moli": {"Buy": 'Apples',"Sell": a ,"Quantity": 300},
-             "Anna":  {"Buy": 55,"Sell": 83,"Quantity": 154}}
-
-
-
-test_dict1 =  {"Buy": 75,"Sell": 53,"Quantity": 300}
-
-
-savemat("test_dict.mat", test_dict)
-
-
-
-
-test_dict2 =  {"Buy": 55,"Sell": 83,"Quantity": 154}
-test_dict3 =  {"Chicken": 55,"Sell": 83,"Quantity": 154}
-
-test_list =[test_dict1, test_dict2, test_dict3]
-
-
-
-test_summms = sum(list([dictionary['Buy'] for dictionary in test_list if 'Buy' in dictionary]))
-print(test_summms)
-#%%
-
-
-#%%
-for key, item in test_dict.items():
-    if ('Buy' in item ) :
-        print('pear')
-
-
-if ('Moli' in test_dict):
-    print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
-    print('banana')
-
-if test_dict[(list(test_dict.keys())[0])]['Buy'] in test_dict:
-    print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
-    print('banana')
-
-
+# =============================================================================
+# for key, item in test_dict.items():
+#     if ('Buy' in item ) :
+#         print('pear')
+# 
+# 
+# if ('Moli' in test_dict):
+#     print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
+#     print('banana')
+# 
+# if test_dict[(list(test_dict.keys())[0])]['Buy'] in test_dict:
+#     print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
+#     print('banana')
+# 
+# 
+# =============================================================================

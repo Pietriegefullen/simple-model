@@ -86,8 +86,7 @@ def load_matlab():
     #     plt.plot(superdata[key]['measured_time'], superdata[key]['CH4'], "r", label= "CH4")       
     #     plt.plot(superdata[key]['measured_time'], superdata[key]['CO2'],"b",  label= "CO2")
     #     plt.title(str(superdata[key]['Probe'])  + "_____" + superdata[key]['Site'] + "_____" + superdata[key]['Location']+ "_____" + str(superdata[key]['depth']))
-     
-    
+    superdata_carex_old = copy.deepcopy(superdata_carex)
   
 
 
@@ -176,7 +175,7 @@ def load_matlab():
     print(superdata_2021_all['13510']['First_Carex_index'])
     
                 
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe
+    return superdata, replica_list, superdata_carex_old, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe
 
 
 
@@ -184,8 +183,9 @@ if __name__ == '__main__':
 
 
 # superdata sind alle Datensätze VOR dem Carexexperiment,
-# superdata_carex sind die Datensätze von Christian NACH dem Carex experiment ( eigentlich alt )
+# superdata_carex_old sind die Datensätze von Christian NACH dem Carex experiment ( eigentlich alt )
 # superdata_all sind alle Datensätze von Christian vor und nach Carex (auch alt)
+# superdata_carex sind die Datensätze von Knoblauch nach Carex
 # Superdata_2021_all sind alle Datensätze vor und Nach Carex Zugabe von Knoblauch, darauf bauen auf: 
 # Superdata Kuru sind die Datensätze von Kurunak vor und nach Carex
 # Superdata_sam sind die Datensätze von Samoylov vor und nach Carex
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     
     
    
-    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe = load_matlab()
+    superdata, replica_list,superdata_carex_old, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe, Rep_ohne_Fe,superdata_mit_Fe, Rep_mit_Fe = load_matlab()
 
 
     plt.plot(superdata_2021_all['13510']['measured_time'],superdata_2021_all['13510']['CH4'])
@@ -207,4 +207,7 @@ if __name__ == '__main__':
         plt.legend([key])
 
 
+#%% erstellen von einzelnen dicts abhängig von dict qualifiern (wie cliff oder core) 
+Kuru_cliff = {key:superdata_Kuru[key] for key in superdata_Kuru.keys() if 'cliff' == superdata_Kuru[key]['Location']}
+    
 

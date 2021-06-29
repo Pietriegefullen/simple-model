@@ -12,6 +12,7 @@ Created on Tue Oct 13 09:45:44 2020
 @author: Lara
 """
 
+
 import copy
 import os
 import pandas as pd
@@ -24,16 +25,15 @@ from scipy.optimize import curve_fit
 import scipy.io as sio
 import numpy as np
 #from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
-
+os.chdir('C:/Users/Lara/Desktop/simple model')
 
 import Thermomodel
 from order import pool_order, changeables_order, parameter_units
 from scaling import scale, rescale
 
-os.chdir('C:/Users/Lara/Desktop/simple model')
 
 def load_matlab():
-    
+    print('load_data')
     Data = sio.loadmat('ActivityData_04062016', appendmat=True)
     
     anaerobic_indices = np.nonzero(Data['anaerobic'])[1] # die indizes im Matlab für alle anaeroben proben
@@ -189,10 +189,13 @@ def load_matlab():
         if not superdata_2021_all[key] in Rep_mit_Fe3:
             del superdata_mit_Fe3[key]        
     
-    print(superdata_Kuru['13510']['First_Carex_index'])
+    #print(superdata_Kuru['13510']['First_Carex_index'])
     
                 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
+
+superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+
 
 # superdata sind alle Datensätze VOR dem Carexexperiment,
 # superdata_carex sind die Datensätze von Christian NACH dem Carex experiment ( eigentlich alt )
@@ -249,17 +252,19 @@ def load_matlab():
 # diese Funktion erstellt für curve_fit eine funktion, die die zusammengefügten
 # werte von CO2 und CH4 zurückgibt.
 def curve_merger_wrapper(fixed_quantities):
-    
+    print('curve_merger_wrapper')
     # curve_fit ruf merged_curves_filled auf.
     #
-    # merged_curves_pred funktion ruft den predictor auf und fügt die vorhergesagten verläuFe3
+    # merged_curves_pred funktion ruft den predictor
+    #auf und fügt die vorhergesagten verläufe
     # von CO2 und CH4 aneinander, damit curve_fit sie gegen die gemessenen 
     # daten von CO2 und CH4 vergleichen kann.
     #
-    # changeables sind die veränderlichen parameter, die von curve_fit 
+    # changeables sind die veränderlichen Parameter, die von curve_fit 
     # angepasst werden können. im ersten schritt des fit-algorithmus sind 
     # diese die initiual_guesses
-    def merged_curves_pred(t, *changeables):
+    def merged_curves_pred_function(t, *changeables):
+        print('merged_curves_pred')
         changeables_dict = dict(zip(changeables_order, changeables))
         
         initial_pool_values = dict()
@@ -287,20 +292,23 @@ def curve_merger_wrapper(fixed_quantities):
         
         # nimm CO2 und CH4 und pack sie zusammen zu einer einzigen kurve.
         predicted_CO2_and_CH4 = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
+        print('my type is :')
+        print(type(predicted_CO2_and_CH4))
         return predicted_CO2_and_CH4
     
     # diese ZEile gehört zu curve_wrapper. zurückgegeben wird hier die funktion
     # merged_curves
-    return merged_curves_pred
+    return merged_curves_pred_function
 
-def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict):  
+def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict): 
+    print('least_squares_error')
    # print('')
    # print('ls call')
     # in den folgenden beiden blöcken werden die variablen und fixen
     # parameter neu geordnet, weil predictor() die parameter getrennt haben 
     # will, je nach dem, ob sie initiale pool-pegel sind oder andere modell-parameter
     #
-    # dazu gehen wir alle pools durch, und prüFe3n, ob sich der entsprechende 
+    # dazu gehen wir alle pools durch, und prüfen, ob sich der entsprechende 
     # startwert im dict changeables_array, oder im dict fixed_quantities_dict befindet.
 
     changeables_dict = dict(zip(changeables_order, changeables_array))
@@ -348,6 +356,7 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
 
 
 def predictor(t, initial_pool_values, model_parameters):
+    print('predictor')
     print_on_call = True
     print_only_changeables = True
     
@@ -376,7 +385,6 @@ def predictor(t, initial_pool_values, model_parameters):
             initial_pool_list.append(initial_pool_values[pool_name])
         else:
             initial_pool_list.append(0)    
-    
     initial_system_state = np.array(initial_pool_list)
     
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
@@ -386,15 +394,19 @@ def predictor(t, initial_pool_values, model_parameters):
     pool_curves = pool_curves.transpose()
     
     pool_dict = dict(zip(pool_order, pool_curves))
-
+    print('my predictors pools keys are :')
+    print(pool_dict.keys())
+    
+    
     return pool_dict
 
 
 def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index): 
     #plt.close('all')
-
+    print('plot_my_data')
     measurement_days = Realdata['measured_time'].astype(int)
-    print(pool_value_dict.keys())
+    #print(pool_value_dict.keys())
+    #print(pool_value_dict[])
     
     for a, col in zip(["CH4","CO2"], ["r", "b"]):
         
@@ -410,13 +422,22 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     for key in pool_value_dict.keys():
          plt.figure()
          plt.plot(range(0, max(measurement_days)+1), pool_value_dict[key], label = [key])
-         plt.ylabel([key])
+         plt.ylabel(key)
          plt.legend(Realdata['Probe'])
  #=============================================================================
         
     
     save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
     plt.savefig(save_path)
+    
+    all_CO2_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CO2" in pool_name:
+            all_CO2_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CO2_contributers.items():
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
+    plt.legend()
             
     # berechne R^2
     measured_values = Realdata[a]
@@ -446,19 +467,12 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
 
 
-    all_CO2_contributers = dict()
-    for pool_name, pool_curve in pool_value_dict.items():
-        if "CO2" in pool_name:
-            all_CO2_contributers[pool_name] = pool_curve
-    plt.figure()
-    for pool_name, pool_curve in all_CO2_contributers.items():
-        plt.plot(days_for_plot, pool_curve, label= pool_name)
-    plt.legend()
+   
 
 
 def fit_my_model(specimens, Site, opt):
     plt.close('all')
-    
+    print('fit_my_model')
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
     
     for specimen_index in specimens: 
@@ -472,16 +486,18 @@ def fit_my_model(specimens, Site, opt):
             Realdata = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
             print(replica_list_superdata_2021_all[specimen_index])
             
-        
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
         fixed_quantities_dict = dict()        
         m_gluc = 180   # molar mass of glucose, g dw pro mol
-        m_cell = 162   # molar mass of cellulose, g dw pro mol
-        TOC = 0.04     # Knoblauchs Daten , g dw
-        labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
-        Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
-        fixed_quantities_dict['C'] = Cpool_init
+        #m_cell = 162   # molar mass of cellulose, g dw pro mol
+        TOC =  Realdata['Corg (%)']/100.0 # Knoblauchs Daten , g dw 
+        #labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
+        #Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
+        
+        specimen_mass = Realdata['weight'] # g (Knoblauch proben)
+        Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
+        fixed_quantities_dict['C'] = float(Cpool_init)
         #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
         fixed_quantities_dict['M_Ferm'] = 0.2
         fixed_quantities_dict['M_Fe3'] = 0.2
@@ -514,8 +530,8 @@ def fit_my_model(specimens, Site, opt):
 
         # scale parameters to allow better optimization
         initial_guess_dict = scale(initial_guess_dict)
-        
-        
+        #fixed_quantities_dict = scale(fixed_quantities_dict)
+    
         # vorbereitung des startpunktes für die optimierung und der bounds 
         # für curve_fit
         initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
@@ -523,7 +539,7 @@ def fit_my_model(specimens, Site, opt):
         upper_bounds = [initial_guess_dict[key][2] for key in changeables_order]
 
         # schreibe die werte, die zwar im initial_guess_dict definiert sind, 
-        # aber trotzdem während der optimierung Fe3stgehalten werden sollen, 
+        # aber trotzdem während der optimierung Festgehalten werden sollen, 
         # in das dict für die nicht mit-optimierten werte.
         fixed_quantities_dict.update({k:v[0] for k,v in initial_guess_dict.items() if not k in changeables_order})
 
@@ -555,8 +571,8 @@ def fit_my_model(specimens, Site, opt):
             #                                    p0 = optimal_parameters, 
             #                                    bounds=(lower_bounds, upper_bounds))
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
-            changeables_optimal_dict = rescale(changeables_optimal_dict)
             print(optimal_parameters)
+            
         elif opt == "Min":
              print('using minimize')
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
@@ -564,6 +580,7 @@ def fit_my_model(specimens, Site, opt):
                                                       initial_guess_array,
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
+                                                      method = 'Nelder-Mead',
                                                       options = {'maxiter':200000,
                                                                 'disp':True})
              print(optimization_result)
@@ -571,7 +588,9 @@ def fit_my_model(specimens, Site, opt):
 
              changeables_optimal_array = optimization_result.x
              changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
-             changeables_optimal_dict = rescale(changeables_optimal_dict)
+
+        changeables_optimal_dict = rescale(changeables_optimal_dict)
+        #fixed_quantities_dict = rescale(fixed_quantities_dict)
 
         #Printing the Parameter and its value
         for parameter_name in changeables_optimal_dict.keys():
@@ -605,18 +624,12 @@ def fit_my_model(specimens, Site, opt):
         
         print( pool_value_dict.keys())
         
-def run_my_model():
+def run_my_model(Cpool_init = 5555.5):
     plt.close('all')
-    
-    
+    print('run_my_model')
     # define the initial pool values
     # all pools, for which no value is speicified, will be initialized as empty
     fixed_quantities_dict = dict()        
-    m_gluc = 180   # molar mass of glucose, g dw pro mol
-    m_cell = 162   # molar mass of cellulose, g dw pro mol
-    TOC = 0.04     # Knoblauchs Daten , g dw
-    labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
-    Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
     fixed_quantities_dict['C'] = Cpool_init
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
     fixed_quantities_dict['M_Ferm'] = 0.2
@@ -645,13 +658,13 @@ def run_my_model():
     initial_guess_dict['Kmb_Homo'] =        (10,    1,  10)
     initial_guess_dict['Fe3'] =             (10.75,  2,  100)
     initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
-    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)
 
 
     # scale parameters to allow better optimization
     initial_guess_dict = scale(initial_guess_dict)
     
-    initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
+    #initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
 
     changeables_optimal_dict = dict()
     
@@ -690,6 +703,12 @@ def run_my_model():
                                 optimal_model_parameters_dict)
     
     print( pool_value_dict.keys())
+    
+    for k,v in pool_value_dict.items():
+        plt.figure()
+        plt.plot(all_days,v,'-')
+        plt.ylabel(k)
+        
 
 if __name__ == '__main__':
 
@@ -709,13 +728,14 @@ if __name__ == '__main__':
 
 
     #specimenlistmax = [*range(0, 35, 1)]
-    #specimenlist_all= [i for i in range(34)]
-    #specimenlist_Sam= [i for i in range(18)]
-    #specimenlist_Kuru= [i for i in range(16)]
+    #specimenlist_all= [i for i in range(34)]  # Site= "all"
+    #specimenlist_Sam= [i for i in range(18)]  # Site = "S"
+    #specimenlist_Kuru= [i for i in range(16)] # Site = "K" 
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     specimens = [10]
     
+    #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
     fit_my_model(specimens, Site = "all", opt = 'Min')
     
     #run_my_model()
