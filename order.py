@@ -7,6 +7,7 @@ Created on Thu Apr 22 10:16:35 2021
 
 
 pool_order = ['C',
+            'DOC',
             'Fe3',
             'M_Ac',
             'M_Ferm',
@@ -34,6 +35,7 @@ pool_order = ['C',
 # durch auskommentieren bestimmen wir was optimiert wird und was nicht
 changeables_order = [
                      'Vmax_Ferm',
+                     'Vmax_help_Ferm',
                      'Vmax_Fe3',
                      'Vmax_Homo',
                      'Vmax_Hydro',
@@ -44,19 +46,14 @@ changeables_order = [
                      'w_Homo',
                      'w_Ac',
                      'Sensenmann',
-                     'Stoch_Fe3',
-                     'Kmb_Ferm',
-                     'Kmh_Ferm',
-                     'Kmb_Fe3',
-                     'Kmb_Ac',
-                     'Kmb_Hydro',
-                     'Kmb_Homo',
+                     'Kmb_help_Ferm',
                      'KmA_Ferm',
                      'Fe3',
                      'M_Ac'
                      ]
 
-parameter_units = {'Vmax_Ferm':'μmol/mg',         
+parameter_units = {'Vmax_Ferm':'μmol/mg',  
+                   'Vmax_help_Ferm':'μmol/mg', 
                    'Vmax_Fe3':'μmol/mg',       
                    'Vmax_Homo':'μmol/mg',      
                    'Vmax_Hydro':'μmol/mg',          
@@ -77,6 +74,7 @@ parameter_units = {'Vmax_Ferm':'μmol/mg',
                    'KmA_Ferm':'μmol',
                    'Fe3':'μmol',
                    'C':'μmol',
+                   'DOC':'μmol',
                    'M_Ac':'mg',
                    'M_Ferm':'mg',
                    'M_Fe3':'mg',

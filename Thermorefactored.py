@@ -194,7 +194,7 @@ def load_matlab():
                 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
 
-superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+# superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
 
 
 # superdata sind alle Datensätze VOR dem Carexexperiment,
@@ -388,11 +388,16 @@ def predictor(t, initial_pool_values, model_parameters):
     initial_system_state = np.array(initial_pool_list)
     
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
-    pool_curves = odeint(cdec, 
-                         initial_system_state, 
-                         t)
+    try:
+        pool_curves = odeint(cdec, 
+                             initial_system_state, 
+                             t)
+
+    except Exception as ex:
+        print('exception in odeint:')
+        print(ex.__class__.__name__,':', str(ex))
+
     pool_curves = pool_curves.transpose()
-    
     pool_dict = dict(zip(pool_order, pool_curves))
     print('my predictors pools keys are :')
     print(pool_dict.keys())
@@ -498,6 +503,7 @@ def fit_my_model(specimens, Site, opt):
         specimen_mass = Realdata['weight'] # g (Knoblauch proben)
         Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
         fixed_quantities_dict['C'] = float(Cpool_init)
+        fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
         #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
         fixed_quantities_dict['M_Ferm'] = 0.2
         fixed_quantities_dict['M_Fe3'] = 0.2
@@ -505,7 +511,8 @@ def fit_my_model(specimens, Site, opt):
 
         # specify initial guesses and bounds for the parameters to be optimized
         initial_guess_dict = dict()         #   init    lower upper
-        initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)  
+        initial_guess_dict['Vmax_help_Ferm'] =  (0.07,   0.01,0.11)
+        initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)
         initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
         initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
         initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
@@ -516,13 +523,8 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
         initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
         initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-        initial_guess_dict['Stoch_Fe3'] =       (4,     1,  8)
-        initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Kmb_Fe3'] =         (10,    1,  10)
-        initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
-        initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
-        initial_guess_dict['Kmb_Homo'] =        (10,    1,  10)
+        initial_guess_dict['Kmb_help_Ferm'] =        (10,    1,  10)
+       # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
         initial_guess_dict['Fe3'] =             (10.75,  2,  100)
         initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
         initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
@@ -580,8 +582,8 @@ def fit_my_model(specimens, Site, opt):
                                                       initial_guess_array,
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
-                                                      method = 'Nelder-Mead',
-                                                      options = {'maxiter':200000,
+                                                      # method = 'Nelder-Mead',
+                                                      options = {'maxiter':2,
                                                                 'disp':True})
              print(optimization_result)
 
@@ -622,7 +624,7 @@ def fit_my_model(specimens, Site, opt):
 
         plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
         
-        print( pool_value_dict.keys())
+        #print( pool_value_dict.keys())
         
 def run_my_model(Cpool_init = 5555.5):
     plt.close('all')
@@ -630,15 +632,17 @@ def run_my_model(Cpool_init = 5555.5):
     # define the initial pool values
     # all pools, for which no value is speicified, will be initialized as empty
     fixed_quantities_dict = dict()        
-    fixed_quantities_dict['C'] = Cpool_init
+    fixed_quantities_dict['C'] = float(Cpool_init)
+    fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
     fixed_quantities_dict['M_Ferm'] = 0.2
     fixed_quantities_dict['M_Fe3'] = 0.2
     fixed_quantities_dict['M_Ferm2'] = 0.2 
-
+    
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper
-    initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)  
+    initial_guess_dict['Vmax_help_Ferm'] =  (0.07,   0.01,0.11)
+    initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)
     initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
     initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
     initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
@@ -649,16 +653,12 @@ def run_my_model(Cpool_init = 5555.5):
     initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
     initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-    initial_guess_dict['Stoch_Fe3'] =       (4,     1,  8)
-    initial_guess_dict['Kmb_Ferm'] =        (10,    1,  10)
-    initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-    initial_guess_dict['Kmb_Fe3'] =         (10,    1,  10)
-    initial_guess_dict['Kmb_Ac'] =          (10,    1,  10)
-    initial_guess_dict['Kmb_Hydro'] =       (10,    1,  10)
-    initial_guess_dict['Kmb_Homo'] =        (10,    1,  10)
+    initial_guess_dict['Kmb_help_Ferm'] =        (10,    1,  10)
+    # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
     initial_guess_dict['Fe3'] =             (10.75,  2,  100)
     initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
-    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)
+    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+
 
 
     # scale parameters to allow better optimization
@@ -669,7 +669,7 @@ def run_my_model(Cpool_init = 5555.5):
     changeables_optimal_dict = dict()
     
     # schreibe die werte, die zwar im initial_guess_dict definiert sind, 
-    # aber trotzdem während der optimierung Fe3stgehalten werden sollen, 
+    # aber trotzdem während der optimierung Festgehalten werden sollen, 
     # in das dict für die nicht mit-optimierten werte.
     fixed_quantities_dict.update({k:v[0] for k,v in initial_guess_dict.items() if not k in changeables_order})
     changeables_optimal_dict.update({k:v[0] for k,v in initial_guess_dict.items() if k in changeables_order})
@@ -738,7 +738,7 @@ if __name__ == '__main__':
     #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
     fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    #run_my_model()
+    # run_my_model()
 
 
 

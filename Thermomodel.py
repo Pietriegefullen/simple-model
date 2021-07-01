@@ -4,44 +4,15 @@
 import numpy as np
 from order import pool_order
 
-from Thermomicrobentest import Ferm_Pathway, Hydro_Pathway, Fe3_Pathway, Ac_Pathway, Homo_Pathway # Importiert Funktionen aus dem Skript "Microbe"
+from Thermomicrobentest import Ferm_help_Pathway,Ferm_Pathway, Hydro_Pathway, Fe3_Pathway, Ac_Pathway, Homo_Pathway # Importiert Funktionen aus dem Skript "Microbe"
 
 def Cdec_wrapper(model_parameter_dict):
-    Vmax_Ferm = model_parameter_dict['Vmax_Ferm']
-    Vmax_Fe3 = model_parameter_dict['Vmax_Fe3']
-    Vmax_Ac = model_parameter_dict['Vmax_Ac']
-    Vmax_Hydro = model_parameter_dict['Vmax_Hydro']
-    Vmax_Homo = model_parameter_dict['Vmax_Homo']
-    w_Ferm = model_parameter_dict['w_Ferm']
-    w_Fe3 = model_parameter_dict['w_Fe3']
-    w_Ac = model_parameter_dict['w_Ac']
-    w_Hydro = model_parameter_dict['w_Hydro']
-    w_Homo = model_parameter_dict['w_Homo']
-    Kmb_Ferm = model_parameter_dict['Kmb_Ferm']
-    Kmh_Ferm = model_parameter_dict['Kmh_Ferm']
-    Kmb_Fe3 = model_parameter_dict['Kmb_Fe3']
-    Kmb_Ac = model_parameter_dict['Kmb_Ac']
-    Kmb_Hydro = model_parameter_dict['Kmb_Hydro']
-    Stoch_Fe3 = model_parameter_dict['Stoch_Fe3'] # ist 8 und sollte rausgenommen werden. 
-    Sensenmann = model_parameter_dict['Sensenmann']
-    KmA_Herm = model_parameter_dict['KmA_Ferm']
-    Kmb_Homo = model_parameter_dict['Kmb_Homo']
+  
         
     def Cdec(system_state, t):
         pool_dict = dict(zip(pool_order, system_state))
 
-        C_pool = pool_dict['C']
-        Fe3_pool = pool_dict['Fe3']
-        Acetate_pool = pool_dict['Acetate']
-        M_Ac_pool = pool_dict['M_Ac']
-        M_Ferm_pool = pool_dict['M_Ferm']
-        M_Fe3_pool = pool_dict['M_Fe3']
-        M_Hydro_pool = pool_dict['M_Hydro']
-        M_Homo_pool = pool_dict['M_Homo']
-        M_Ferm2_pool = pool_dict['M_Ferm2']
-        CO2_pool = pool_dict['CO2']
-        H2_pool = pool_dict['H2']
-        Fe2_pool = pool_dict['Fe2']
+     
         # print('C_pool' , C_pool)
         
         
@@ -50,10 +21,11 @@ def Cdec_wrapper(model_parameter_dict):
         #deltaM_Ferm2, deltaC_pool2, _, Tot_Ferm2 =   Fermenters(M_Ferm2_pool, C_pool, Acetate_pool, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
         # Produziert:
         #deltaH2_Ferm2 =  -deltaC_pool2 * 1.2 # 1.2 aus cabrol2017microbial
-        deltaH2_Ferm2 = 0
-        deltaM_Ferm2 = 0
+ 
         
         #FERM FERM FERM 
+        pool_change_dict_Ferm =  Ferm_help_Pathway(pool_dict, model_parameter_dict)
+        
         pool_change_dict_Ferm =  Ferm_Pathway(pool_dict, model_parameter_dict)
 
         
