@@ -161,7 +161,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 #-------------------------------------------------------------------------------------------------------------            
     V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
-    
+    print(microbe_dict['microbe']   ) 
+    print(V)
     # Mikrobenzuwachs und verbrauch von C Biomasse , ACHTUNG!! DAS IST EIGENTLICH NICHT UNBEDINGT KORRECKT, weil nur in den seltensten
     # Fällen der E_Donor auch die C Quelle für Mikrobenwachstum ( nur bei Acetate und Ferm evtl. )
     #deltaSub1Grow = deltaSub1Resp * w/m_C     # micromol 
@@ -229,8 +230,8 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : 0,
                     'death_rate'    : 0,
                     'Kmb'           : model_parameter_dict['Kmb_help_Ferm'],
-                    'Ferm_help'     : True} # ist nur wichtig das es den key 'Ferm_help' gibt 
-    
+                    'Ferm_help'     : True, # ist nur wichtig das es den key 'Ferm_help' gibt 
+                    'microbe'       : 'Ferm_help'}
     
     educt_dict =  {'C'              : {'concentration'  : pool_dict['C'],
                                        'Stoch'          : 1,
@@ -269,7 +270,8 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Ferm'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],
-                    'Ferm'          : True}
+                    'Ferm'          : True,
+                    'microbe'       : "Ferm" }
     
     
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
@@ -310,7 +312,8 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     microbe_dict = {'concentration' : pool_dict['M_Fe3'], 
                     'Vmax'          : model_parameter_dict['Vmax_Fe3'],          #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
                     'growth_rate'   : model_parameter_dict['w_Fe3'], 
-                    'death_rate'    : model_parameter_dict['Sensenmann']}
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'microbe'       : 'M_Fe3'}
     
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
@@ -356,7 +359,8 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     microbe_dict = {'concentration' : pool_dict['M_Hydro']              , 
                     'Vmax'          : model_parameter_dict['Vmax_Hydro'], ## 0.15 mikromol pro cm^3 from Song
                     'growth_rate'   : model_parameter_dict['w_Hydro']   , 
-                    'death_rate'    : model_parameter_dict['Sensenmann']}
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'microbe'       : 'M_Hydro'}
     
     educt_dict = { 'H2'  : {'concentration':pool_dict['H2']  ,
                             'Stoch'     : 4                  , 
@@ -390,7 +394,8 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     microbe_dict = {'concentration' : pool_dict['M_Homo'], 
                     'Vmax'          : model_parameter_dict['Vmax_Homo'] , # # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
                     'growth_rate'   : model_parameter_dict['w_Homo']    , 
-                    'death_rate'    : model_parameter_dict['Sensenmann']}
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'microbe'       : 'M_Homo'}
     
     educt_dict = { 'H2'  : {'concentration':pool_dict['H2']        ,
                              'Stoch'       : 4                     ,
@@ -423,7 +428,8 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     microbe_dict = {'concentration' : pool_dict['M_Ac'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ac'],  #Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
                     'growth_rate'   : model_parameter_dict['w_Ac'], 
-                    'death_rate'    : model_parameter_dict['Sensenmann']}
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'microbe'       : 'M_Ac'}
     
     educt_dict = { 'Acetate' : {'concentration':pool_dict['Acetate']    ,
                                 'Stoch'        :  1                     ,

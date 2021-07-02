@@ -28,7 +28,7 @@ import numpy as np
 os.chdir('C:/Users/Lara/Desktop/simple model')
 
 import Thermomodel
-from order import pool_order, changeables_order, parameter_units
+from order import pool_order, changeables_order, parameter_units, get_fixed_quantities, get_initial_guesses
 from scaling import scale, rescale
 
 
@@ -207,56 +207,14 @@ def load_matlab():
 # superdata_mit_Fe3 sind alle Datensätze deren exp  plot des CH4 vermuten lässt dass Fe3 vorhanden ist
 
 
-# Alte Funktion für die alten Daten
-# =============================================================================
-# def load_data(specimen_index):
-#     # TODO load Corg content of samples Datei Corg_Probennummern
-#     # TODO load pH values
-#     
-#     day_column_index = specimen_index*3
-#     CH4_column_index = day_column_index + 1
-#     CO2_column_index = day_column_index + 2
-#     
-#     
-#     
-#     data_df = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Trainingdatafull.xlsx',
-#                        engine = 'openpyxl')
-# 
-#     data_df = data_df.apply(pd.to_numeric, errors='coerce') # Macht " nicht zahlen" zu Nan
-#     data_df = data_df.dropna() #  löscht Zeilen mit NaN
-#     
-#     data_array = data_df.values
-#         
-#     data_array[:,day_column_index] = np.around(data_array[:,day_column_index]) # rundet die Tage auf ganze tage (trotzdem floats)
-#     
-#     #erstellt Liste wo negative Werte vorhanden sind die ersetzt werden müssen
-#     indexListCH4 = np.where(np.isin(data_array[:,CH4_column_index],data_array[:,CH4_column_index][np.where(data_array[:,CH4_column_index]<0)]))
-#     indexListCO2 = np.where(np.isin(data_array[:,CO2_column_index],data_array[:,CO2_column_index][np.where(data_array[:,CO2_column_index]<0)]))
-# 
-#     # ersetzt MessFe3hler mit neg. werten mit dem vorrangegangenen wert 
-#     for p in range(len(indexListCH4[0])):   
-#         data_array[:,CH4_column_index][indexListCH4[0][p]] = data_array[:,CH4_column_index][indexListCH4[0][p]-1]
-#         
-#     for r in range(len(indexListCO2)):   
-#         data_array[:,CH4_column_index][indexListCO2[r]] = data_array[:,CH4_column_index][indexListCO2[r]-1] 
-#     
-#     #umwandeln der daten in dict für "fit my model"                        
-#     Realdata = {'measured_time': data_array[:,day_column_index],
-#                 'CH4':data_array[:,CH4_column_index],
-#                 'CO2':data_array[:,CO2_column_index]}
-# 
-#     return Realdata
-# =============================================================================
 
-
-# diese Funktion erstellt für curve_fit eine funktion, die die zusammengefügten
+# curve_merger_wrapper erstellt für curve_fit eine funktion, die die zusammengefügten
 # werte von CO2 und CH4 zurückgibt.
 def curve_merger_wrapper(fixed_quantities):
     print('curve_merger_wrapper')
-    # curve_fit ruf merged_curves_filled auf.
     #
-    # merged_curves_pred funktion ruft den predictor
-    #auf und fügt die vorhergesagten verläufe
+    # merged_curves_pred_function ruft den predictor
+    # auf und fügt die vorhergesagten verläufe
     # von CO2 und CH4 aneinander, damit curve_fit sie gegen die gemessenen 
     # daten von CO2 und CH4 vergleichen kann.
     #
@@ -296,14 +254,11 @@ def curve_merger_wrapper(fixed_quantities):
         print(type(predicted_CO2_and_CH4))
         return predicted_CO2_and_CH4
     
-    # diese ZEile gehört zu curve_wrapper. zurückgegeben wird hier die funktion
-    # merged_curves
     return merged_curves_pred_function
 
 def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict): 
     print('least_squares_error')
-   # print('')
-   # print('ls call')
+  
     # in den folgenden beiden blöcken werden die variablen und fixen
     # parameter neu geordnet, weil predictor() die parameter getrennt haben 
     # will, je nach dem, ob sie initiale pool-pegel sind oder andere modell-parameter
@@ -443,6 +398,15 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     for pool_name, pool_curve in all_CO2_contributers.items():
         plt.plot(days_for_plot, pool_curve, label= pool_name)
     plt.legend()
+    
+    all_CH4_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CH4" in pool_name:
+            all_CH4_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CH4_contributers.items():
+        plt.plot(days_for_plot, pool_curve, label= pool_name)
+    plt.legend()
             
     # berechne R^2
     measured_values = Realdata[a]
@@ -493,42 +457,16 @@ def fit_my_model(specimens, Site, opt):
             
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
-        fixed_quantities_dict = dict()        
+        fixed_quantities_dict = get_fixed_quantities()      
         m_gluc = 180   # molar mass of glucose, g dw pro mol
-        #m_cell = 162   # molar mass of cellulose, g dw pro mol
-        TOC =  Realdata['Corg (%)']/100.0 # Knoblauchs Daten , g dw 
-        #labile = 0.005 # Knoblauchs Daten, anteil von TOC einheitslos
-        #Cpool_init = (TOC*labile/m_gluc + TOC*(1-labile)/m_cell) * (10**6) # 0.00024679012345679013 * (10**6) mikromol pro g
-        
+        TOC =  Realdata['Corg (%)']/100.0 # Knoblauchs Daten , g dw     
         specimen_mass = Realdata['weight'] # g (Knoblauch proben)
         Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
+        
         fixed_quantities_dict['C'] = float(Cpool_init)
         fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
-        #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
-        fixed_quantities_dict['M_Ferm'] = 0.2
-        fixed_quantities_dict['M_Fe3'] = 0.2
-        fixed_quantities_dict['M_Ferm2'] = 0.2 
-
-        # specify initial guesses and bounds for the parameters to be optimized
-        initial_guess_dict = dict()         #   init    lower upper
-        initial_guess_dict['Vmax_help_Ferm'] =  (0.07,   0.01,0.11)
-        initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)
-        initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
-        initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
-        initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
-        initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
-        initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
-        initial_guess_dict['w_Fe3'] =           (0.013, 0.01, 0.05)
-        initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
-        initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
-        initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
-        initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-        initial_guess_dict['Kmb_help_Ferm'] =        (10,    1,  10)
-       # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-        initial_guess_dict['Fe3'] =             (10.75,  2,  100)
-        initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
-        initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
-
+        
+        initial_guess_dict = get_initial_guesses()
 
         # scale parameters to allow better optimization
         initial_guess_dict = scale(initial_guess_dict)
@@ -550,14 +488,7 @@ def fit_my_model(specimens, Site, opt):
         measurement_days = Realdata['measured_time']
         merged_measurements = np.concatenate((Realdata['CO2'],Realdata['CH4']), axis = 0)
 
-        # curve_wrapper hängt die vorhersagen für CO2 und CH4 hintereinander
-        # damit curve_fit gleichzeitig gegen die gemessenen daten für CH4 und 
-        # CO2 fitten kann.
-        #print(merged_measurements)
-        #print(type(measurement_days))
-        #print(initial_guess_array)
-        #print(lower_bounds)
-        #print(upper_bounds)
+        
         if opt =='Curve':
             print('using curve_fit')
             
@@ -567,11 +498,7 @@ def fit_my_model(specimens, Site, opt):
                                                merged_measurements, #method="dogbox",
                                                p0 = initial_guess_array, 
                                                bounds=(lower_bounds, upper_bounds))
-            # optimal_parameters , _ = curve_fit(curve_merger, 
-            #                                    measurement_days, 
-            #                                    merged_measurements, #method="dogbox",
-            #                                    p0 = optimal_parameters, 
-            #                                    bounds=(lower_bounds, upper_bounds))
+ 
             changeables_optimal_dict = dict(zip(changeables_order, optimal_parameters))
             print(optimal_parameters)
             
@@ -624,42 +551,23 @@ def fit_my_model(specimens, Site, opt):
 
         plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
         
-        #print( pool_value_dict.keys())
+   
         
 def run_my_model(Cpool_init = 5555.5):
     plt.close('all')
     print('run_my_model')
-    # define the initial pool values
+
     # all pools, for which no value is speicified, will be initialized as empty
-    fixed_quantities_dict = dict()        
+    
+    #fixed_quantities_dict = dict()   
+    fixed_quantities_dict = get_fixed_quantities()
+
     fixed_quantities_dict['C'] = float(Cpool_init)
     fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
-    #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
-    fixed_quantities_dict['M_Ferm'] = 0.2
-    fixed_quantities_dict['M_Fe3'] = 0.2
-    fixed_quantities_dict['M_Ferm2'] = 0.2 
-    
+    print(fixed_quantities_dict['DOC'])
     # specify initial guesses and bounds for the parameters to be optimized
-    initial_guess_dict = dict()         #   init    lower upper
-    initial_guess_dict['Vmax_help_Ferm'] =  (0.07,   0.01,0.11)
-    initial_guess_dict['Vmax_Ferm'] =       (0.07,   0.01,0.11)
-    initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)
-    initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)
-    initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)
-    initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)
-    initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)
-    initial_guess_dict['w_Fe3'] =           (0.013, 0.01, 0.05)
-    initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)
-    initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)
-    initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)
-    initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)
-    initial_guess_dict['Kmb_help_Ferm'] =        (10,    1,  10)
-    # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)
-    initial_guess_dict['Fe3'] =             (10.75,  2,  100)
-    initial_guess_dict['M_Ac'] =            (0.05,  0.001,  0.2)
-    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)   # Diese Boundaries müssen anhander Acetatekurven angepasst werden
-
-
+    initial_guess_dict = get_initial_guesses()
+  
 
     # scale parameters to allow better optimization
     initial_guess_dict = scale(initial_guess_dict)
@@ -701,13 +609,30 @@ def run_my_model(Cpool_init = 5555.5):
     pool_value_dict = predictor(all_days, 
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
-    
-    print( pool_value_dict.keys())
+    print(pool_value_dict['C'])
     
     for k,v in pool_value_dict.items():
         plt.figure()
         plt.plot(all_days,v,'-')
         plt.ylabel(k)
+         
+    all_CO2_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CO2" in pool_name:
+            all_CO2_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CO2_contributers.items():
+        plt.plot( pool_curve, label= pool_name)
+    plt.legend()    
+        
+    all_CH4_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CH4" in pool_name:
+            all_CH4_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CH4_contributers.items():
+        plt.plot( pool_curve, label= pool_name)
+    plt.legend()
         
 
 if __name__ == '__main__':
@@ -736,9 +661,9 @@ if __name__ == '__main__':
     specimens = [10]
     
     #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
-    fit_my_model(specimens, Site = "all", opt = 'Min')
+    #fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    # run_my_model()
+    run_my_model()
 
 
 

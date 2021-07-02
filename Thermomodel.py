@@ -24,7 +24,7 @@ def Cdec_wrapper(model_parameter_dict):
  
         
         #FERM FERM FERM 
-        pool_change_dict_Ferm =  Ferm_help_Pathway(pool_dict, model_parameter_dict)
+        pool_change_dict_Ferm_help =  Ferm_help_Pathway(pool_dict, model_parameter_dict)
         
         pool_change_dict_Ferm =  Ferm_Pathway(pool_dict, model_parameter_dict)
 
@@ -44,7 +44,12 @@ def Cdec_wrapper(model_parameter_dict):
 
         
         
-        pool_change_dict_list = [pool_change_dict_Ferm, pool_change_dict_Fe3, pool_change_dict_Ac,pool_change_dict_Hydro,pool_change_dict_Homo, pool_change_dict_Ferm]
+        pool_change_dict_list = [pool_change_dict_Ferm_help, 
+                                 pool_change_dict_Ferm, 
+                                 pool_change_dict_Fe3, 
+                                 pool_change_dict_Ac,
+                                 pool_change_dict_Hydro,
+                                 pool_change_dict_Homo]
         
         
         
@@ -74,7 +79,7 @@ def Cdec_wrapper(model_parameter_dict):
         
       
         
-        changes_dict['H2_Ferm2'] = 0
+        #changes_dict['H2_Ferm2'] = 0
         # print('changes CO2_Ferm', changes_dict['CO2_Ferm'])
         # input('')
       
