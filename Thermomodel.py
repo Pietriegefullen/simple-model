@@ -9,7 +9,7 @@ from Thermomicrobentest import Ferm_help_Pathway,Ferm_Pathway, Hydro_Pathway, Fe
 def Cdec_wrapper(model_parameter_dict):
   
         
-    def Cdec(system_state, t):
+    def Cdec(t, system_state):
         pool_dict = dict(zip(pool_order, system_state))
 
      
@@ -21,8 +21,7 @@ def Cdec_wrapper(model_parameter_dict):
         #deltaM_Ferm2, deltaC_pool2, _, Tot_Ferm2 =   Fermenters(M_Ferm2_pool, C_pool, Acetate_pool, Vmax_Ferm, w_Ferm, Sensenmann, Kmb_Ferm, Kmh_Ferm)
         # Produziert:
         #deltaH2_Ferm2 =  -deltaC_pool2 * 1.2 # 1.2 aus cabrol2017microbial
- 
-        
+         
         #FERM FERM FERM 
         pool_change_dict_Ferm_help =  Ferm_help_Pathway(pool_dict, model_parameter_dict)
         
@@ -40,9 +39,7 @@ def Cdec_wrapper(model_parameter_dict):
         pool_change_dict_Hydro =  Hydro_Pathway(pool_dict, model_parameter_dict)
       
         # HOMO HOMO HOMO HOMO HOMO: 4H2 + 2CO2 → CH3COOH + 2H2O  conrad2000selective
-        pool_change_dict_Homo = Homo_Pathway(pool_dict, model_parameter_dict)
-
-        
+        pool_change_dict_Homo = Homo_Pathway(pool_dict, model_parameter_dict)        
         
         pool_change_dict_list = [pool_change_dict_Ferm_help, 
                                  pool_change_dict_Ferm, 
@@ -75,10 +72,11 @@ def Cdec_wrapper(model_parameter_dict):
         changes_dict['CO2_Homo'] =pool_change_dict_Homo['CO2'] if 'CO2' in pool_change_dict_Homo else 0.
         changes_dict['H2_Homo'] = pool_change_dict_Homo['H2'] if 'H2' in pool_change_dict_Homo else 0.
         changes_dict['H2_Hydro'] = pool_change_dict_Hydro['H2'] if 'H2' in pool_change_dict_Hydro else 0.
-        changes_dict['Fe2_Fe'] = pool_change_dict_Fe3['Fe2'] if 'Fe2' in pool_change_dict_Fe3 else 0.
+        changes_dict['Fe2_Fe3'] = pool_change_dict_Fe3['Fe2'] if 'Fe2' in pool_change_dict_Fe3 else 0.
         
-      
-        
+        if changes_dict['Fe2'] < 0:
+            print('!!!', changes_dict['Fe2'])        
+            #input('!!!')
         #changes_dict['H2_Ferm2'] = 0
         # print('changes CO2_Ferm', changes_dict['CO2_Ferm'])
         # input('')

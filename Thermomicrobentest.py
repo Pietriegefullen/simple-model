@@ -24,6 +24,7 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
     Acetate = product_dict['Acetate']['concentration']
     # print(microbe_dict)
     # input()
+    # TODO hier haben wir keine Temperaturabhängigkeit
     KmA = microbe_dict['KmA_Ferm']
     # print('Fermentations ',1- Acetate/(KmA + Acetate))
     # input('...')
@@ -32,7 +33,7 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
 
 
 def thermodynamics(educt_dict, product_dict):
-    
+    return 1
     # print('thermononfermo')
     # print(educt_dict)
     # print(product_dict)
@@ -79,7 +80,10 @@ def thermodynamics(educt_dict, product_dict):
     if Prod_Q_total == 0:
         return 1.0
     
-    Q = Prod_Q_total/ Edu_Q_total
+    if Edu_Q_total == 0: # TODO das ist nur ein safeguard, aber noch nicht auf sinn geprüft
+       return 1.0
+    
+    Q = Prod_Q_total/ Edu_Q_total # kann hier 0 stehen, wenn z.B acetate 0 ist?
     DGs = Prod_DGf_total - Edu_DGf_total
     
     R = 8.31446261815324 	# in J⋅K−1⋅mol−1
@@ -88,7 +92,7 @@ def thermodynamics(educt_dict, product_dict):
     DGr = DGs + R * T * math.log( Q )
     # print('DGr', DGr)
     DGmin = -26
-    return 1 - np.exp(min(0, DGr - DGmin)/R*T)
+    return 1 - np.exp(min(0, DGr - DGmin)/(R*T))
 
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
@@ -161,8 +165,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 #-------------------------------------------------------------------------------------------------------------            
     V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
-    print(microbe_dict['microbe']   ) 
-    print(V)
+    #print(microbe_dict['microbe']   ) 
+    #print(V)
     # Mikrobenzuwachs und verbrauch von C Biomasse , ACHTUNG!! DAS IST EIGENTLICH NICHT UNBEDINGT KORRECKT, weil nur in den seltensten
     # Fällen der E_Donor auch die C Quelle für Mikrobenwachstum ( nur bei Acetate und Ferm evtl. )
     #deltaSub1Grow = deltaSub1Resp * w/m_C     # micromol 

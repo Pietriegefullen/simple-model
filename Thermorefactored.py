@@ -15,10 +15,12 @@ Created on Tue Oct 13 09:45:44 2020
 
 import copy
 import os
+import traceback
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy
 from scipy import optimize
+import scipy.integrate as integ
 from scipy.integrate import odeint, solve_ivp
 from scipy import stats
 from scipy.optimize import curve_fit
@@ -83,16 +85,15 @@ def load_matlab():
                 superdata[key]['CO2'][index] = superdata[key]['CO2'][index-1]         
             if  np.isnan(superdata[key]['CO2'][index]):
                 superdata[key]['CO2'][index] = 0
-                
-
+           
     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
     superdata_all = copy.deepcopy(superdata)
     for key in superdata.keys():
         FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
         for column_name in ['CO2','CH4','measured_time']:
-            superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
+            superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
               # key entry ab wann Carex zugegeben wurde
             superdata[key]['First_Carex_index'] =     len(superdata[key]['measured_time'])
             superdata[key]['Last_non_Carex_day'] =    max(superdata[key]['measured_time'])
@@ -132,9 +133,10 @@ def load_matlab():
     superdata_2021_all = copy.deepcopy(superdata)
     replica_list_superdata_2021_all = list(superdata_2021_all.keys()) 
     
+    
     for key in  superdata_2021_all.keys():
         #anfügen der Carextage an die nicht carextage
-          Time_to_append = [i + max(superdata_2021_all[key]['measured_time'] )  for i in superdata_carex[key]['measured_time']]
+          Time_to_append = [i + max(superdata_2021_all[key]['measured_time'])  for i in superdata_carex[key]['measured_time'][1:]]
 
           existing_time_values = superdata_2021_all[key]['measured_time']
           time_all_values = np.concatenate([existing_time_values,Time_to_append], axis = 0)
@@ -142,7 +144,7 @@ def load_matlab():
           
          #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
          
-          CH4_to_append = [i + superdata_2021_all[key]['CH4'][-1]  for i in superdata_carex[key]['CH4']]
+          CH4_to_append = [i + superdata_2021_all[key]['CH4'][-1]  for i in superdata_carex[key]['CH4'][1:]]
 
           existing_CH4_values = superdata_2021_all[key]['CH4']
           CH4_all_values = np.concatenate([existing_CH4_values,CH4_to_append], axis = 0)
@@ -150,7 +152,7 @@ def load_matlab():
           
           #anfügen der Carex CH4 messwerte an die nicht carex CH4 Messwerte
          
-          CO2_to_append = [i + superdata_2021_all[key]['CO2'][-1]  for i in superdata_carex[key]['CO2']]
+          CO2_to_append = [i + superdata_2021_all[key]['CO2'][-1]  for i in superdata_carex[key]['CO2'][1:]]
 
           existing_CO2_values = superdata_2021_all[key]['CO2']
           CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
@@ -211,7 +213,7 @@ def load_matlab():
 # curve_merger_wrapper erstellt für curve_fit eine funktion, die die zusammengefügten
 # werte von CO2 und CH4 zurückgibt.
 def curve_merger_wrapper(fixed_quantities):
-    print('curve_merger_wrapper')
+    #print('curve_merger_wrapper')
     #
     # merged_curves_pred_function ruft den predictor
     # auf und fügt die vorhergesagten verläufe
@@ -222,7 +224,7 @@ def curve_merger_wrapper(fixed_quantities):
     # angepasst werden können. im ersten schritt des fit-algorithmus sind 
     # diese die initiual_guesses
     def merged_curves_pred_function(t, *changeables):
-        print('merged_curves_pred')
+        #print('merged_curves_pred')
         changeables_dict = dict(zip(changeables_order, changeables))
         
         initial_pool_values = dict()
@@ -250,14 +252,13 @@ def curve_merger_wrapper(fixed_quantities):
         
         # nimm CO2 und CH4 und pack sie zusammen zu einer einzigen kurve.
         predicted_CO2_and_CH4 = np.concatenate((pool_dict['CO2'],pool_dict['CH4']),axis = 0)
-        print('my type is :')
-        print(type(predicted_CO2_and_CH4))
+        
         return predicted_CO2_and_CH4
     
     return merged_curves_pred_function
 
 def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_dict): 
-    print('least_squares_error')
+    #print('least_squares_error')
   
     # in den folgenden beiden blöcken werden die variablen und fixen
     # parameter neu geordnet, weil predictor() die parameter getrennt haben 
@@ -307,12 +308,14 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
     weight_CH4 = 1.
     sum_of_squared_residuals = np.sum(weight_CO2*error_CO2**2 + weight_CH4*error_CH4**2) 
 
+    print('SSR',sum_of_squared_residuals)
+
     return sum_of_squared_residuals 
 
 
 def predictor(t, initial_pool_values, model_parameters):
-    print('predictor')
-    print_on_call = True
+    #print('predictor')
+    print_on_call = False
     print_only_changeables = True
     
     # gibt mir meine optimierten werte zurück ? 
@@ -343,27 +346,51 @@ def predictor(t, initial_pool_values, model_parameters):
     initial_system_state = np.array(initial_pool_list)
     
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
-    try:
-        pool_curves = odeint(cdec, 
-                             initial_system_state, 
-                             t)
+    # try:
+    #     pool_curves, full_info = odeint(cdec, 
+    #                          initial_system_state, 
+    #                          t,
+    #                          mxstep = 5000,
+    #                          full_output = True,
+    #                          tfirst = True)
+    #     for k,v in full_info.items():
+    #         print(k,v)
 
+    # except Exception as ex:
+    #     print('exception in odeint:')
+    #     print(ex.__class__.__name__,':', str(ex))
+
+  #  pool_curves = pool_curves.transpose()
+   # pool_dict = dict(zip(pool_order, pool_curves))
+
+    try:
+        pool_curves = integ.solve_ivp(cdec,
+                                      (0, np.max(t)),
+                                      initial_system_state,
+                                      method='LSODA',
+                                      t_eval = t)
+        
     except Exception as ex:
         print('exception in odeint:')
-        print(ex.__class__.__name__,':', str(ex))
-
-    pool_curves = pool_curves.transpose()
-    pool_dict = dict(zip(pool_order, pool_curves))
-    print('my predictors pools keys are :')
-    print(pool_dict.keys())
+        print(type(ex),':', str(ex))        
+        
     
+    # input('stop here ')
+    #print(pool_curves.t,pool_curves.y)
+   # input('done')
+    #print(type(pool_curves.y))
+    pool_dict = dict(zip(pool_order, pool_curves.y))
+    #print(pool_dict)
+
+    #input('stop here ')
+
     
     return pool_dict
 
 
 def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index): 
     #plt.close('all')
-    print('plot_my_data')
+    #print('plot_my_data')
     measurement_days = Realdata['measured_time'].astype(int)
     #print(pool_value_dict.keys())
     #print(pool_value_dict[])
@@ -441,19 +468,19 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
 
 def fit_my_model(specimens, Site, opt):
     plt.close('all')
-    print('fit_my_model')
+    #print('fit_my_model')
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
     
     for specimen_index in specimens: 
         if Site == "S":
             Realdata = superdata_Sam[replica_list_Sam[specimen_index]]
-            print(replica_list_Sam[specimen_index])
+           # print(replica_list_Sam[specimen_index])
         elif Site == "K":
             Realdata = superdata_Kuru[replica_list_Kuru[specimen_index]]   
-            print(replica_list_Kuru[specimen_index])
+         #   print(replica_list_Kuru[specimen_index])
         elif Site == "all":
             Realdata = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
-            print(replica_list_superdata_2021_all[specimen_index])
+          #  print(replica_list_superdata_2021_all[specimen_index])
             
         # define the initial pool values
         # all pools, for which no value is speicified, will be initialized as empty
@@ -464,7 +491,7 @@ def fit_my_model(specimens, Site, opt):
         Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
         
         fixed_quantities_dict['C'] = float(Cpool_init)
-        fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
+        fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02 #TODO:check this 0.02 ratio in song
         
         initial_guess_dict = get_initial_guesses()
 
@@ -490,7 +517,7 @@ def fit_my_model(specimens, Site, opt):
 
         
         if opt =='Curve':
-            print('using curve_fit')
+           # print('using curve_fit')
             
             curve_merger = curve_merger_wrapper(fixed_quantities_dict)
             optimal_parameters , _ = curve_fit(curve_merger,
@@ -503,14 +530,14 @@ def fit_my_model(specimens, Site, opt):
             print(optimal_parameters)
             
         elif opt == "Min":
-             print('using minimize')
+            # print('using minimize')
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
              optimization_result = scipy.optimize.minimize(least_squares_error, 
                                                       initial_guess_array,
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
                                                       # method = 'Nelder-Mead',
-                                                      options = {'maxiter':2,
+                                                      options = {'maxiter':2000,
                                                                 'disp':True})
              print(optimization_result)
 
@@ -555,7 +582,7 @@ def fit_my_model(specimens, Site, opt):
         
 def run_my_model(Cpool_init = 5555.5):
     plt.close('all')
-    print('run_my_model')
+    #print('run_my_model')
 
     # all pools, for which no value is speicified, will be initialized as empty
     
@@ -563,8 +590,8 @@ def run_my_model(Cpool_init = 5555.5):
     fixed_quantities_dict = get_fixed_quantities()
 
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)/25. #TODO: arbitrary choice of 25!
-    print(fixed_quantities_dict['DOC'])
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02 #TODO: arbitrary choice of 25!
+    #print(fixed_quantities_dict['DOC'])
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = get_initial_guesses()
   
@@ -609,8 +636,9 @@ def run_my_model(Cpool_init = 5555.5):
     pool_value_dict = predictor(all_days, 
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
-    print(pool_value_dict['C'])
-    
+   # print(pool_value_dict['C'])
+   # input() 
+   
     for k,v in pool_value_dict.items():
         plt.figure()
         plt.plot(all_days,v,'-')
@@ -661,9 +689,9 @@ if __name__ == '__main__':
     specimens = [10]
     
     #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
-    #fit_my_model(specimens, Site = "all", opt = 'Min')
+    fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    run_my_model()
+    #run_my_model()
 
 
 
