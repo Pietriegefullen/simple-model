@@ -34,8 +34,8 @@ pool_order = ['C',
 
 # durch auskommentieren bestimmen wir was optimiert wird und was nicht
 changeables_order = [
-                     'Vmax_Ferm',
                      'Vmax_help_Ferm',
+                     'Vmax_Ferm',
                      'Vmax_Fe3',
                      'Vmax_Homo',
                      'Vmax_Hydro',
@@ -100,23 +100,23 @@ def get_fixed_quantities():
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
-    initial_guess_dict['Vmax_help_Ferm'] =  (0.7,   0.01,1.71)  # 0.07,
-    initial_guess_dict['Vmax_Ferm'] =       (0.7,   0.01,0.11)  # 0.07
+    initial_guess_dict['Vmax_help_Ferm'] =  (1.517,   0.01,1.71)  # 0.07,
+    initial_guess_dict['Vmax_Ferm'] =       (0.103,   0.01,0.11)  # 0.07
     initial_guess_dict['Vmax_Fe3'] =        (0.3,   0.029, 1.9)  # 0.3
-    initial_guess_dict['Vmax_Homo'] =       (0.133, 0.005, 1.)   # 0.133
-    initial_guess_dict['Vmax_Hydro'] =      (0.086, 0.03, 0.2)   # 0.086
-    initial_guess_dict['Vmax_Ac'] =         (0.207, 0.05, 0.39)  # 0.207
-    initial_guess_dict['w_Ferm'] =          (0.05,  0.03, 0.05)  # 0.05
+    initial_guess_dict['Vmax_Homo'] =       (0.869, 0.005, 1.)   # 0.133
+    initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.2)   # 0.086
+    initial_guess_dict['Vmax_Ac'] =         (0.244, 0.05, 0.39)  # 0.207
+    initial_guess_dict['w_Ferm'] =          (0.032,  0.03, 0.05)  # 0.05
     initial_guess_dict['w_Fe3'] =           (0.013, 0.01, 0.05)  # 0.013
     initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)  # 0.024
     initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)  # 0.049
-    initial_guess_dict['w_Ac'] =            (0.04,  0.01, 0.05)  # 0.04
+    initial_guess_dict['w_Ac'] =            (0.036,  0.01, 0.05)  # 0.04
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)# 0
-    initial_guess_dict['Kmb_help_Ferm'] =   (10,    1,  10)      # 10
+    initial_guess_dict['Kmb_help_Ferm'] =   (4.009,    1,  10)      # 10
     # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)    # 10
-    initial_guess_dict['Fe3'] =             (20.75,  2,  100)    # 10.75
-    initial_guess_dict['M_Ac'] =            (0.2,  1.3e-08,  5e05) # 0.05
-    initial_guess_dict['KmA_Ferm']=         (0.05, 0.05, 20)     # 0.05 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+    initial_guess_dict['Fe3'] =             (47.587,  2,  100)    # 10.75
+    initial_guess_dict['M_Ac'] =            (297.143,  1.3e-08,  5e05) # 0.05
+    initial_guess_dict['KmA_Ferm']=         (17.315, 0.05, 20)     # 0.05 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 
     return(initial_guess_dict)
 

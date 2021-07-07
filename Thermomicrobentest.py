@@ -31,68 +31,39 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
     return 1- Acetate/(KmA + Acetate)
 
 
-
 def thermodynamics(educt_dict, product_dict):
-    return 1
+    #return 1
     # print('thermononfermo')
     # print(educt_dict)
     # print(product_dict)
     # input()
-    Edu_Q = list()
-    Edu_DGf = list()
     
-    Prod_Q= list()
-    Prod_DGf =list()
-
-    for educt, edu_dict in educt_dict.items():  
-       # to get Q values of Educts
-        
-        Concentration = edu_dict['concentration']
-        Stoch = edu_dict['Stoch']
-        
-        Edu_Q.append(Concentration**Stoch)
-        
-        # to get Gibbs Energy of formation of the Educts
-        Edu_DGf.append(edu_dict['DGf'])
-        
-    Edu_Q_total = np.prod(Edu_Q)
-    Edu_DGf_total = sum(Edu_DGf)
-      
-    for product, produ_dict in product_dict.items():  
-     # to get Q values of the Products
-        
-      
-        Concentration = produ_dict['concentration']
-        Stoch = produ_dict['Stoch']
-        
-        Prod_Q.append(Concentration**Stoch)
-        
-        # to get Gibbs Energy of formation of the Products
-        
-        Prod_DGf.append(produ_dict['DGf'])
-        
-    Prod_Q_total = np.prod(Prod_Q)
-    Prod_DGf_total = sum(Prod_DGf)
-        
-           
-    #print('Q', Prod_Q_total, Edu_Q_total)
-    # input()
-    if Prod_Q_total == 0:
+    educt_concentrations = [educt['concentration'] for educt in educt_dict.values()]
+    educt_stoichiometries = [educt['Stoch'] for educt in educt_dict.values()]
+    
+    product_concentrations = [product['concentration'] for product in product_dict.values()]
+    product_stoichiometries = [product['Stoch'] for product in product_dict.values()]
+    
+    Q_above = np.prod(np.power(product_concentrations, product_stoichiometries))
+    Q_below = np.prod(np.power(educt_concentrations, educt_stoichiometries))
+    
+    if Q_above <= 0 or Q_below <= 0:
         return 1.0
+
+    log_Q = np.log( Q_above/Q_below )
     
-    if Edu_Q_total == 0: # TODO das ist nur ein safeguard, aber noch nicht auf sinn geprüft
-       return 1.0
-    
-    Q = Prod_Q_total/ Edu_Q_total # kann hier 0 stehen, wenn z.B acetate 0 ist?
-    DGs = Prod_DGf_total - Edu_DGf_total
+    DGf_educt = np.sum([educt['DGf'] for educt in educt_dict.values()])
+    DGf_product = np.sum([product['DGf'] for product in product_dict.values()])
+    DGs = DGf_product - DGf_educt
     
     R = 8.31446261815324 	# in J⋅K−1⋅mol−1
     T = 277.15 # 4 °C in Kelvin
     
-    DGr = DGs + R * T * math.log( Q )
-    # print('DGr', DGr)
-    DGmin = -26
-    return 1 - np.exp(min(0, DGr - DGmin)/(R*T))
+   # print('math.log(Q)', math.log(Q))
+    DGr = DGs + R * T * log_Q
+   # print('DGr', DGr)
+    DGmin = -26.0
+    return 1 - np.exp(np.minimum(0, DGr - DGmin)/(R*T))
 
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
@@ -158,6 +129,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 
 
     else:
+        #thermodynamic_factor = 1
         thermodynamic_factor = thermodynamics(educt_dict, product_dict)
         MMB = Biomass  if Biomass > 0 else 0 
 
