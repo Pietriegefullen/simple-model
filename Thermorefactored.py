@@ -363,23 +363,31 @@ def predictor(t, initial_pool_values, model_parameters):
   #  pool_curves = pool_curves.transpose()
    # pool_dict = dict(zip(pool_order, pool_curves))
 
+    method = 'LSODA'
     try:
-        pool_curves = integ.solve_ivp(cdec,
+        solver_result = integ.solve_ivp(cdec,
                                       (0, np.max(t)),
                                       initial_system_state,
-                                      method='LSODA',
-                                      t_eval = t)
+                                      method=method,
+                                      t_eval = t,
+                                      atol = 1e-2,
+                                      rtol = 1e-1)
         
     except Exception as ex:
         print('exception in odeint:')
         print(type(ex),':', str(ex))        
-        
     
     # input('stop here ')
     #print(pool_curves.t,pool_curves.y)
    # input('done')
     #print(type(pool_curves.y))
-    pool_dict = dict(zip(pool_order, pool_curves.y))
+    # print('')
+    # print(method +':')
+    # print('function evaluations', solver_result.nfev)
+    # print('jacobian evaluations', solver_result.njev)
+    # print('')
+
+    pool_dict = dict(zip(pool_order, solver_result.y))
     #print(pool_dict)
 
     #input('stop here ')
@@ -463,7 +471,7 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     #     plt.savefig('C:/Users/Lara/Desktop/simple model/Figs/'+ pool_name +'_'+str(specimen_index)+ '.png') 
 
 
-   
+    plt.show()   
 
 
 def fit_my_model(specimens, Site, opt):
@@ -495,6 +503,7 @@ def fit_my_model(specimens, Site, opt):
         
         initial_guess_dict = get_initial_guesses()
 
+
         # scale parameters to allow better optimization
         initial_guess_dict = scale(initial_guess_dict)
         #fixed_quantities_dict = scale(fixed_quantities_dict)
@@ -504,11 +513,15 @@ def fit_my_model(specimens, Site, opt):
         initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
         lower_bounds = [initial_guess_dict[key][1] for key in changeables_order]
         upper_bounds = [initial_guess_dict[key][2] for key in changeables_order]
+    
 
         # schreibe die werte, die zwar im initial_guess_dict definiert sind, 
         # aber trotzdem während der optimierung Festgehalten werden sollen, 
         # in das dict für die nicht mit-optimierten werte.
         fixed_quantities_dict.update({k:v[0] for k,v in initial_guess_dict.items() if not k in changeables_order})
+        
+        
+        # while True:
 
         # gemessene daten aus Realdata laden und zusammenhängen, um CO2 und CH4
         # gleichzeitig zu fitten.
@@ -534,10 +547,11 @@ def fit_my_model(specimens, Site, opt):
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
              optimization_result = scipy.optimize.minimize(least_squares_error, 
                                                       initial_guess_array,
+                        
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
-                                                      # method = 'Nelder-Mead',
-                                                      options = {'maxiter':2000,
+                                                      #method = 'Nelder-Mead',
+                                                      options = {'maxiter':20,
                                                                 'disp':True})
              print(optimization_result)
 
@@ -578,12 +592,17 @@ def fit_my_model(specimens, Site, opt):
 
         plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
         
+            # if input('repeat fit with new initial parameters or quit (type "q")').lower() == 'q':
+            #     break
+            # initial_guess_array = [changeables_optimal_dict[key] for key in changeables_order]
    
         
 def run_my_model(Cpool_init = 5555.5):
     plt.close('all')
     #print('run_my_model')
 
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+    
     # all pools, for which no value is speicified, will be initialized as empty
     
     #fixed_quantities_dict = dict()   
@@ -639,6 +658,15 @@ def run_my_model(Cpool_init = 5555.5):
    # print(pool_value_dict['C'])
    # input() 
    
+   
+   
+    #return None # exit before plotting to save time when profiling
+    plt.plot( superdata_2021_all['13690']['measured_time'],superdata_2021_all['13690']['CH4'],'ro')
+    plt.plot(pool_value_dict['CH4'])
+    plt.figure()
+    plt.plot( superdata_2021_all['13690']['measured_time'], superdata_2021_all['13690']['CO2'],'bo')
+    plt.plot(pool_value_dict['CO2'])
+   
     for k,v in pool_value_dict.items():
         plt.figure()
         plt.plot(all_days,v,'-')
@@ -689,9 +717,9 @@ if __name__ == '__main__':
     specimens = [10]
     
     #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
-    fit_my_model(specimens, Site = "all", opt = 'Min')
+    #fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    #run_my_model()
+    run_my_model()
 
 #%%
 

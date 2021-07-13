@@ -21,14 +21,17 @@ pool_order = ['C',
             'H2',
             'CO2_Hydro',
             'CH4_Hydro',
-            #'H2_Ferm2',
-            #'M_Ferm2',
             'CO2_Ferm',
             'CO2_Fe3',
             'CO2_Homo',
             'H2_Homo',
             'H2_Hydro',
-            'Fe2']
+            'Fe2'#,
+            # 'DGr_Fe3',
+            # 'DGr_Hydro',
+            # 'DGr_Homo',
+            # 'DGr_Ac'
+            ]
 
 
 
@@ -82,7 +85,7 @@ parameter_units = {'Vmax_Ferm':'μmol/mg',
                    'Acetate':'μmol',
                    'H2':'μmol',
                    'CO2_Hydro':'μmol',
-                   'CH4_Hydro':'μmol',}
+                   'CH4_Hydro':'μmol'}
                   # 'H2_Ferm2':'μmol',
                    #'M_Ferm2':'mg'}
 
@@ -91,7 +94,7 @@ parameter_units = {'Vmax_Ferm':'μmol/mg',
 def get_fixed_quantities(): 
     fixed_quantities_dict = dict()        
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
-    fixed_quantities_dict['M_Ferm'] =  0.2 #1.3e-07 #
+    fixed_quantities_dict['M_Ferm'] =  0.6 #1.3e-07 #
     fixed_quantities_dict['M_Fe3'] =0.2  # 0.2
     #fixed_quantities_dict['M_Ferm2'] = 0.2 # 0.2
     

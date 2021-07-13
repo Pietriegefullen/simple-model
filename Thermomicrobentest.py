@@ -28,32 +28,42 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
     KmA = microbe_dict['KmA_Ferm']
     # print('Fermentations ',1- Acetate/(KmA + Acetate))
     # input('...')
+    
     return 1- Acetate/(KmA + Acetate)
 
 
-def thermodynamics(educt_dict, product_dict):
+def thermodynamics(educt_dict, product_dict, microbe_dict):
     #return 1
     # print('thermononfermo')
     # print(educt_dict)
     # print(product_dict)
     # input()
-    
-    educt_concentrations = [educt['concentration'] for educt in educt_dict.values()]
-    educt_stoichiometries = [educt['Stoch'] for educt in educt_dict.values()]
-    
-    product_concentrations = [product['concentration'] for product in product_dict.values()]
-    product_stoichiometries = [product['Stoch'] for product in product_dict.values()]
-    
-    Q_above = np.prod(np.power(product_concentrations, product_stoichiometries))
-    Q_below = np.prod(np.power(educt_concentrations, educt_stoichiometries))
-    
-    if Q_above <= 0 or Q_below <= 0:
-        return 1.0
+    print(microbe_dict['microbe'])
 
-    log_Q = np.log( Q_above/Q_below )
+    DGf_educt = 0
+    Q_educts = 1.0
+    for educt in educt_dict.values():
+        DGf_educt += educt['DGf']
+        Q_educts *= educt['concentration']**educt['Stoch']
+        
+    DGf_product = 0
+    Q_products = 1.0
+    for product in product_dict.values():
+        DGf_product += product['DGf']
+        Q_products *= product['concentration']**product['Stoch']
+
+    if Q_educts <= 0:
+      # print('Q educts = 0, return 0.0')
+       return 0.0#, 0.0
+   
+    if Q_products <= 0:
+        #print('Q = 0 for products, return 1')
+        return 1.0#, 0.0
+
+    log_Q = np.log( Q_products/Q_educts )
     
-    DGf_educt = np.sum([educt['DGf'] for educt in educt_dict.values()])
-    DGf_product = np.sum([product['DGf'] for product in product_dict.values()])
+    # DGf_educt = np.sum(np.array([educt['DGf'] for educt in educt_dict.values()]))
+    # DGf_product = np.sum([product['DGf'] for product in product_dict.values()])
     DGs = DGf_product - DGf_educt
     
     R = 8.31446261815324 	# in J⋅K−1⋅mol−1
@@ -62,8 +72,14 @@ def thermodynamics(educt_dict, product_dict):
    # print('math.log(Q)', math.log(Q))
     DGr = DGs + R * T * log_Q
    # print('DGr', DGr)
+   
     DGmin = -26.0
-    return 1 - np.exp(np.minimum(0, DGr - DGmin)/(R*T))
+    if DGr > DGmin:
+        print('minimum not reached, return 0', DGr - DGmin)
+        return 0.0#, DGr
+    #print(DGr)
+    
+    return 1 - np.exp((DGr - DGmin)/(R*T))# , DGr
 
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
@@ -109,16 +125,19 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     
     #print('entering '+pathway_name)
     # input()
-    MM_factors = list()
+    #MM_factors = list()
+    MM_factors_total = 1.0
     for educt, edu_dict in educt_dict.items():  
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
-        MM_factors.append(substance_MM)
+        #MM_factors.append(substance_MM)
+        MM_factors_total *= substance_MM
     # Note that for Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0
-    MM_factors_total = np.prod(MM_factors)
+    #MM_factors_total = np.prod(np.array(MM_factors))
 #-------------------------------------------------------------------------------------------------------------
     # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
     Vmax = microbe_dict['Vmax']
+    DGr_Ausgabe = 0
     Biomass = microbe_dict['concentration']
     if 'Ferm' in microbe_dict and microbe_dict['Ferm']==True:
         thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict) #TODO Hier gehört die acetatehemmung 
@@ -130,7 +149,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
     else:
         #thermodynamic_factor = 1
-        thermodynamic_factor = thermodynamics(educt_dict, product_dict)
+        thermodynamic_factor = thermodynamics(educt_dict, product_dict, microbe_dict)
         MMB = Biomass  if Biomass > 0 else 0 
 
     
@@ -188,6 +207,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
     # input('biomass '+pathway_name)
+    #pool_change_dict['DGr'] = DGr_Ausgabe
     return pool_change_dict
 
 
@@ -290,7 +310,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Fe3'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Fe3'}
-    
+                    #'DGs'           : -109.45 }
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
                                     'Stoch'          : 1                  ,
@@ -305,15 +325,15 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     product_dict = { 'Fe2' : {'concentration': pool_dict['Fe2'],
                               'Stoch'        : 8               ,
-                              'DGf'          : -78.9           }  ,
+                              'DGf'          : -89.1           }  ,#https://www.engineeringtoolbox.com/standard-state-enthalpy-formation-definition-value-Gibbs-free-energy-entropy-molar-heat-capacity-d_1978.html
                     
                      'CO2' : {'concentration': pool_dict['CO2'],
                               'Stoch'        : 2               ,
-                              'DGf'          :   0              }  , #TODO DIESE ZAHL IST FALSCH
+                              'DGf'          : -394.36                 }  , #Vaxa
                          
                       'H2' : {'concentration': pool_dict['H2'],
                               'Stoch'        : 0              ,
-                              'DGf'          :  0              }   }#TODO DIESE ZAHL IST FALSCH
+                              'DGf'          :  0              }   }
                                                                   
    
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Fe3')
@@ -337,6 +357,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Hydro']   , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Hydro'}
+                      #'DGs '       : 343.56 } # ja positiv
     
     educt_dict = { 'H2'  : {'concentration':pool_dict['H2']  ,
                             'Stoch'     : 4                  , 
@@ -351,7 +372,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     
     product_dict = {'CH4' :{'concentration': pool_dict['CH4'] ,
                             'Stoch'        : 1                ,
-                            'DGf'          : -50.72}          }
+                            'DGf'          : -50.8}          }
    
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Hydro')
@@ -372,6 +393,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Homo']    , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Homo'}
+                    #'DGs'          : 25 }
     
     educt_dict = { 'H2'  : {'concentration':pool_dict['H2']        ,
                              'Stoch'       : 4                     ,
@@ -406,6 +428,7 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Ac'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Ac'}
+                      #'DGs'        : -75.89 }
     
     educt_dict = { 'Acetate' : {'concentration':pool_dict['Acetate']    ,
                                 'Stoch'        :  1                     ,
@@ -415,11 +438,11 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                       
     product_dict = { 'CH4' : {'concentration': pool_dict['CH4'],
                               'Stoch'        : 1               ,
-                              'DGf'          : 186.26          },
+                              'DGf'          : -50.8          }, # wert aus Vaxa
                     
                      'CO2' : {'concentration': pool_dict['CO2'],
                               'Stoch'        : 1               ,
-                              'DGf'          :-394.36          } }
+                              'DGf'          :-394.36         } }
 
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ac')

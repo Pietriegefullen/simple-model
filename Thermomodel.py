@@ -52,13 +52,18 @@ def Cdec_wrapper(model_parameter_dict):
         
         # DELTA DELTA DELTA                           
         
-        m_C = 12.01*1e-3 # molar mass of carbon
-        changes_dict = dict()
+       # m_C = 12.01*1e-3 # molar mass of carbon
        # das übernimmt jetzt die spezielle mikrobe? = changes_dict['C'] = -min(-deltaC_pool, C_pool)  +  (Tot_Hyd + Tot_Ac + Tot_ALtE + Tot_Ferm)/m_C
         
         # hier werden die Beitr�ge aller Mikroben zur Poolgrößenänderung zusammengefasst
-        for pool in pool_dict:
-            changes_dict[pool] = sum(list([dictionary[pool] for dictionary in pool_change_dict_list if pool in dictionary]))
+        changes_dict = dict()
+        # for pool in pool_dict:
+        #     changes_dict[pool] = sum(list([dictionary[pool] for dictionary in pool_change_dict_list if pool in dictionary]))
+        for pathway_change_dict in pool_change_dict_list:
+            for pool, change in pathway_change_dict.items():
+                if not pool in changes_dict:
+                    changes_dict[pool] = 0.0
+                changes_dict[pool] += change
         
         # print(changes_dict)
         # input('pth..')
@@ -74,8 +79,13 @@ def Cdec_wrapper(model_parameter_dict):
         changes_dict['H2_Hydro'] = pool_change_dict_Hydro['H2'] if 'H2' in pool_change_dict_Hydro else 0.
         changes_dict['Fe2_Fe3'] = pool_change_dict_Fe3['Fe2'] if 'Fe2' in pool_change_dict_Fe3 else 0.
         
-        if changes_dict['Fe2'] < 0:
-            print('!!!', changes_dict['Fe2'])        
+        # changes_dict['DGr_Fe3'] = pool_change_dict_Fe3['DGr'] if 'DGr' in pool_change_dict_Fe3 else 0.
+        # changes_dict['DGr_Hydro'] = pool_change_dict_Hydro['DGr'] if 'DGr' in pool_change_dict_Hydro else 0.
+        # changes_dict['DGr_Homo'] = pool_change_dict_Homo['DGr'] if 'DGr' in pool_change_dict_Homo else 0.
+        # changes_dict['DGr_Ac'] = pool_change_dict_Ac['DGr'] if 'DGr' in pool_change_dict_Ac else 0.
+                
+        if 'Fe2' in changes_dict and changes_dict['Fe2'] < 0:
+           print('!!!', changes_dict['Fe2'])        
             #input('!!!')
         #changes_dict['H2_Ferm2'] = 0
         # print('changes CO2_Ferm', changes_dict['CO2_Ferm'])
