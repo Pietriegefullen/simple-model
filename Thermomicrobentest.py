@@ -38,7 +38,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     # print(educt_dict)
     # print(product_dict)
     # input()
-    print(microbe_dict['microbe'])
+    #print(microbe_dict['microbe'])
 
     DGf_educt = 0
     Q_educts = 1.0
@@ -54,11 +54,11 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
 
     if Q_educts <= 0:
       # print('Q educts = 0, return 0.0')
-       return 0.0#, 0.0
+       return 0.0, 11000.0
    
     if Q_products <= 0:
         #print('Q = 0 for products, return 1')
-        return 1.0#, 0.0
+        return 1.0, 10000.0
 
     log_Q = np.log( Q_products/Q_educts )
     
@@ -75,11 +75,11 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
    
     DGmin = -26.0
     if DGr > DGmin:
-        print('minimum not reached, return 0', DGr - DGmin)
-        return 0.0#, DGr
+        #print('minimum not reached, return 0', DGr - DGmin)
+        return 0.0, DGr
     #print(DGr)
     
-    return 1 - np.exp((DGr - DGmin)/(R*T))# , DGr
+    return 1 - np.exp((DGr - DGmin)/(R*T)) , DGr
 
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
@@ -149,10 +149,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
     else:
         #thermodynamic_factor = 1
-        thermodynamic_factor = thermodynamics(educt_dict, product_dict, microbe_dict)
+        thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
         MMB = Biomass  if Biomass > 0 else 0 
-
-    
+           
 #-------------------------------------------------------------------------------------------------------------            
     V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
 #-------------------------------------------------------------------------------------------------------------    
@@ -207,7 +206,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
     # input('biomass '+pathway_name)
-    #pool_change_dict['DGr'] = DGr_Ausgabe
+    #print(DGr_Ausgabe)
+    pool_change_dict['DGr'] = DGr_Ausgabe
+    #print(pool_change_dict['DGr'])
     return pool_change_dict
 
 
@@ -242,6 +243,7 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
 
     if 'biomass' in pool_change_dict:
          pool_change_dict['M_Ferm'] = pool_change_dict.pop('biomass')
+         
 
     return pool_change_dict
 
@@ -340,6 +342,8 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
+    # if 'DGr' in pool_change_dict:
+    #     pool_change_dict['DGr_Fe3'] = pool_change_dict.pop('DGr')
     
     #print(pool_change_dict)
     
@@ -379,6 +383,9 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Hydro'] = pool_change_dict.pop('biomass')
+    # if 'DGr' in pool_change_dict:
+    #     pool_change_dict['DGr_Hydro'] = pool_change_dict.pop('DGr')
+
     # print(pool_change_dict['CH4'])
     
     return pool_change_dict
@@ -415,7 +422,9 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Homo'] = pool_change_dict.pop('biomass')
-    
+    # if 'DGr' in pool_change_dict:
+    #     pool_change_dict['DGr_Homo'] = pool_change_dict.pop('DGr')
+
     return pool_change_dict
 
 
@@ -449,7 +458,9 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Ac'] = pool_change_dict.pop('biomass')
-    
+    # if 'DGr' in pool_change_dict:
+    #     pool_change_dict['DGr_Ac'] = pool_change_dict.pop('DGr')
+
     
     return pool_change_dict
 

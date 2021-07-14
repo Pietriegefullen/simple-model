@@ -362,7 +362,7 @@ def predictor(t, initial_pool_values, model_parameters):
 
   #  pool_curves = pool_curves.transpose()
    # pool_dict = dict(zip(pool_order, pool_curves))
-
+    
     method = 'LSODA'
     try:
         solver_result = integ.solve_ivp(cdec,
@@ -395,6 +395,34 @@ def predictor(t, initial_pool_values, model_parameters):
     
     return pool_dict
 
+
+def compute_extra_info(pool_value_dict, model_parameters_dict):
+    
+    cdec_fcn = Thermomodel.Cdec_wrapper(model_parameters_dict, 
+                                        return_thermodynamics=True)
+    
+    extra_curves = dict()
+    
+    first_key = list(pool_value_dict.keys())[0]
+    number_of_steps = len(pool_value_dict[first_key])
+    for t in range(number_of_steps):
+        # cdec will den system_state als array
+        system_state = np.array([pool_value_dict[pool][t] for pool in pool_order])
+        
+        dummy_time = 0
+        _, extra_dict = cdec_fcn(dummy_time,system_state)
+        
+        for key in extra_dict.keys(): 
+            if not key in extra_curves:
+                extra_curves[key] = list()
+                
+            if 'DGr' in key:
+                extra_curves[key].append(extra_dict[key])
+            else:
+                previous_value = extra_curves[key][-1] if len(extra_curves[key])>0 else 0.0
+                extra_curves[key].append(previous_value + extra_dict[key])
+        
+    return extra_curves
 
 def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index): 
     #plt.close('all')
@@ -590,6 +618,11 @@ def fit_my_model(specimens, Site, opt):
                                     initial_pool_dict,
                                     optimal_model_parameters_dict)
 
+        print('calling extra info')
+        extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
+        print(extra_curves)
+        pool_value_dict.update(extra_curves)
+
         plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
         
             # if input('repeat fit with new initial parameters or quit (type "q")').lower() == 'q':
@@ -655,7 +688,13 @@ def run_my_model(Cpool_init = 5555.5):
     pool_value_dict = predictor(all_days, 
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
-   # print(pool_value_dict['C'])
+    
+    print('calling extra info')
+    extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
+    print(extra_curves)
+    pool_value_dict.update(extra_curves)
+    
+    print(pool_value_dict.keys())
    # input() 
    
    
