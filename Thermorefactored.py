@@ -388,7 +388,8 @@ def predictor(t, initial_pool_values, model_parameters):
     # print('')
 
     pool_dict = dict(zip(pool_order, solver_result.y))
-    #print(pool_dict)
+    #
+    #(pool_dict)
 
     #input('stop here ')
 
@@ -571,11 +572,11 @@ def fit_my_model(specimens, Site, opt):
             print(optimal_parameters)
             
         elif opt == "Min":
+
             # print('using minimize')
              initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
              optimization_result = scipy.optimize.minimize(least_squares_error, 
-                                                      initial_guess_array,
-                        
+                                                      initial_guess_array,                        
                                                       args = (fixed_quantities_dict, Realdata),
                                                       bounds= initial_guess_bounds,
                                                       #method = 'Nelder-Mead',
@@ -620,7 +621,7 @@ def fit_my_model(specimens, Site, opt):
 
         print('calling extra info')
         extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
-        print(extra_curves)
+        #print(extra_curves)
         pool_value_dict.update(extra_curves)
 
         plot_my_data(Realdata, all_days, pool_value_dict, specimen_index)
@@ -630,26 +631,42 @@ def fit_my_model(specimens, Site, opt):
             # initial_guess_array = [changeables_optimal_dict[key] for key in changeables_order]
    
         
-def run_my_model(Cpool_init = 5555.5):
+def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
     plt.close('all')
     #print('run_my_model')
 
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
     
+    for specimen_index in specimens: 
+        if Site == "S":
+            Realdata = superdata_Sam[replica_list_Sam[specimen_index]]
+           # print(replica_list_Sam[specimen_index])
+        elif Site == "K":
+            Realdata = superdata_Kuru[replica_list_Kuru[specimen_index]]   
+         #   print(replica_list_Kuru[specimen_index])
+        elif Site == "all":
+            Realdata = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
+          #  print(replica_list_superdata_2021_all[specimen_index])
+    
+    
     # all pools, for which no value is speicified, will be initialized as empty
     
     #fixed_quantities_dict = dict()   
-    fixed_quantities_dict = get_fixed_quantities()
-
+    fixed_quantities_dict = get_fixed_quantities()      
+    m_gluc = 180   # molar mass of glucose, g dw pro mol
+    TOC =  Realdata['Corg (%)']/100.0 # Knoblauchs Daten , g dw     
+    specimen_mass = Realdata['weight'] # g (Knoblauch proben)
+    Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
+    
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02 #TODO: arbitrary choice of 25!
-    #print(fixed_quantities_dict['DOC'])
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02 #TODO:check this 0.02 ratio in song
+        
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = get_initial_guesses()
   
 
     # scale parameters to allow better optimization
-    initial_guess_dict = scale(initial_guess_dict)
+    #initial_guess_dict = scale(initial_guess_dict)
     
     #initial_guess_array = [initial_guess_dict[key][0] for key in changeables_order]
 
@@ -691,7 +708,7 @@ def run_my_model(Cpool_init = 5555.5):
     
     print('calling extra info')
     extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
-    print(extra_curves)
+    #print(extra_curves)
     pool_value_dict.update(extra_curves)
     
     print(pool_value_dict.keys())
@@ -700,10 +717,10 @@ def run_my_model(Cpool_init = 5555.5):
    
    
     #return None # exit before plotting to save time when profiling
-    plt.plot( superdata_2021_all['13690']['measured_time'],superdata_2021_all['13690']['CH4'],'ro')
+    plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
     plt.plot(pool_value_dict['CH4'])
     plt.figure()
-    plt.plot( superdata_2021_all['13690']['measured_time'], superdata_2021_all['13690']['CO2'],'bo')
+    plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
     plt.plot(pool_value_dict['CO2'])
    
     for k,v in pool_value_dict.items():
@@ -758,7 +775,7 @@ if __name__ == '__main__':
     #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit
     #fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    run_my_model()
+    run_my_model(specimens, Site = "all")
 
 #%%
 

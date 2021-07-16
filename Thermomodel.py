@@ -26,7 +26,6 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         pool_change_dict_Ferm_help =  Ferm_help_Pathway(pool_dict, model_parameter_dict)
         
         pool_change_dict_Ferm =  Ferm_Pathway(pool_dict, model_parameter_dict)
-
         
         # Fe3 Fe3 Fe3 Fe3 : C2H3O2 − + 4H2O + 8Fe3+3 → 9H+ + 2 HCO3− + 8Fe3+2   Delattre 2019
         pool_change_dict_Fe3 =  Fe3_Pathway(pool_dict, model_parameter_dict)
@@ -49,7 +48,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                                  pool_change_dict_Homo]
         
         
-        
+        #print(pool_change_dict_list)
         # DELTA DELTA DELTA                           
         
        # m_C = 12.01*1e-3 # molar mass of carbon
@@ -76,10 +75,12 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         #     print(k,v)
         # print('DGr_Fe3 is',changes_dict['DGr_Fe3'])
         # print('CO2_Homo is',type(changes_dict['CO2_Homo']))
+       # changes_dict['CO2'] = changes_dict['CO2'] /2
+        #changes_dict['CH4'] = changes_dict['CH4'] /2
         
         pool_changes_array = np.array([changes_dict[pool_name] if pool_name in changes_dict else 0.0 for pool_name in pool_order])
         # input('dcdec done..')
-               
+        #print(pool_changes_array[:][0])       
         #print(dict(zip(pool_order, pool_changes_array)))
         #input('pth..')
 
@@ -93,7 +94,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         
         else:
             
-            # speziellere aufteilung der Pools fürs plotting
+            # speziellere aufteilung der Pools for plotting
             extra_dict =  dict()
             extra_dict['CO2_Ferm'] = pool_change_dict_Ferm['CO2']  if 'CO2' in pool_change_dict_Ferm else 0.
             extra_dict['CH4_Hydro'] = pool_change_dict_Hydro['CH4']  if 'CH4' in pool_change_dict_Hydro else 0.
