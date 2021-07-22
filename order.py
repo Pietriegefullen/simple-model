@@ -91,6 +91,20 @@ parameter_units = {'Vmax_Ferm':'μmol/mg',
 
 
 
+Henrys_dict = { 'CO2' : {'H_cp_Standard': 3.4*10e-4,
+                         'H_cp_temp':    2400                  },
+                   
+               'CH4' : {'H_cp_Standard': 1.4*10e-5,
+                            'H_cp_temp':    1700                },
+               
+               'H2' : {'H_cp_Standard': 7.7*10e-6,
+                         'H_cp_temp':    500              },}
+
+
+
+
+
+
 def get_fixed_quantities(): 
     fixed_quantities_dict = dict()        
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001

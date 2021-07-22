@@ -7,6 +7,8 @@ Created on Mon Dec  7 13:38:25 2020
 import math as math
 import numpy as np
 
+from order import Henrys_dict
+
 # laut van1999efFe3ct findet kein Wachstum statt, laut philben2020anaerobic schon
 #mol/m3 = micromol/cm^3
 
@@ -15,6 +17,24 @@ import numpy as np
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
+
+
+def henrys_law (H_cp_Standard, H_cp_temp, T = 4):
+    
+    T = T + 273.15 # von Celcius nach Kelvin  
+    
+    T_standard = 298.15 # in Kelvin
+    
+    H_cp_temp_adjusted = H_cp_temp - T
+    
+    
+    H_cc = H_cp_Standard *  np.exp(H_cp_temp_adjusted * ((1/T) - (1/ T_standard)))
+
+    return H_cc
+    
+    
+    
+    
 
 def thermodynamics_Ferm(product_dict, microbe_dict):
     # inverse mm erlaubt ? weil aceate durch enzyme abgebaut werden was einer MM folgt und Acetate unsere Hemmung auslöst. die auflösung der Hemmung 
@@ -285,13 +305,24 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                                     'Km'             : 10 / SOIL_DENSITY} }# 10 from Song  mikromol pro gram 
                      
     
+    
+        
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
+    
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
+                                       
+    
+    
+    
     product_dict = { 'Acetate' : {'concentration': pool_dict['Fe2'],
                                   'Stoch'        : 6               }  ,
                     
-                     'CO2'      : {'concentration': pool_dict['CO2'],
+                     'CO2'      : {'concentration': dissolved_CO2,
                                    'Stoch'        : 3              }  , 
                          
-                      'H2'     : {'concentration': pool_dict['H2'],
+                      'H2'     : {'concentration': dissolved_H2   ,
                                   'Stoch'        : 1             }}
                                                                   
    
@@ -333,8 +364,15 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                                    'Km'             : 0                   }} # TODO WISO 0 ? 
                      
     
-    #H_cc = henrys_law(H_cp['CO2'], dHdT['CO2'])
-    dissolved_CO2 = pool_dict['CO2']#*(H_cc/(H_cc+1))
+                          
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
+    
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
+                                       
+    
+    
     product_dict = { 'Fe2' : {'concentration': pool_dict['Fe2'],
                               'Stoch'        : 8               ,
                               'DGf'          : -89.1           }  ,#https://www.engineeringtoolbox.com/standard-state-enthalpy-formation-definition-value-Gibbs-free-energy-entropy-molar-heat-capacity-d_1978.html
@@ -343,7 +381,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                               'Stoch'        : 2               ,
                               'DGf'          : -394.36                 }  , #Vaxa
                          
-                      'H2' : {'concentration': pool_dict['H2'],
+                      'H2' : {'concentration': dissolved_H2,
                               'Stoch'        : 0              ,
                               'DGf'          :  0              }   }
                                                                   
@@ -372,19 +410,28 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Hydro'}
                       #'DGs '       : 343.56 } # ja positiv
+                      
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
+    H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
     
-    educt_dict = { 'H2'  : {'concentration':pool_dict['H2']  ,
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
+    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4+1))
+                                       
+    
+    educt_dict = { 'H2'  : {'concentration':dissolved_H2 ,
                             'Stoch'     : 4                  , 
                             'DGf'       : 0                  ,
                             'Km'        : 0.01 / SOIL_DENSITY},# 0.01 mikromol pro cm^3 from Song
     
-                  'CO2'  :{'concentration': pool_dict['CO2'] ,
+                  'CO2'  :{'concentration': dissolved_CO2,
                            'Stoch'        : 1                                ,
                            'DGf'          : -394.36                          ,
                            'Km'           : 0.05/SOIL_DENSITY }              } # 0.05 mikromol pro cm^3 from Song
                     
     
-    product_dict = {'CH4' :{'concentration': pool_dict['CH4'] , # auf 0 weil es in den Headspace diffundiert
+    product_dict = {'CH4' :{'concentration': dissolved_CH4 , # auf 0 weil es in den Headspace diffundiert
                             'Stoch'        : 1                ,
                             'DGf'          : -50.8}          }
    
@@ -411,13 +458,19 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Homo'}
                     #'DGs'          : 25 }
+                    
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
     
-    educt_dict = { 'H2'  : {'concentration':pool_dict['H2']        ,
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))              
+    
+    educt_dict = { 'H2'  : {'concentration': dissolved_H2       ,
                              'Stoch'       : 4                     ,
                              'DGf'         : 0                     ,
                                'Km'        : 0.01 / SOIL_DENSITY   },    # 0.01 from Song
     
-                  'CO2'  :{'concentration' : pool_dict['CO2']      ,
+                  'CO2'  :{'concentration' : dissolved_CO2    ,
                            'Stoch'         : 2                     ,
                            'DGf'           : -394.36               ,
                            'Km'            : 0.05 / SOIL_DENSITY } }  # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
@@ -454,12 +507,18 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                                  'DGf'         : -369.31                ,
                                  'Km'          :  0.05 / SOIL_DENSITY   }} #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
     
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
+    
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
+    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4+1))
+    
                       
-    product_dict = { 'CH4' : {'concentration': pool_dict['CH4'], #auf 0, weil es in den Headspace diffundiert
+    product_dict = { 'CH4' : {'concentration': dissolved_CH4, #auf 0, weil es in den Headspace diffundiert
                               'Stoch'        : 1               ,
                               'DGf'          : -50.8          }, # wert aus Vaxa
                     
-                     'CO2' : {'concentration': pool_dict['CO2'],
+                     'CO2' : {'concentration': dissolved_CO2,
                               'Stoch'        : 1               ,
                               'DGf'          :-394.36         } }
 
