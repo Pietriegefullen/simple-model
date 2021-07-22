@@ -314,7 +314,7 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
 
 
 def predictor(t, initial_pool_values, model_parameters):
-    #print('predictor')
+    print('the number of steps is', len(t))
     print_on_call = False
     print_only_changeables = True
     
@@ -370,7 +370,7 @@ def predictor(t, initial_pool_values, model_parameters):
                                       initial_system_state,
                                       method=method,
                                       t_eval = t,
-                                      atol = 1e-2,
+                                      atol = 1e-100,
                                       rtol = 1e-1)
         
     except Exception as ex:
@@ -386,7 +386,7 @@ def predictor(t, initial_pool_values, model_parameters):
     # print('function evaluations', solver_result.nfev)
     # print('jacobian evaluations', solver_result.njev)
     # print('')
-
+    print('the number of calculated steps is', len(solver_result.y[0]))
     pool_dict = dict(zip(pool_order, solver_result.y))
     #
     #(pool_dict)
@@ -717,13 +717,9 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
    
    
     #return None # exit before plotting to save time when profiling
-    plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
-    plt.plot(pool_value_dict['CH4'])
-    plt.figure()
-    plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
-    plt.plot(pool_value_dict['CO2'])
    
     for k,v in pool_value_dict.items():
+        print('the length is:',len(pool_value_dict['CO2']))
         plt.figure()
         plt.plot(all_days,v,'-')
         plt.ylabel(k)
@@ -745,7 +741,14 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
     for pool_name, pool_curve in all_CH4_contributers.items():
         plt.plot( pool_curve, label= pool_name)
     plt.legend()
-        
+    
+    plt.figure()
+    plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
+    plt.plot(pool_value_dict['CH4'])
+    plt.figure()
+    plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
+    plt.plot(pool_value_dict['CO2'])
+   
 
 if __name__ == '__main__':
 

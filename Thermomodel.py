@@ -76,7 +76,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         # print('DGr_Fe3 is',changes_dict['DGr_Fe3'])
         # print('CO2_Homo is',type(changes_dict['CO2_Homo']))
        # changes_dict['CO2'] = changes_dict['CO2'] /2
-        #changes_dict['CH4'] = changes_dict['CH4'] /2
+        #changes_dict['CH4'] =0
         
         pool_changes_array = np.array([changes_dict[pool_name] if pool_name in changes_dict else 0.0 for pool_name in pool_order])
         # input('dcdec done..')

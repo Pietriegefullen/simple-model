@@ -104,9 +104,9 @@ def get_fixed_quantities():
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
-    initial_guess_dict['Vmax_help_Ferm'] =  (9.17,   0.01,1.71)  # 0.07,
-    initial_guess_dict['Vmax_Ferm'] =       (0.0103,   0.01,0.11)  # 0.07
-    initial_guess_dict['Vmax_Fe3'] =        (0.8,   0.029, 1.9)  # 0.3
+    initial_guess_dict['Vmax_help_Ferm'] =  (0.67,   0.01,1.71)  # 0.07,
+    initial_guess_dict['Vmax_Ferm'] =       (0.0109,   0.01,0.11)  # 0.07
+    initial_guess_dict['Vmax_Fe3'] =        (1.1,   0.029, 1.9)  # 0.3
     initial_guess_dict['Vmax_Homo'] =       (0.869, 0.005, 1.)   # 0.133
     initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.2)   # 0.086
     initial_guess_dict['Vmax_Ac'] =         (0.99, 0.05, 3.0)  # 0.207

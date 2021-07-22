@@ -42,26 +42,33 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
 
     DGf_educt = 0
     Q_educts = 1.0
-    for educt in educt_dict.values():
+    for name, educt in educt_dict.items():
         DGf_educt += educt['DGf']
-        Q_educts *= educt['concentration']**educt['Stoch']
+        Q_educts *= (1*educt['concentration'])**educt['Stoch']
+        # print(name,educt['concentration'], (1e-6*educt['concentration'])**educt['Stoch'])
+
         
     DGf_product = 0
     Q_products = 1.0
-    for product in product_dict.values():
+    for name, product in product_dict.items():
         DGf_product += product['DGf']
-        Q_products *= product['concentration']**product['Stoch']
-
+        Q_products *= (1*product['concentration'])**product['Stoch']
+        #print(name,product['concentration'], product['concentration']**product['Stoch'])
+        
     if Q_educts <= 0:
       # print('Q educts = 0, return 0.0')
-       return 0.0, 11000.0
+       return 0.0, 110000000.0
    
     if Q_products <= 0:
         #print('Q = 0 for products, return 1')
-        return 1.0, 10000.0
-
-    log_Q = np.log( Q_products/Q_educts )
+        return 1.0, 100000000.0
+    #print('The Q value is', Q_products/Q_educts)
     
+    try:
+        log_Q = np.log( Q_products/Q_educts )
+    except Exception as ex:
+        print(Q_products, Q_educts)
+        raise ex
     # DGf_educt = np.sum(np.array([educt['DGf'] for educt in educt_dict.values()]))
     # DGf_product = np.sum([product['DGf'] for product in product_dict.values()])
     DGs = DGf_product - DGf_educt
@@ -118,7 +125,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         'biomass': +34.8
 
     """
-    #print('life really sucks right now')
+    #if 'CO2' in product_dict:
+       # print('The CO2 values are in the range of ', product_dict['CO2'])
     for educt, edu_dict in educt_dict.items():  
         if edu_dict['concentration'] <= 0:
             return dict()
@@ -325,11 +333,13 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                                    'Km'             : 0                   }} # TODO WISO 0 ? 
                      
     
+    #H_cc = henrys_law(H_cp['CO2'], dHdT['CO2'])
+    dissolved_CO2 = pool_dict['CO2']#*(H_cc/(H_cc+1))
     product_dict = { 'Fe2' : {'concentration': pool_dict['Fe2'],
                               'Stoch'        : 8               ,
                               'DGf'          : -89.1           }  ,#https://www.engineeringtoolbox.com/standard-state-enthalpy-formation-definition-value-Gibbs-free-energy-entropy-molar-heat-capacity-d_1978.html
                     
-                     'CO2' : {'concentration': pool_dict['CO2'],
+                     'CO2' : {'concentration': dissolved_CO2,
                               'Stoch'        : 2               ,
                               'DGf'          : -394.36                 }  , #Vaxa
                          
@@ -374,7 +384,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                            'Km'           : 0.05/SOIL_DENSITY }              } # 0.05 mikromol pro cm^3 from Song
                     
     
-    product_dict = {'CH4' :{'concentration': pool_dict['CH4'] ,
+    product_dict = {'CH4' :{'concentration': pool_dict['CH4'] , # auf 0 weil es in den Headspace diffundiert
                             'Stoch'        : 1                ,
                             'DGf'          : -50.8}          }
    
@@ -407,7 +417,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                              'DGf'         : 0                     ,
                                'Km'        : 0.01 / SOIL_DENSITY   },    # 0.01 from Song
     
-                  'CO2'  :{'concentration' :pool_dict['CO2']       ,
+                  'CO2'  :{'concentration' : pool_dict['CO2']      ,
                            'Stoch'         : 2                     ,
                            'DGf'           : -394.36               ,
                            'Km'            : 0.05 / SOIL_DENSITY } }  # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
@@ -439,13 +449,13 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                     'microbe'       : 'M_Ac'}
                       #'DGs'        : -75.89 }
     
-    educt_dict = { 'Acetate' : {'concentration':pool_dict['Acetate']    ,
+    educt_dict = { 'Acetate' : {'concentration': pool_dict['Acetate']    ,
                                 'Stoch'        :  1                     ,
                                  'DGf'         : -369.31                ,
                                  'Km'          :  0.05 / SOIL_DENSITY   }} #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
     
                       
-    product_dict = { 'CH4' : {'concentration': pool_dict['CH4'],
+    product_dict = { 'CH4' : {'concentration': pool_dict['CH4'], #auf 0, weil es in den Headspace diffundiert
                               'Stoch'        : 1               ,
                               'DGf'          : -50.8          }, # wert aus Vaxa
                     
@@ -465,51 +475,3 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     return pool_change_dict
 
 
-
-# =============================================================================
-# #%%
-# from scipy.io import savemat
-# a = [1,2,3,'dfjalkf']
-# 
-# test_dict = { "Moli": {"Buy": 'Apples',"Sell": a ,"Quantity": 300},
-#              "Anna":  {"Buy": 55,"Sell": 83,"Quantity": 154}}
-# 
-# 
-# 
-# test_dict1 =  {"Buy": 75,"Sell": 53,"Quantity": 300}
-# 
-# 
-# savemat("test_dict.mat", test_dict)
-# 
-# 
-# 
-# 
-# test_dict2 =  {"Buy": 55,"Sell": 83,"Quantity": 154}
-# test_dict3 =  {"Chicken": 55,"Sell": 83,"Quantity": 154}
-# 
-# test_list =[test_dict1, test_dict2, test_dict3]
-# 
-# 
-# 
-# test_summms = sum(list([dictionary['Buy'] for dictionary in test_list if 'Buy' in dictionary]))
-# print(test_summms)
-# #%%
-# =============================================================================
-
-
-# =============================================================================
-# for key, item in test_dict.items():
-#     if ('Buy' in item ) :
-#         print('pear')
-# 
-# 
-# if ('Moli' in test_dict):
-#     print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
-#     print('banana')
-# 
-# if test_dict[(list(test_dict.keys())[0])]['Buy'] in test_dict:
-#     print(test_dict[(list(test_dict.keys())[0])]['Buy'] )
-#     print('banana')
-# 
-# 
-# =============================================================================
