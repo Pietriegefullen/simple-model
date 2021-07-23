@@ -314,7 +314,7 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
 
 
 def predictor(t, initial_pool_values, model_parameters):
-    print('the number of steps is', len(t))
+    #print('the number of steps is', len(t))
     print_on_call = False
     print_only_changeables = True
     
@@ -386,7 +386,7 @@ def predictor(t, initial_pool_values, model_parameters):
     # print('function evaluations', solver_result.nfev)
     # print('jacobian evaluations', solver_result.njev)
     # print('')
-    print('the number of calculated steps is', len(solver_result.y[0]))
+    #print('the number of calculated steps is', len(solver_result.y[0]))
     pool_dict = dict(zip(pool_order, solver_result.y))
     #
     #(pool_dict)
@@ -719,7 +719,7 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
     #return None # exit before plotting to save time when profiling
    
     for k,v in pool_value_dict.items():
-        print('the length is:',len(pool_value_dict['CO2']))
+        #print('the length is:',len(pool_value_dict['CO2']))
         plt.figure()
         plt.plot(all_days,v,'-')
         plt.ylabel(k)

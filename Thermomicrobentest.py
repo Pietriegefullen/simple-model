@@ -17,11 +17,12 @@ from order import Henrys_dict
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
+T = 50
+T = T + 273.15 # von Celcius nach Kelvin  
 
-
-def henrys_law (H_cp_Standard, H_cp_temp, T = 4):
+def henrys_law (H_cp_Standard, H_cp_temp):
     
-    T = T + 273.15 # von Celcius nach Kelvin  
+    #T = T + 273.15 # von Celcius nach Kelvin  
     
     T_standard = 298.15 # in Kelvin
     
