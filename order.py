@@ -109,9 +109,9 @@ def get_fixed_quantities():
     fixed_quantities_dict = dict()        
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
     fixed_quantities_dict['M_Ferm'] =  0.6 #1.3e-07 #
-    fixed_quantities_dict['M_Fe3'] =0.2  # 0.2
-    fixed_quantities_dict['M_Hydro'] = 0.2 # 0.2
-    fixed_quantities_dict['M_Homo'] = 0.2 # 0.2
+    fixed_quantities_dict['M_Fe3'] =0.6  # 0.2
+    fixed_quantities_dict['M_Hydro'] = 0.6 # 0.2
+    fixed_quantities_dict['M_Homo'] = 0.6 # 0.2
     
     return(fixed_quantities_dict)
     
@@ -125,15 +125,15 @@ def get_initial_guesses():
     initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.2)   # 0.086
     initial_guess_dict['Vmax_Ac'] =         (0.99, 0.05, 3.0)  # 0.207
     initial_guess_dict['w_Ferm'] =          (0.032,  0.03, 0.05)  # 0.05
-    initial_guess_dict['w_Fe3'] =           (0.053, 0.01, 0.05)  # 0.013
+    initial_guess_dict['w_Fe3'] =           (0.93, 0.01, 0.05)  # 0.013
     initial_guess_dict['w_Hydro'] =         (0.024, 0.01, 0.05)  # 0.024
     initial_guess_dict['w_Homo'] =          (0.049, 0.01, 0.05)  # 0.049
-    initial_guess_dict['w_Ac'] =            (0.036,  0.01, 0.05)  # 0.04
+    initial_guess_dict['w_Ac'] =            (0.36,  0.01, 0.05)  # 0.04
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)# 0
     initial_guess_dict['Kmb_help_Ferm'] =   (10.009,    1,  10)      # 10
     # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)    # 10
     initial_guess_dict['Fe3'] =             (30.587,  2,  100)    # 10.75
-    initial_guess_dict['M_Ac'] =            (.143,  1.3e-08,  5e05) # 0.05
+    initial_guess_dict['M_Ac'] =            (.6,  1.3e-08,  5e05) # 0.05
     initial_guess_dict['KmA_Ferm']=         (17.315, 0.05, 20)     # 0.05 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 
     return(initial_guess_dict)

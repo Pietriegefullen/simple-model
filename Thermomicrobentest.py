@@ -17,7 +17,7 @@ from order import Henrys_dict
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
-T = 50
+T = 4
 T = T + 273.15 # von Celcius nach Kelvin  
 
 def henrys_law (H_cp_Standard, H_cp_temp):
@@ -212,16 +212,21 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     # print(actual_reaction_rate)
     # input('actual reactual')
 
+    C_for_growth = 0
     pool_change_dict = dict()
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
-        if 'C_source' in edu_dict:
+        CUE = 0
+
+        if 'C_source' in microbe_dict and educt == microbe_dict['C_source']:    
             CUE = microbe_dict['CUE']
-            pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate * 1/ CUE
-        else:     
-            pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate 
-        
             
+            total_metabolized = normalized_stoich*actual_reaction_rate / (1-CUE)
+            growth_metabolized = CUE * total_metabolized 
+            
+            C_for_growth = growth_metabolized * edu_dict['C_atoms'] # mikromol C für Wachstum 
+        pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
+       
         
      
     # wie viel der jeweiligen Produkte werden produziert    
@@ -232,10 +237,11 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
        # print(Edu_Bezug_stoich)
        # print(pool_change_dict[product] )
         
-    w = microbe_dict['growth_rate']
+    W_max = microbe_dict['growth_rate']
     dead_microbes = Biomass*microbe_dict['death_rate']
-    biomass_change = Biomass* w *actual_reaction_rate - dead_microbes # !TODO massenbilanz ausgleichen
-
+    #biomass_change = - dead_microbes  + Biomass* W_max *actual_reaction_rate *C_for_growth
+    #input('stop here')
+    biomass_change = - dead_microbes  + W_max  * C_for_growth * 12011 # Gewicht 1 Mol C =  12.011 g /mol 
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
     # input('biomass '+pathway_name)
@@ -262,12 +268,12 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
                     'Kmb'           : model_parameter_dict['Kmb_help_Ferm'],
                     'Ferm_help'     : True, # ist nur wichtig das es den key 'Ferm_help' gibt 
                     'microbe'       : 'Ferm_help',
-                    'CUE'           :       0.5  }
+                    'CUE'           :       0.5  ,}
+                    #'C_source'      :  'C'}
     
     educt_dict =  {'C'              : {'concentration'  : pool_dict['C'],
                                        'Stoch'          : 1,
-                                       'Km'             : 0,
-                                       'C_source'       : True}}# 10 from Song  mikromol pro gram 
+                                       'Km'             : 0}}# 10 from Song  mikromol pro gram 
                      
     
     product_dict = { 'DOC' : {'concentration': pool_dict['DOC'],
@@ -305,13 +311,14 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                     'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],
                     'Ferm'          : True,
                     'microbe'       : "Ferm" ,
-                    'CUE'           :       0.5  }
+                    'CUE'           :       0.5,
+                    'C_source'       : 'DOC'}
     
     
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
                                     'Stoch'          : 6                 ,                                    
-                                    'Km'             : 10 / SOIL_DENSITY,
-                                    'C_source'       : True}}# 10 from Song  mikromol pro gram 
+                                    'Km'             : 10 / SOIL_DENSITY,# 10 from Song  mikromol pro gram 
+                                     'C_atoms'      : 6                 }}    # weil glucose 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
                      
     
     
@@ -360,14 +367,15 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Fe3'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Fe3',
-                    'CUE'           :  0.5  }
+                    'CUE'           :  0.5  ,
+                    'C_source'      :  'Acetate'}
                     #'DGs'           : -109.45 }
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
                                     'Stoch'          : 1                  ,
                                     'DGf'            : -369.31            ,
-                                    'Km'             : 0.01 / SOIL_DENSITY,
-                                    'C_source'       : True}, #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
+                                    'Km'             : 0.01 / SOIL_DENSITY, #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
+                                    'C_atoms'      : 2                    }, 
     
                       'Fe3'        :{'concentration':pool_dict['Fe3'] ,
                                    'Stoch'          : 8                   ,
@@ -420,7 +428,8 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Hydro']   , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Hydro',
-                    'CUE'           :       0.5  }
+                    'CUE'           :       0.5,
+                    'C_source'      :  'CO2'}
                       #'DGs '       : 343.56 } # ja positiv
                       
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
@@ -440,9 +449,8 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                   'CO2'  :{'concentration': dissolved_CO2,
                            'Stoch'        : 1                                ,
                            'DGf'          : -394.36                          ,
-                           'Km'           : 0.05/SOIL_DENSITY  ,
-                           'C_source'       : True}} # 0.05 mikromol pro cm^3 from Song
-                    
+                           'Km'           : 0.05/SOIL_DENSITY  , # 0.05 mikromol pro cm^3 from Song
+                           'C_atoms'      : 1                 }}
     
     product_dict = {'CH4' :{'concentration': dissolved_CH4 , # auf 0 weil es in den Headspace diffundiert
                             'Stoch'        : 1                ,
@@ -470,7 +478,8 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Homo']    , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Homo',
-                    'CUE'           :       0.5  }
+                    'CUE'           :       0.5 ,
+                    'C_source'      :  'CO2'}
                     #'DGs'          : 25 }
                     
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
@@ -488,7 +497,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                            'Stoch'         : 2                     ,
                            'DGf'           : -394.36               ,
                            'Km'            : 0.05 / SOIL_DENSITY   ,  # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
-                           'C_source'      : True}}
+                           'C_atoms'      : 1                 }}
     
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,
                                  'Stoch'        : 1                    ,
@@ -514,14 +523,15 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                     'growth_rate'   : model_parameter_dict['w_Ac'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Ac',
-                    'CUE'           :       0.5  }
+                    'CUE'           :       0.5,
+                    'C_source'      :  'Acetate'}
                       #'DGs'        : -75.89 }
     
     educt_dict = { 'Acetate' : {'concentration': pool_dict['Acetate']    ,
                                 'Stoch'        :  1                     ,
                                  'DGf'         : -369.31                ,
                                  'Km'          :  0.05 / SOIL_DENSITY   , #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-                                 'C_source'       : True}}
+                                 'C_atoms'      : 2                 }}
     
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
     H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
