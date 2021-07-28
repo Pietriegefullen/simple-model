@@ -17,25 +17,20 @@ from order import Henrys_dict
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
-T = 4
+T = 4 # hier die Temperatur in Celius eingeben
 T = T + 273.15 # von Celcius nach Kelvin  
 
 def henrys_law (H_cp_Standard, H_cp_temp):
     
-    #T = T + 273.15 # von Celcius nach Kelvin  
-    
     T_standard = 298.15 # in Kelvin
     
     H_cp_temp_adjusted = H_cp_temp - T
-    
-    
+      
     H_cc = H_cp_Standard *  np.exp(H_cp_temp_adjusted * ((1/T) - (1/ T_standard)))
 
     return H_cc
     
-    
-    
-    
+     
 
 def thermodynamics_Ferm(product_dict, microbe_dict):
     # inverse mm erlaubt ? weil aceate durch enzyme abgebaut werden was einer MM folgt und Acetate unsere Hemmung auslöst. die auflösung der Hemmung 
@@ -95,7 +90,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     DGs = DGf_product - DGf_educt
     
     R = 8.31446261815324 	# in J⋅K−1⋅mol−1
-    T = 277.15 # 4 °C in Kelvin
+    #T  wird global definiert
     
    # print('math.log(Q)', math.log(Q))
     DGr = DGs + R * T * log_Q
@@ -237,11 +232,11 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
        # print(Edu_Bezug_stoich)
        # print(pool_change_dict[product] )
         
-    W_max = microbe_dict['growth_rate']
+    #W_max = microbe_dict['growth_rate']
     dead_microbes = Biomass*microbe_dict['death_rate']
-    #biomass_change = - dead_microbes  + Biomass* W_max *actual_reaction_rate *C_for_growth
-    #input('stop here')
-    biomass_change = - dead_microbes  + W_max  * C_for_growth * 12011 # Gewicht 1 Mol C =  12.011 g /mol 
+    #biomass_change = - dead_microbes  + Biomass* W_max *actual_reaction_rate *C_for_growth* 12.011/1000
+    
+    biomass_change = - dead_microbes  +  C_for_growth * 12.011/1000 # Gewicht 1 Mol C =  12.011 g /mol 
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
     # input('biomass '+pathway_name)
@@ -306,7 +301,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 
     microbe_dict = {'concentration' : pool_dict['M_Ferm'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ferm'],          #Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
-                    'growth_rate'   : model_parameter_dict['w_Ferm'], 
+                    #'growth_rate'   : model_parameter_dict['w_Ferm'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],
                     'Ferm'          : True,
@@ -332,7 +327,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     
     
     
-    product_dict = { 'Acetate' : {'concentration': pool_dict['Fe2'],
+    product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
                                   'Stoch'        : 6               }  ,
                     
                      'CO2'      : {'concentration': dissolved_CO2,
@@ -364,7 +359,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     #print('Fe3')
     microbe_dict = {'concentration' : pool_dict['M_Fe3'], 
                     'Vmax'          : model_parameter_dict['Vmax_Fe3'],          #Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
-                    'growth_rate'   : model_parameter_dict['w_Fe3'], 
+                    #'growth_rate'   : model_parameter_dict['w_Fe3'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Fe3',
                     'CUE'           :  0.5  ,
@@ -425,7 +420,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     # print('Hydro')
     microbe_dict = {'concentration' : pool_dict['M_Hydro']              , 
                     'Vmax'          : model_parameter_dict['Vmax_Hydro'], ## 0.15 mikromol pro cm^3 from Song
-                    'growth_rate'   : model_parameter_dict['w_Hydro']   , 
+                    #'growth_rate'   : model_parameter_dict['w_Hydro']   , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Hydro',
                     'CUE'           :       0.5,
@@ -475,7 +470,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     # print('Homo')
     microbe_dict = {'concentration' : pool_dict['M_Homo'], 
                     'Vmax'          : model_parameter_dict['Vmax_Homo'] , # # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
-                    'growth_rate'   : model_parameter_dict['w_Homo']    , 
+                    #'growth_rate'   : model_parameter_dict['w_Homo']    , 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Homo',
                     'CUE'           :       0.5 ,
@@ -520,7 +515,7 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     # print('Ac')
     microbe_dict = {'concentration' : pool_dict['M_Ac'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ac'],  #Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
-                    'growth_rate'   : model_parameter_dict['w_Ac'], 
+                    #'growth_rate'   : model_parameter_dict['w_Ac'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
                     'microbe'       : 'M_Ac',
                     'CUE'           :       0.5,
