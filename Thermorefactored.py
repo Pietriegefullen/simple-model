@@ -724,43 +724,43 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
    # input() 
    
    
-# ============PLOTTINg=================================================================
-#    
-#     #return None # exit before plotting to save time when profiling
-#    
-#     for k,v in pool_value_dict.items():
-#         #
-#         #print('the length is:',len(pool_value_dict['CO2']))
-#         plt.figure()
-#         plt.plot(all_days,v,'.')
-#         plt.ylabel(k)
-#          
-#     all_CO2_contributers = dict()
-#     for pool_name, pool_curve in pool_value_dict.items():
-#         if "CO2" in pool_name:
-#             all_CO2_contributers[pool_name] = pool_curve
-#     plt.figure()
-#     for pool_name, pool_curve in all_CO2_contributers.items():
-#         plt.plot( pool_curve, label= pool_name)
-#     plt.legend()    
-#         
-#     all_CH4_contributers = dict()
-#     for pool_name, pool_curve in pool_value_dict.items():
-#         if "CH4" in pool_name:
-#             all_CH4_contributers[pool_name] = pool_curve
-#     plt.figure()
-#     for pool_name, pool_curve in all_CH4_contributers.items():
-#         plt.plot( pool_curve, label= pool_name)
-#     plt.legend()
-#     
-#     plt.figure()
-#     plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
-#     plt.plot(pool_value_dict['CH4'])
-#     plt.figure()
-#     plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
-#     plt.plot(pool_value_dict['CO2'])
-#     
-# =============================================================================
+#============PLOTTINg=================================================================
+    
+    #return None # exit before plotting to save time when profiling
+    
+    for k,v in pool_value_dict.items():
+        #
+        #print('the length is:',len(pool_value_dict['CO2']))
+        plt.figure()
+        plt.plot(all_days,v,'.')
+        plt.ylabel(k)
+          
+    all_CO2_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CO2" in pool_name:
+            all_CO2_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CO2_contributers.items():
+        plt.plot( pool_curve, label= pool_name)
+    plt.legend()    
+        
+    all_CH4_contributers = dict()
+    for pool_name, pool_curve in pool_value_dict.items():
+        if "CH4" in pool_name:
+            all_CH4_contributers[pool_name] = pool_curve
+    plt.figure()
+    for pool_name, pool_curve in all_CH4_contributers.items():
+        plt.plot( pool_curve, label= pool_name)
+    plt.legend()
+    
+    plt.figure()
+    plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
+    plt.plot(pool_value_dict['CH4'])
+    plt.figure()
+    plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
+    plt.plot(pool_value_dict['CO2'])
+    
+#=============================================================================
     
    
     
@@ -771,12 +771,20 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
     ax1.plot(all_days, pool_value_dict['Acetate'], label = 'Acetate')
     ax1.plot(all_days, pool_value_dict['DOC']/2, label = 'DOC')
     ax2 = ax1.twinx()
-    ax2.plot(all_days, pool_value_dict['DGr_Ac'], 'magenta', label = 'DGr_Ac')
-    ax2.plot(all_days, pool_value_dict['DGr_Fe3'], 'lime', label = 'DGr_Fe3')
+    ax2.plot(all_days, pool_value_dict['DGr_Ac kJ/mol'], 'magenta', label = 'DGr_Ac kJ/mol')
+    ax2.plot(all_days, pool_value_dict['DGr_Fe3 kJ/mol'], 'lime', label = 'DGr_Fe3 kJ/mol')
     fig.tight_layout()
     ax1.legend()
     ax2.legend()
     #plt.show()
+    plt.figure()
+    plt.plot(all_days, pool_value_dict['DGr_Homo kJ/mol'], 'lime', label = 'DGr_Homo kJ/mol')
+    plt.legend()
+    
+    plt.figure()
+    plt.plot(all_days, pool_value_dict['DGr_Hydro kJ/mol'], 'lime', label = 'DGr_Hydro kJ/mol')
+    plt.legend()
+
 
 
     plt.figure()

@@ -60,17 +60,15 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     Q_educts = 1.0
     for name, educt in educt_dict.items():
         DGf_educt += educt['DGf']
-        Q_educts *= (1*educt['concentration'])**educt['Stoch']
-        # print(name,educt['concentration'], (1e-6*educt['concentration'])**educt['Stoch'])
-
-        
+        Q_educts *= (1e-6*educt['concentration'])**educt['Stoch']
+        # print(name,educt['concentration'], (1e-6*educt['concentration'])**educt['Stoch']) 
     DGf_product = 0
     Q_products = 1.0
     for name, product in product_dict.items():
         DGf_product += product['DGf']
-        Q_products *= (1*product['concentration'])**product['Stoch']
+        Q_products *= (1e-6*product['concentration'])**product['Stoch']
         #print(name,product['concentration'], product['concentration']**product['Stoch'])
-        
+    
     if Q_educts <= 0:
       # print('Q educts = 0, return 0.0')
        return 0.0, 110000000.0
@@ -79,6 +77,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
         #print('Q = 0 for products, return 1')
         return 1.0, 100000000.0
     #print('The Q value is', Q_products/Q_educts)
+    
     
     try:
         log_Q = np.log( Q_products/Q_educts )
@@ -96,11 +95,12 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     DGr = DGs + R * T * log_Q
    # print('DGr', DGr)
    
-    DGmin = -26.0
+    DGmin = -26.0 *1e3 # J⋅mol-1
     if DGr > DGmin:
         #print('minimum not reached, return 0', DGr - DGmin)
         return 0.0, DGr
     #print(DGr)
+    
     
     return 1 - np.exp((DGr - DGmin)/(R*T)) , DGr
 
@@ -236,12 +236,12 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     dead_microbes = Biomass*microbe_dict['death_rate']
     #biomass_change = - dead_microbes  + Biomass* W_max *actual_reaction_rate *C_for_growth* 12.011/1000
     
-    biomass_change = - dead_microbes  +  C_for_growth * 12.011/1000 # Gewicht 1 Mol C =  12.011 g /mol 
+    biomass_change = - dead_microbes  +  C_for_growth * m_C #  m_C Gewicht 1 Mol C =  12.011 g /mol 
     pool_change_dict['biomass'] = biomass_change
     # print(biomass_change)
     # input('biomass '+pathway_name)
     #print(DGr_Ausgabe)
-    pool_change_dict['DGr'] = DGr_Ausgabe
+    pool_change_dict['DGr'] = DGr_Ausgabe*1e-3 # umrechnung von J/mol nach kJ/mol für den plot
     #print(pool_change_dict['DGr'])
     return pool_change_dict
 
@@ -368,13 +368,13 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
                                     'Stoch'          : 1                  ,
-                                    'DGf'            : -369.31            ,
+                                    'DGf'            : -369.31*1e3        ,
                                     'Km'             : 0.01 / SOIL_DENSITY, #0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
                                     'C_atoms'      : 2                    }, 
     
                       'Fe3'        :{'concentration':pool_dict['Fe3'] ,
                                    'Stoch'          : 8                   ,
-                                   'DGf'            : -4.7                ,
+                                   'DGf'            : -4.7*1e3            ,
                                    'Km'             : 0                   }} # TODO WISO 0 ? 
                      
     
@@ -389,11 +389,11 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     product_dict = { 'Fe2' : {'concentration': pool_dict['Fe2'],
                               'Stoch'        : 8               ,
-                              'DGf'          : -89.1           }  ,#https://www.engineeringtoolbox.com/standard-state-enthalpy-formation-definition-value-Gibbs-free-energy-entropy-molar-heat-capacity-d_1978.html
+                              'DGf'          : -89.1*1e3           }  ,#https://www.engineeringtoolbox.com/standard-state-enthalpy-formation-definition-value-Gibbs-free-energy-entropy-molar-heat-capacity-d_1978.html
                     
                      'CO2' : {'concentration': dissolved_CO2,
                               'Stoch'        : 2               ,
-                              'DGf'          : -394.36                 }  , #Vaxa
+                              'DGf'          : -394.36*1e3                 }  , #Vaxa
                          
                       'H2' : {'concentration': dissolved_H2,
                               'Stoch'        : 0              ,
@@ -443,13 +443,13 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     
                   'CO2'  :{'concentration': dissolved_CO2,
                            'Stoch'        : 1                                ,
-                           'DGf'          : -394.36                          ,
+                           'DGf'          : -394.36*1e3                          ,
                            'Km'           : 0.05/SOIL_DENSITY  , # 0.05 mikromol pro cm^3 from Song
                            'C_atoms'      : 1                 }}
     
     product_dict = {'CH4' :{'concentration': dissolved_CH4 , # auf 0 weil es in den Headspace diffundiert
                             'Stoch'        : 1                ,
-                            'DGf'          : -50.8}          }
+                            'DGf'          : -50.8*1e3}          }
    
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Hydro')
@@ -490,13 +490,13 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     
                   'CO2'  :{'concentration' : dissolved_CO2         ,
                            'Stoch'         : 2                     ,
-                           'DGf'           : -394.36               ,
+                           'DGf'           : -394.36*1e3               ,
                            'Km'            : 0.05 / SOIL_DENSITY   ,  # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
                            'C_atoms'      : 1                 }}
     
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,
                                  'Stoch'        : 1                    ,
-                                 'DGf'          : -369.31}             , }
+                                 'DGf'          : -369.31*1e3}             , }
    
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Homo')
@@ -524,7 +524,7 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict = { 'Acetate' : {'concentration': pool_dict['Acetate']    ,
                                 'Stoch'        :  1                     ,
-                                 'DGf'         : -369.31                ,
+                                 'DGf'         : -369.31*1e3                ,
                                  'Km'          :  0.05 / SOIL_DENSITY   , #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
                                  'C_atoms'      : 2                 }}
     
@@ -537,11 +537,11 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                       
     product_dict = { 'CH4' : {'concentration': dissolved_CH4, #auf 0, weil es in den Headspace diffundiert
                               'Stoch'        : 1               ,
-                              'DGf'          : -50.8          }, # wert aus Vaxa
+                              'DGf'          : -50.8*1e3          }, # wert aus Vaxa
                     
                      'CO2' : {'concentration': dissolved_CO2,
                               'Stoch'        : 1               ,
-                              'DGf'          :-394.36         } }
+                              'DGf'          :-394.36*1e3         } }
 
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ac')

@@ -107,10 +107,10 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
             #extra_dict['Fe2_Fe3'] = pool_change_dict_Fe3['Fe2'] if 'Fe2' in pool_change_dict_Fe3 else 0.
             
             #
-            extra_dict['DGr_Fe3'] = pool_change_dict_Fe3['DGr'] if 'DGr' in pool_change_dict_Fe3 else 0
-            extra_dict['DGr_Hydro'] = pool_change_dict_Hydro['DGr'] if 'DGr' in pool_change_dict_Hydro else 0.
-            extra_dict['DGr_Homo'] = pool_change_dict_Homo['DGr'] if 'DGr' in pool_change_dict_Homo else 0.
-            extra_dict['DGr_Ac'] = pool_change_dict_Ac['DGr'] if 'DGr' in pool_change_dict_Ac else 0.
+            extra_dict['DGr_Fe3 kJ/mol'] = pool_change_dict_Fe3['DGr'] if 'DGr' in pool_change_dict_Fe3 else 0
+            extra_dict['DGr_Hydro kJ/mol'] = pool_change_dict_Hydro['DGr'] if 'DGr' in pool_change_dict_Hydro else 0.
+            extra_dict['DGr_Homo kJ/mol'] = pool_change_dict_Homo['DGr'] if 'DGr' in pool_change_dict_Homo else 0.
+            extra_dict['DGr_Ac kJ/mol'] = pool_change_dict_Ac['DGr'] if 'DGr' in pool_change_dict_Ac else 0.
                     
             return pool_changes_array, extra_dict
         
