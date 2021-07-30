@@ -9,100 +9,91 @@ import numpy as np
 
 from order import Henrys_dict
 
-# laut van1999efFe3ct findet kein Wachstum statt, laut philben2020anaerobic schon
-#mol/m3 = micromol/cm^3
-
-# YATP ist 10g Biomasse pro 1 MOl ATP. 
-# ATPprod sind ca 4 für Ferm.... 
+####################### Definition globaler Konstanten 
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
 T = 4 # hier die Temperatur in Celius eingeben
 T = T + 273.15 # von Celcius nach Kelvin  
 
+########################
+
 def henrys_law (H_cp_Standard, H_cp_temp):
+    # H2, CO2 und CH4 steigen als Gase in den Headspace. Aus der Konzentration, der Temperatur und den H_cp - Werten 
+    # berechnen wir den gelösten Anteil in der auatischen Phase, der zur Reaktion zur Verfügung steht.
     
-    T_standard = 298.15 # in Kelvin
+    T_standard = 298.15 # muss in Kelvin sein
     
-    H_cp_temp_adjusted = H_cp_temp - T
+    H_cp_temp_adjusted = H_cp_temp - T # Standard Temp Wert - actual Temp
       
     H_cc = H_cp_Standard *  np.exp(H_cp_temp_adjusted * ((1/T) - (1/ T_standard)))
 
     return H_cc
     
-     
-
+   
 def thermodynamics_Ferm(product_dict, microbe_dict):
-    # inverse mm erlaubt ? weil aceate durch enzyme abgebaut werden was einer MM folgt und Acetate unsere Hemmung auslöst. die auflösung der Hemmung 
+    # 1- Acetate/(KmA + Acetate) je mehr Acetate desto weniger schnell läuft die Fermentation 
+    
+    # inverse MM erlaubt ? weil aceate durch enzyme abgebaut werden was einer MM folgt und Acetate unsere Hemmung auslöst. die auflösung der Hemmung 
     # ist also gleichgesetzt mit dem Abbau des acetate und die Hemmung ist deshalb der inverse abbau von Acetate
-    # print('thermo fermo')
-    # print(product_dict)
+
     Acetate = product_dict['Acetate']['concentration']
-    # print(microbe_dict)
-    # input()
+
     # TODO hier haben wir keine Temperaturabhängigkeit
     KmA = microbe_dict['KmA_Ferm']
-    # print('Fermentations ',1- Acetate/(KmA + Acetate))
-    # input('...')
+
     
     return 1- Acetate/(KmA + Acetate)
 
-
 def thermodynamics(educt_dict, product_dict, microbe_dict):
-    #return 1
-    # print('thermononfermo')
-    # print(educt_dict)
-    # print(product_dict)
-    # input()
-    #print(microbe_dict['microbe'])
-
+    # die Berechnung des Thermodynamischen Faktors für alle Mikroben, die klare Edukte und Produkte haben
+    
+    #--------------------------Reaction Quotient Q---------------------
     DGf_educt = 0
     Q_educts = 1.0
     for name, educt in educt_dict.items():
-        DGf_educt += educt['DGf']
-        Q_educts *= (1e-6*educt['concentration'])**educt['Stoch']
-        # print(name,educt['concentration'], (1e-6*educt['concentration'])**educt['Stoch']) 
+        # Berechnung von Q_educts  für den Reaction quotient Q 
+        DGf_educt += educt['DGf'] # zur Berechnung von DGs
+        Q_educts *= (1e-6*educt['concentration'])**educt['Stoch'] # concentration must be MOL, Zur Berechnung von DGr
+        
     DGf_product = 0
     Q_products = 1.0
     for name, product in product_dict.items():
-        DGf_product += product['DGf']
-        Q_products *= (1e-6*product['concentration'])**product['Stoch']
-        #print(name,product['concentration'], product['concentration']**product['Stoch'])
+        # Berechnung von Q_products  für den Reaction quotient Q 
+        DGf_product += product['DGf']# zur Berechnung von DGs
+        Q_products *= (1e-6*product['concentration'])**product['Stoch'] # concentration must be MOL, Zur Berechnung von DGr
+        
+     #--------------------------   
     
     if Q_educts <= 0:
-      # print('Q educts = 0, return 0.0')
-       return 0.0, 110000000.0
+      #falls ein edukt fehlt, kann die Reaktion nicht stattfinden und der thermofactor muss 0 sein
+       return 0.0, 110000000.0 # 110000000.0  random wert der im plot auffallen soll
    
     if Q_products <= 0:
-        #print('Q = 0 for products, return 1')
-        return 1.0, 100000000.0
-    #print('The Q value is', Q_products/Q_educts)
+        #TODO falls ein Produkt fehlt, liegt das Gewicht sehr weit rechts und die Reaktion ist ungehemmt. 
+        return 1.0, 100000000.0 # 110000000.0  random wert der im plot auffallen soll
+  
+  
+    #--------------------------   
     
+
+    #-------------------------Berechnung von Delta Gibbs Energien---------------------
+
+    DGs = DGf_product - DGf_educt # DGs (Delta Gibbs Standart der Reaktion)
     
-    try:
-        log_Q = np.log( Q_products/Q_educts )
-    except Exception as ex:
-        print(Q_products, Q_educts)
-        raise ex
-    # DGf_educt = np.sum(np.array([educt['DGf'] for educt in educt_dict.values()]))
-    # DGf_product = np.sum([product['DGf'] for product in product_dict.values()])
-    DGs = DGf_product - DGf_educt
+    R = 8.31446261815324 	   # in J⋅K−1⋅mol−1, Gaskonstante ,Einheit passt zur DGmin
+    #T  ist global definiert
     
-    R = 8.31446261815324 	# in J⋅K−1⋅mol−1
-    #T  wird global definiert
-    
-   # print('math.log(Q)', math.log(Q))
-    DGr = DGs + R * T * log_Q
-   # print('DGr', DGr)
+    DGr = DGs + R * T * np.log( Q_products/Q_educts )  # DGr: Delta Gibbsenergie der Reaktion in J⋅mol-1
    
-    DGmin = -26.0 *1e3 # J⋅mol-1
-    if DGr > DGmin:
+    DGmin = -26.*1e3          # J⋅mol-1, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
+
+    if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
         #print('minimum not reached, return 0', DGr - DGmin)
         return 0.0, DGr
-    #print(DGr)
     
     
-    return 1 - np.exp((DGr - DGmin)/(R*T)) , DGr
+    return 1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
 
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
@@ -113,10 +104,14 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         'Vmax': Maximale Reaktionsgeschwindigkeit, bezogen auf den 
                 Elektronenspender
         'growth_rate': Wachstumsrate der Biomasse, bezogen auf die Menge
-                       der umgesetzten Elektronenspender
+                       der umgesetzten Elektronenspender (veraltet)
         'death_rate': Sterberate, in Abhängigkeit der vorhandenen Biomasse
         'Kmb': half-saturation coefficient für die inverse MM-Kinetik
+         'Ferm_help': nur für die if condition
+         'microbe' : Name der Mikrobe
+         'CUE': Carbon use efficiency der Mikrobe
         
+           
     educt_dict : dict(dict)
         für jedes Edukt dieser Reaktion ein dict:
         educt: dict
@@ -124,6 +119,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
             'Stoch'
             'DGf'
             'Km'
+            'C_atoms'  : Anzahl der C Atome in der C source
             
     product_dict : dict(dict)
         für jedes Produkt dieser Reaktion ein dict:
@@ -139,25 +135,28 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         'CO2': -45.7
         außerdem einen Eintrag
         'biomass': +34.8
+        'DGr' : die DGr der jeweiligen Mikrobe
 
     """
-    #if 'CO2' in product_dict:
-       # print('The CO2 values are in the range of ', product_dict['CO2'])
+    
     for educt, edu_dict in educt_dict.items():  
+        # Falls ein Edukt < 0 ist wird ein leeres Dict zurückgegeben,
+        # weil die Reaktion nicht stattfindet, alle changes sind 0
         if edu_dict['concentration'] <= 0:
             return dict()
     
-    #print('entering '+pathway_name)
-    # input()
-    #MM_factors = list()
-    MM_factors_total = 1.0
+
+    MM_factors_total = 1.0 # Fall es keine MM gibt, gibt es auch keine Hemmung. Also 1
     for educt, edu_dict in educt_dict.items():  
+        # Alle Educte werden innerhalb der Mikroben durch Enyme aufgespalten
+        # Enzymatische Reaktionen folgen einer MM-Gleichung, die Substratlimitiert ist. 
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
-        #MM_factors.append(substance_MM)
-        MM_factors_total *= substance_MM
-    # Note that for Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0
-    #MM_factors_total = np.prod(np.array(MM_factors))
+    
+        MM_factors_total *= substance_MM # alle MM_Gleichungen der Edukte werden in einen MM_factor verrechnent
+        
+    # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited
+    
 #-------------------------------------------------------------------------------------------------------------
     # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
     Vmax = microbe_dict['Vmax']
@@ -258,13 +257,13 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
 
     microbe_dict = {'concentration' : pool_dict['M_Ferm'], 
                     'Vmax'          : model_parameter_dict['Vmax_help_Ferm'],          #Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
-                    'growth_rate'   : 0,
+                    #'growth_rate'   : 0,
                     'death_rate'    : 0,
                     'Kmb'           : model_parameter_dict['Kmb_help_Ferm'],
                     'Ferm_help'     : True, # ist nur wichtig das es den key 'Ferm_help' gibt 
                     'microbe'       : 'Ferm_help',
-                    'CUE'           :       0.5  ,}
-                    #'C_source'      :  'C'}
+                    'CUE'           :       1 } # völlig unwichtig
+            
     
     educt_dict =  {'C'              : {'concentration'  : pool_dict['C'],
                                        'Stoch'          : 1,
@@ -306,14 +305,14 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                     'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],
                     'Ferm'          : True,
                     'microbe'       : "Ferm" ,
-                    'CUE'           :       0.5,
+                    'CUE'           :   0.5,
                     'C_source'       : 'DOC'}
     
     
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
                                     'Stoch'          : 6                 ,                                    
                                     'Km'             : 10 / SOIL_DENSITY,# 10 from Song  mikromol pro gram 
-                                     'C_atoms'      : 6                 }}    # weil glucose 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
+                                    'C_atoms'      : 6                 }}    # weil glucose 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
                      
     
     
@@ -492,7 +491,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
                            'Stoch'         : 2                     ,
                            'DGf'           : -394.36*1e3               ,
                            'Km'            : 0.05 / SOIL_DENSITY   ,  # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
-                           'C_atoms'      : 1                 }}
+                           'C_atoms'       : 1                 }}
     
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,
                                  'Stoch'        : 1                    ,

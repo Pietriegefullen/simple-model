@@ -441,12 +441,6 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         plt.ylabel(a)
         plt.legend(Realdata['Probe'])
         
-    # vergleich unterschied CO2 und CH4     
-    for a, col in zip(["CH4","CO2"], ["r", "b"]):
-        
-        plt.plot(pool_value_dict[a], "k-",label = "Predicted")
-        plt.ylabel(a)
-        plt.legend(Realdata['Probe'])
         
         
         
@@ -480,6 +474,14 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
     for pool_name, pool_curve in all_CH4_contributers.items():
         plt.plot(days_for_plot, pool_curve, label= pool_name)
     plt.legend()
+    
+    
+    plt.figure()
+    plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
+    plt.plot(pool_value_dict['CH4'], 'r-')
+    plt.plot( Realdata['measured_time'], Realdata['CO2'],'b.')
+    plt.plot(pool_value_dict['CO2'], 'b-')
+   
             
     # berechne R^2
     measured_values = Realdata[a]
@@ -710,7 +712,7 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
             optimal_model_parameters_dict[key] = fixed_quantities_dict[key]
 
     # predict for optimal parameters
-    all_days = np.arange(4000)
+    all_days = np.arange(4500)
     pool_value_dict = predictor(all_days, 
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
@@ -770,6 +772,7 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
     ax1.plot(all_days, pool_value_dict['CO2_Ac'], label = 'CO2_Ac')
     ax1.plot(all_days, pool_value_dict['Acetate'], label = 'Acetate')
     ax1.plot(all_days, pool_value_dict['DOC']/2, label = 'DOC')
+    ax1.plot(all_days, np.repeat(0, len(all_days)), 'b--')
     ax2 = ax1.twinx()
     ax2.plot(all_days, pool_value_dict['DGr_Ac kJ/mol'], 'magenta', label = 'DGr_Ac kJ/mol')
     ax2.plot(all_days, pool_value_dict['DGr_Fe3 kJ/mol'], 'lime', label = 'DGr_Fe3 kJ/mol')
