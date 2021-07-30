@@ -145,62 +145,74 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         if edu_dict['concentration'] <= 0:
             return dict()
     
-
+    #----- Alle Edukte die INNERHALB einer Mikrobe enzymatisch aufgespalten werden folgen MM----------------
+    
     MM_factors_total = 1.0 # Fall es keine MM gibt, gibt es auch keine Hemmung. Also 1
     for educt, edu_dict in educt_dict.items():  
         # Alle Educte werden innerhalb der Mikroben durch Enyme aufgespalten
         # Enzymatische Reaktionen folgen einer MM-Gleichung, die Substratlimitiert ist. 
+        # Innerhalb der Mikrobe ist genug Enzym vorhanden, nicht genug Substrat
         Concentration = edu_dict['concentration']
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
     
         MM_factors_total *= substance_MM # alle MM_Gleichungen der Edukte werden in einen MM_factor verrechnent
         
+    # ------------ 
+    # Alle Edukte (Corg), die außerhalb der Mikrobe enzymatisch aufgespalten werden sind nicht Substrat limitiert,
+    # sondern Enzymlimitiert. das kommt später über die Invers MM zu tragen
     # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited
+    # ------------
     
-#-------------------------------------------------------------------------------------------------------------
-    # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen hindernisse
-    Vmax = microbe_dict['Vmax']
+#------------------------------Berechnung thermodynamischer Faktor aller Pathways----------------------------------------------
+#------------------------------Berechnung des Biomassefaktors für alle Pathways   ------------------------------------------
     DGr_Ausgabe = 0
-    Biomass = microbe_dict['concentration']
+    Biomass = microbe_dict['concentration'] # Mikrobielle Biomasse in mg Mikrobielles C /gdw
     if 'Ferm' in microbe_dict and microbe_dict['Ferm']==True:
-        thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict) #TODO Hier gehört die acetatehemmung 
-        MMB = Biomass  if Biomass > 0 else 0 
+        # Berechnung für den endoenzymatischen Prozess der Fermentation 
+        thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict)  
+        # Die Ferm folgt einer simplen Acetate-Hemmung ohne genaue Angaben
+        MMB = Biomass  if Biomass > 0 else 0 #keine Enyzmlimitierung
 
     elif 'Ferm_help' in microbe_dict and microbe_dict['Ferm_help']==True:
+        # Die Berechnung für den exoenzymatischen Prozess der Fermentation 
         thermodynamic_factor = 1.0
-        MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 
+        MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 # Inverse MM
+        # Die Biomasse dient als Proxi für die Limitierung an Exoenzymen
 
     else:
-        #thermodynamic_factor = 1
+        # Die Berechnung für alle Pathways außer Ferm 
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
-        MMB = Biomass  if Biomass > 0 else 0 
+        MMB = Biomass  if Biomass > 0 else 0  #keine Enyzmlimitierung
+#----------------------------------------------------------------------------------------------------------------------
            
+    
+    Vmax = microbe_dict['Vmax'] # die Maximale Rate, wenn alle Umweltumstände ideal sind    
 #-------------------------------------------------------------------------------------------------------------            
-    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# micromol ???
+    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
 #-------------------------------------------------------------------------------------------------------------    
-    #print(microbe_dict['microbe']   ) 
-    #print(V)
-    # Mikrobenzuwachs und verbrauch von C Biomasse , ACHTUNG!! DAS IST EIGENTLICH NICHT UNBEDINGT KORRECKT, weil nur in den seltensten
-    # Fällen der E_Donor auch die C Quelle für Mikrobenwachstum ( nur bei Acetate und Ferm evtl. )
-    #deltaSub1Grow = deltaSub1Resp * w/m_C     # micromol 
-    
-    # erstellen der Veränderungen der Konzentrationen  des Bezugsstoffs
-    #Edu_change_dict = {Edu_Bezug_name : deltaSub1Resp + deltaSub1Grow}
-        
-    
+   
+#-----------------------------Berechnung der Stoffumsatzmengen abhänging von V und der Stoichiometrie------------------
+   
     Edu_Bezug_name = list(educt_dict.keys())[0]
     Edu_Bezug_stoich = educt_dict[Edu_Bezug_name]['Stoch']
     
-    # der Bezugstoff ist der erste im jeweiligen Dict und ist immer mit 1 angenommen. 
+    # der Bezugstoff ist der erste Stoff im jeweiligen Dict und ist immer mit 1 angenommen. 
     # z.b wird 1 Acetate umgewandelt, auch wenn die stoich eigentlich 2 ist
     limiting_dict = dict()
+    # check which Substance is limiting. How often could the reaction take place under given Substrate amount 
+    # and stochiometry, considering no other limiting factors
+    number_of_reactions = 0
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
         number_of_reactions = edu_dict['concentration']/normalized_stoich
-        limiting_dict[educt] = number_of_reactions
-    
-    limiting_educt = min(limiting_dict, key = limiting_dict.get)
+        limiting_dict[educt] = number_of_reactions # maximal nr of reactios allowed by this substance
+            
+    # welcher Stoff hat die niedrigste Reaktionshäufigkeit und wie oft könnte die Reaktion ablaufen
+    limiting_educt = min(limiting_dict, key = limiting_dict.get) 
+    # Wenn die Reaktion weniger als 1 Mal stattfinden kann, findet sie Nullmal statt
+    #print('actuall limitiaiton',limiting_dict[limiting_educt])
     limiting_reaction_rate = max(0,limiting_dict[limiting_educt])
+    #print('limiting rate,', limiting_reaction_rate)
 
     actual_reaction_rate = min(V,limiting_reaction_rate)
     # print(actual_reaction_rate)

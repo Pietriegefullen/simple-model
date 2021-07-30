@@ -712,7 +712,7 @@ def run_my_model(specimens, Site = "all"):#, Cpool_init = 5555.5):
             optimal_model_parameters_dict[key] = fixed_quantities_dict[key]
 
     # predict for optimal parameters
-    all_days = np.arange(4500)
+    all_days = np.arange(350)
     pool_value_dict = predictor(all_days, 
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)

@@ -47,6 +47,10 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                                  pool_change_dict_Hydro,
                                  pool_change_dict_Homo]
         
+        for dict_name, d in zip(['Fermhelp', 'Ferm', 'Fe3', 'Ac', 'Hydro', 'Homo'], pool_change_dict_list):
+            print(dict_name, d['Acetate'] if 'Acetate' in d else '')
+        
+        print('')
         
         #print(pool_change_dict_list)
         # DELTA DELTA DELTA                           
