@@ -34,7 +34,7 @@ scaling_factors = {
             #'Kmb_Homo' :    0.1,
             'KmA_Ferm':     0.1,
         }
-scaling_factors = {k:v*10. for k,v in scaling_factors.items()}
+scaling_factors = {k:v*100000. for k,v in scaling_factors.items()}
 
 #scaling_factors = {k:1.0 for k,v in scaling_factors.items()} # switches off scaling
 

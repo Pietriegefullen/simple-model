@@ -47,10 +47,9 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                                  pool_change_dict_Hydro,
                                  pool_change_dict_Homo]
         
-        for dict_name, d in zip(['Fermhelp', 'Ferm', 'Fe3', 'Ac', 'Hydro', 'Homo'], pool_change_dict_list):
-            print(dict_name, d['Acetate'] if 'Acetate' in d else '')
-        
-        print('')
+        # for dict_name, d in zip(['Fermhelp', 'Ferm', 'Fe3', 'Ac', 'Hydro', 'Homo'], pool_change_dict_list):
+        #     print(dict_name, d['Acetate'] if 'Acetate' in d else '')
+        # print('')
         
         #print(pool_change_dict_list)
         # DELTA DELTA DELTA                           
@@ -82,7 +81,9 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
        # changes_dict['CO2'] = changes_dict['CO2'] /2
         #changes_dict['CH4'] =0
         
-        pool_changes_array = np.array([changes_dict[pool_name] if pool_name in changes_dict else 0.0 for pool_name in pool_order])
+        pool_changes_array = np.array([-min(-changes_dict[pool_name], pool_dict[pool_name])
+                                       if pool_name in changes_dict else 0.0 
+                                       for pool_name in pool_order])
         # input('dcdec done..')
         #print(pool_changes_array[:][0])       
         #print(dict(zip(pool_order, pool_changes_array)))

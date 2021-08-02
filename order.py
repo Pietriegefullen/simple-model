@@ -119,10 +119,10 @@ def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
     initial_guess_dict['Vmax_help_Ferm'] =  (0.01,   0.01,1.71)  # 0.05
-    initial_guess_dict['Vmax_Ferm'] =       (0.318,   0.01,0.11)  # 0.011
-    initial_guess_dict['Vmax_Fe3'] =        (1.8,   0.029, 1.9)  # 0.8
-    initial_guess_dict['Vmax_Homo'] =       (0.869, 0.005, 1.)   # 0.869
-    initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.2)   # 0.182 1.8
+    initial_guess_dict['Vmax_Ferm'] =       (0.11,   0.01,0.11)  # 0.011       # Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
+    initial_guess_dict['Vmax_Fe3'] =        (1.8,   0.029, 1.9)  # 0.8         # Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
+    initial_guess_dict['Vmax_Homo'] =       (0.869, 0.005, 1.)   # 0.869       # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
+    initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.2)   # 0.182 1.8   # 0.15 mikromol pro cm^3 from Song
     initial_guess_dict['Vmax_Ac'] =         (0.8, 0.05, 3.0)  # 0.99
    #initial_guess_dict['w_Ferm'] =          (0.00032,  0.03, 0.05)  # 0.05
    #initial_guess_dict['w_Fe3'] =           (0.0093, 0.01, 0.05)  # 0.013
