@@ -299,6 +299,7 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
 
 
 def Ferm_Pathway(pool_dict,model_parameter_dict):
+    # PATHWAY: 1 DOC ---->  6 Acetate + 3 CO2 + 1 H2                           # Ratio aus Grant 1998
 
     microbe_dict = {'concentration' : pool_dict['M_Ferm'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ferm'], 
@@ -313,7 +314,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
                                     'Stoch'          : 6                 ,                                    
                                     'Km'             : 10 / SOIL_DENSITY,      # 10 from Song  mikromol pro gram 
-                                    'C_atoms'           : 6                 }}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
+                                    'C_atoms'        : 6                 }}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
                         
 #------------------ für alle Gase wird die auqatische Phase berechnet   ------------------------------------ 
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
