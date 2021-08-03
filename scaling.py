@@ -11,11 +11,11 @@ scaling_factors = {
            # 'M_Fe3':        10,
            # 'M_Ferm2':      10,
            'Vmax_help_Ferm': 100,
-            'Vmax_Ferm':    100,
-            'Vmax_Fe':      10,
-            'Vmax_Homo':    10,
+            'Vmax_Ferm':    10,
+            'Vmax_Fe':      1,
+            'Vmax_Homo':    1,
             'Vmax_Hydro':   10,
-            'Vmax_Ac':      10,
+            'Vmax_Ac':      1,
            # 'w_Ferm':       100,
            # 'w_Fe3':         100,
            # 'w_Hydro':      10,
@@ -23,18 +23,18 @@ scaling_factors = {
            # 'w_Ac':         100,
             'Sensenmann':   1e5,
            # 'Stoch_Fe3':     10,
-            'Kmb_help_Ferm':     0.1,
+            'Kmb_help_Ferm':   1,
            # 'Kmb_Ferm':     0.1,
            # 'Kmh_Ferm':     0.1,
            # 'Kmb_Fe3':       0.1,
            # 'Kmb_Ac':       0.1,
             #'Kmb_Hydro':    0.1,
             'Fe3':           0.1,
-            'M_Ac':         10,
+            'M_Ac':         10000,
             #'Kmb_Homo' :    0.1,
-            'KmA_Ferm':     0.1,
+            'KmA_Ferm':     100,
         }
-scaling_factors = {k:v*100000. for k,v in scaling_factors.items()}
+scaling_factors = {k:v*1. for k,v in scaling_factors.items()}
 
 #scaling_factors = {k:1.0 for k,v in scaling_factors.items()} # switches off scaling
 
