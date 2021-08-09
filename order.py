@@ -18,7 +18,8 @@ pool_order = ['C',
             'M_Homo',
             'Acetate',
             'H2',
-            'Fe2'#,
+            'Fe2',
+            'pH',
             # 'CO2_Ac',
             # 'CO2_Hydro',
             # 'CH4_Hydro',
@@ -102,7 +103,12 @@ Henrys_dict = { 'CO2' : {'H_cp_Standard': 3.4*10e-4,
 
 
 
-
+enthalpy = {'Acetate' :-484.13064 *1e3,
+            'Fe3'     : -48.5344  *1e3,
+            'Fe2'     : -89.1192  *1e3,
+            'CO2'     :-393.5052  *1e3, # Wert für gasförmig!
+            'H2'      :   0.0,
+            'CH4'     : -74.85176 *1e3}
 
 
 def get_fixed_quantities(): 

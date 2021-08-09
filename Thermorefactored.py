@@ -12,10 +12,9 @@ Created on Tue Oct 13 09:45:44 2020
 @author: Lara
 """
 
-
 import copy
 import os
-import traceback
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -28,8 +27,9 @@ from scipy.integrate import odeint, solve_ivp
 
 import scipy.io as sio
 import numpy as np
-#from SimpleIN import Cdec # importiert das eigentliche mathematische Model 
+
 os.chdir('C:/Users/Lara/Desktop/simple model')
+
 
 import Thermomodel
 from order import pool_order, changeables_order, parameter_units, get_fixed_quantities, get_initial_guesses
@@ -721,7 +721,8 @@ def run_my_model(specimens, Site = "all"):
     
     fixed_quantities_dict['C'] = float(Cpool_init)
     fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02                      #TODO:check this 0.02 ratio in song
-        
+    
+    fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
   
@@ -847,7 +848,7 @@ def run_my_model(specimens, Site = "all"):
 if __name__ == '__main__':
 
 # =============================================================================
-#     Wahlmöglichkeiten um das Model lauFe3n zu lassen 
+#     Wahlmöglichkeiten um das Model laufen zu lassen 
 #
 #     Site = K , alle Kurunak daten
 #     Site = S, alle Samoylov daten
@@ -855,8 +856,9 @@ if __name__ == '__main__':
 #     
 #     opt = Curve , benutzt Curve fit
 #     opt = Min, benutzt Minimize
+#     opt = Hopper, benutzt den baisinhopper  
 #
-#     specimens muss die Länge des Datensatzes sein
+#     specimens= der Datensatz der benutzt wird 
 #     
 # =============================================================================
 
@@ -867,12 +869,12 @@ if __name__ == '__main__':
     #specimenlist_Kuru= [i for i in range(16)] # Site = "K" 
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    
     specimens = [10]
     
-    #opt kann 'Min' sein für minimizer oder ' Curve' für Curve fit, oder 'Hopper' für baisinhopper
-    fit_my_model(specimens, Site = "all", opt = 'Hopper')
+    #fit_my_model(specimens, Site = "all", opt = 'Hopper')
     
-    #run_my_model(specimens, Site = "all")
+    run_my_model(specimens, Site = "all")
 
 #%%
 
