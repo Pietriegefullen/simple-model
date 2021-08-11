@@ -6,6 +6,7 @@ from Thermomicrobentest import Ferm_help_Pathway,Ferm_Pathway, Hydro_Pathway, Fe
 
 ################# Aufruf der Mikroben und Aufsummieren der Pooländerungen #####
 
+
 def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
     # wrapper läd das model_parameter_dict das für jeden durchlauf gleich ist
         
@@ -21,8 +22,12 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         
         # Fe3 Fe3 Fe3 Fe3,                                                     Pathway:    C2H3O2 − + 4H2O + 8Fe3(III)   --->  9H+ + 2 HCO3− + 8Fe3+2   Delattre 2019 , jason 2001
         pool_change_dict_Fe3 =  Fe3_Pathway(pool_dict, model_parameter_dict)
-     
-     
+
+        if t > 500 and  t < 580 :
+            if not 'Fe3' in pool_change_dict_Fe3:
+                pool_change_dict_Fe3['Fe3'] = 0
+            pool_change_dict_Fe3['Fe3'] = 0
+        
         # ACETO ACETO ACETO ACETO,                                             Pathway:  CH3COO + H+ --->  CH4 + CO2 Fe3y_Conrad2000
         pool_change_dict_Ac =  Ac_Pathway(pool_dict, model_parameter_dict)
     
@@ -51,8 +56,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                 if not pool in changes_dict:
                     changes_dict[pool] = 0.0 # wenn der Pool nicht im changes_dict ist wird 0 addiert
                 changes_dict[pool] += change # ansonsten wird die Änderung addiert
-                
-        
+               
         # Check, dass nicht mehr aus dem Pool geholt wird als drin ist
         pool_changes_array = np.array([-min(-changes_dict[pool_name], pool_dict[pool_name]) # die Änderung ist das was jeweils kleiner ist, die Änderung, oder der Pool 
                                        if pool_name in changes_dict else 0.0   # wenn der pool_name nicht in changes_dict, wird nichts rausgenommen. Der solver will aber einen Wert, also 0 

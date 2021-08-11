@@ -720,7 +720,7 @@ def run_my_model(specimens, Site = "all"):
     Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
     
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02                      #TODO:check this 0.02 ratio in song
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.0099           #TODO:check this 0.02 ratio in song
     
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     # specify Starting values
@@ -764,6 +764,7 @@ def run_my_model(specimens, Site = "all"):
                                 optimal_model_parameters_dict)
  
    
+#=============================================================================
 #=====================================PLOTTING=================================
         
     
@@ -799,6 +800,7 @@ def run_my_model(specimens, Site = "all"):
     for pool_name, pool_curve in all_CH4_contributers.items():
         plt.plot( pool_curve, label= pool_name)
     plt.legend()
+#=============================================================================
 
 #plot of measured and predicted CO2 and CH4 in one plot    
     plt.figure()
@@ -809,11 +811,13 @@ def run_my_model(specimens, Site = "all"):
     plt.plot(pool_value_dict['CO2'])
     
 #=============================================================================
+#=============================================================================
+#=============================================================================
     
 #  Plot for important pools and Gibbs reacktion values on two axis 
     
     fig, ax1 = plt.subplots()
-   
+    
     ax1.plot(all_days, pool_value_dict['CO2_Fe3'], label = 'CO2_Fe3')
     ax1.plot(all_days, pool_value_dict['CO2_Ac'], label = 'CO2_Ac')
     ax1.plot(all_days, pool_value_dict['Acetate'], label = 'Acetate')
@@ -829,13 +833,17 @@ def run_my_model(specimens, Site = "all"):
 # plots für die Gibbs reactionsenergien    
     plt.figure()
     plt.plot(all_days, pool_value_dict['DGr_Homo kJ/mol'], 'lime', label = 'DGr_Homo kJ/mol')
+    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
     plt.legend()
     
     plt.figure()
     plt.plot(all_days, pool_value_dict['DGr_Hydro kJ/mol'], 'lime', label = 'DGr_Hydro kJ/mol')
+    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
     plt.legend()
 
+###=============================================================================
 
+#=============================================================================
 
     plt.figure()
     plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
@@ -870,7 +878,7 @@ if __name__ == '__main__':
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
-    specimens = [10]
+    specimens = [8]
     
     #fit_my_model(specimens, Site = "all", opt = 'Hopper')
     
