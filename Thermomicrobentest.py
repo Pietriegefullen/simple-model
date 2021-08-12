@@ -13,7 +13,7 @@ from order import Henrys_dict, enthalpy, Gibbs_formation
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
 m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
-T = 50 # hier die Temperatur in Celius eingeben
+T = 4 # hier die Temperatur in Celius eingeben
 T = T + 273.15 # von Celcius nach Kelvin  
 T0 = 25 + 273.15
 
@@ -56,8 +56,9 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     H_educts = 0
     for name, educt in educt_dict.items():
         # Berechnung von Q_educts  für den Reaction quotient Q 
-        DGf_educt += Gibbs_formation[name] # zur Berechnung von DGs
-        Q_educts *= (1e-6*educt['concentration'])**educt['Stoch']              # concentration must be MOL, Zur Berechnung von DGr
+        stoich = educt['Stoch']
+        DGf_educt += stoich*Gibbs_formation[name] # zur Berechnung von DGs
+        Q_educts *= (1e-6*educt['concentration'])**stoich              # concentration must be MOL, Zur Berechnung von DGr
         H_educts += enthalpy[name]                                             # Gibbs formations enthalpy für den Temp ausgleich
         
     DGf_product = 0
@@ -65,8 +66,9 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     H_producs = 0
     for name, product in product_dict.items():
         # Berechnung von Q_products  für den Reaction quotient Q 
-        DGf_product += Gibbs_formation[name]# zur Berechnung von DGs
-        Q_products *= (1e-6*product['concentration'])**product['Stoch']        # concentration must be MOL, Zur Berechnung von DGr
+        stoich = product['Stoch']
+        DGf_product += stoich*Gibbs_formation[name]# zur Berechnung von DGs
+        Q_products *= (1e-6*product['concentration'])**stoich        # concentration must be MOL, Zur Berechnung von DGr
         H_producs += enthalpy[name]                                            # Gibbs formations enthalpy für den Temp ausgleich
      #--------------------------   
     
@@ -93,8 +95,8 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
    
     
     # -----------------------van 't Hoff-----------------------------------------------
-    std_reaction_enthalpy = H_producs - H_educts # J/mol
-    Q = Q0 * np.exp(-std_reaction_enthalpy/(R*T) + std_reaction_enthalpy/(R*T0))
+    #std_reaction_enthalpy = H_producs - H_educts # J/mol
+   # Q = Q0 * np.exp(-std_reaction_enthalpy/(R*T) + std_reaction_enthalpy/(R*T0))
     #print(Q)
     #if Q < 1:
      #   print(microbe_dict['microbe'])
