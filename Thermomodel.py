@@ -26,7 +26,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         if t > 500 and  t < 580 :
             if not 'Fe3' in pool_change_dict_Fe3:
                 pool_change_dict_Fe3['Fe3'] = 0
-            pool_change_dict_Fe3['Fe3'] = 0
+           # pool_change_dict_Fe3['Fe3'] = 1.5
         
         # ACETO ACETO ACETO ACETO,                                             Pathway:  CH3COO + H+ --->  CH4 + CO2 Fe3y_Conrad2000
         pool_change_dict_Ac =  Ac_Pathway(pool_dict, model_parameter_dict)
@@ -45,7 +45,7 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                                  pool_change_dict_Homo]
         
 #------------------------------------------------------------------------------        
-         
+        
     
 #---------- Beitrag aller Mikroben zu einer Substanz wird aufsummiert ---------
 

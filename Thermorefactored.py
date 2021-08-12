@@ -720,9 +720,9 @@ def run_my_model(specimens, Site = "all"):
     Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
     
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.0099           #TODO:check this 0.02 ratio in song
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.0209           #TODO:check this 0.02 ratio in song
     
-    fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
+    fixed_quantities_dict['pH'] = 3#Realdata['pH (H2O)'][0]
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
   
