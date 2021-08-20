@@ -104,20 +104,20 @@ Henrys_dict = { 'CO2' : {'H_cp_Standard': 3.4*10e-4,
 
 
 
-enthalpy = {'Acetate' :-484.13064 *1e3,
+enthalpy = {'Acetate' :-484.13 *1e3,
             'Fe3'     : -48.5344  *1e3,
             'Fe2'     : -89.1192  *1e3,
-            'CO2'     :-393.5052  *1e3, # Wert für gasförmig!
+            'CO2'     : -413.8 *1e3, # Wert für aq!
             'H2'      :  0.0,
-            'CH4'     : -74.85176 *1e3,
+            'CH4'     : -89 *1e3,
             'H2O'     : -285.82996 * 1e3}
 
 Gibbs_formation = {'Acetate' :  -396.46*1e3,
-                   'Fe3'     :  -4.7*1e3 , 
-                   'Fe2'     :  -78.8684*1e3,
-                   'CO2'     :  -394.36*1e3, # Wert für gasförmig!
+                   'Fe3'     :  -4.6*1e3 , 
+                   'Fe2'     :  -78.*1e3,
+                   'CO2'     :  -386.36*1e3, # Wert für aq!
                    'H2'      :   0.0,
-                   'CH4'     :  -50.8*1e3  ,# Wert für gasförmig!
+                   'CH4'     :  -34.4*1e3  ,# Wert für aq!
                    'H2O'    :   -237.178408 *1e3,
                    'H_plus' :          0}  
 
@@ -135,12 +135,12 @@ def get_fixed_quantities():
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
-    initial_guess_dict['Vmax_help_Ferm'] =  (0.009,   0.009,1.71)  # 0.05
-    initial_guess_dict['Vmax_Ferm'] =       (0.091,   0.01, 0.2)  # 0.011       # Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
-    initial_guess_dict['Vmax_Fe3'] =        (0.08,   0.029, 3)  # 0.8         # Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
+    initial_guess_dict['Vmax_help_Ferm'] =  (0.003,   0.009,1.71)  # 0.05
+    initial_guess_dict['Vmax_Ferm'] =       (0.195,   0.01, 0.2)  # 0.011       # Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
+    initial_guess_dict['Vmax_Fe3'] =        (0.8,   0.029, 3)  # 0.8         # Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
     initial_guess_dict['Vmax_Homo'] =       (0.869, 0.005, 1.)   # 0.869       # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
     initial_guess_dict['Vmax_Hydro'] =      (0.182, 0.03, 0.3)   # 0.182 1.8   # 0.15 mikromol pro cm^3 from Song
-    initial_guess_dict['Vmax_Ac'] =         (0.9,   0.05, 3.0)  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
+    initial_guess_dict['Vmax_Ac'] =         (0.2,   0.05, 3.0)  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
    #initial_guess_dict['w_Ferm'] =          (0.00032,  0.03, 0.05)  # 0.05
    #initial_guess_dict['w_Fe3'] =           (0.0093, 0.01, 0.05)  # 0.013
    #initial_guess_dict['w_Hydro'] =         (0.00024, 0.01, 0.05)  # 0.024
@@ -149,9 +149,9 @@ def get_initial_guesses():
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)# 0
     initial_guess_dict['Kmb_help_Ferm'] =   (1.009,    0.5,  10)      # 10
     # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)    # 10
-    initial_guess_dict['Fe3'] =             (1,  0,  100)    # 15.587,
-    initial_guess_dict['M_Ac'] =            (.0092,  1.3e-08,  5e05) # 0.6
-    initial_guess_dict['KmA_Ferm']=         (0.20315, 0.001, 20)     # 17.315 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+    initial_guess_dict['Fe3'] =             (15,  0,  100)    # 15.587,
+    initial_guess_dict['M_Ac'] =            (0.0002,  1.3e-08,  5e05) # 0.6
+    initial_guess_dict['KmA_Ferm']=         (0.3315, 0.001, 20)     # 17.315 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 
     return(initial_guess_dict)
 

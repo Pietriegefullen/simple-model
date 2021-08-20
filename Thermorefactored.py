@@ -720,9 +720,10 @@ def run_my_model(specimens, Site = "all"):
     Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
     
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.0209           #TODO:check this 0.02 ratio in song
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02         # 0.02 ratio in song, 2% sind DOC laut den Christians. 
     
-    fixed_quantities_dict['pH'] = 3#Realdata['pH (H2O)'][0]
+    fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
+    fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
   
@@ -778,7 +779,8 @@ def run_my_model(specimens, Site = "all"):
 #Plots of all pools individually    
     for k,v in pool_value_dict.items():
         plt.figure()
-        plt.plot(all_days,v,'.')
+        plt.plot(all_days,v,'b-', linewidth = .5)
+        plt.plot([0, max(all_days)], [0,0], 'k--', linewidth = .1)
         plt.ylabel(k)
 
 #Plots of all CO2 contributors in one plot            

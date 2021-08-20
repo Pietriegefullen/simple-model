@@ -7,6 +7,8 @@ Created on Mon Dec  7 13:38:25 2020
 import math as math
 import numpy as np
 
+np.seterr(divide='raise', over = 'warn', under = 'warn')
+
 from order import Henrys_dict, enthalpy, Gibbs_formation
 
 ####################### Definition globaler Konstanten ########################
@@ -49,37 +51,48 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
 def thermodynamics(educt_dict, product_dict, microbe_dict):
     # die Berechnung des Thermodynamischen Faktors für alle Mikroben, die klare Edukte und Produkte haben
     
-  
+    # if microbe_dict['microbe'] == 'M_Fe3':
+    #     print(educt_dict['Fe3']['concentration'])
+    
     #--------------------------Reaction Quotient Q---------------------
     DGf_educt = 0
-    Q_educts = 1.0
+    log_Q_educts = 0.
     for name, educt in educt_dict.items():
         # Berechnung von Q_educts  für den Reaction quotient Q 
+        if educt['concentration'] <= 0:
+            return 0, 200000
+        
         stoich = educt['Stoch']
         DGf_educt += stoich*Gibbs_formation[name] # zur Berechnung von DGs
-        Q_educts *= (1e-6*educt['concentration'])**stoich              # concentration must be MOL, Zur Berechnung von DGr
+        log_Q_educts += stoich*np.log(1e-6*educt['concentration'])            # concentration must be MOL, Zur Berechnung von DGr
+      
         
     DGf_product = 0
-    Q_products = 1.0
+    log_Q_products = 0.
     for name, product in product_dict.items():
         # Berechnung von Q_products  für den Reaction quotient Q 
         stoich = product['Stoch']
         DGf_product += stoich*Gibbs_formation[name]# zur Berechnung von DGs
-        Q_products *= (1e-6*product['concentration'])**stoich        # concentration must be MOL, Zur Berechnung von DGr
+        if product['concentration'] <= 0:
+            continue
+        log_Q_products += stoich*np.log(1e-6*product['concentration'])        # concentration must be MOL, Zur Berechnung von DGr
      #--------------------------   
     
-    if Q_educts <= 0:
-      #falls ein edukt fehlt, kann die Reaktion nicht stattfinden und der thermofactor muss 0 sein
-       return 0.0, 110000000.0 # 110000000.0  random wert der im plot auffallen soll
+    
+    # if Q_educts <= 0:#<= 1e-30 or Q_products > 1e30:
+    #   #falls ein edukt fehlt, kann die Reaktion nicht stattfinden und der thermofactor muss 0 sein
+    #    return 0.0, 310000000.0 # 110000000.0  random wert der im plot auffallen soll
    
-    if Q_products <= 0:
-        #TODO falls ein Produkt fehlt, liegt das Gewicht sehr weit rechts und die Reaktion ist ungehemmt. 
-        return 1.0, 100000000.0 # 110000000.0  random wert der im plot auffallen soll
+    # if Q_products <=0 : #<= 1e-30 or Q_educts > 1e30:
+    #     #TODO falls ein Produkt fehlt, liegt das Gewicht sehr weit rechts und die Reaktion ist ungehemmt. 
+    #     return 1.0, 100000000.0 # 110000000.0  random wert der im plot auffallen soll
   
   
     #--------------------------   
     
-
+    # if 'H2O' in educt_dict:
+    #     print(educt_dict['H2O']['concentration'])
+    
     #-------------------------Berechnung von Delta Gibbs Energien---------------------
 
     DGs = DGf_product - DGf_educt # DGs (Delta Gibbs Standart der Reaktion)
@@ -87,21 +100,28 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     R = 8.31446261815324 	   # in J⋅K−1⋅mol−1, Gaskonstante ,Einheit passt zur DGmin
     #T  ist global definiert
     
-    Q = Q_products/Q_educts
-   
+    # if Q_educts >1:
+    #     Q_educts = 1
+    # if Q_products <1:
+    #     Q_products = 1    
     
-  
-    DGr = DGs + R * T * np.log( Q )  # DGr: Delta Gibbsenergie der Reaktion in J⋅mol-1, nernst equation
+    log_Q = log_Q_products - log_Q_educts
+    
+    
+    DGr = DGs + R * T *  log_Q   # DGr: Delta Gibbsenergie der Reaktion in J⋅mol-1, nernst equation
    
+        
+        
     DGmin = -26.*1e3          # J⋅mol-1, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
 
     if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
         #print('minimum not reached, return 0', DGr - DGmin)
-        return 0.0, DGr
+        return 0,20#0.0, DGr
     
     
-    return 1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
-
+    return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
+   #return 1, -100000
+   
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     """
     Parameters
@@ -323,7 +343,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
                                     'Stoch'          : 6                 ,                                    
-                                    'Km'             : 100 / SOIL_DENSITY,      # 10 from Song  mikromol pro gram 
+                                    'Km'             : 10 / SOIL_DENSITY,      # 10 from Song  mikromol pro gram 
                                     'C_atoms'        : 6                 }}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
                         
 #------------------ für alle Gase wird die auqatische Phase berechnet   ------------------------------------ 
@@ -361,8 +381,8 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 
 
 def Fe3_Pathway(pool_dict,model_parameter_dict):
-    # PATHWAY:   C2H3O2 − + 4H2O + 8Fe3(III)   --->       9H+ + 2 HCO3− + 8Fe3+2   Delattre 2019 , jason 2001
-  
+    # PATHWAY:   C2H3O2 − + 4H2O + 8Fe3(III)   --->       9H+ + 2 HCO3− + 8Fe2+   Delattre 2019 , jason 2001
+    # H2 + 2Fe3+ -> 2H+ +2Fe2+ aus der Vorlesung von Christian K.
     microbe_dict = {'concentration' : pool_dict['M_Fe3'], 
                     'Vmax'          : model_parameter_dict['Vmax_Fe3'],    
                     'death_rate'    : model_parameter_dict['Sensenmann'],
@@ -370,6 +390,9 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     'CUE'           :  0.5  ,
                     'C_source'      :  'Acetate'}
                     #'DGs'           : -109.45 } # nur als info an mich
+                    
+    pH = pool_dict['pH']
+    #HCO3 = 1e-6* 10**-pH # Konzentration der vorhandenen HCO3 Ionen in Mikromol                
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
                                     'Stoch'          : 1                  ,
@@ -380,13 +403,21 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                       'Fe3'        :{'concentration':pool_dict['Fe3'] ,
                                    'Stoch'          : 8                   ,
                                    #'DGf'            : -4.7*1e3            ,
-                                   'Km'             : 2 / SOIL_DENSITY }, # TODO WISO 0 ? 0 wäre keine Hemmung
+                                   'Km'             : 2 / SOIL_DENSITY }},#, # TODO WISO 0 ? 0 wäre keine Hemmung
                       
-                      'H2O'    : {'concentration': 0.27754217530895997*1e3 , # 5 ml wasser in der Flasche
-                                'Stoch'        : 4,
-                                  'Km'          :0     }} 
+                     # 'HCO3'    : {'concentration':  HCO3 ,#, # 5 ml wasser in der Flasche
+                     #                'Stoch'        : 2,
+                     #                'Km'           : 0     }} 
                                     
-                     
+
+
+
+
+                        # 'H2O'    : {'concentration': 1, #pool_dict['H2O'] ,#, # 5 ml wasser in der Flasche
+                        #             'Stoch'        : 4,
+                        #             'Km'           : 0     }} 
+                                    
+                      
     
                           
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
@@ -397,7 +428,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                                        
 #-------------------- include pH ----------------------------------------------------------------------------
     pH = pool_dict['pH']
-    H_plus =  (10**-pH) *1000 * 5# Konzentration der vorhandenen H+ Ionen in Mikromol
+    H_plus =  (10**-pH) *1000 * 5# Konzentration der vorhandenen H+ Ionen in Mikromol, 5 ist ml H2O 
     
     #dissolved_CO2_total = dissolved_CO2 + HCO3
 #-------------------------------------------------------------------------------------------------------------        
@@ -463,9 +494,9 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     product_dict = {'CH4' :{'concentration': dissolved_CH4 ,                 
                             'Stoch'        : 1                ,
                             #'DGf'          : -50.8*1e3}          } 
-                                                        },
-                    'H2O' : {'concentration': 0.27754217530895997*1e3  ,
-                             'Stoch'        : 2}}
+                                                        }}#,
+                    # 'H2O' : {'concentration': pool_dict['H2O'] ,# 0.27754217530895997*1e6  ,
+                    #           'Stoch'        : 2}}
                                                             
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Hydro')
     
@@ -511,9 +542,9 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,
                                  'Stoch'        : 1                    ,
                                 # 'DGf'          : -396.46*1e3}         }# -369.31
-                                                                      },
-                    'H2O'    : {'concentration': 0.27754217530895997*1e3 , # 5 ml wasser in der Flasche
-                                'Stoch'        : 1}}
+                                                                      }}#,
+                    # 'H2O'    : {'concentration': pool_dict['H2O'] ,  # 5 ml wasser in der Flasche
+                    #             'Stoch'        : 1}}
                                                   
     
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Homo')
@@ -549,15 +580,15 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                                  'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
                                  'C_atoms'      : 2                 },
                   
-                  'H_plus'        : {'concentration': H_plus   ,
-                                  'Stoch'        :  1                     ,
-                                   'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
+                    'H_plus'        : {'concentration': H_plus   ,
+                                    'Stoch'        :  1                     ,
+                                     'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
     
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
     H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
     
-    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
-    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4+1))
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 + 1))
+    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4 + 1))
     
                      
     product_dict = { 'CH4' : {'concentration': dissolved_CH4, 
