@@ -75,7 +75,7 @@ def load_matlab():
         superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
         superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
-    
+        
         
     # fügt den Proben jeweils die relevanten Metadaten hinzu    
     Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
@@ -87,7 +87,7 @@ def load_matlab():
                 index = np.where(Metadata['Probe'] == meta_prob_names)[0]
                 for key in Metadata.keys():
                     superdata[replica_name_iter][key] = np.array(Metadata[key][index])
-     
+               
     replica_list = list(superdata.keys())    
     
     
@@ -107,6 +107,7 @@ def load_matlab():
     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex        
     superdata_carex = copy.deepcopy(superdata)
     superdata_all = copy.deepcopy(superdata)
+    
     for key in superdata.keys():
         FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
         for column_name in ['CO2','CH4','measured_time']:
@@ -117,6 +118,7 @@ def load_matlab():
             superdata[key]['Last_non_Carex_day'] =    max(superdata[key]['measured_time'])
             
             superdata_all[key][column_name] = superdata_all[key][column_name][:]
+            
  
     # for key in superdata:
     #     plt.figure()  
@@ -175,6 +177,7 @@ def load_matlab():
           existing_CO2_values = superdata_2021_all[key]['CO2']
           CO2_all_values = np.concatenate([existing_CO2_values,CO2_to_append], axis = 0)
           superdata_2021_all[key]['CO2'] = CO2_all_values
+          
      
           
     #erstellt einen Datensatz nur für die Kurunak daten
@@ -210,6 +213,7 @@ def load_matlab():
             del superdata_mit_Fe3[key]        
     
     #print(superdata_Kuru['13510']['First_Carex_index'])
+    
     
                 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
@@ -407,7 +411,7 @@ def predictor(t, initial_pool_values, model_parameters):
     initial_system_state = np.array(initial_pool_list)
     
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
-
+    
     
     method = 'LSODA'
     try:
@@ -423,6 +427,7 @@ def predictor(t, initial_pool_values, model_parameters):
         print('exception in odeint:')
         print(type(ex),':', str(ex))        
 
+   # print( 'results',solver_result.y)
     pool_dict = dict(zip(pool_order, solver_result.y))
 
     
@@ -724,6 +729,7 @@ def run_my_model(specimens, Site = "all"):
     
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
+    fixed_quantities_dict['weight'] = specimen_mass
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
   

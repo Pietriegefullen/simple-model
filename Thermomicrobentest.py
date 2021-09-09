@@ -169,7 +169,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     for educt, edu_dict in educt_dict.items():  
         # Falls ein Edukt < 0 ist wird ein leeres Dict zurückgegeben,
         # weil die Reaktion nicht stattfindet, alle changes sind 0
+        
         if edu_dict['concentration'] <= 0:
+            #print(educt, "empty")
             return dict()
     
 #--------------- Alle Edukte die INNERHALB einer Mikrobe enzymatisch aufgespalten werden folgen MM----------------
@@ -180,10 +182,12 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Enzymatische Reaktionen folgen einer MM-Gleichung, die Substratlimitiert ist. 
         # Innerhalb der Mikrobe ist genug Enzym vorhanden, nicht genug Substrat
         Concentration = edu_dict['concentration']
+       # print(educt_dict.items())
+        #print('Concentration',edu_dict['concentration'])
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0
-    
+       # print('substance_MM',substance_MM)
         MM_factors_total *= substance_MM # alle MM_Gleichungen der Edukte werden in einen MM_factor verrechnent
-        
+       # print('MM_factors_total',MM_factors_total)
     # ------------ 
     # Alle Edukte (Corg), die außerhalb der Mikrobe enzymatisch aufgespalten werden sind nicht Substrat limitiert,
     # sondern Enzymlimitiert. das kommt später über die Invers MM zu tragen
@@ -290,6 +294,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     if 'H_plus' in pool_change_dict:
         pool_change_dict.pop('H_plus')
 
+    #print(pool_change_dict.keys())
     return pool_change_dict
 
 
@@ -343,7 +348,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict =  {'DOC'           : {'concentration':pool_dict['DOC'],
                                     'Stoch'          : 6                 ,                                    
-                                    'Km'             : 10 / SOIL_DENSITY,      # 10 from Song  mikromol pro gram 
+                                    'Km'             : 100 / SOIL_DENSITY,      # 10 from Song  mikromol pro gram 
                                     'C_atoms'        : 6                 }}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist 
                         
 #------------------ für alle Gase wird die auqatische Phase berechnet   ------------------------------------ 
@@ -392,30 +397,21 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     #'DGs'           : -109.45 } # nur als info an mich
                     
     pH = pool_dict['pH']
-    #HCO3 = 1e-6* 10**-pH # Konzentration der vorhandenen HCO3 Ionen in Mikromol                
+    HCO3 = 1e-6* 10**-pH # Konzentration der vorhandenen HCO3 Ionen in Mikromol   
+             
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
-                                    'Stoch'          : 1                  ,
-                                    #'DGf'            : -396.46*1e3        ,    # -369.31
+                                    'Stoch'          : 1, #1                  ,
                                     'Km'             : 0.01/ SOIL_DENSITY,    # 0.01 / SOIL_DENSITY # wert nach Roden 2003 10 mal kleiner als bei Ace (0.8). Aber passt vlt nicht mehr mit den anderen werten zusammen
                                     'C_atoms'        : 2}, # kJ/mol
     
                       'Fe3'        :{'concentration':pool_dict['Fe3'] ,
                                    'Stoch'          : 8                   ,
-                                   #'DGf'            : -4.7*1e3            ,
-                                   'Km'             : 2 / SOIL_DENSITY }},#, # TODO WISO 0 ? 0 wäre keine Hemmung
+                                   'Km'             : 2 / SOIL_DENSITY },#, # TODO WISO 0 ? 0 wäre keine Hemmung
                       
-                     # 'HCO3'    : {'concentration':  HCO3 ,#, # 5 ml wasser in der Flasche
-                     #                'Stoch'        : 2,
-                     #                'Km'           : 0     }} 
-                                    
-
-
-
-
-                        # 'H2O'    : {'concentration': 1, #pool_dict['H2O'] ,#, # 5 ml wasser in der Flasche
-                        #             'Stoch'        : 4,
-                        #             'Km'           : 0     }} 
+                        'HCO3'    : {'concentration':  HCO3 , 
+                                        'Stoch'        : 2,
+                                        'Km'           : 0     }} 
                                     
                       
     
@@ -570,7 +566,12 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
 #-------------------- include pH ----------------------------------------------------------------------------
                        
     pH = pool_dict['pH']
-    H_plus =  (10**-pH) *1000 *5 # Konzentration der vorhandenen H+ Ionen in Mikromol                  
+    total_water_volume_in_flask = 5 # ml
+    #print('weight',pool_dict['weight'])
+    total_dry_soil_in_flask = 20 #pool_dict['weigth'] # g
+    water_volume = total_water_volume_in_flask/total_dry_soil_in_flask # ml/gdw
+    H_plus_per_liter = (10**-pH) * 1e6
+    H_plus = H_plus_per_liter/1000 * water_volume  # Konzentration der vorhandenen H+ Ionen in Mikromol                  
 #-------------------------------------------------------------------------------------------------------------     
       
     
@@ -578,11 +579,11 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                                 'Stoch'        :  1                     ,
                                  #'DGf'         : -396.46*1e3            ,# -369.31
                                  'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-                                 'C_atoms'      : 2                 },
+                                 'C_atoms'      : 2                 }}#,
                   
-                    'H_plus'        : {'concentration': H_plus   ,
-                                    'Stoch'        :  1                     ,
-                                     'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
+                    # 'H_plus'        : {'concentration': H_plus   ,
+                    #                 'Stoch'        :  1                     ,
+                    #                  'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
     
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
     H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
