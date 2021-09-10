@@ -33,6 +33,16 @@ def henrys_law (H_cp_Standard, H_cp_temp):
     H_cc = H_cp_Standard *  np.exp(H_cp_temp_adjusted * ((1/T) - (1/ T_standard)))
 
     return H_cc
+
+def H_plus_funk (pool_dict):
+    pH = pool_dict['pH']
+    total_water_volume_in_flask = 5 # ml
+    total_dry_soil_in_flask = pool_dict['weight'] #pool_dict['weigth'] # g
+    water_volume = total_water_volume_in_flask/total_dry_soil_in_flask # ml/gdw
+    H_plus_per_liter = (10**-pH) * 1e6
+    H_plus = H_plus_per_liter/1000 * water_volume *1e6 # Konzentration der vorhandenen H+ Ionen in Mikromol
+    #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
+    return H_plus
      
 def thermodynamics_Ferm(product_dict, microbe_dict):
     # 1- Acetate/(KmA + Acetate) je mehr Acetate desto weniger schnell läuft die Fermentation 
@@ -109,16 +119,16 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     
     
     DGr = DGs + R * T *  log_Q   # DGr: Delta Gibbsenergie der Reaktion in J⋅mol-1, nernst equation
-   
         
         
-    DGmin = -26.*1e3          # J⋅mol-1, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
-
+    DGmin = -26.*1e3 * 1e-6       # J⋅mol-1, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
+                              # wert DGmin z.b aus Schink 1997, ist 1/3 der Energie die für ein ATP Herstellung benötigt wird
+                              # *1e-6 weil -pro mol substance sind und ich in mikromol rechne
     if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
-        #print('minimum not reached, return 0', DGr - DGmin)
-        return 0,20#0.0, DGr
+        #print(microbe_dict['microbe'],'not enough energy for the reaction, return 0', DGr - DGmin)
+        return 0, 0# 20#0.0, DGr
     
-    
+    #print(microbe_dict['microbe'], 'reaction can proceed', DGr, DGmin)
     return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
    #return 1, -100000
    
@@ -212,7 +222,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
     else:
         # Die Berechnung für alle Pathways außer Ferm 
+        
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
+        print(microbe_dict['microbe'], DGr_Ausgabe)
         MMB = Biomass  if Biomass > 0 else 0  #keine Enyzmlimitierung
         
 #-----------------------------Berechnung der Reaktionsgeschwindigkeit--------------------------------------------
@@ -397,8 +409,11 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     #'DGs'           : -109.45 } # nur als info an mich
                     
     pH = pool_dict['pH']
-    HCO3 = 1e-6* 10**-pH # Konzentration der vorhandenen HCO3 Ionen in Mikromol   
-             
+    HCO3 = 1e-6* 10**-pH  # Konzentration der vorhandenen HCO3 Ionen in Mikrom
+    print('HCO3', HCO3)
+    HCO3 = H_plus_funk(pool_dict)
+    print('HCO3_new', HCO3)
+            
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
                                     'Stoch'          : 1, #1                  ,
@@ -414,7 +429,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                                         'Km'           : 0     }} 
                                     
                       
-    
+   # print('FE', pool_dict['Fe3'])
                           
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
     #H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
@@ -423,9 +438,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     #dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
                                        
 #-------------------- include pH ----------------------------------------------------------------------------
-    pH = pool_dict['pH']
-    H_plus =  (10**-pH) *1000 * 5# Konzentration der vorhandenen H+ Ionen in Mikromol, 5 ist ml H2O 
-    
+    H_plus = H_plus_funk(pool_dict)
     #dissolved_CO2_total = dissolved_CO2 + HCO3
 #-------------------------------------------------------------------------------------------------------------        
     
@@ -564,14 +577,8 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                       #'DGs'        : 48 }
                       
 #-------------------- include pH ----------------------------------------------------------------------------
-                       
-    pH = pool_dict['pH']
-    total_water_volume_in_flask = 5 # ml
-    #print('weight',pool_dict['weight'])
-    total_dry_soil_in_flask = 20 #pool_dict['weigth'] # g
-    water_volume = total_water_volume_in_flask/total_dry_soil_in_flask # ml/gdw
-    H_plus_per_liter = (10**-pH) * 1e6
-    H_plus = H_plus_per_liter/1000 * water_volume  # Konzentration der vorhandenen H+ Ionen in Mikromol                  
+    H_plus = H_plus_funk(pool_dict)
+                   
 #-------------------------------------------------------------------------------------------------------------     
       
     
@@ -579,11 +586,11 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                                 'Stoch'        :  1                     ,
                                  #'DGf'         : -396.46*1e3            ,# -369.31
                                  'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-                                 'C_atoms'      : 2                 }}#,
+                                 'C_atoms'      : 2                 },
                   
-                    # 'H_plus'        : {'concentration': H_plus   ,
-                    #                 'Stoch'        :  1                     ,
-                    #                  'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
+                    'H_plus'        : {'concentration': H_plus   ,
+                                    'Stoch'        :  1                     ,
+                                      'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
     
     H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
     H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
