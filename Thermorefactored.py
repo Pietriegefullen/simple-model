@@ -403,12 +403,18 @@ def predictor(t, initial_pool_values, model_parameters):
     # alle pools, für die kein initialer zustand explizit definiert ist,
     # werden zum startzeitpunkt (t=0) auf 0  gesetzt.
     initial_pool_list = list()
+    name_list = list()
     for pool_name in pool_order:
         if pool_name in initial_pool_values:
             initial_pool_list.append(initial_pool_values[pool_name])
+            name_list.append(pool_name)
         else:
-            initial_pool_list.append(0)    
+            initial_pool_list.append(0) 
+            name_list.append(pool_name)
     initial_system_state = np.array(initial_pool_list)
+    
+    #
+    #print(list(zip(name_list, initial_system_state)))
     
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
     
@@ -729,11 +735,10 @@ def run_my_model(specimens, Site = "all"):
     
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
-    fixed_quantities_dict['weight'] = specimen_mass
+    fixed_quantities_dict['weight'] =  float(specimen_mass)
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
-  
-
+    
     changeables_optimal_dict = dict()
     
     # schreibe die werte, die zwar im initial_guess_dict definiert sind, 

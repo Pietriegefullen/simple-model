@@ -39,9 +39,11 @@ def H_plus_funk (pool_dict):
     total_water_volume_in_flask = 5 # ml
     total_dry_soil_in_flask = pool_dict['weight'] #pool_dict['weigth'] # g
     water_volume = total_water_volume_in_flask/total_dry_soil_in_flask # ml/gdw
-    H_plus_per_liter = (10**-pH) * 1e6
-    H_plus = H_plus_per_liter/1000 * water_volume *1e6 # Konzentration der vorhandenen H+ Ionen in Mikromol
-    #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
+    # print(pH)
+    H_plus_per_liter = (10**-pH) * 1e6 # in mikromol pro l
+    # print(H_plus_per_liter)
+    H_plus = (H_plus_per_liter/1000) * water_volume  # Konzentration der vorhandenen H+ Ionen in Mikromol
+    H_plus = H_plus*1e6 #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
     return H_plus
      
 def thermodynamics_Ferm(product_dict, microbe_dict):
@@ -65,6 +67,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     #     print(educt_dict['Fe3']['concentration'])
     
     #--------------------------Reaction Quotient Q---------------------
+
     DGf_educt = 0
     log_Q_educts = 0.
     for name, educt in educt_dict.items():
@@ -126,9 +129,11 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
                               # *1e-6 weil -pro mol substance sind und ich in mikromol rechne
     if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
         #print(microbe_dict['microbe'],'not enough energy for the reaction, return 0', DGr - DGmin)
-        return 0, 0# 20#0.0, DGr
+        return 0, DGr# 20#0.0, DGr
     
     #print(microbe_dict['microbe'], 'reaction can proceed', DGr, DGmin)
+    # print('DGr', 1 - np.exp((DGr - DGmin)/(R*T)))
+    # print('DGr', (DGr - DGmin)/(R*T))
     return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
    #return 1, -100000
    
@@ -224,7 +229,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Die Berechnung für alle Pathways außer Ferm 
         
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
-        print(microbe_dict['microbe'], DGr_Ausgabe)
+        #print(microbe_dict['microbe'], DGr_Ausgabe)
+        #input('')
         MMB = Biomass  if Biomass > 0 else 0  #keine Enyzmlimitierung
         
 #-----------------------------Berechnung der Reaktionsgeschwindigkeit--------------------------------------------
@@ -371,8 +377,8 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
     
 #-------------------- include pH ----------------------------------------------------------------------------
-    pH = pool_dict['pH']
-    HCO3 = 1e-6* 10**-pH # Konzentration der vorhandenen HCO3 Ionen in Mikromol
+    HCO3 = H_plus_funk(pool_dict)
+ # Konzentration der vorhandenen HCO3 Ionen in Mikromol
     
     dissolved_CO2_total = dissolved_CO2 + HCO3
     
@@ -408,11 +414,10 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                     'C_source'      :  'Acetate'}
                     #'DGs'           : -109.45 } # nur als info an mich
                     
-    pH = pool_dict['pH']
-    HCO3 = 1e-6* 10**-pH  # Konzentration der vorhandenen HCO3 Ionen in Mikrom
-    print('HCO3', HCO3)
+    #HCO3 = 1e-6* 10**-pH  # Konzentration der vorhandenen HCO3 Ionen in Mikrom
+    #print('HCO3', HCO3)
     HCO3 = H_plus_funk(pool_dict)
-    print('HCO3_new', HCO3)
+    #print('HCO3_new', HCO3)
             
     
     educt_dict =  {'Acetate'       : {'concentration':pool_dict['Acetate'],
@@ -449,11 +454,11 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
                      'CO2' : {'concentration': dissolved_CO2,
                               'Stoch'        : 2               ,
                              # 'DGf'          : -394.36*1e3}, # Wert für gasförmig! 
-                                                                 },
-                      'H_plus' : {'concentration': H_plus,
-                              'Stoch'        : 9             ,
-                              #'DGf'          : 0}
-                                                              }}
+                                                                 },#}#,
+                       'H_plus' : {'concentration': H_plus,
+                               'Stoch'        : 9             ,
+                               #'DGf'          : 0}
+                                                               }}
                                                                   
    
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Fe3')
@@ -482,7 +487,8 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
     H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
     
     dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
-    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))#*1e104
+    #print('dissolved H2', dissolved_H2)
     dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4+1))
                                        
 #-------------------- include pH ----------------------------------------------------------------------------
@@ -531,7 +537,7 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     H_cc_H2 = henrys_law( Henrys_dict['H2']['H_cp_Standard'],  Henrys_dict['H2']['H_cp_temp'])
     
     dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 +1))
-    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))              
+    dissolved_H2 =  pool_dict['H2']* (H_cc_H2/  (H_cc_H2+1))     #*1e104         
     
 #-------------------- include pH ----------------------------------------------------------------------------
 
@@ -586,7 +592,7 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
                                 'Stoch'        :  1                     ,
                                  #'DGf'         : -396.46*1e3            ,# -369.31
                                  'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-                                 'C_atoms'      : 2                 },
+                                 'C_atoms'      : 2                 },#}#,
                   
                     'H_plus'        : {'concentration': H_plus   ,
                                     'Stoch'        :  1                     ,
