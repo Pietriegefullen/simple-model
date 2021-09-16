@@ -14,9 +14,9 @@ from order import Henrys_dict, enthalpy, Gibbs_formation
 ####################### Definition globaler Konstanten ########################
 
 SOIL_DENSITY = 1.3 # g/cm3 # 1.3 dry density for clay from Knoblauch data
-m_C = 12.01*1e-3 # mg/micromol molar mass of carbon
-T = 4 # hier die Temperatur in Celius eingeben
-T = T + 273.15 # von Celcius nach Kelvin  
+m_C = 12.01*1e-3 # mg/micromol, molar mass of carbon
+T_C = 4 # hier die Temperatur in Celius eingeben
+T = T_C + 273.15 # von Celcius nach Kelvin  
 T0 = 25 + 273.15
 
 ######################## Berechnung der Reaktionen ############################
@@ -35,15 +35,13 @@ def henrys_law (H_cp_Standard, H_cp_temp):
     return H_cc
 
 def H_plus_funk (pool_dict):
-    pH = pool_dict['pH']
-    total_water_volume_in_flask = 5 # ml
-    total_dry_soil_in_flask = pool_dict['weight'] #pool_dict['weigth'] # g
-    water_volume = total_water_volume_in_flask/total_dry_soil_in_flask # ml/gdw
-    # print(pH)
-    H_plus_per_liter = (10**-pH) * 1e6 # in mikromol pro l
-    # print(H_plus_per_liter)
-    H_plus = (H_plus_per_liter/1000) * water_volume  # Konzentration der vorhandenen H+ Ionen in Mikromol
-    H_plus = H_plus*1e6 #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
+    pH = pool_dict['pH']                                                        # in mol/L 
+    total_water_volume_in_flask = pool_dict['water']                            # ml
+    total_dry_soil_in_flask = pool_dict['weight'] #pool_dict['weigth']          # g
+    water_volume = total_water_volume_in_flask/total_dry_soil_in_flask          # ml/gdw
+    H_plus_per_liter = (10**-pH) * 1e6                                          # mikromol/ l
+    H_plus = (H_plus_per_liter/1000) * water_volume                             # Mikromol / gdw Konzentration der vorhandenen H+ Ionen in Mikromol
+    #H_plus = H_plus*1e6 #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
     return H_plus
      
 def thermodynamics_Ferm(product_dict, microbe_dict):
@@ -123,10 +121,13 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     
     DGr = DGs + R * T *  log_Q   # DGr: Delta Gibbsenergie der Reaktion in J⋅mol-1, nernst equation
         
-        
-    DGmin = -26.*1e3 * 1e-6       # J⋅mol-1, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
+    DGmin = -26.*1e3          # J/mol, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
                               # wert DGmin z.b aus Schink 1997, ist 1/3 der Energie die für ein ATP Herstellung benötigt wird
-                              # *1e-6 weil -pro mol substance sind und ich in mikromol rechne
+    # Einheiten DGmin:
+    # -26 kJ/mol *1e3
+    # => DGmin hat Einheit J/mol
+    
+    
     if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
         #print(microbe_dict['microbe'],'not enough energy for the reaction, return 0', DGr - DGmin)
         return 0, DGr# 20#0.0, DGr
@@ -196,7 +197,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Alle Educte werden innerhalb der Mikroben durch Enyme aufgespalten
         # Enzymatische Reaktionen folgen einer MM-Gleichung, die Substratlimitiert ist. 
         # Innerhalb der Mikrobe ist genug Enzym vorhanden, nicht genug Substrat
-        Concentration = edu_dict['concentration']
+        Concentration = edu_dict['concentration']  #mikromol/gdw
        # print(educt_dict.items())
         #print('Concentration',edu_dict['concentration'])
         substance_MM = Concentration/(edu_dict['Km'] + Concentration) if Concentration > 0 else 0

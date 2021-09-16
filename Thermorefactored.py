@@ -308,7 +308,7 @@ def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
         
         # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
         weight_CO2 = 100.
-        weight_CH4 = 0.
+        weight_CH4 = 100.
         sum_of_squared_residuals = np.sum(weight_CO2*error_CO2**2 + weight_CH4*error_CH4**2) 
         
         print('SSR',sum_of_squared_residuals)
@@ -366,7 +366,7 @@ def least_squares_error(changeables_array, fixed_quantities_dict, measured_data_
     
     # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
     weight_CO2 = 100.
-    weight_CH4 = 0.
+    weight_CH4 = 100.
     sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2) 
     
     print('SSR',sum_of_squared_residuals)
@@ -733,9 +733,12 @@ def run_my_model(specimens, Site = "all"):
     fixed_quantities_dict['C'] = float(Cpool_init)
     fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02         # 0.02 ratio in song, 2% sind DOC laut den Christians. 
     
+    print('ph ganze reihe in run my model', Realdata['pH (H2O)'])
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
-    fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
     fixed_quantities_dict['weight'] =  float(specimen_mass)
+    fixed_quantities_dict['water'] = float(Realdata['water'])
+    #fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
+    #fixed_quantities_dict['H2O'] = 55508.43506179199 * fixed_quantities_dict['water']    # mikromol H2O in 1 ml Wasser * amount of water
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
     
@@ -845,7 +848,7 @@ def run_my_model(specimens, Site = "all"):
   
 # plots für die Gibbs reactionsenergien    
     plt.figure()
-    plt.plot(all_days, pool_value_dict['DGr_Homo kJ/mol'], 'lime', label = 'DGr_Homo kJ/mol')
+    plt.plot(all_days[1:], pool_value_dict['DGr_Homo kJ/mol'][1:], 'lime', label = 'DGr_Homo kJ/mol')
     plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
     plt.legend()
     

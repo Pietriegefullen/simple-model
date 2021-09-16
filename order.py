@@ -22,7 +22,8 @@ pool_order = ['C',
             'pH',
             'H2O',
             'HCO3',
-            'weight'
+            'weight',
+            'water'
             # 'CO2_Ac',
             # 'CO2_Hydro',
             # 'CH4_Hydro',
@@ -115,13 +116,13 @@ enthalpy = {'Acetate' :-484.13 *1e3,
             'CH4'     : -89 *1e3}
             #'H2O'     : -285.82996 * 1e3}
 
-Gibbs_formation = {'Acetate' :  -396.46*1e3,
+Gibbs_formation = {'Acetate' :  -396.46*1e3,    # Tabellenwerte in kJ /mol, hier J/mol
                    'Fe3'     :  -4.6*1e3 , 
                    'Fe2'     :  -78.*1e3,
                    'CO2'     :  -386.36*1e3, # Wert für aq!
                    'H2'      :   0.0,
                    'CH4'     :  -34.4*1e3  ,# Wert für aq!
-                   'HCO3'    : 1,
+                   'HCO3'    :  -586.85 * 1e3, # # Wert für aq!
                    #'H2O'    :   -237.178408 *1e3,
                    'H_plus' :          0}  
 
@@ -153,7 +154,7 @@ def get_initial_guesses():
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)# 0
     initial_guess_dict['Kmb_help_Ferm'] =   (1.009,    0.5,  10)      # 10
     # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)    # 10
-    initial_guess_dict['Fe3'] =             (15,  0,  100)    # 15.587,
+    initial_guess_dict['Fe3'] =             (0.15,  0,  100)    # 15.587,
     initial_guess_dict['M_Ac'] =            (0.0002,  1.3e-08,  5e05) # 0.6
     initial_guess_dict['KmA_Ferm']=         (0.3315, 0.001, 20)     # 17.315 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 

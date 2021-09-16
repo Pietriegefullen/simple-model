@@ -23,15 +23,23 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         # Fe3 Fe3 Fe3 Fe3,                                                     Pathway:    C2H3O2 − + 4H2O + 8Fe3(III)   --->  9H+ + 2 HCO3− + 8Fe3+2   Delattre 2019 , jason 2001
         pool_change_dict_Fe3 =  Fe3_Pathway(pool_dict, model_parameter_dict)
         
-        # hinzufügen von Fe
+        # #hinzufügen von Fe
         # if t > 2500 and  t < 2560 :
         #     if not 'Fe3' in pool_change_dict_Fe3:
         #         pool_change_dict_Fe3['Fe3'] = 0
-        #     pool_change_dict_Fe3['Fe3'] = 15
+        #     pool_change_dict_Fe3['Fe3'] = 150
+            
         
         # ACETO ACETO ACETO ACETO,                                             Pathway:  CH3COO + H+ --->  CH4 + CO2 Fe3y_Conrad2000
         pool_change_dict_Ac =  Ac_Pathway(pool_dict, model_parameter_dict)
-    
+        
+        # if t > 2500 and  t < 2560 :
+        #     if not 'Acetate' in pool_change_dict_Ac:
+        #         pool_change_dict_Ac['Ac'] = 0 
+        #     pool_change_dict_Ac['Ac'] =0 
+                    
+                
+                
         #HYDRO HYDRO HYDRO HYDRO,                                              Pathway: 4H2 + CO2 ---> CH4 + 2H2O, conrad2000selective, Fe3nchel -131kj/mol
         pool_change_dict_Hydro =  Hydro_Pathway(pool_dict, model_parameter_dict)
       
