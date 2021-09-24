@@ -41,7 +41,7 @@ def H_plus_funk (pool_dict):
     water_volume = total_water_volume_in_flask/total_dry_soil_in_flask          # ml/gdw
     H_plus_per_liter = (10**-pH) * 1e6                                          # mikromol/ l
     H_plus = (H_plus_per_liter/1000) * water_volume                             # Mikromol / gdw Konzentration der vorhandenen H+ Ionen in Mikromol
-    #H_plus = H_plus*1e6 #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
+    H_plus = H_plus*1e6 #TODO das * 1e6 ist ausgedacht damit alles funktioniert.
     return H_plus
      
 def thermodynamics_Ferm(product_dict, microbe_dict):
@@ -135,7 +135,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     #print(microbe_dict['microbe'], 'reaction can proceed', DGr, DGmin)
     # print('DGr', 1 - np.exp((DGr - DGmin)/(R*T)))
     # print('DGr', (DGr - DGmin)/(R*T))
-    return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr # DGr_Ausgabe nur fürs plotting
+    return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr - DGmin # DGr_Ausgabe nur fürs plotting
    #return 1, -100000
    
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
@@ -289,12 +289,18 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
             C_for_growth = growth_metabolized * edu_dict['C_atoms'] # mikromol C für Wachstum aus der C_source
         
     # wie viel der jeweiligen Edukte werden verbraucht, korrigiert nach CUE 
-        pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
+        if - normalized_stoich*actual_reaction_rate / (1-CUE) < 1e-50:# damit der solver nicht crashed
+            pool_change_dict[educt] = 0 
+        else:
+            pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
         
     # wie viel der jeweiligen Produkte werden produziert, korrigiert nach CUE 
     for product, produ_dict in product_dict.items():
         normalized_stoich = produ_dict['Stoch']/Edu_Bezug_stoich # Produktion pro Reaktion 
-        pool_change_dict[product] = normalized_stoich*actual_reaction_rate # Tatsächliche Produktion 
+        if normalized_stoich*actual_reaction_rate < 1e-50: # damit der solver nicht crashed
+            pool_change_dict[product] = 0
+        else:
+            pool_change_dict[product] = normalized_stoich*actual_reaction_rate # Tatsächliche Produktion 
  
 #-------------------------------------------------------------------------------------------------------
 

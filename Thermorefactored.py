@@ -731,13 +731,13 @@ def run_my_model(specimens, Site = "all"):
     Cpool_init = (10**6)* specimen_mass * TOC / m_gluc
     
     fixed_quantities_dict['C'] = float(Cpool_init)
-    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02         # 0.02 ratio in song, 2% sind DOC laut den Christians. 
+    fixed_quantities_dict['DOC'] = float(Cpool_init)*0.02                      # 0.02 ratio in song, 2% sind DOC laut den Christians. 
     
-    print('ph ganze reihe in run my model', Realdata['pH (H2O)'])
+    #print('ph ganze reihe in run my model', Realdata['pH (H2O)'])
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     fixed_quantities_dict['weight'] =  float(specimen_mass)
     fixed_quantities_dict['water'] = float(Realdata['water'])
-    #fixed_quantities_dict['H2O'] = 277542.17530895997 # mikromol H2O in 5 ml Wasser (wie in jeder Probe)
+    fixed_quantities_dict['Acetate'] = 0.001                                      # to fill the initial Acetate pool manually
     #fixed_quantities_dict['H2O'] = 55508.43506179199 * fixed_quantities_dict['water']    # mikromol H2O in 1 ml Wasser * amount of water
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
@@ -778,7 +778,8 @@ def run_my_model(specimens, Site = "all"):
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
  
-   
+    for key in pool_value_dict:
+        print(key ,pool_value_dict[key])
 #=============================================================================
 #=====================================PLOTTING=================================
         
@@ -787,7 +788,7 @@ def run_my_model(specimens, Site = "all"):
     extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
     pool_value_dict.update(extra_curves)
     
-    #print(pool_value_dict.keys())
+   # print('gibbs acetate',pool_value_dict['DGr_Ac kJ/mol'])
     
     
 #Plots of all pools individually    
@@ -834,14 +835,15 @@ def run_my_model(specimens, Site = "all"):
     
     fig, ax1 = plt.subplots()
     
-    ax1.plot(all_days, pool_value_dict['CO2_Fe3'], label = 'CO2_Fe3')
-    ax1.plot(all_days, pool_value_dict['CO2_Ac'], label = 'CO2_Ac')
-    ax1.plot(all_days, pool_value_dict['Acetate'], label = 'Acetate')
-    ax1.plot(all_days, pool_value_dict['DOC']/2, label = 'DOC')
+    ax1.plot(all_days[1:], pool_value_dict['CO2_Fe3'][1:], label = 'CO2_Fe3')
+    ax1.plot(all_days[1:], pool_value_dict['CO2_Ac'][1:], label = 'CO2_Ac')
+    ax1.plot(all_days[1:], pool_value_dict['Acetate'][1:], label = 'Acetate')
+    ax1.plot(all_days[1:], pool_value_dict['DOC'][1:], label = 'DOC')
     ax1.plot(all_days, np.repeat(0, len(all_days)), 'b--')
     ax2 = ax1.twinx()
-    ax2.plot(all_days, pool_value_dict['DGr_Ac kJ/mol'], 'magenta', label = 'DGr_Ac kJ/mol')
-    ax2.plot(all_days, pool_value_dict['DGr_Fe3 kJ/mol'], 'lime', label = 'DGr_Fe3 kJ/mol')
+    ax2.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
+    ax2.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
+    ax2.plot(all_days, np.repeat(0, len(all_days)), 'b--')
     fig.tight_layout()
     ax1.legend()
     ax2.legend()
@@ -853,10 +855,15 @@ def run_my_model(specimens, Site = "all"):
     plt.legend()
     
     plt.figure()
-    plt.plot(all_days, pool_value_dict['DGr_Hydro kJ/mol'], 'lime', label = 'DGr_Hydro kJ/mol')
+    plt.plot(all_days[1:], pool_value_dict['DGr_Hydro kJ/mol'][1:], 'lime', label = 'DGr_Hydro kJ/mol')
     plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
     plt.legend()
-
+    
+    plt.figure()
+    plt.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
+    plt.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
+    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
+    plt.legend()
 ###=============================================================================
 
 #=============================================================================
