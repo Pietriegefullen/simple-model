@@ -135,7 +135,7 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     #print(microbe_dict['microbe'], 'reaction can proceed', DGr, DGmin)
     # print('DGr', 1 - np.exp((DGr - DGmin)/(R*T)))
     # print('DGr', (DGr - DGmin)/(R*T))
-    return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr - DGmin # DGr_Ausgabe nur fürs plotting
+    return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr# - DGmin # DGr_Ausgabe nur fürs plotting
    #return 1, -100000
    
 def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
@@ -209,7 +209,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     # sondern Enzymlimitiert. das kommt später über die Invers MM zu tragen
     # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited
     # ------------
-    
+        #print('MM_Factors', MM_factors_total)
 #------------------------------Berechnung thermodynamischer Faktor aller Pathways----------------------------------------------
 #---------------------------und Berechnung des Biomassefaktors für alle Pathways   ------------------------------------------
     DGr_Ausgabe = 0
@@ -230,6 +230,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Die Berechnung für alle Pathways außer Ferm 
         
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
+        #print('Thermofacktor',thermodynamic_factor)
+        #print('DRG ausgabe', DGr_Ausgabe)
         #print(microbe_dict['microbe'], DGr_Ausgabe)
         #input('')
         MMB = Biomass  if Biomass > 0 else 0  #keine Enyzmlimitierung
@@ -254,25 +256,27 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     number_of_reactions = 0
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
+        #print('this should be the normalized stoich', normalized_stoich)
         number_of_reactions = edu_dict['concentration']/normalized_stoich # MOL / normalized_stoich
         limiting_dict[educt] = number_of_reactions # maximal nr of reactios allowed by this substance
             
-    # welcher Stoff hat die niedrigste Reaktionshäufigkeit und wie oft könnte die Reaktion ablaufen
-    limiting_educt = min(limiting_dict, key = limiting_dict.get) 
-    # Wenn die Reaktion weniger als 1 Mal stattfinden kann, findet sie Nullmal statt
-    limiting_reaction_rate = max(0,limiting_dict[limiting_educt]) # die 0 stimmt (ist ok) 
+    # # welcher Stoff hat die niedrigste Reaktionshäufigkeit und wie oft könnte die Reaktion ablaufen
+    # limiting_educt = min(limiting_dict, key = limiting_dict.get) 
+    # # Wenn die Reaktion weniger als 1 Mal stattfinden kann, findet sie Nullmal statt
+    # limiting_reaction_rate = max(0,limiting_dict[limiting_educt]) # die 0 stimmt (ist ok) 
 
-    actual_reaction_rate = min(V,limiting_reaction_rate)
+    actual_reaction_rate =  V#min(V,limiting_reaction_rate)
     # Die tatsächliche Reaktion rate, Hemmungen und Stoffmengen berücksichtigt
 
 #-------------------------------------------------------------------------------------------------------    
 
 #-----------------------------Berechnung mit der Carbon use efficiency------------------------------------------------      
-    
+    print('microbe----------------------------------------', microbe_dict['microbe'])
     C_for_growth = 0
     pool_change_dict = dict()
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
+        print('normalized stoch', normalized_stoich, 'reaction rate', actual_reaction_rate)      
         CUE = 0
         
         # für die C Quelle der jeweiligen Mikrobe wird die CUE aus dem dict geholt
@@ -287,13 +291,21 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
             growth_metabolized = CUE * total_metabolized # Anteil für growth von der Gesamtmenge
             
             C_for_growth = growth_metabolized * edu_dict['C_atoms'] # mikromol C für Wachstum aus der C_source
-        
+         
+            print('normalized reaction Rate', - normalized_stoich*actual_reaction_rate / (1-CUE), 'CUE', CUE)
     # wie viel der jeweiligen Edukte werden verbraucht, korrigiert nach CUE 
-        if - normalized_stoich*actual_reaction_rate / (1-CUE) < 1e-50:# damit der solver nicht crashed
-            pool_change_dict[educt] = 0 
+        if - normalized_stoich*actual_reaction_rate / (1-CUE) < 10e-50:# damit der solver nicht crashed
+            pool_change_dict[educt] = 0
+            print('no change added')
         else:
             pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
+            print('pool_change_dicht CUE', pool_change_dict[educt])
         
+        if 0.2582789989761911 < 1e-50 :
+            print(' This is true###############################')
+    # pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
+    # print('pool_change_dicht CUE', pool_change_dict[educt])
+    
     # wie viel der jeweiligen Produkte werden produziert, korrigiert nach CUE 
     for product, produ_dict in product_dict.items():
         normalized_stoich = produ_dict['Stoch']/Edu_Bezug_stoich # Produktion pro Reaktion 
@@ -472,7 +484,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
-
+    print('Fe pool change dict',pool_change_dict)
     
     return pool_change_dict
 

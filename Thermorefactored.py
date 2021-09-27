@@ -737,7 +737,7 @@ def run_my_model(specimens, Site = "all"):
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     fixed_quantities_dict['weight'] =  float(specimen_mass)
     fixed_quantities_dict['water'] = float(Realdata['water'])
-    fixed_quantities_dict['Acetate'] = 0.001                                      # to fill the initial Acetate pool manually
+    fixed_quantities_dict['Acetate'] = 0#1*1e-6                                    # to fill the initial Acetate pool manually
     #fixed_quantities_dict['H2O'] = 55508.43506179199 * fixed_quantities_dict['water']    # mikromol H2O in 1 ml Wasser * amount of water
     # specify Starting values
     initial_guess_dict = get_initial_guesses()
@@ -778,8 +778,8 @@ def run_my_model(specimens, Site = "all"):
                                 initial_pool_dict,
                                 optimal_model_parameters_dict)
  
-    for key in pool_value_dict:
-        print(key ,pool_value_dict[key])
+    #for key in pool_value_dict:
+       # print(key ,pool_value_dict[key])
 #=============================================================================
 #=====================================PLOTTING=================================
         
@@ -788,15 +788,23 @@ def run_my_model(specimens, Site = "all"):
     extra_curves = compute_extra_info( pool_value_dict, optimal_model_parameters_dict)
     pool_value_dict.update(extra_curves)
     
+
    # print('gibbs acetate',pool_value_dict['DGr_Ac kJ/mol'])
     
-    
+    plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
 #Plots of all pools individually    
     for k,v in pool_value_dict.items():
+        if k == 'Acetate_used':
+            continue
+        
         plt.figure()
-        plt.plot(all_days,v,'b-', linewidth = .5)
+        
+        plt.plot(all_days[1:],v[1:],'b-', linewidth = .5)
         plt.plot([0, max(all_days)], [0,0], 'k--', linewidth = .1)
         plt.ylabel(k)
+        
+        if k=='Acetate':
+            plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
 
 #Plots of all CO2 contributors in one plot            
     all_CO2_contributers = dict()
