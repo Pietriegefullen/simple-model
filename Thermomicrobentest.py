@@ -276,7 +276,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     pool_change_dict = dict()
     for educt, edu_dict in educt_dict.items():
         normalized_stoich = edu_dict['Stoch']/Edu_Bezug_stoich
-        print('normalized stoch', normalized_stoich, 'reaction rate', actual_reaction_rate)      
+        #print('normalized stoch', normalized_stoich, 'reaction rate', actual_reaction_rate)      
         CUE = 0
         
         # für die C Quelle der jeweiligen Mikrobe wird die CUE aus dem dict geholt
@@ -292,17 +292,15 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
             
             C_for_growth = growth_metabolized * edu_dict['C_atoms'] # mikromol C für Wachstum aus der C_source
          
-            print('normalized reaction Rate', - normalized_stoich*actual_reaction_rate / (1-CUE), 'CUE', CUE)
+            #print('normalized reaction Rate', - normalized_stoich*actual_reaction_rate / (1-CUE), 'CUE', CUE)
     # wie viel der jeweiligen Edukte werden verbraucht, korrigiert nach CUE 
-        if - normalized_stoich*actual_reaction_rate / (1-CUE) < 10e-50:# damit der solver nicht crashed
-            pool_change_dict[educt] = 0
-            print('no change added')
-        else:
-            pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
-            print('pool_change_dicht CUE', pool_change_dict[educt])
-        
-        if 0.2582789989761911 < 1e-50 :
-            print(' This is true###############################')
+        # if - normalized_stoich*actual_reaction_rate / (1-CUE) < -10e50:# damit der solver nicht crashed
+        #     pool_change_dict[educt] = 0
+        #     print('no change added')
+        # else:
+        #     pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
+        #     print('pool_change_dicht CUE', pool_change_dict[educt])
+        pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)       
     # pool_change_dict[educt] = - normalized_stoich*actual_reaction_rate / (1-CUE)
     # print('pool_change_dicht CUE', pool_change_dict[educt])
     
