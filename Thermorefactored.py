@@ -700,7 +700,7 @@ def fit_my_model(specimens, Site, opt):
             # initial_guess_array = [changeables_optimal_dict[key] for key in changeables_order]
    
         
-def run_my_model(specimens, Site = "all"):
+def run_my_model(specimens, Site = "all", plotting = "all"):
     """
     Das Model wird mit den vorgebenen Startwerten  OHNE OPTIMIERUNG laufen gelassen
     
@@ -789,99 +789,107 @@ def run_my_model(specimens, Site = "all"):
     pool_value_dict.update(extra_curves)
     
 
-   # print('gibbs acetate',pool_value_dict['DGr_Ac kJ/mol'])
+    # print('gibbs acetate',pool_value_dict['DGr_Ac kJ/mol'])
+    if plotting == 'all': 
+        plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
+    #Plots of all pools individually    
+        for k,v in pool_value_dict.items():
+            if k == 'Acetate_used':
+                continue
+            
+            plt.figure()
+            
+            plt.plot(all_days[1:],v[1:],'b-', linewidth = .5)
+            plt.plot([0, max(all_days)], [0,0], 'k--', linewidth = .1)
+            plt.ylabel(k)
+            
+            if k=='Acetate':
+                plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
     
-    plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
-#Plots of all pools individually    
-    for k,v in pool_value_dict.items():
-        if k == 'Acetate_used':
-            continue
+    #Plots of all CO2 contributors in one plot            
+        all_CO2_contributers = dict()
+        for pool_name, pool_curve in pool_value_dict.items():
+            if "CO2" in pool_name:
+                all_CO2_contributers[pool_name] = pool_curve
+        plt.figure()
+        for pool_name, pool_curve in all_CO2_contributers.items():
+            plt.plot( pool_curve, label= pool_name)
+        plt.legend()    
+            
+    #Plots of all CH4 contributors in one plot         
+        all_CH4_contributers = dict()
+        for pool_name, pool_curve in pool_value_dict.items():
+            if "CH4" in pool_name:
+                all_CH4_contributers[pool_name] = pool_curve
+        plt.figure()
+        for pool_name, pool_curve in all_CH4_contributers.items():
+            plt.plot( pool_curve, label= pool_name)
+        plt.legend()
+    #=============================================================================
+    
+    #plot of measured and predicted CO2 and CH4 in one plot    
+        plt.figure()
+        plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
+        plt.plot(pool_value_dict['CH4'])
+        plt.figure()
+        plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
+        plt.plot(pool_value_dict['CO2'])
+        
+    #=============================================================================
+    #=============================================================================
+    #=============================================================================
+        
+    #  Plot for important pools and Gibbs reacktion values on two axis 
+        
+        fig, ax1 = plt.subplots()
+        
+        ax1.plot(all_days[1:], pool_value_dict['CO2_Fe3'][1:], label = 'CO2_Fe3')
+        ax1.plot(all_days[1:], pool_value_dict['CO2_Ac'][1:], label = 'CO2_Ac')
+        ax1.plot(all_days[1:], pool_value_dict['Acetate'][1:], label = 'Acetate')
+        ax1.plot(all_days[1:], pool_value_dict['DOC'][1:], label = 'DOC')
+        ax1.plot(all_days, np.repeat(0, len(all_days)), 'b--')
+        ax2 = ax1.twinx()
+        ax2.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
+        ax2.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
+        ax2.plot(all_days, np.repeat(0, len(all_days)), 'b--')
+        fig.tight_layout()
+        ax1.legend()
+        ax2.legend()
+      
+    # plots für die Gibbs reactionsenergien    
+        plt.figure()
+        plt.plot(all_days[1:], pool_value_dict['DGr_Homo kJ/mol'][1:], 'lime', label = 'DGr_Homo kJ/mol')
+        plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
+        plt.legend()
         
         plt.figure()
+        plt.plot(all_days[1:], pool_value_dict['DGr_Hydro kJ/mol'][1:], 'lime', label = 'DGr_Hydro kJ/mol')
+        plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
+        plt.legend()
         
-        plt.plot(all_days[1:],v[1:],'b-', linewidth = .5)
-        plt.plot([0, max(all_days)], [0,0], 'k--', linewidth = .1)
-        plt.ylabel(k)
-        
-        if k=='Acetate':
-            plt.plot(all_days[1:],pool_value_dict['Acetate_used'][1:], 'chocolate')
-
-#Plots of all CO2 contributors in one plot            
-    all_CO2_contributers = dict()
-    for pool_name, pool_curve in pool_value_dict.items():
-        if "CO2" in pool_name:
-            all_CO2_contributers[pool_name] = pool_curve
-    plt.figure()
-    for pool_name, pool_curve in all_CO2_contributers.items():
-        plt.plot( pool_curve, label= pool_name)
-    plt.legend()    
-        
-#Plots of all CH4 contributors in one plot         
-    all_CH4_contributers = dict()
-    for pool_name, pool_curve in pool_value_dict.items():
-        if "CH4" in pool_name:
-            all_CH4_contributers[pool_name] = pool_curve
-    plt.figure()
-    for pool_name, pool_curve in all_CH4_contributers.items():
-        plt.plot( pool_curve, label= pool_name)
-    plt.legend()
-#=============================================================================
-
-#plot of measured and predicted CO2 and CH4 in one plot    
-    plt.figure()
-    plt.plot( Realdata['measured_time'],Realdata['CH4'],'ro')
-    plt.plot(pool_value_dict['CH4'])
-    plt.figure()
-    plt.plot( Realdata['measured_time'], Realdata['CO2'],'bo')
-    plt.plot(pool_value_dict['CO2'])
+        plt.figure()
+        plt.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
+        plt.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
+        plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
+        plt.legend()
+    ##=============================================================================
     
-#=============================================================================
-#=============================================================================
-#=============================================================================
+    #=============================================================================
     
-#  Plot for important pools and Gibbs reacktion values on two axis 
+        plt.figure()
+        plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
+        plt.plot(pool_value_dict['CH4'], 'r-')
+        plt.plot( Realdata['measured_time'], Realdata['CO2'],'b.')
+        plt.plot(pool_value_dict['CO2'], 'b-')
+    else:
+       
+        #=============================================================================
     
-    fig, ax1 = plt.subplots()
-    
-    ax1.plot(all_days[1:], pool_value_dict['CO2_Fe3'][1:], label = 'CO2_Fe3')
-    ax1.plot(all_days[1:], pool_value_dict['CO2_Ac'][1:], label = 'CO2_Ac')
-    ax1.plot(all_days[1:], pool_value_dict['Acetate'][1:], label = 'Acetate')
-    ax1.plot(all_days[1:], pool_value_dict['DOC'][1:], label = 'DOC')
-    ax1.plot(all_days, np.repeat(0, len(all_days)), 'b--')
-    ax2 = ax1.twinx()
-    ax2.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
-    ax2.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
-    ax2.plot(all_days, np.repeat(0, len(all_days)), 'b--')
-    fig.tight_layout()
-    ax1.legend()
-    ax2.legend()
-  
-# plots für die Gibbs reactionsenergien    
-    plt.figure()
-    plt.plot(all_days[1:], pool_value_dict['DGr_Homo kJ/mol'][1:], 'lime', label = 'DGr_Homo kJ/mol')
-    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
-    plt.legend()
-    
-    plt.figure()
-    plt.plot(all_days[1:], pool_value_dict['DGr_Hydro kJ/mol'][1:], 'lime', label = 'DGr_Hydro kJ/mol')
-    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
-    plt.legend()
-    
-    plt.figure()
-    plt.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
-    plt.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
-    plt.plot(all_days, np.repeat(0, len(all_days)), 'k--')
-    plt.legend()
-###=============================================================================
-
-#=============================================================================
-
-    plt.figure()
-    plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
-    plt.plot(pool_value_dict['CH4'], 'r-')
-    plt.plot( Realdata['measured_time'], Realdata['CO2'],'b.')
-    plt.plot(pool_value_dict['CO2'], 'b-')
-   
+        plt.figure()
+        plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
+        plt.plot(pool_value_dict['CH4'], 'r-')
+        plt.plot( Realdata['measured_time'], Realdata['CO2'],'b.')
+        plt.plot(pool_value_dict['CO2'], 'b-')
    
 
 if __name__ == '__main__':
@@ -913,7 +921,8 @@ if __name__ == '__main__':
     
     #fit_my_model(specimens, Site = "all", opt = 'Hopper')
     
-    run_my_model(specimens, Site = "all")
+    
+    run_my_model(specimens, Site = "all", plotting = "all")
 
 #%%
 

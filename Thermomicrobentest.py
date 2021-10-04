@@ -213,16 +213,19 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 #------------------------------Berechnung thermodynamischer Faktor aller Pathways----------------------------------------------
 #---------------------------und Berechnung des Biomassefaktors für alle Pathways   ------------------------------------------
     DGr_Ausgabe = 0
+    thermodynamic_factor_ferm = 0
     Biomass = microbe_dict['concentration'] # Mikrobielle Biomasse in mg Mikrobielles C /gdw
     if 'Ferm' in microbe_dict and microbe_dict['Ferm']==True:
         # Berechnung für den endoenzymatischen Prozess der Fermentation 
-        thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict)  
+        thermodynamic_factor_ferm = thermodynamics_Ferm(product_dict, microbe_dict)  
+        #print('thermodynamic_factor_Ferm', thermodynamic_factor_ferm)
         # Die Ferm folgt einer simplen Acetate-Hemmung ohne genaue Angaben
         MMB = Biomass  if Biomass > 0 else 0 #keine Enyzmlimitierung
 
     elif 'Ferm_help' in microbe_dict and microbe_dict['Ferm_help']==True:
         # Die Berechnung für den exoenzymatischen Prozess der Fermentation 
         thermodynamic_factor = 1.0
+        thermodynamic_factor_ferm = 1.0
         MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 # Inverse MM
         # Die Biomasse dient als Proxi für die Limitierung an Exoenzymen
 
@@ -230,6 +233,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Die Berechnung für alle Pathways außer Ferm 
         
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
+        thermodynamic_factor_ferm = 1
         #print('Thermofacktor',thermodynamic_factor)
         #print('DRG ausgabe', DGr_Ausgabe)
         #print(microbe_dict['microbe'], DGr_Ausgabe)
@@ -240,7 +244,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
              
     Vmax = microbe_dict['Vmax'] # die Maximale Rate, wenn alle Umweltumstände ideal sind    
 #-------------------------------------------------------------------------------------------------------------            
-    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
+    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor_ferm # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
 #-------------------------------------------------------------------------------------------------------------    
    
 #-----------------------------Berechnung der Stoffumsatzmengen abhänging von V und der Stoichiometrie------------------
@@ -271,7 +275,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 #-------------------------------------------------------------------------------------------------------    
 
 #-----------------------------Berechnung mit der Carbon use efficiency------------------------------------------------      
-    print('microbe----------------------------------------', microbe_dict['microbe'])
+    #print('microbe----------------------------------------', microbe_dict['microbe'])
     C_for_growth = 0
     pool_change_dict = dict()
     for educt, edu_dict in educt_dict.items():
@@ -402,7 +406,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 #------------------------------------------------------------------------------------------------------------                                       
     
     product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
-                                  'Stoch'        : 6               }  ,
+                                  'Stoch'        : 6              }  ,
                     
                      'CO2'      : {'concentration': dissolved_CO2_total,
                                    'Stoch'        : 3              }  , 
@@ -482,7 +486,7 @@ def Fe3_Pathway(pool_dict,model_parameter_dict):
     
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Fe3'] = pool_change_dict.pop('biomass')
-    print('Fe pool change dict',pool_change_dict)
+    #print('Fe pool change dict',pool_change_dict)
     
     return pool_change_dict
 
