@@ -737,7 +737,8 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
     fixed_quantities_dict['pH'] = Realdata['pH (H2O)'][0]
     fixed_quantities_dict['weight'] =  float(specimen_mass)
     fixed_quantities_dict['water'] = float(Realdata['water'])
-    fixed_quantities_dict['Acetate'] = 0#1*1e-6                                    # to fill the initial Acetate pool manually
+    # fixed_quantities_dict['Acetate'] = 1e-30                                    # to fill the initial Acetate pool manually
+    # fixed_quantities_dict['H2'] = 1e-30                                    # to fill the initial Acetate pool manually
     #fixed_quantities_dict['H2O'] = 55508.43506179199 * fixed_quantities_dict['water']    # mikromol H2O in 1 ml Wasser * amount of water
     # specify Starting values
     initial_guess_dict = get_initial_guesses()

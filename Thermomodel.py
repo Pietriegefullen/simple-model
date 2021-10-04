@@ -12,9 +12,10 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         
     def Cdec(t, system_state):
         pool_dict = dict(zip(pool_order, system_state))
+        #print('ACETAET WERTE', pool_dict['Acetate'])
         
-        #safeguard to prevent negative pools
-        pool_dict = {k: v if v > 0 else 0  for k,v in pool_dict.items()}
+        #safeguard to prevent negative and zero pools
+        pool_dict = {k: v if v > 0 else 1e-30  for k,v in pool_dict.items()}
         
 #---------------- Aufrur der einzelnen Mikroben -------------------------------        
      

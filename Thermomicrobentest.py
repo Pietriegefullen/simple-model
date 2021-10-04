@@ -54,6 +54,7 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
 
     # TODO hier haben wir keine Temperaturabhängigkeit
     KmA = microbe_dict['KmA_Ferm']
+   # print( '1- Acetate/(KmA + Acetate)', 1- Acetate/(KmA + Acetate))
 
     
     return 1- Acetate/(KmA + Acetate)
@@ -70,8 +71,8 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     log_Q_educts = 0.
     for name, educt in educt_dict.items():
         # Berechnung von Q_educts  für den Reaction quotient Q 
-        if educt['concentration'] <= 0:
-            return 0, 200000
+        # if educt['concentration'] <= 0:
+        #     educt['concentration'] = 1e-30 # eine ganz kleine Menge, weil log(0) nicht definiert ist.
         
         stoich = educt['Stoch']
         DGf_educt += stoich*Gibbs_formation[name] # zur Berechnung von DGs
@@ -84,22 +85,10 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
         # Berechnung von Q_products  für den Reaction quotient Q 
         stoich = product['Stoch']
         DGf_product += stoich*Gibbs_formation[name]# zur Berechnung von DGs
-        if product['concentration'] <= 0:
-            continue
+        # if product['concentration'] <= 0:
+        #     product['concentration'] = 1e-30 # siehe oben bei educts
         log_Q_products += stoich*np.log(1e-6*product['concentration'])        # concentration must be MOL, Zur Berechnung von DGr
      #--------------------------   
-    
-    
-    # if Q_educts <= 0:#<= 1e-30 or Q_products > 1e30:
-    #   #falls ein edukt fehlt, kann die Reaktion nicht stattfinden und der thermofactor muss 0 sein
-    #    return 0.0, 310000000.0 # 110000000.0  random wert der im plot auffallen soll
-   
-    # if Q_products <=0 : #<= 1e-30 or Q_educts > 1e30:
-    #     #TODO falls ein Produkt fehlt, liegt das Gewicht sehr weit rechts und die Reaktion ist ungehemmt. 
-    #     return 1.0, 100000000.0 # 110000000.0  random wert der im plot auffallen soll
-  
-  
-    #--------------------------   
     
     # if 'H2O' in educt_dict:
     #     print(educt_dict['H2O']['concentration'])
@@ -110,11 +99,6 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     
     R = 8.31446261815324 	   # in J⋅K−1⋅mol−1, Gaskonstante ,Einheit passt zur DGmin
     #T  ist global definiert
-    
-    # if Q_educts >1:
-    #     Q_educts = 1
-    # if Q_products <1:
-    #     Q_products = 1    
     
     log_Q = log_Q_products - log_Q_educts
     
@@ -127,13 +111,12 @@ def thermodynamics(educt_dict, product_dict, microbe_dict):
     # -26 kJ/mol *1e3
     # => DGmin hat Einheit J/mol
     
-    
     if DGr >= DGmin: # wenn keine Energie gewonnen wird findet die Reaktion nicht statt
         #print(microbe_dict['microbe'],'not enough energy for the reaction, return 0', DGr - DGmin)
         return 0, DGr# 20#0.0, DGr
     
     #print(microbe_dict['microbe'], 'reaction can proceed', DGr, DGmin)
-    # print('DGr', 1 - np.exp((DGr - DGmin)/(R*T)))
+    #print('DGr', 1 - np.exp((DGr - DGmin)/(R*T)), microbe_dict['microbe'])
     # print('DGr', (DGr - DGmin)/(R*T))
     return  1 - np.exp((DGr - DGmin)/(R*T)) , DGr# - DGmin # DGr_Ausgabe nur fürs plotting
    #return 1, -100000
@@ -182,13 +165,15 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
     """
     
-    for educt, edu_dict in educt_dict.items():  
+  
+    # for educt, edu_dict in educt_dict.items():  
         # Falls ein Edukt < 0 ist wird ein leeres Dict zurückgegeben,
         # weil die Reaktion nicht stattfindet, alle changes sind 0
         
-        if edu_dict['concentration'] <= 0:
-            #print(educt, "empty")
-            return dict()
+        #print(educt, edu_dict['concentration'])
+        # if edu_dict['concentration'] <= 0:
+        #     #print(educt, "empty")
+        #     return dict()
     
 #--------------- Alle Edukte die INNERHALB einer Mikrobe enzymatisch aufgespalten werden folgen MM----------------
     
@@ -213,19 +198,18 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 #------------------------------Berechnung thermodynamischer Faktor aller Pathways----------------------------------------------
 #---------------------------und Berechnung des Biomassefaktors für alle Pathways   ------------------------------------------
     DGr_Ausgabe = 0
-    thermodynamic_factor_ferm = 0
     Biomass = microbe_dict['concentration'] # Mikrobielle Biomasse in mg Mikrobielles C /gdw
     if 'Ferm' in microbe_dict and microbe_dict['Ferm']==True:
         # Berechnung für den endoenzymatischen Prozess der Fermentation 
-        thermodynamic_factor_ferm = thermodynamics_Ferm(product_dict, microbe_dict)  
-        #print('thermodynamic_factor_Ferm', thermodynamic_factor_ferm)
+        thermodynamic_factor = thermodynamics_Ferm(product_dict, microbe_dict)  
+        #print('thermodynamic_factor_Ferm', thermodynamic_factor)
         # Die Ferm folgt einer simplen Acetate-Hemmung ohne genaue Angaben
         MMB = Biomass  if Biomass > 0 else 0 #keine Enyzmlimitierung
 
     elif 'Ferm_help' in microbe_dict and microbe_dict['Ferm_help']==True:
         # Die Berechnung für den exoenzymatischen Prozess der Fermentation 
         thermodynamic_factor = 1.0
-        thermodynamic_factor_ferm = 1.0
+
         MMB = Biomass / (microbe_dict['Kmb'] + Biomass)  if Biomass > 0 else 0 # Inverse MM
         # Die Biomasse dient als Proxi für die Limitierung an Exoenzymen
 
@@ -233,7 +217,10 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
         # Die Berechnung für alle Pathways außer Ferm 
         
         thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
-        thermodynamic_factor_ferm = 1
+        # emtpy_dict =[0,0]
+        # emtpy_dict.append([thermodynamic_factor, microbe_dict['microbe']])
+        # print(emtpy_dict[0:10])
+        
         #print('Thermofacktor',thermodynamic_factor)
         #print('DRG ausgabe', DGr_Ausgabe)
         #print(microbe_dict['microbe'], DGr_Ausgabe)
@@ -244,7 +231,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
              
     Vmax = microbe_dict['Vmax'] # die Maximale Rate, wenn alle Umweltumstände ideal sind    
 #-------------------------------------------------------------------------------------------------------------            
-    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor_ferm# die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
+    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
 #-------------------------------------------------------------------------------------------------------------    
    
 #-----------------------------Berechnung der Stoffumsatzmengen abhänging von V und der Stoichiometrie------------------
