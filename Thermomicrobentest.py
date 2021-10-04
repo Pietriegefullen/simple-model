@@ -244,7 +244,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
              
     Vmax = microbe_dict['Vmax'] # die Maximale Rate, wenn alle Umweltumstände ideal sind    
 #-------------------------------------------------------------------------------------------------------------            
-    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor_ferm # die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
+    V = Vmax * MM_factors_total  * MMB * thermodynamic_factor_ferm# die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
 #-------------------------------------------------------------------------------------------------------------    
    
 #-----------------------------Berechnung der Stoffumsatzmengen abhänging von V und der Stoichiometrie------------------
@@ -406,7 +406,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 #------------------------------------------------------------------------------------------------------------                                       
     
     product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
-                                  'Stoch'        : 12              }  ,
+                                  'Stoch'        : 6             }  ,
                     
                      'CO2'      : {'concentration': dissolved_CO2_total,
                                    'Stoch'        : 3              }  , 
