@@ -406,7 +406,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
 #------------------------------------------------------------------------------------------------------------                                       
     
     product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
-                                  'Stoch'        : 6              }  ,
+                                  'Stoch'        : 12              }  ,
                     
                      'CO2'      : {'concentration': dissolved_CO2_total,
                                    'Stoch'        : 3              }  , 
