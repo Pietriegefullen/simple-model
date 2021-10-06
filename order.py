@@ -154,9 +154,9 @@ def get_initial_guesses():
     initial_guess_dict['Sensenmann'] =      (8.33e-5, 0, 8.44e-5)# 0
     initial_guess_dict['Kmb_help_Ferm'] =   (0.009,    0.5,  10)      # 10
     # initial_guess_dict['Kmh_Ferm'] =        (10,    1,  10)    # 10
-    initial_guess_dict['Fe3'] =             (20,  0,  100)    # 15.587,
+    initial_guess_dict['Fe3'] =             (0.20,  0,  100)    # 15.587,
     initial_guess_dict['M_Ac'] =            (0.0002,  1.3e-08,  5e05) # 0.002
-    initial_guess_dict['KmA_Ferm']=         (0.8, 0.001, 20)     # 17.315 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+    initial_guess_dict['KmA_Ferm']=         (3.5, 0.001, 20)     # 17.315 # Diese Boundaries müssen anhander Acetatekurven angepasst werden
 
     return(initial_guess_dict)
 
