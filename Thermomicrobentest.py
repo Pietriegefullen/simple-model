@@ -399,7 +399,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                                    'Stoch'        : 3              }  , 
                          
                       'H2'     : {'concentration': dissolved_H2   ,
-                                  'Stoch'        : 1             }}
+                                  'Stoch'        : 6             }}             # die 6 kommt aus Gesprächen von Christian und Christian
                                                                   
    
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ferm')
@@ -631,4 +631,55 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     
     return pool_change_dict
 
+def Nit_Pathway(pool_dict,model_parameter_dict):
+    #PATHWAY:  CH3COO + H+ ->  CH4 + CO2 Fe3y_Conrad2000
+    #CH3COO (aq) + H+ (aq) ->CO2 (aq) + CH4 (aq), beer2007transport
 
+    microbe_dict = {'concentration' : pool_dict['M_Nit'], 
+                    'Vmax'          : model_parameter_dict['Vmax_Nit'],  
+                    'death_rate'    : model_parameter_dict['Sensenmann'],
+                    'microbe'       : 'M_Nit',
+                    'CUE'           :  0.5,
+                    'C_source'      :  '????'}
+                      #'DGs'        : 48 }
+                      
+#-------------------- include pH ----------------------------------------------------------------------------
+    H_plus = H_plus_funk(pool_dict)
+                   
+#-------------------------------------------------------------------------------------------------------------     
+      
+    
+    educt_dict = { 'Acetate' : {'concentration': pool_dict['Acetate']   ,
+                                'Stoch'        :  1                     ,
+                                 #'DGf'         : -396.46*1e3            ,# -369.31
+                                 'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
+                                 'C_atoms'      : 2                 },#}#,
+                  
+                    'H_plus'        : {'concentration': H_plus   ,
+                                    'Stoch'        :  1                     ,
+                                      'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
+    
+    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
+    H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
+    
+    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 + 1))
+    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4 + 1))
+    
+                     
+    product_dict = { 'CH4' : {'concentration': dissolved_CH4, 
+                              'Stoch'        : 1               ,
+                             # 'DGf'          : -50.8*1e3          },           # wert aus Vaxa
+                                                                 },
+                    
+                     'CO2' : {'concentration': dissolved_CO2,
+                              'Stoch'        : 1               ,
+                              #'DGf'          :-394.36*1e3         } }
+                                                                 }}
+    
+    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Nit')
+    
+    if 'biomass' in pool_change_dict:
+        pool_change_dict['M_Nit'] = pool_change_dict.pop('biomass')
+
+    
+    return pool_change_dict

@@ -213,8 +213,16 @@ def load_matlab():
             del superdata_mit_Fe3[key]        
     
     #print(superdata_Kuru['13510']['First_Carex_index'])
-    
-    
+    for i in replica_list_superdata_2021_all: 
+        print('ratio plot',i)
+        plt.figure()
+        np.seterr(divide='ignore') # ignoriert durch 0 teilen
+        
+        CH4 = [x - y for x, y in zip(superdata_2021_all[i]['CH4'], superdata_2021_all[i]['CH4'][1:])]
+        CO2 = [x - y for x, y in zip(superdata_2021_all[i]['CO2'], superdata_2021_all[i]['CO2'][1:])]
+        
+        Ratio = [h/o for h, o in zip(CH4, CO2)]
+        plt.plot(superdata_2021_all[i]['measured_time'][1:],Ratio)
                 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
 
@@ -560,7 +568,7 @@ def fit_my_model(specimens, Site, opt):
     
     """
     
-    plt.close('all')
+    #plt.close('all')
 #-----------------------------laden der Daten ---------------------------------
     
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
@@ -705,7 +713,7 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
     Das Model wird mit den vorgebenen Startwerten  OHNE OPTIMIERUNG laufen gelassen
     
     """
-    plt.close('all')
+    #plt.close('all')
 
 #-----------------------------laden der Daten ---------------------------------
 
@@ -885,7 +893,7 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
     else:
        
         #=============================================================================
-    
+        print('me is plotting')
         plt.figure()
         plt.plot( Realdata['measured_time'],Realdata['CH4'],'r.')
         plt.plot(pool_value_dict['CH4'], 'r-')
@@ -912,18 +920,20 @@ if __name__ == '__main__':
 
 
     #specimenlistmax = [*range(0, 35, 1)]
-    #specimenlist_all= [i for i in range(34)]  # Site= "all"
+    specimenlist_all= list(range(34))  # Site= "all"
     #specimenlist_Sam= [i for i in range(18)]  # Site = "S"
     #specimenlist_Kuru= [i for i in range(16)] # Site = "K" 
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
-    specimens = [8]
-    
+    #specimens = [16]
+    #run_my_model(specimens, Site = "all", plotting = "al")
     #fit_my_model(specimens, Site = "all", opt = 'Hopper')
     
-    
-    run_my_model(specimens, Site = "all", plotting = "all")
+    for i in list(range(3)):
+        specimens = [i]
+        print(specimens)
+        run_my_model(specimens, Site = "all", plotting = "al")
 
 #%%
 
