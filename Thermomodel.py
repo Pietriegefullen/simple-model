@@ -45,6 +45,8 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                 
         #HYDRO HYDRO HYDRO HYDRO,                                              Pathway: 4H2 + CO2 ---> CH4 + 2H2O, conrad2000selective, Fe3nchel -131kj/mol
         pool_change_dict_Hydro =  Hydro_Pathway(pool_dict, model_parameter_dict)
+        #for pool, change in pool_change_dict_Hydro.items(): 
+        #    print(pool, change , "pool change")
       
         # HOMO HOMO HOMO HOMO HOMO:,                                           Pathway: 4H2 + 2CO2 ---> CH3COOH + 2H2O  conrad2000selective
         pool_change_dict_Homo = Homo_Pathway(pool_dict, model_parameter_dict)        
@@ -65,10 +67,13 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         changes_dict = dict()
        # Aufsummieren der Gesamtpooländerungen
         for pathway_change_dict in pool_change_dict_list:
+            #print('pathway_change_dict',pathway_change_dict)
             for pool, change in pathway_change_dict.items():
+                #print(pool, change , "pool change")
                 if not pool in changes_dict:
                     changes_dict[pool] = 0.0 # wenn der Pool nicht im changes_dict ist wird 0 addiert
                 changes_dict[pool] += change # ansonsten wird die Änderung addiert
+        #print(changes_dict["CH4"], "CH4")
           
               
         # Check, dass nicht mehr aus dem Pool geholt wird als drin ist

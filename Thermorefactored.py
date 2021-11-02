@@ -972,7 +972,7 @@ if __name__ == '__main__':
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
     specimens = [9]
-    run_my_model(specimens, Site = "all", plotting = "all")
+    run_my_model(specimens, Site = "all", plotting = "al")
    # fit_my_model(specimens, Site = "all", opt = 'Min')
     
     # for i in list(range(3)):
