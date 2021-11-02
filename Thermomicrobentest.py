@@ -51,13 +51,14 @@ def thermodynamics_Ferm(product_dict, microbe_dict):
     # ist also gleichgesetzt mit dem Abbau des acetate und die Hemmung ist deshalb der inverse abbau von Acetate
 
     Acetate = product_dict['Acetate']['concentration']
+    #TODO je niedriger der pH (je weiter unter 7.4 (dem zellinneren))desto stärker die Hemmung durch Acetate pinhal2019acetate
 
     # TODO hier haben wir keine Temperaturabhängigkeit
-    KmA = microbe_dict['KmA_Ferm']
-   # print( '1- Acetate/(KmA + Acetate)', 1- Acetate/(KmA + Acetate))
+    Inhibition = microbe_dict['Inhibition_Ferm']
+   # print( '1- Acetate/(Inhibition + Acetate)', 1- Acetate/(KmA + Acetate))
 
     
-    return 1- Acetate/(KmA + Acetate)
+    return 1- Acetate/(Inhibition + Acetate) # als gegengleichung zu pinhal2019acetate so-called inhibition index (i)
 
 def thermodynamics(educt_dict, product_dict, microbe_dict):
     # die Berechnung des Thermodynamischen Faktors für alle Mikroben, die klare Edukte und Produkte haben
@@ -215,8 +216,9 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
     else:
         # Die Berechnung für alle Pathways außer Ferm 
-        
-        thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
+        # HIER STELLEN WIR DIE THERMODYNAMIK AN ODER AUS
+        #thermodynamic_factor, DGr_Ausgabe = thermodynamics(educt_dict, product_dict, microbe_dict)
+        thermodynamic_factor = 1
         # emtpy_dict =[0,0]
         # emtpy_dict.append([thermodynamic_factor, microbe_dict['microbe']])
         # print(emtpy_dict[0:10])
@@ -232,6 +234,20 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     Vmax = microbe_dict['Vmax'] # die Maximale Rate, wenn alle Umweltumstände ideal sind    
 #-------------------------------------------------------------------------------------------------------------            
     V = Vmax * MM_factors_total  * MMB * thermodynamic_factor# die tatsächliche Stoffwechselrate, gegeben die termodynamischen und kinetischen Hindernisse
+    #V_Term = Vmax * MM_factors_total  * MMB * thermodynamic_factor
+    #V_diff = V- V_Term
+    
+    
+    
+    #if V < 9.123722564801337e-32 and microbe_dict["microbe"] == "M_Fe3":
+     #   V= 0
+    #print(microbe_dict["microbe"],"V-diff", V_diff)
+    
+   # print("V", microbe_dict["microbe"], V)
+    #print("V_Term", microbe_dict["microbe"], V_Term)
+    
+   
+    
 #-------------------------------------------------------------------------------------------------------------    
    
 #-----------------------------Berechnung der Stoffumsatzmengen abhänging von V und der Stoichiometrie------------------
@@ -298,7 +314,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     # wie viel der jeweiligen Produkte werden produziert, korrigiert nach CUE 
     for product, produ_dict in product_dict.items():
         normalized_stoich = produ_dict['Stoch']/Edu_Bezug_stoich # Produktion pro Reaktion 
-        if normalized_stoich*actual_reaction_rate < 1e-50: # damit der solver nicht crashed
+        if normalized_stoich*actual_reaction_rate < 1e-30: # damit der solver nicht crashed
             pool_change_dict[product] = 0
         else:
             pool_change_dict[product] = normalized_stoich*actual_reaction_rate # Tatsächliche Produktion 
@@ -313,6 +329,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     # das Gewicht der toten Mikroben geht ab, währen alles C_for_growth als Gewicht hinzukommt. Keine w_growth mehr
     # w_growth geht sozusagen über CUE ein 
     pool_change_dict['biomass'] = biomass_change
+    pool_change_dict['V'] = V
     
 #-------------------------------------------------------------------------------------------------------    
  
@@ -365,7 +382,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     microbe_dict = {'concentration' : pool_dict['M_Ferm'], 
                     'Vmax'          : model_parameter_dict['Vmax_Ferm'], 
                     'death_rate'    : model_parameter_dict['Sensenmann'],
-                    'KmA_Ferm'      : model_parameter_dict['KmA_Ferm'],        # MM Faktor für die Acetatehemmung
+                    'Inhibition_Ferm': model_parameter_dict['Inhibition_Ferm'],        # MM Faktor für die Acetatehemmung
                     'Ferm'          : True,
                     'microbe'       : "Ferm" ,
                     'CUE'           :   0.5,
@@ -391,12 +408,14 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     dissolved_CO2_total = dissolved_CO2 + HCO3
     
 #------------------------------------------------------------------------------------------------------------                                       
-    
+    #laut Grant A :6 , CO2:3, H2 : 1
+    #laut Knoblauch A :6 , CO2:3, H2 : 6
+    #laut mir DOC = A: 7 ,CO2 :6 H2:12 (teile durch 2 weil dann näher am Grant verhältnis)
     product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
-                                  'Stoch'        : 6             }  ,
+                                  'Stoch'        : 3.5             }  ,
                     
                      'CO2'      : {'concentration': dissolved_CO2_total,
-                                   'Stoch'        : 3              }  , 
+                                   'Stoch'        :  3            }  , 
                          
                       'H2'     : {'concentration': dissolved_H2   ,
                                   'Stoch'        : 6             }}             # die 6 kommt aus Gesprächen von Christian und Christian
@@ -631,55 +650,3 @@ def Ac_Pathway(pool_dict,model_parameter_dict):
     
     return pool_change_dict
 
-def Nit_Pathway(pool_dict,model_parameter_dict):
-    #PATHWAY:  CH3COO + H+ ->  CH4 + CO2 Fe3y_Conrad2000
-    #CH3COO (aq) + H+ (aq) ->CO2 (aq) + CH4 (aq), beer2007transport
-
-    microbe_dict = {'concentration' : pool_dict['M_Nit'], 
-                    'Vmax'          : model_parameter_dict['Vmax_Nit'],  
-                    'death_rate'    : model_parameter_dict['Sensenmann'],
-                    'microbe'       : 'M_Nit',
-                    'CUE'           :  0.5,
-                    'C_source'      :  '????'}
-                      #'DGs'        : 48 }
-                      
-#-------------------- include pH ----------------------------------------------------------------------------
-    H_plus = H_plus_funk(pool_dict)
-                   
-#-------------------------------------------------------------------------------------------------------------     
-      
-    
-    educt_dict = { 'Acetate' : {'concentration': pool_dict['Acetate']   ,
-                                'Stoch'        :  1                     ,
-                                 #'DGf'         : -396.46*1e3            ,# -369.31
-                                 'Km'          :  0.2 / SOIL_DENSITY   ,      #0.05 / SOIL_DENSITY   # 0.05 from song, Wert sollte 10 mal höher sein als bei AltE laut roden2003 bei 12Mikromol !!!!
-                                 'C_atoms'      : 2                 },#}#,
-                  
-                    'H_plus'        : {'concentration': H_plus   ,
-                                    'Stoch'        :  1                     ,
-                                      'Km'          :  0.2 / SOIL_DENSITY  }} # ohne grund 0.2
-    
-    H_cc_CO2 = henrys_law(Henrys_dict['CO2']['H_cp_Standard'], Henrys_dict['CO2']['H_cp_temp'])
-    H_cc_CH4 = henrys_law(Henrys_dict['CH4']['H_cp_Standard'], Henrys_dict['CH4']['H_cp_temp'])
-    
-    dissolved_CO2 = pool_dict['CO2']*(H_cc_CO2/ (H_cc_CO2 + 1))
-    dissolved_CH4 = pool_dict['CH4']*(H_cc_CH4/ (H_cc_CH4 + 1))
-    
-                     
-    product_dict = { 'CH4' : {'concentration': dissolved_CH4, 
-                              'Stoch'        : 1               ,
-                             # 'DGf'          : -50.8*1e3          },           # wert aus Vaxa
-                                                                 },
-                    
-                     'CO2' : {'concentration': dissolved_CO2,
-                              'Stoch'        : 1               ,
-                              #'DGf'          :-394.36*1e3         } }
-                                                                 }}
-    
-    pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Nit')
-    
-    if 'biomass' in pool_change_dict:
-        pool_change_dict['M_Nit'] = pool_change_dict.pop('biomass')
-
-    
-    return pool_change_dict

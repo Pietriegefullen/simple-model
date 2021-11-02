@@ -32,7 +32,7 @@ scaling_factors = {
             'Fe3':           0.1,
             'M_Ac':         10000,
             #'Kmb_Homo' :    0.1,
-            'KmA_Ferm':     100,
+            'Inhibition_Ferm':     100,
         }
 scaling_factors = {k:v*1. for k,v in scaling_factors.items()}
 

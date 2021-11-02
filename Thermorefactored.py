@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 
 import scipy
 from scipy import optimize
+import scipy.signal
 from scipy.optimize import basinhopping
 from scipy.optimize import curve_fit
 import scipy.integrate as integ
@@ -213,19 +214,60 @@ def load_matlab():
             del superdata_mit_Fe3[key]        
     
     #print(superdata_Kuru['13510']['First_Carex_index'])
-    for i in replica_list_superdata_2021_all: 
-        print('ratio plot',i)
-        plt.figure()
-        np.seterr(divide='ignore') # ignoriert durch 0 teilen
+     
         
-        CH4 = [x - y for x, y in zip(superdata_2021_all[i]['CH4'], superdata_2021_all[i]['CH4'][1:])]
-        CO2 = [x - y for x, y in zip(superdata_2021_all[i]['CO2'], superdata_2021_all[i]['CO2'][1:])]
-        
-        Ratio = [h/o for h, o in zip(CH4, CO2)]
-        plt.plot(superdata_2021_all[i]['measured_time'][1:],Ratio)
-                
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
 
+def plot_the_ratio():
+    
+    superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+
+     # plot forthe Ratio between CH4 and CO2 for all sites. 
+    for i in replica_list_superdata_2021_all: 
+
+        plt.figure()
+        np.seterr(divide='ignore') # ignoriert durch 0 teile
+        
+                
+        # smoothen der CH4 und Co2 messung
+        CH4_smooth = scipy.signal.savgol_filter(superdata_2021_all[i]['CH4'][:],window_length=3, polyorder=2) # window size 51, polynomial order 3
+        CO2_smooth = scipy.signal.savgol_filter(superdata_2021_all[i]['CO2'][:],window_length=3, polyorder=2) # window size 51, polynomial order 3
+        # die differenz zwischen den gesmoothen orginaldaten, gibt die produktion zwischen zwei tagen
+        CH4_smooth_diff= CH4_smooth[1:]-CH4_smooth[:-1]
+        CO2_smooth_diff= CO2_smooth[1:]-CO2_smooth[:-1]
+        #ratio der gesmoothen orginaldaten
+        Smoothed_CH4_CO2 = CH4_smooth_diff/CO2_smooth_diff
+        
+        
+        # differenz zwischen den orginaldaten, gibt die produktion zwischen zwei tagen (ungesmoothed)
+        CH4_diff = superdata_2021_all[i]['CH4'][1:]-superdata_2021_all[i]['CH4'][:-1]
+        CO2_diff = superdata_2021_all[i]['CO2'][1:]-superdata_2021_all[i]['CO2'][:-1]
+        # ratio der ungesmoothed daten
+        Ratio = CH4_diff/CO2_diff
+        #print(np.round(Ratio))
+        #smoothen des Ratios
+        Smoothed_ratio = scipy.signal.savgol_filter(Ratio,window_length=7, polyorder=3)#
+        #print(np.round(Smoothed_ratio), 3)
+        
+        #Anteil CH4 am Gesamtkohlenstoff
+        Anteil_gesamt = 100*superdata_2021_all[i]['CH4'][1:]/(superdata_2021_all[i]['CO2'][1:]+ superdata_2021_all[i]['CH4'][1:])
+        
+        fig, ax1 = plt.subplots()
+        
+        plt.title('CH4/CO2')
+        #ax1.plot(superdata_2021_all[i]['measured_time'][1:],Smoothed_CH4_CO2)
+        ax1.plot(superdata_2021_all[i]['measured_time'][1:],Smoothed_ratio, 'magenta')
+        ax1.plot(superdata_2021_all[i]['measured_time'][1:],Ratio, 'g--')
+        ax1.plot(superdata_2021_all[i]['measured_time'][1:],Anteil_gesamt, 'gold')
+        ax1.set_ylim([-10,10])
+        #ax1.ylabel('Ratio')
+        ax1.plot(superdata_2021_all[i]['measured_time'][1:], np.repeat(1, len(superdata_2021_all[i]['measured_time'][1:])), 'k--')
+        ax2 = ax1.twinx()
+        ax2.plot(superdata_2021_all[i]['measured_time'],superdata_2021_all[i]['CH4'],'ro')
+        ax2.plot(superdata_2021_all[i]['measured_time'],superdata_2021_all[i]['CO2'], 'bo')
+        
+        plt.legend([i])    
+        
 def curve_merger_wrapper(fixed_quantities):
     """
     läd die fixed_quantities einmal rein, für alle durchläufe von merged_curves_pred_funciton
@@ -427,7 +469,7 @@ def predictor(t, initial_pool_values, model_parameters):
     cdec = Thermomodel.Cdec_wrapper(model_parameters) 
     
     
-    method = 'LSODA'
+    method = 'Radau'#'LSODA' #'BDF' # 'Radau'
     try:
         solver_result = integ.solve_ivp(cdec,
                                       (0, np.max(t)),
@@ -435,7 +477,8 @@ def predictor(t, initial_pool_values, model_parameters):
                                       method=method,
                                       t_eval = t,
                                       atol = 1e-100,
-                                      rtol = 1e-1)
+                                      rtol = 1e-1,
+                                      first_step = 0.01)
         
     except Exception as ex:
         print('exception in odeint:')
@@ -714,7 +757,7 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
     
     """
     #plt.close('all')
-
+    
 #-----------------------------laden der Daten ---------------------------------
 
     superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
@@ -918,23 +961,26 @@ if __name__ == '__main__':
 #     
 # =============================================================================
 
+    # plottet die Ratios CH4 zu CO2 für alle Proben
+    #plot_the_ratio()
 
     #specimenlistmax = [*range(0, 35, 1)]
-    specimenlist_all= list(range(34))  # Site= "all"
+    #specimenlist_all= list(range(34))  # Site= "all"
     #specimenlist_Sam= [i for i in range(18)]  # Site = "S"
     #specimenlist_Kuru= [i for i in range(16)] # Site = "K" 
     #specimens = [specimenlist_Sam][0]#,1,2,3,4,5,6,7]
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
-    #specimens = [16]
-    #run_my_model(specimens, Site = "all", plotting = "al")
-    #fit_my_model(specimens, Site = "all", opt = 'Hopper')
+    specimens = [9]
+    run_my_model(specimens, Site = "all", plotting = "all")
+   # fit_my_model(specimens, Site = "all", opt = 'Min')
     
-    for i in list(range(3)):
-        specimens = [i]
-        print(specimens)
-        run_my_model(specimens, Site = "all", plotting = "al")
+    # for i in list(range(3)):
+    #       specimens = [i]
+    #       print(specimens)
+    #       run_my_model(specimens, Site = "all", plotting = "all")
+    #       break
 
-#%%
+# #%%
 
 
