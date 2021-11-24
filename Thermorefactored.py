@@ -29,13 +29,11 @@ from scipy.integrate import odeint, solve_ivp
 import scipy.io as sio
 import numpy as np
 
-os.chdir('C:/Users/Lara/Desktop/simple model')
-
-
 import Thermomodel
 from order import pool_order, changeables_order, parameter_units, get_fixed_quantities, get_initial_guesses
 from scaling import scale, rescale
 
+ROOT_DIRECTORY = os.path.join('D:', os.sep, 'OneDrive - Universität Hamburg','simple model')
 
 def load_matlab():
     
@@ -78,8 +76,9 @@ def load_matlab():
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
         
         
-    # fügt den Proben jeweils die relevanten Metadaten hinzu    
-    Metadata = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Metadaten_all_86_cleanandneat.xlsx',engine = 'openpyxl')
+    # fügt den Proben jeweils die relevanten Metadaten hinzu
+    excel_file = os.path.join(ROOT_DIRECTORY,'Metadaten_all_86_cleanandneat.xlsx')    
+    Metadata = pd.read_excel(excel_file,engine = 'openpyxl')
     
     for meta_prob_names in Metadata['Probe']:
         for replica_name_iter in superdata.keys():
@@ -131,8 +130,9 @@ def load_matlab():
   
 
 
-# Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
-    Carex_addition = pd.read_excel(r'C:\Users\Lara\Desktop\simple model\Carex_addition_2021_clean.xlsx',engine = 'openpyxl')
+    # Ersetzen der alten Carexdaten mit den neuen Daten von Knoblauch bis 2021
+    excel_file = os.path.join(ROOT_DIRECTORY, 'Carex_addition_2021_clean.xlsx')
+    Carex_addition = pd.read_excel(excel_file,engine = 'openpyxl')
     Carex = np.array(Carex_addition)     
     #Proben = np.unique(Carex[:,0])     
    # Probenfree = np.unique(Proben[~np.isnan(Proben)])
@@ -978,7 +978,7 @@ if __name__ == '__main__':
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
     specimens = [9]
-    run_my_model(specimens, Site = "all", plotting = "al")
+    run_my_model(specimens, Site = "all", plotting = "all")
     #fit_my_model(specimens, Site = "all", opt = 'Min')
     
     # for i in list(range(3)):
