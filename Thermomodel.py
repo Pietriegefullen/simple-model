@@ -55,8 +55,9 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
                                  pool_change_dict_Ferm, 
                                  pool_change_dict_Fe3, 
                                  pool_change_dict_Ac,
-                                 pool_change_dict_Hydro,
-                                 pool_change_dict_Homo]
+                                 #pool_change_dict_Hydro,
+                                 #pool_change_dict_Homo
+                                 ]
         
         
 #------------------------------------------------------------------------------        
@@ -92,16 +93,16 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
             extra_dict['CO2_Ferm'] = pool_change_dict_Ferm['CO2']  if 'CO2' in pool_change_dict_Ferm else 0.
             extra_dict['CH4_Hydro'] = pool_change_dict_Hydro['CH4']  if 'CH4' in pool_change_dict_Hydro else 0.
             extra_dict['CO2_Ac'] = pool_change_dict_Ac['CO2'] if 'CO2' in pool_change_dict_Ac else 0.
-            extra_dict['CO2_Hydro'] = pool_change_dict_Hydro['CO2'] if 'CO2' in pool_change_dict_Hydro else 0.
+          #  extra_dict['CO2_Hydro'] = pool_change_dict_Hydro['CO2'] if 'CO2' in pool_change_dict_Hydro else 0.
             extra_dict['CO2_Fe3'] = pool_change_dict_Fe3['CO2'] if 'CO2' in pool_change_dict_Fe3 else 0.
-            extra_dict['CO2_Homo'] =pool_change_dict_Homo['CO2'] if 'CO2' in pool_change_dict_Homo else 0.
-            extra_dict['H2_Homo'] = pool_change_dict_Homo['H2'] if 'H2' in pool_change_dict_Homo else 0.
-            extra_dict['H2_Hydro'] = pool_change_dict_Hydro['H2'] if 'H2' in pool_change_dict_Hydro else 0.
+          #  extra_dict['CO2_Homo'] =pool_change_dict_Homo['CO2'] if 'CO2' in pool_change_dict_Homo else 0.
+           # extra_dict['H2_Homo'] = pool_change_dict_Homo['H2'] if 'H2' in pool_change_dict_Homo else 0.
+           # extra_dict['H2_Hydro'] = pool_change_dict_Hydro['H2'] if 'H2' in pool_change_dict_Hydro else 0.
             
             #
             extra_dict['DGr_Fe3 kJ/mol'] = pool_change_dict_Fe3['DGr'] if 'DGr' in pool_change_dict_Fe3 else 0
-            extra_dict['DGr_Hydro kJ/mol'] = pool_change_dict_Hydro['DGr'] if 'DGr' in pool_change_dict_Hydro else 0.
-            extra_dict['DGr_Homo kJ/mol'] = pool_change_dict_Homo['DGr'] if 'DGr' in pool_change_dict_Homo else 0.
+           # extra_dict['DGr_Hydro kJ/mol'] = pool_change_dict_Hydro['DGr'] if 'DGr' in pool_change_dict_Hydro else 0.
+           # extra_dict['DGr_Homo kJ/mol'] = pool_change_dict_Homo['DGr'] if 'DGr' in pool_change_dict_Homo else 0.
             extra_dict['DGr_Ac kJ/mol'] = pool_change_dict_Ac['DGr'] if 'DGr' in pool_change_dict_Ac else 0.
             extra_dict['Acetate_used'] = pool_change_dict_Ac['Acetate'] if 'Acetate' in pool_change_dict_Ac else 0.
             extra_dict['Acetate_used'] =+ pool_change_dict_Fe3['Acetate'] if 'Acetate' in pool_change_dict_Fe3 else 0.

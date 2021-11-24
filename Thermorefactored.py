@@ -345,6 +345,7 @@ def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
         y_predicted_dict = predictor(measured_data_dict['measured_time'],
                                     initial_pool_dict, 
                                     model_parameters_dict)
+       # print('y predicted', y_predicted_dict)
         
         CO2_predicted = y_predicted_dict['CO2']
         CH4_predicted = y_predicted_dict['CH4']
@@ -353,6 +354,8 @@ def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
         CH4_measured = measured_data_dict['CH4']
         
         # Die Berechnung der Abweichung zwischen gemessenem und vorhergesagtem Wert
+        print('CO2predicted',CO2_predicted )
+        print('CO2_measured',CO2_measured )
         error_CO2 = CO2_predicted - CO2_measured
         error_CH4 = CH4_predicted - CH4_measured
         
@@ -478,7 +481,8 @@ def predictor(t, initial_pool_values, model_parameters):
                                       t_eval = t,
                                       atol = 1e-100,
                                       rtol = 1e-1,
-                                      first_step = 0.01)
+                                      max_step = 10)#,
+                                      #first_step = 0.01)
         
     except Exception as ex:
         print('exception in odeint:')
@@ -700,6 +704,7 @@ def fit_my_model(specimens, Site, opt):
             optimization_result  = scipy.optimize.basinhopping(least_squares_error_hopper, 
                                                                x0 = initial_guess_array,
                                                                stepsize= 10)   #welche Größe ist angemessen?
+           
             print(optimization_result)
 
 
@@ -942,6 +947,7 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
         plt.plot(pool_value_dict['CH4'], 'r-')
         plt.plot( Realdata['measured_time'], Realdata['CO2'],'b.')
         plt.plot(pool_value_dict['CO2'], 'b-')
+        plt.title("optimized")
    
 
 if __name__ == '__main__':
@@ -973,7 +979,7 @@ if __name__ == '__main__':
     
     specimens = [9]
     run_my_model(specimens, Site = "all", plotting = "al")
-   # fit_my_model(specimens, Site = "all", opt = 'Min')
+    #fit_my_model(specimens, Site = "all", opt = 'Min')
     
     # for i in list(range(3)):
     #       specimens = [i]

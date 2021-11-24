@@ -418,7 +418,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                                    'Stoch'        :  3            }  , 
                          
                       'H2'     : {'concentration': dissolved_H2   ,
-                                  'Stoch'        : 6             }}   #6          # die 6 kommt aus Gesprächen von Christian und Christian
+                                  'Stoch'        : 6           }}   #6          # die 6 kommt aus Gesprächen von Christian und Christian
                                                                   
    
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ferm')
