@@ -134,19 +134,19 @@ def get_fixed_quantities():
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
     fixed_quantities_dict['M_Ferm'] =  0.5#1.3e-07 #
     fixed_quantities_dict['M_Fe3'] =0.2  # 0.2
-    fixed_quantities_dict['M_Hydro'] = 0.1 # 0.2
-    fixed_quantities_dict['M_Homo'] = 0.1 # 0.2
+    fixed_quantities_dict['M_Hydro'] = 0.001 # 0.2
+    fixed_quantities_dict['M_Homo'] = 0.01 # 0.2
     
     return(fixed_quantities_dict)
     
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
-    initial_guess_dict['Vmax_help_Ferm'] =  (0.009,   0.006,1.71)  # 0.05
+    initial_guess_dict['Vmax_help_Ferm'] =  (0.0029,   0.006,1.71)  # 0.05
     initial_guess_dict['Vmax_Ferm'] =       (0.15,   0.01, 0.2)  # 0.011       # Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
     initial_guess_dict['Vmax_Fe3'] =        (0.7,   0.02, 3)  # 0.8         # Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
-    initial_guess_dict['Vmax_Homo'] =       (0.086, 0.005, 1.)   # 0.869       # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
-    initial_guess_dict['Vmax_Hydro'] =      (0.22, 0.03, 0.3)   # 0.182 1.8   # 0.15 mikromol pro cm^3 from Song
+    initial_guess_dict['Vmax_Homo'] =       (0.35, 0.005, 1.)   # 0.869       # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
+    initial_guess_dict['Vmax_Hydro'] =      (0.5, 0.03, 0.3)   # 0.182 1.8   # 0.15 mikromol pro cm^3 from Song
     initial_guess_dict['Vmax_Ac'] =         (0.35,   0.05, 3.0)  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
    #initial_guess_dict['w_Ferm'] =          (0.00032,  0.03, 0.05)  # 0.05
    #initial_guess_dict['w_Fe3'] =           (0.0093, 0.01, 0.05)  # 0.013

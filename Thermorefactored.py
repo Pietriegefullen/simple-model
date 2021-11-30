@@ -523,6 +523,7 @@ def compute_extra_info(pool_value_dict, model_parameters_dict):
                 extra_curves[key].append(extra_dict[key])
             else:
                 previous_value = extra_curves[key][-1] if len(extra_curves[key])>0 else 0.0
+                # previous_value = 0 # crazy hack für nicht-kumulative plots
                 extra_curves[key].append(previous_value + extra_dict[key])
         
     return extra_curves
@@ -543,6 +544,7 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         plt.ylabel(a)
         plt.legend(Realdata['Probe'])
         
+        
                     
 # --------------Berechne R^2---------------------------------------------------
         measured_values = Realdata[a]
@@ -561,7 +563,16 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
         print("r2 for "+a+" is", r_squared)
         print("r2adj  "+a+" is", adjusted_r_squared)
         
-        
+    
+    plt.figure()
+    plt.plot(measurement_days, Realdata['CH4'], 'r'+"o", label = "Observed")
+    plt.plot(measurement_days, Realdata['CO2'], 'b'+"o", label = "Observed")
+    plt.plot(pool_value_dict['CH4'], "k-",label = "Predicted")
+    plt.plot(pool_value_dict['CO2'], "k-",label = "Predicted")
+    #plt.ylabel()
+    plt.legend(Realdata['Probe'])
+            
+    
 # =============================================================================
     #plots aller pools
     for key in pool_value_dict.keys():
@@ -572,7 +583,7 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
  #=============================================================================
         
     
-    save_path = os.path.join('C:/Users/Lara/Desktop/simple model/Figs', a +'_fit_' +str(specimen_index)+'.png')
+    save_path = os.path.join(ROOT_DIRECTORY,'Figs', a +'_fit_' +str(specimen_index)+'.png')
     plt.savefig(save_path)
     
 #---------Alle Kurven, die CO2 Produzieren oder Verbrauchen -------------------   
@@ -906,8 +917,8 @@ def run_my_model(specimens, Site = "all", plotting = "all"):
         ax1.plot(all_days[1:], pool_value_dict['DOC'][1:], label = 'DOC')
         ax1.plot(all_days, np.repeat(0, len(all_days)), 'b--')
         ax2 = ax1.twinx()
-        ax2.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
-        ax2.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
+       # ax2.plot(all_days[1:], pool_value_dict['DGr_Ac kJ/mol'][1:], 'magenta', label = 'DGr_Ac kJ/mol')
+        #ax2.plot(all_days[1:], pool_value_dict['DGr_Fe3 kJ/mol'][1:], 'lime', label = 'DGr_Fe3 kJ/mol')
         ax2.plot(all_days, np.repeat(0, len(all_days)), 'b--')
         fig.tight_layout()
         ax1.legend()

@@ -196,6 +196,8 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
     # w_growth geht sozusagen über CUE ein 
     pool_change_dict['biomass'] = biomass_change
     
+    
+    pool_change_dict['MM'] = MM_factors_total
 #-------------------------------------------------------------------------------------------------------    
  
     return pool_change_dict
@@ -220,7 +222,7 @@ def Ferm_help_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict =  {'C'              : {'concentration'  : pool_dict['C'],
                                        'Stoch'          : 1,
-                                       'Km'             : 0/SOIL_DENSITY} # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited 
+                                       'Km'             : 10000/SOIL_DENSITY} # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited 
                                                                  }
     
     product_dict = { 'DOC' : {'concentration': pool_dict['DOC'],
@@ -273,13 +275,17 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
                                    'Stoch'        :  3            }  , 
                          
                       'H2'     : {'concentration': dissolved_H2   ,
-                                  'Stoch'        : 6           }}   #6          # die 6 kommt aus Gesprächen von Christian und Christian
+                                  'Stoch'        : 6          }}   #6          # die 6 kommt aus Gesprächen von Christian und Christian
                                                                   
    
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Ferm')
 
     if 'biomass' in pool_change_dict:
-        pool_change_dict['M_Ferm'] = pool_change_dict.pop('biomass')
+        pool_change_dict['M_Ferm'] = pool_change_dict.pop('biomass')  
+        pool_change_dict['dissolved_CO2_total'] = dissolved_CO2_total
+        pool_change_dict['dissolved_H2'] = dissolved_H2
+        
+        
 
 
     return pool_change_dict
@@ -342,20 +348,24 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                                        
     educt_dict = { 'H2'  : {'concentration':dissolved_H2 ,
                             'Stoch'     : 4                  , 
-                            'Km'        : 0.01 / SOIL_DENSITY},                # 0.01 mikromol pro cm^3 from Song
+                            'Km'        : 0.0001 / SOIL_DENSITY},                # 0.01 mikromol pro cm^3 from Song
     
                   'CO2'  :{'concentration': dissolved_CO2,
                            'Stoch'        : 1 ,
-                           'Km'           : 0.05/SOIL_DENSITY  ,               # 0.05 mikromol pro cm^3 from Song
+                           'Km'           : 0.005/SOIL_DENSITY  ,               # 0.05 mikromol pro cm^3 from Song
                            'C_atoms'      : 1                 }}
     
     product_dict = {'CH4' :{'concentration': dissolved_CH4 ,                 
                             'Stoch'        : 1                }}
                                                             
     pool_change_dict = GeneralPathway(microbe_dict, educt_dict, product_dict, 'Hydro')
-    
+        
     if 'biomass' in pool_change_dict:
         pool_change_dict['M_Hydro'] = pool_change_dict.pop('biomass')
+        
+    pool_change_dict['hydro_diss_co2'] = dissolved_CO2
+    pool_change_dict['hydro_diss_h2'] = dissolved_H2
+    
         
     return pool_change_dict
 
@@ -378,11 +388,11 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict = { 'H2'  : {'concentration': dissolved_H2       ,
                              'Stoch'       : 4                     ,
-                               'Km'        : 0.01 / SOIL_DENSITY   },          # 0.01 from Song
+                               'Km'        : 0.001 / SOIL_DENSITY   },          # 0.01 from Song
     
                   'CO2'  :{'concentration' : dissolved_CO2         ,
                            'Stoch'         : 2                     ,
-                           'Km'            : 0.05 / SOIL_DENSITY   ,           # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
+                           'Km'            : 0.005 / SOIL_DENSITY   ,           # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
                            'C_atoms'       : 1                 }}
     
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,

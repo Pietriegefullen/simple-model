@@ -81,6 +81,13 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
             
             extra_dict['Acetate_used'] = pool_change_dict_Ac['Acetate'] if 'Acetate' in pool_change_dict_Ac else 0.
             extra_dict['Acetate_used'] =+ pool_change_dict_Fe3['Acetate'] if 'Acetate' in pool_change_dict_Fe3 else 0.
+            #extra_dict['CO2dissolved_CO2_total'] = changes_dict['dissolved_CO2_total'] if 'dissolved_CO2_total' in changes_dict else 0.
+            #extra_dict['dissolved_H2'] = changes_dict['dissolved_H2'] if 'dissolved_H2' in changes_dict else 0.
+            extra_dict['MM'] = pool_change_dict_Hydro['MM'] if 'MM' in pool_change_dict_Hydro else 0.
+            #extra_dict['hydro_diss_co2'] = pool_change_dict_Hydro['hydro_diss_co2'] if 'hydro_diss_co2' in pool_change_dict_Hydro else 0.
+            #extra_dict['hydro_diss_h2'] = pool_change_dict_Hydro['hydro_diss_h2'] if 'hydro_diss_h2' in pool_change_dict_Hydro else 0.
+
+            
             return pool_changes_array, extra_dict # Ausgabe fürs plotting 
  #------------------------------------------------------------------------------    
    
