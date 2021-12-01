@@ -22,6 +22,7 @@ import scipy
 from scipy import optimize
 import scipy.signal
 from scipy.optimize import basinhopping
+from scipy.optimize import differential_evolution
 from scipy.optimize import curve_fit
 import scipy.integrate as integ
 from scipy.integrate import odeint, solve_ivp
@@ -316,9 +317,14 @@ def curve_merger_wrapper(fixed_quantities):
     
     return merged_curves_pred_function
 
+
+best = np.inf
+
 def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
     # Hilfsfunktion für den Baisinhopper optimierer zur übergabe von fixed_quantities_dict und Measured_data_dict
     def least_squares_error_hopper(changeables_array): 
+        global best
+        
         changeables_dict = dict(zip(changeables_order, changeables_array))
         
         # Sortieren der changeables und der fixed quantities
@@ -354,17 +360,20 @@ def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
         CH4_measured = measured_data_dict['CH4']
         
         # Die Berechnung der Abweichung zwischen gemessenem und vorhergesagtem Wert
-        print('CO2predicted',CO2_predicted )
-        print('CO2_measured',CO2_measured )
+       # print('CO2predicted',CO2_predicted )
+       # print('CO2_measured',CO2_measured )
         error_CO2 = CO2_predicted - CO2_measured
         error_CH4 = CH4_predicted - CH4_measured
+        # predicted und measured sind jetzt immer gleich lang (siehe predictor)
         
         # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
-        weight_CO2 = 100.
-        weight_CH4 = 100.
-        sum_of_squared_residuals = np.sum(weight_CO2*error_CO2**2 + weight_CH4*error_CH4**2) 
+        weight_CO2 = 1.
+        weight_CH4 = 1.
+        sum_of_squared_residuals = weight_CO2*np.nanmean(error_CO2**2) + weight_CH4*np.nanmean(error_CH4**2) 
         
-        print('SSR',sum_of_squared_residuals)
+        best = min(best, sum_of_squared_residuals)
+        print(best, 'SSR',sum_of_squared_residuals,)
+        
         return sum_of_squared_residuals
 
     return least_squares_error_hopper
@@ -433,7 +442,7 @@ def predictor(t, initial_pool_values, model_parameters):
     zurückgegeben werden.
     
     """
-    print_on_call = False
+    print_on_call = True
     print_only_changeables = True
     
     # Ausgabe meiner optimierten Werte
@@ -488,9 +497,15 @@ def predictor(t, initial_pool_values, model_parameters):
         print('exception in odeint:')
         print(type(ex),':', str(ex))        
 
-   # print( 'results',solver_result.y)
-    pool_dict = dict(zip(pool_order, solver_result.y))
 
+    # falls solver abbricht, fülle restliche tage mit nan auf
+    n_pools, n_days = solver_result.y.shape
+    nan_array = np.empty((n_pools, t.size - n_days))
+    nan_array[:] = np.nan
+    padded_pools = np.concatenate([solver_result.y,
+                                   nan_array], axis = -1)
+   # print( 'results',solver_result.y)
+    pool_dict = dict(zip(pool_order, padded_pools))
     
     return pool_dict
 
@@ -615,6 +630,10 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
    
     plt.show()   
 
+def opti_callback(xk, convergence):
+    print('callback')
+    return True
+
 def fit_my_model(specimens, Site, opt):
     """
     Hier werden die Parameter des Models optimiert
@@ -716,7 +735,33 @@ def fit_my_model(specimens, Site, opt):
                                                                x0 = initial_guess_array,
                                                                stepsize= 10)   #welche Größe ist angemessen?
            
-            print(optimization_result)
+            #print(optimization_result)
+
+
+            changeables_optimal_array = optimization_result.x
+            changeables_optimal_dict = dict(zip(changeables_order,changeables_optimal_array))
+            
+            
+            
+        elif opt =='Evolve':
+            #Differential Evolution is stochastic in nature (does not use gradient methods) to find the minimum, and can search large areas of candidate space, but often requires larger numbers of function evaluations than conventional gradient-based techniques.
+            #print('using Evolution')
+            initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
+            least_squares_error_evolve = least_squares_error_wrapper(fixed_quantities_dict, Realdata )
+            optimization_result  = scipy.optimize.differential_evolution(least_squares_error_evolve, 
+                                                                         bounds = initial_guess_bounds,
+                                                                #x0 = initial_guess_array,
+                                                                strategy= 'best1bin',
+                                                                tol = 0,
+                                                                atol = 1000,
+                                                                disp = True,
+                                                                updating = 'immediate',
+                                                                polish = False,
+                                                                recombination = 0.3,
+                                                                mutation = 0.7,
+                                                                callback = opti_callback)#10*len(changeables_order))   #welche Größe ist angemessen?
+           
+            #print(optimization_result)
 
 
             changeables_optimal_array = optimization_result.x
@@ -973,6 +1018,7 @@ if __name__ == '__main__':
 #     opt = Curve , benutzt Curve fit
 #     opt = Min, benutzt Minimize
 #     opt = Hopper, benutzt den baisinhopper  
+#     opt = Evolve, differental evolution   
 #
 #     specimens= der Datensatz der benutzt wird 
 #     
@@ -989,8 +1035,8 @@ if __name__ == '__main__':
     #specimens = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
     
     specimens = [9]
-    run_my_model(specimens, Site = "all", plotting = "all")
-    #fit_my_model(specimens, Site = "all", opt = 'Min')
+    #run_my_model(specimens, Site = "all", plotting = "all")
+    fit_my_model(specimens, Site = "all", opt = 'Evolve')
     
     # for i in list(range(3)):
     #       specimens = [i]

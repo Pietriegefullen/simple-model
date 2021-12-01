@@ -348,7 +348,7 @@ def Hydro_Pathway(pool_dict,model_parameter_dict):
                                        
     educt_dict = { 'H2'  : {'concentration':dissolved_H2 ,
                             'Stoch'     : 4                  , 
-                            'Km'        : 0.0001 / SOIL_DENSITY},                # 0.01 mikromol pro cm^3 from Song
+                            'Km'        : 0.001 / SOIL_DENSITY},                # 0.01 mikromol pro cm^3 from Song
     
                   'CO2'  :{'concentration': dissolved_CO2,
                            'Stoch'        : 1 ,
@@ -388,11 +388,11 @@ def Homo_Pathway(pool_dict,model_parameter_dict):
     
     educt_dict = { 'H2'  : {'concentration': dissolved_H2       ,
                              'Stoch'       : 4                     ,
-                               'Km'        : 0.001 / SOIL_DENSITY   },          # 0.01 from Song
+                               'Km'        : 0.0001 / SOIL_DENSITY   },          # 0.01 from Song
     
                   'CO2'  :{'concentration' : dissolved_CO2         ,
                            'Stoch'         : 2                     ,
-                           'Km'            : 0.005 / SOIL_DENSITY   ,           # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
+                           'Km'            : 0.0005 / SOIL_DENSITY   ,           # 0.05 from Song, laut (van1999efFe3cts) größer als Hydro, laut schink1997energetics sollte der Wert mit sinkender Temp, mit zunehmendem Acetate und sinkendem PH sinken (Im vlg zu Hydro)
                            'C_atoms'       : 1                 }}
     
     product_dict = {'Acetate' : {'concentration': pool_dict['Acetate'] ,

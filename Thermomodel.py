@@ -34,14 +34,14 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
         pool_change_dict_Hydro =  Hydro_Pathway(pool_dict, model_parameter_dict)
 
         # HOMO HOMO HOMO HOMO HOMO:,                                           Pathway: 4H2 + 2CO2 ---> CH3COOH + 2H2O  conrad2000selective
-        pool_change_dict_Homo = Homo_Pathway(pool_dict, model_parameter_dict)        
+        #pool_change_dict_Homo = Homo_Pathway(pool_dict, model_parameter_dict)        
         
         pool_change_dict_list = [pool_change_dict_Ferm_help, 
                                  pool_change_dict_Ferm, 
                                  pool_change_dict_Fe3, 
                                  pool_change_dict_Ac,
                                  pool_change_dict_Hydro,
-                                 pool_change_dict_Homo
+                                 #pool_change_dict_Homo
                                  ]
         
 #------------------------------------------------------------------------------        
@@ -75,15 +75,15 @@ def Cdec_wrapper(model_parameter_dict, return_thermodynamics = False):
             extra_dict['CO2_Ac'] = pool_change_dict_Ac['CO2'] if 'CO2' in pool_change_dict_Ac else 0.
             extra_dict['CO2_Hydro'] = pool_change_dict_Hydro['CO2'] if 'CO2' in pool_change_dict_Hydro else 0.
             extra_dict['CO2_Fe3'] = pool_change_dict_Fe3['CO2'] if 'CO2' in pool_change_dict_Fe3 else 0.
-            extra_dict['CO2_Homo'] =pool_change_dict_Homo['CO2'] if 'CO2' in pool_change_dict_Homo else 0.
-            extra_dict['H2_Homo'] = pool_change_dict_Homo['H2'] if 'H2' in pool_change_dict_Homo else 0.
+            #extra_dict['CO2_Homo'] =pool_change_dict_Homo['CO2'] if 'CO2' in pool_change_dict_Homo else 0.
+            #extra_dict['H2_Homo'] = pool_change_dict_Homo['H2'] if 'H2' in pool_change_dict_Homo else 0.
             extra_dict['H2_Hydro'] = pool_change_dict_Hydro['H2'] if 'H2' in pool_change_dict_Hydro else 0.
             
             extra_dict['Acetate_used'] = pool_change_dict_Ac['Acetate'] if 'Acetate' in pool_change_dict_Ac else 0.
             extra_dict['Acetate_used'] =+ pool_change_dict_Fe3['Acetate'] if 'Acetate' in pool_change_dict_Fe3 else 0.
             #extra_dict['CO2dissolved_CO2_total'] = changes_dict['dissolved_CO2_total'] if 'dissolved_CO2_total' in changes_dict else 0.
             #extra_dict['dissolved_H2'] = changes_dict['dissolved_H2'] if 'dissolved_H2' in changes_dict else 0.
-            extra_dict['MM'] = pool_change_dict_Hydro['MM'] if 'MM' in pool_change_dict_Hydro else 0.
+            #extra_dict['MM'] = pool_change_dict_Hydro['MM'] if 'MM' in pool_change_dict_Hydro else 0.
             #extra_dict['hydro_diss_co2'] = pool_change_dict_Hydro['hydro_diss_co2'] if 'hydro_diss_co2' in pool_change_dict_Hydro else 0.
             #extra_dict['hydro_diss_h2'] = pool_change_dict_Hydro['hydro_diss_h2'] if 'hydro_diss_h2' in pool_change_dict_Hydro else 0.
 
