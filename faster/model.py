@@ -22,11 +22,15 @@ def pathway_builder(model_parameters, microbe, educts, products):
     # rows correspond to products, columns correspond to educts
     pathway_vector = np.zeros((len(POOL_ORDER),))
     Km_vector = np.zeros(len(POOL_ORDER))
+    inhibition_vector = np.ones(len(POOL_ORDER))*np.inf
     henrys_law_vector = np.ones((len(POOL_ORDER),))
 
     microbe_index = pool_index(microbe['name'])
 
     MM_mask = np.zeros((len(POOL_ORDER),))
+    inhibition_mask = np.zeros((len(POOL_ORDER),))
+
+    # TODO: so far, MM is only possible for educts, and inhibition is only possible by products
 
     for educt in educts:
         educt_index = pool_index(educt['name'])
@@ -47,6 +51,9 @@ def pathway_builder(model_parameters, microbe, educts, products):
         product_index = pool_index(product['name'])
         pathway_vector[product_index] = product['stoich']
         henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
+        if 'inhibition' in product:
+            inhibition_vector[product_index] = product['inhibition']
+            inhibition_mask[product_index] = 1
 
     # for inverse MM
     if 'Kmb' in microbe:
@@ -58,18 +65,22 @@ def pathway_builder(model_parameters, microbe, educts, products):
     growth_rate_vector = np.zeros((len(POOL_ORDER),))
     growth_rate_vector[microbe_index] -= microbe['death_rate']
 
-    print(microbe['name'])
-    for a, b in zip(POOL_ORDER, pathway_vector):
-        print(a,b)
+    # print(microbe['name'])
+    # for a, b in zip(POOL_ORDER, pathway_vector):
+    #     print(a,b)
 
     def pathway(t, system_state):
 
         dissolved_system_state = henrys_law_vector * system_state
         MM_factors = dissolved_system_state/(Km_vector + dissolved_system_state)
         MM_factors[dissolved_system_state == 0] = 0
-        factor = np.prod(MM_factors[MM_mask==1])
+        total_MM_factor = np.prod(MM_factors[MM_mask==1])
 
-        v = v_max * factor
+        inhibition_factors = 1 - dissolved_system_state/(inhibition_vector + dissolved_system_state)
+        inhibition_factors[dissolved_system_state == 0] = 1
+        total_inibition_factor = np.prod(inhibition_factors[inhibition_mask == 1])
+
+        v = v_max * total_MM_factor * total_inibition_factor
 
         biomass = system_state[microbe_index]
         system_state_changes = biomass * v * pathway_vector + growth_rate_vector
