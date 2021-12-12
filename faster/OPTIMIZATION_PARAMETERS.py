@@ -18,7 +18,7 @@ DIFF_EVOL_PARAMETERS = {'strategy':         'best1bin',
 
 
 GRADIENT_PARAMETERS = {'method':            'L-BFGS-B',
-                       'options':           {'maxiter':     20,
+                       'options':           {'maxiter':     2000,
                                              'disp':        True}
                        }
 

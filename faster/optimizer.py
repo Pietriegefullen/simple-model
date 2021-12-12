@@ -42,7 +42,10 @@ def fit_specimen(specimen_index, site, pathways, parameters, algo):
 
 def objective_builder(sample_list, pathways, fixed_parameters):
 
-    objectives = [specimen_objective(sample, site, pathways, fixed_parameters) for sample, site in sample_list]
+    objectives = [specimen_objective(pathways,
+                                     fixed_parameters,
+                                     data.specimen_data(sample, site))
+                  for sample, site in sample_list]
 
     def objective_function(changeable_parameters):
         losses = [sample_loss(changeable_parameters) for sample_loss in objectives]
@@ -51,9 +54,7 @@ def objective_builder(sample_list, pathways, fixed_parameters):
     return objective_function
 
 
-def specimen_objective(specimen_index, site, pathways, fixed_parameters):
-
-    measured_data_dict = data.specimen_data(specimen_index, site)
+def specimen_objective(pathways, fixed_parameters, measured_data_dict):
 
     def objective_function(changeable_parameters):
 
@@ -98,5 +99,7 @@ def specimen_objective(specimen_index, site, pathways, fixed_parameters):
         sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)
 
         return sum_of_squared_residuals
+
+
 
     return objective_function

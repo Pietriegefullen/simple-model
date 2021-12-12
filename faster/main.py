@@ -79,7 +79,7 @@ def fit_specimen(specimen_index, site):
                                                 site,
                                                 chosen_pathways,
                                                 fixed_parameters,
-                                                algo = 'differential_evolution')
+                                                algo = 'gradient')
 
     model_parameters = data.model_parameters_from_data(specimen_index, site = 'all')
     model_parameters.update({'M_Fe3':           0.2,
@@ -106,8 +106,28 @@ def fit_specimen(specimen_index, site):
     all_days = np.arange(4500)
     pool_value_dict = run(all_days, model_parameters)
 
-    plot.all_pools(pool_value_dict, all_days)
+    # plot.all_pools(pool_value_dict, all_days)
 
+    measured_data_dict = data.specimen_data(specimen_index, site)
+
+    days = measured_data_dict['measured_time']
+    CO2 =  measured_data_dict['CO2']
+    CH4 =  measured_data_dict['CH4']
+
+    plot.fit(days, CO2, pool_value_dict['CO2'], all_days)
+    plot.fit(days, CH4, pool_value_dict['CH4'], all_days)
+
+    plt.show()
 
 if __name__ == '__main__':
     fit_specimen(9, 'all')
+
+
+    # TODO:
+    # extract extra dicts after run
+    # do all the plotting
+    # optimization tolerances
+    # explicit separation of model parameters, changeables, ...
+    # callback print during optimization?
+    # save optimization checkpoints
+    # fix model errors
