@@ -55,7 +55,7 @@ def objective_builder(sample_list, pathways, fixed_parameters):
     def objective_function(changeable_parameters):
         losses = [sample_loss(changeable_parameters) for sample_loss in objectives]
         total_loss = np.sum(losses)
-        print(f'{total_loss:.2e}')
+        print(f'{total_loss:.5e}')
         return total_loss
 
     return objective_function
@@ -125,7 +125,7 @@ def specimen_objective(pathways, fixed_parameters, measured_data_dict):
         error_CH4 = measure_day_weight * (CH4_predicted - CH4_measured)
 
         # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
-        weight_CO2 = 0#1.
+        weight_CO2 = 1.
         weight_CH4 = 1.
 
         sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)

@@ -1,7 +1,8 @@
 
-MEASURE_DAYS_WEIGHTING = True
-ALGORITHM = 'gradient' # 'differential_evolution'
-PLOT_LIVE_FIT = True
+MEASURE_DAYS_WEIGHTING = False
+ALGORITHM = 'gradient' #'differential_evolution'#
+
+PLOT_LIVE_FIT = False
 
 CHANGEABLES = ['Vmax_help_Ferm',
                 'Vmax_Ferm',

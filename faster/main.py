@@ -74,22 +74,13 @@ def fit_specimen(specimen_index, site):
                        pathways.Ac
                        ]
 
-    fixed_parameters = {'Sensenmann':           8.33e-5}
-
-    optimal_parameters = optimizer.fit_specimen(specimen_index,
-                                                site,
-                                                chosen_pathways,
-                                                fixed_parameters,
-                                                algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
-
-    model_parameters = data.model_parameters_from_data(specimen_index, site = 'all')
-    model_parameters.update({'M_Fe3':           0.2,
+    fixed_parameters = {    'M_Fe3':           0.2,
                             'M_Ferm':           0.7,
-                            'M_Hydro':          0.0025,
-                            'M_Homo':           0.0001,
-                            'M_Ac':             0.001,
+                            'M_Hydro':          0,#0.0025,
+                            'M_Homo':           0,#0.0001,
+                            'M_Ac':             0,#0.001,
 
-                            'Sensenmann':       8.33e-5,
+                            'Sensenmann':       0,#8.33e-5,
 
                             'Vmax_Fe3':         1.709,
                             'Vmax_help_Ferm':   0.177,
@@ -98,10 +89,19 @@ def fit_specimen(specimen_index, site):
                             'Vmax_Hydro':       0.423,
                             'Vmax_Ac':          0.159,
 
-                            'Kmb_help_Ferm':    1.0,
-                            'Inhibition_Ferm':  1.0,
+                            'Kmb_help_Ferm':    9.829,
+                            'Inhibition_Ferm':  0.412,
 
-                            'Fe3':              3.645})
+                            'Fe3':              3.645}
+
+    optimal_parameters = optimizer.fit_specimen(specimen_index,
+                                                site,
+                                                chosen_pathways,
+                                                fixed_parameters,
+                                                algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
+
+    model_parameters.update(data.model_parameters_from_data(specimen_index, site = 'all'))
+
     model_parameters.update(optimal_parameters)
 
     all_days = np.arange(4500)

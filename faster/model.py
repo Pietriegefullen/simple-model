@@ -87,7 +87,7 @@ def pathway_builder(model_parameters, microbe, educts, products):
 
 
         # TODO: required for solver stability?
-        #system_state_changes[system_state_changes < 1e-30] = 0
+        # system_state_changes[system_state_changes < 1e-30] = 0
 
         return system_state_changes
 
