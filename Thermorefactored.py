@@ -17,6 +17,7 @@ import os
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 import scipy
 from scipy import optimize
@@ -319,11 +320,17 @@ def curve_merger_wrapper(fixed_quantities):
 
 
 best = np.inf
+NFeval = 0
+save_file = None
 
 def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
     # Hilfsfunktion für den Baisinhopper optimierer zur übergabe von fixed_quantities_dict und Measured_data_dict
     def least_squares_error_hopper(changeables_array): 
         global best
+        global NFeval
+        global save_file
+        
+        NFeval += 1
         
         changeables_dict = dict(zip(changeables_order, changeables_array))
         
@@ -371,9 +378,27 @@ def least_squares_error_wrapper(fixed_quantities_dict, measured_data_dict):
         weight_CH4 = 1.
         sum_of_squared_residuals = weight_CO2*np.nanmean(error_CO2**2) + weight_CH4*np.nanmean(error_CH4**2) 
         
-        best = min(best, sum_of_squared_residuals)
-        print(best, 'SSR',sum_of_squared_residuals,)
-        
+        if sum_of_squared_residuals < best:  
+            save_string = ''
+            if np.isinf(best):
+                save_string += 'fixed:\n=====\n'
+                for k,v in fixed_quantities_dict.items():
+                    save_string += '{:<20s}'.format(k) + '{:f}'.format(v) + '\n'
+                save_string += '\n\n'
+                
+            best = sum_of_squared_residuals
+            # beste changeales bisher speichern
+            save_string += 'SSR {:10.3f}\n'.format(sum_of_squared_residuals)
+            save_string += '==============\n' 
+            for k,v in dict(zip(changeables_order, changeables_array)).items():
+                save_string += '{:<20s}'.format(k) + '{:f}'.format(v) + '\n'
+            save_string += '\n'
+            with open(save_file, 'a+') as sf:
+                sf.write(save_string)
+                
+        print('{:5d}: SSR {:10.3f}   best {:10.3f}'.format(NFeval,
+                                                            sum_of_squared_residuals,
+                                                            best))
         return sum_of_squared_residuals
 
     return least_squares_error_hopper
@@ -442,7 +467,7 @@ def predictor(t, initial_pool_values, model_parameters):
     zurückgegeben werden.
     
     """
-    print_on_call = True
+    print_on_call = False
     print_only_changeables = True
     
     # Ausgabe meiner optimierten Werte
@@ -630,9 +655,16 @@ def plot_my_data(Realdata, days_for_plot, pool_value_dict, specimen_index):
    
     plt.show()   
 
-def opti_callback(xk, convergence):
-    print('callback')
-    return True
+def callback_wrapper(objective_function):
+    def opti_callback(xk, convergence):
+        print('')
+        print('current x:')
+        for k,v in dict(zip(xk,changeables_order)):
+            print(k,v)
+        print('====')
+        print('SSR: ', objective_function(xk))
+        print('')
+        return False
 
 def fit_my_model(specimens, Site, opt):
     """
@@ -644,6 +676,12 @@ def fit_my_model(specimens, Site, opt):
     4)   die optimierten Kurven werden geplottet
     
     """
+    global save_file
+    date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    log_dir = os.path.join(ROOT_DIRECTORY, 'optimization_log')
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+    save_file = os.path.join(log_dir, date+'_diff_evol.txt')
     
     #plt.close('all')
 #-----------------------------laden der Daten ---------------------------------
@@ -750,16 +788,10 @@ def fit_my_model(specimens, Site, opt):
             least_squares_error_evolve = least_squares_error_wrapper(fixed_quantities_dict, Realdata )
             optimization_result  = scipy.optimize.differential_evolution(least_squares_error_evolve, 
                                                                          bounds = initial_guess_bounds,
-                                                                #x0 = initial_guess_array,
                                                                 strategy= 'best1bin',
-                                                                tol = 0,
-                                                                atol = 1000,
                                                                 disp = True,
                                                                 updating = 'immediate',
-                                                                polish = False,
-                                                                recombination = 0.3,
-                                                                mutation = 0.7,
-                                                                callback = opti_callback)#10*len(changeables_order))   #welche Größe ist angemessen?
+                                                                callback = callback_wrapper(least_squares_error_evolve)) #welche Größe ist angemessen?
            
             #print(optimization_result)
 

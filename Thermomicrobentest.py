@@ -189,7 +189,7 @@ def GeneralPathway(microbe_dict, educt_dict, product_dict, pathway_name = ''):
 
 #-----------------------------Berechnung der Biomass change-------------------------------------------         
         
-    dead_microbes = 0#Biomass*microbe_dict['death_rate'] # Tote Mikroben
+    dead_microbes = Biomass*microbe_dict['death_rate'] # Tote Mikroben
     
     biomass_change = - dead_microbes  +  C_for_growth * m_C #  m_C Gewicht 1 Mol C =  12.011 g /mol 
     # das Gewicht der toten Mikroben geht ab, währen alles C_for_growth als Gewicht hinzukommt. Keine w_growth mehr
@@ -268,6 +268,7 @@ def Ferm_Pathway(pool_dict,model_parameter_dict):
     #laut Grant A :6 , CO2:3, H2 : 1
     #laut Knoblauch A :6 , CO2:3, H2 : 6
     #laut mir DOC = A: 7 ,CO2 :6 H2:12 (teile durch 2 weil dann näher am Grant verhältnis)
+    #laut neumann2016modeling  Glucose = A:2 CO2:2 H2:4  C6H12O6 +2H2O -> 2CH3COOH+2CO2 + 4H2 
     product_dict = { 'Acetate' : {'concentration': pool_dict['Acetate'],
                                   'Stoch'        : 3.5             }  ,
                     
