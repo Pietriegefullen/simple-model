@@ -5,7 +5,7 @@ Created on Thu Apr 22 10:16:35 2021
 @author: Lara
 """
 
-#global_switches = 
+#global_switches =
 
 
 pool_order = ['C',
@@ -52,7 +52,7 @@ changeables_order = [
                      'Vmax_Ac',
                     #'w_Ferm',
                     # 'w_Fe3',
-                     #'w_Hydro', 
+                     #'w_Hydro',
                      #'w_Homo',
                      #'w_Ac',
                      #'Sensenmann',
@@ -62,21 +62,21 @@ changeables_order = [
                      'M_Ac'
                      ]
 
-parameter_units = {'Vmax_Ferm':'μmol/mg',  
-                   'Vmax_help_Ferm':'μmol/mg', 
-                   'Vmax_Fe3':'μmol/mg',       
-                   'Vmax_Homo':'μmol/mg',      
-                   'Vmax_Hydro':'μmol/mg',          
-                   'Vmax_Ac':'μmol/mg',      
+parameter_units = {'Vmax_Ferm':'μmol/mg',
+                   'Vmax_help_Ferm':'μmol/mg',
+                   'Vmax_Fe3':'μmol/mg',
+                   'Vmax_Homo':'μmol/mg',
+                   'Vmax_Hydro':'μmol/mg',
+                   'Vmax_Ac':'μmol/mg',
                   # 'w_Ferm':'mg/μmol',
                  #  'w_Fe3':'mg/μmol',
                   # 'w_Hydro':'mg/μmol',
                    #'w_Homo':'mg/μmol',
                    #'w_Ac':'mg/μmol',
-                   'Sensenmann':'-', 
+                   'Sensenmann':'-',
                    #'Stoch_Fe3':'-',
                    'Kmb_help_Ferm':'mg' ,
-                   #'Kmh_Ferm':'μmol', 
+                   #'Kmh_Ferm':'μmol',
                    'Inhibition_Ferm':'μmol',
                    'Fe3':'μmol',
                    'C':'μmol',
@@ -100,10 +100,10 @@ parameter_units = {'Vmax_Ferm':'μmol/mg',
 
 Henrys_dict = { 'CO2' : {'H_cp_Standard': 3.4*10e-4,
                          'H_cp_temp':    2400                  },
-                   
+
                'CH4' : {'H_cp_Standard': 1.4*10e-5,
                             'H_cp_temp':    1700                },
-               
+
                'H2' : {'H_cp_Standard': 7.7*10e-6,
                          'H_cp_temp':    500              },}
 
@@ -119,26 +119,26 @@ enthalpy = {'Acetate' :-484.13 *1e3,
             #'H2O'     : -285.82996 * 1e3}
 
 Gibbs_formation = {'Acetate' :  -396.46*1e3,    # Tabellenwerte in kJ /mol, hier J/mol
-                   'Fe3'     :  -4.6*1e3 , 
+                   'Fe3'     :  -4.6*1e3 ,
                    'Fe2'     :  -78.*1e3,
                    'CO2'     :  -386.36*1e3, # Wert für aq!
                    'H2'      :   0.0,
                    'CH4'     :  -34.4*1e3  ,# Wert für aq!
                    'HCO3'    :  -586.85 * 1e3, # # Wert für aq!
                    #'H2O'    :   -237.178408 *1e3,
-                   'H_plus' :          0}  
+                   'H_plus' :          0}
 
 
-def get_fixed_quantities(): 
-    fixed_quantities_dict = dict()        
+def get_fixed_quantities():
+    fixed_quantities_dict = dict()
     #fixed_quantities_dict['M_Ac'] = 0.2 # superdata_Kuru = 0.001
     fixed_quantities_dict['M_Ferm'] =  0.7#1.3e-07 #
     fixed_quantities_dict['M_Fe3'] =0.2  # 0.2
     fixed_quantities_dict['M_Hydro'] = 0.0025 # 0.2
     fixed_quantities_dict['M_Homo'] = 0.0001 # 0.2
-    
+
     return(fixed_quantities_dict)
-    
+
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = dict()         #   init    lower upper  ok guesses to start with
@@ -159,23 +159,23 @@ def get_initial_guesses():
     initial_guess_dict['Fe3'] =             (3.645,  0,  100)    # 15.587,
     initial_guess_dict['M_Ac'] =            (0.001,  1.3e-08,  0.5) # 0.002
     initial_guess_dict['Inhibition_Ferm']=  (0.412, 0.001, 20) # Je niedriger desto hemmung # Diese Boundaries müssen anhander Acetatekurven angepasst werden
-                    
+
     return(initial_guess_dict)
 
 
 """
 
 25750: SSR     10.502   best     10.501
-Vmax_help_Ferm      0.177 μmol/mg   
-Vmax_Ferm           0.606 μmol/mg   
-Vmax_Fe3            1.709 μmol/mg   
-Vmax_Homo           0.850 μmol/mg   
-Vmax_Hydro          0.423 μmol/mg   
-Vmax_Ac             0.159 μmol/mg   
-Kmb_help_Ferm       9.829 mg        
-Inhibition_Ferm     0.412 μmol      
-Fe3                 3.645 μmol      
-M_Ac                0.001 mg        
+Vmax_help_Ferm      0.177 μmol/mg
+Vmax_Ferm           0.606 μmol/mg
+Vmax_Fe3            1.709 μmol/mg
+Vmax_Homo           0.850 μmol/mg
+Vmax_Hydro          0.423 μmol/mg
+Vmax_Ac             0.159 μmol/mg
+Kmb_help_Ferm       9.829 mg
+Inhibition_Ferm     0.412 μmol
+Fe3                 3.645 μmol
+M_Ac                0.001 mg
 calling extra info
 r2 for CH4 is 0.9145413005069074
 r2adj  CH4 is 0.8992808184545694
@@ -200,8 +200,8 @@ model parameters:
    Vmax_Ac                0.6788 *
    Kmb_help_Ferm          3.3514 *
    Inhibition_Ferm       19.4313 *
-   
-   
+
+
 SSR (mean squared) 39.48
    initial pool values:
    Fe3                   10.1351 *
@@ -215,8 +215,8 @@ model parameters:
    Vmax_Ac                1.4306 *
    Kmb_help_Ferm          1.0010 *
    Inhibition_Ferm       11.0730 *
-   
-   
+
+
 SSR(mean squared) 32.26
     initial pool values:
    Fe3                   12.0230 *
@@ -230,5 +230,5 @@ model parameters:
    Vmax_Ac                2.9555 *
    Kmb_help_Ferm          2.3993 *
    Inhibition_Ferm       17.5532 *
-   
+
 """

@@ -1,0 +1,10 @@
+
+
+MOLAR_MASS_C = 12.011*1e-3 # mg/micromol, molar mass of carbon
+
+KELVIN = 273.15
+
+STANDARD_TEMPERATURE = 25.0 + KELVIN
+SPECIMEN_TEMPERATURE = 4.0  + KELVIN
+
+SOIL_DENSITY = 1.3 # g/cm3
