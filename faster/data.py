@@ -5,7 +5,50 @@ import numpy as np
 import copy
 
 from USER_VARIABLES import ROOT_DIRECTORY
+import CONSTANTS
 
+def model_parameters_from_data(specimen_index, site):
+
+    data = specimen_data(specimen_index, site)
+
+    TOC =  data['Corg (%)']/100.0                                          # Knoblauchs Daten , g dw
+    specimen_mass = data['weight']                                         # g (Knoblauch proben)
+    Cpool_init = (10**6)* specimen_mass * TOC / CONSTANTS.MOLAR_MASS_GLUCOSE
+
+    model_parameters = {}
+
+    model_parameters['C'] = float(Cpool_init)
+    model_parameters['DOC'] = float(Cpool_init)*0.02                      # 0.02 ratio in song, 2% sind DOC laut den Christians.
+    model_parameters['pH'] = data['pH (H2O)']#[0]
+    model_parameters['weight'] = float(specimen_mass)
+    model_parameters['water'] = float(data['water'])
+
+    return model_parameters
+
+def specimen_data(specimen_index, site):
+
+    (superdata,
+     replica_list,
+     superdata_carex,
+     superdata_Kuru,
+     superdata_Sam,
+     replica_list_Kuru,
+     replica_list_Sam,
+     superdata_2021_all,
+     replica_list_superdata_2021_all,
+     superdata_ohne_Fe3,
+     Rep_ohne_Fe3,
+     superdata_mit_Fe3,
+     Rep_mit_Fe3) = load_matlab()
+
+    if site == "S":
+        data = superdata_Sam[replica_list_Sam[specimen_index]]
+    elif site == "K":
+        data = superdata_Kuru[replica_list_Kuru[specimen_index]]
+    elif site == "all":
+        data = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
+
+    return data
 
 def load_matlab():
 
@@ -25,7 +68,8 @@ def load_matlab():
 
 
     print('load_data')
-    Data = sio.loadmat('ActivityData_04062016', appendmat=True)
+    mat_file = os.path.join(ROOT_DIRECTORY,'ActivityData_04062016')
+    Data = sio.loadmat(mat_file, appendmat=True)
 
     anaerobic_indices = np.nonzero(Data['anaerobic'])[1] # die indizes im Matlab für alle anaeroben proben
     prob_array = Data['prob'] # das array mit den Probennummern

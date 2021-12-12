@@ -1,6 +1,7 @@
 
 
-MOLAR_MASS_C = 12.011*1e-3 # mg/micromol, molar mass of carbon
+MOLAR_MASS_C = 12.011*1e-3  # mg/micromol, molar mass of carbon
+MOLAR_MASS_GLUCOSE = 180    # g dw/mol
 
 KELVIN = 273.15
 
