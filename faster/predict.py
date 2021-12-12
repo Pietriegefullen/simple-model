@@ -48,10 +48,10 @@ def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verb
                                                   (0, max(t_eval)),
                                                   initial_system_state,
                                                   method = INTEGRATION_PARAMETERS.METHOD,
-                                                  t_eval = t_eval,
-                                                  atol = 1e-100,
-                                                  rtol = 1e-1,
-                                                  max_step = 10)
+                                                  t_eval = t_eval)#,
+                                                  # atol = 1e-100,
+                                                  # rtol = 1e-1,
+                                                  # max_step = 10)
 
     except Exception:
         print(traceback.format_exc())

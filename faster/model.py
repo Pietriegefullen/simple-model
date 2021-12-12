@@ -82,9 +82,7 @@ def pathway_builder(model_parameters, microbe, educts, products):
         v = v_max * total_MM_factor * total_inibition_factor
 
         biomass = system_state[microbe_index]
-        system_state_changes = v * pathway_vector + growth_rate_vector
-        # TODO: multiply with biomass?????
-
+        system_state_changes = biomass * v * pathway_vector + growth_rate_vector
 
         # TODO: required for solver stability?
         # system_state_changes[system_state_changes < 1e-30] = 0

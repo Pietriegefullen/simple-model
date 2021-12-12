@@ -29,7 +29,8 @@ def run(all_days, model_parameters):
     pool_value_dict = predict.predictor(all_days,                                      # vorhersagen erstellen
                                         model_parameters,
                                         chosen_pathways,
-                                        initial_system_state)
+                                        initial_system_state,
+                                        verbose = True)
 
     return pool_value_dict
 
@@ -74,11 +75,11 @@ def fit_specimen(specimen_index, site):
                        pathways.Ac
                        ]
 
-    fixed_parameters = {    'M_Fe3':           0.2,
+    fixed_parameters = {    'M_Fe3':            0.2,
                             'M_Ferm':           0.7,
-                            'M_Hydro':          0,#0.0025,
-                            'M_Homo':           0,#0.0001,
-                            'M_Ac':             0,#0.001,
+                            'M_Hydro':          0.0025,
+                            'M_Homo':           0.0001,
+                            'M_Ac':             0.001,
 
                             'Sensenmann':       0,#8.33e-5,
 
@@ -100,6 +101,7 @@ def fit_specimen(specimen_index, site):
                                                 fixed_parameters,
                                                 algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
 
+    model_parameters = fixed_parameters
     model_parameters.update(data.model_parameters_from_data(specimen_index, site = 'all'))
 
     model_parameters.update(optimal_parameters)
@@ -122,6 +124,7 @@ def fit_specimen(specimen_index, site):
 
 if __name__ == '__main__':
     fit_specimen(9, 'all')
+    #run_specimen(9)
 
 
     # TODO:
@@ -135,3 +138,5 @@ if __name__ == '__main__':
     #
     # scaling for the optimization algorithm!
     #
+
+    # TODO: no microbes, but changes anyway! -> multiply v with biomass! => adjust values for v_max!

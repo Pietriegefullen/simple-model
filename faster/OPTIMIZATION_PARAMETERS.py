@@ -1,6 +1,6 @@
 
 MEASURE_DAYS_WEIGHTING = False
-ALGORITHM = 'gradient' #'differential_evolution'#
+ALGORITHM = 'gradient' # 'differential_evolution'#
 
 PLOT_LIVE_FIT = False
 
