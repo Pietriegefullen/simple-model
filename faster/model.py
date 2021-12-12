@@ -10,7 +10,7 @@ def builder(model_parameters, all_pathways):
 
     def right_hand_side(t, system_state):
         pathway_changes = [pathway(t, system_state) for pathway in built_pathways]
-        changes = np.sum(pathway_changes, axis = -1)
+        changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)
         changes = np.clip(changes, -system_state, np.inf)
 
         return changes
@@ -26,16 +26,16 @@ def pathway_builder(model_parameters, microbe, educts, products):
 
     microbe_index = pool_index(microbe['name'])
 
-    for product in products:
-        product_index = pool_index(product['name'])
-        pathway_vector[product_index] = product['stoich']
-        henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
+    MM_mask = np.zeros((len(POOL_ORDER),))
 
     for educt in educts:
         educt_index = pool_index(educt['name'])
         pathway_vector[educt_index] = -educt['stoich']
+        henrys_law_vector[educt_index] = chemistry.henrys_law(educt['name'])
+
         if 'Km' in educt:
             Km_vector[educt_index] = educt['Km']
+            MM_mask[educt_index] = 1
 
         if 'C_source' in educt:
             c_atoms = educt['C_atoms']
@@ -43,9 +43,14 @@ def pathway_builder(model_parameters, microbe, educts, products):
             pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
             pathway_vector[educt_index] = -stoich*1/(1-CUE)
 
+    for product in products:
+        product_index = pool_index(product['name'])
+        pathway_vector[product_index] = product['stoich']
+        henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
+
     # for inverse MM
     if 'Kmb' in microbe:
-        Km_vector[microbe_index] = educt['Km']
+        Km_vector[microbe_index] = microbe['Kmb']
 
     v_max = microbe['vmax']
 
@@ -53,20 +58,24 @@ def pathway_builder(model_parameters, microbe, educts, products):
     growth_rate_vector = np.zeros((len(POOL_ORDER),))
     growth_rate_vector[microbe_index] -= microbe['death_rate']
 
+    print(microbe['name'])
+    for a, b in zip(POOL_ORDER, pathway_vector):
+        print(a,b)
+
     def pathway(t, system_state):
 
         dissolved_system_state = henrys_law_vector * system_state
         MM_factors = dissolved_system_state/(Km_vector + dissolved_system_state)
-        MM_factors[np.isnan(MM_factors)] = 0
-        factor = np.prod(MM_factors)
+        MM_factors[dissolved_system_state == 0] = 0
+        factor = np.prod(MM_factors[MM_mask==1])
 
         v = v_max * factor
 
         biomass = system_state[microbe_index]
-        system_state_changes = biomass * v * pathway_vector + growth_rate_vector*dissolved_system_state
+        system_state_changes = biomass * v * pathway_vector + growth_rate_vector
 
         # TODO: required for solver stability?
-        system_state_changes[system_state_changes < 1e-30] = 0
+        #system_state_changes[system_state_changes < 1e-30] = 0
 
         return system_state_changes
 

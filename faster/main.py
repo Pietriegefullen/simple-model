@@ -16,4 +16,8 @@ if __name__ == '__main__':
     pool_value_dict = run(model_parameters)
 
     plt.plot(pool_value_dict['C'])
+
+    plt.figure()
+    plt.plot(pool_value_dict['M_Fe3'])
+
     plt.show()

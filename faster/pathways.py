@@ -2,22 +2,6 @@
 
 import CONSTANTS
 
-"""
-microbe = {'name': '...',
-           'Kmb': <value> , # only if inverse MM
-           'vmax': <value>,
-           'death_rate': <value>,
-           'CUE'}
-
-educt = {'name': '...',
-         'stoich': <value>,
-         'C_atoms': <value>, # only if c_source for microbe
-         'Km':<value>}
-product similar.
-
-"""
-
-
 def Fe3(model_parameters):
     microbe = {'name':          'M_Fe3',
                'C_source':      'Acetate',
