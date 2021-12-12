@@ -7,6 +7,7 @@ import plot
 import data
 import optimizer
 from ORDER import POOL_ORDER
+import OPTIMIZATION_PARAMETERS
 
 # what are the required functionalities?
 # run for a single sample? run for arbitrary parameters?
@@ -79,7 +80,7 @@ def fit_specimen(specimen_index, site):
                                                 site,
                                                 chosen_pathways,
                                                 fixed_parameters,
-                                                algo = 'gradient')
+                                                algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
 
     model_parameters = data.model_parameters_from_data(specimen_index, site = 'all')
     model_parameters.update({'M_Fe3':           0.2,
@@ -131,3 +132,6 @@ if __name__ == '__main__':
     # callback print during optimization?
     # save optimization checkpoints
     # fix model errors
+    #
+    # scaling for the optimization algorithm!
+    #

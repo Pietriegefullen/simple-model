@@ -14,7 +14,7 @@ from ORDER import POOL_ORDER, pool_index
 
 counter = 0
 
-def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verbose = False):
+def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verbose = False, mark = None):
     # global counter
     # counter += 1
     # print(counter)
@@ -31,13 +31,16 @@ def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verb
         print('')
 
         print('initial system:')
+        mark = list() if mark is None else mark
         for i, pool in enumerate(POOL_ORDER):
-            print(f'   {pool:10s} {initial_system_state[i]:g}')
+            star = '*' if pool in mark else ''
+            print(f'   {pool:10s}{star:2s} {initial_system_state[i]:g}')
         print('')
 
         print('model parameters:')
         for k, v in model_parameters.items():
-            print(f'   {k[:15]:15} {v}')
+            star = '*' if k in mark else ''
+            print(f'   {k[:20]:20}{star:2s} {v}')
         print('')
 
     try:

@@ -1,4 +1,7 @@
 
+MEASURE_DAYS_WEIGHTING = True
+ALGORITHM = 'gradient' # 'differential_evolution'
+PLOT_LIVE_FIT = True
 
 CHANGEABLES = ['Vmax_help_Ferm',
                 'Vmax_Ferm',
@@ -15,7 +18,6 @@ CHANGEABLES = ['Vmax_help_Ferm',
 
 DIFF_EVOL_PARAMETERS = {'strategy':         'best1bin',
                         'updating':         'immediate'}
-
 
 GRADIENT_PARAMETERS = {'method':            'L-BFGS-B',
                        'options':           {'maxiter':     2000,

@@ -7,7 +7,7 @@ import data
 import OPTIMIZATION_PARAMETERS
 from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
-def fit_specimen(specimen_index, site, pathways, parameters, algo):
+def fit_specimen(specimen_index, site, pathways, parameters, algo, verbose = True):
 
     model_parameters = data.model_parameters_from_data(specimen_index, site)
     fixed_parameters = {k:v for k,v in model_parameters.items()
@@ -38,6 +38,11 @@ def fit_specimen(specimen_index, site, pathways, parameters, algo):
     changeables_optimal_array = optimization_result.x
     changeables_optimal_dict = dict(zip(CHANGEABLES, changeables_optimal_array))
 
+    print('optimal parameters:')
+    for k, v in changeables_optimal_dict.items():
+        print(f'   {k[:15]:15} {v}')
+    print('')
+
     return changeables_optimal_dict
 
 def objective_builder(sample_list, pathways, fixed_parameters):
@@ -49,12 +54,18 @@ def objective_builder(sample_list, pathways, fixed_parameters):
 
     def objective_function(changeable_parameters):
         losses = [sample_loss(changeable_parameters) for sample_loss in objectives]
-        return np.sum(losses)
+        total_loss = np.sum(losses)
+        print(f'{total_loss:.2e}')
+        return total_loss
 
     return objective_function
 
 
 def specimen_objective(pathways, fixed_parameters, measured_data_dict):
+    if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
+        import matplotlib.pyplot as plt
+        plt.ion()
+        fig, (ax0, ax1) = plt.subplots(2,1)
 
     def objective_function(changeable_parameters):
 
@@ -75,10 +86,13 @@ def specimen_objective(pathways, fixed_parameters, measured_data_dict):
             else:
                 model_parameters[name] = value
 
-        y_predicted_dict = predictor(t_eval = measured_data_dict['measured_time'],
+        measure_days = measured_data_dict['measured_time']
+        y_predicted_dict = predictor(t_eval = measure_days,
                                     model_parameters = model_parameters,
                                     all_pathways = pathways,
-                                    initial_system_state = initial_system_state)
+                                    initial_system_state = initial_system_state,
+                                    verbose = True,
+                                    mark = CHANGEABLES)
 
         CO2_predicted = y_predicted_dict['CO2']
         CH4_predicted = y_predicted_dict['CH4']
@@ -86,20 +100,36 @@ def specimen_objective(pathways, fixed_parameters, measured_data_dict):
         CO2_measured = measured_data_dict['CO2']
         CH4_measured = measured_data_dict['CH4']
 
+        if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
+            ax0.plot(measure_days, CO2_predicted)
+            ax0.plot(measure_days, CO2_measured, 'x')
+            ax0.set_ylim([np.min(CO2_measured), np.max(CO2_measured)])
+            ax0.set_title('CO2')
+
+            ax1.plot(measure_days, CH4_predicted)
+            ax1.plot(measure_days, CH4_measured, 'x')
+            ax1 .set_ylim([np.min(CH4_measured), np.max(CH4_measured)])
+            ax1.set_title('CH4')
+
+            plt.draw()
+            plt.pause(0.0001)
+            ax0.clear()
+            ax1.clear()
+
+        measure_day_weight = np.ones((len(CO2_measured),))
+        if OPTIMIZATION_PARAMETERS.MEASURE_DAYS_WEIGHTING:
+            measure_day_weight = np.concatenate([np.array([1]), np.diff(measure_days)])
+
         # Die Berechnung der Abweichung zwischen gemessenem und vorhergesagtem Wert
-        error_CO2 = CO2_predicted - CO2_measured
-        error_CH4 = CH4_predicted - CH4_measured
+        error_CO2 = measure_day_weight * (CO2_predicted - CO2_measured)
+        error_CH4 = measure_day_weight * (CH4_predicted - CH4_measured)
 
         # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
-        weight_CO2 = 1.
+        weight_CO2 = 0#1.
         weight_CH4 = 1.
-
-        # TODO: weighting for point density
 
         sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)
 
         return sum_of_squared_residuals
-
-
 
     return objective_function
