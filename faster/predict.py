@@ -20,7 +20,7 @@ def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verb
     # print(counter)
 
     built_pathways = [pathway_builder(model_parameters) for pathway_builder in all_pathways]
-    right_hand_side = model.builder(model_parameters, built_pathways)
+    right_hand_side = model.builder(built_pathways)
 
     if verbose:
         print('running model:')

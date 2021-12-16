@@ -4,9 +4,11 @@ import CONSTANTS
 import chemistry
 import numpy as np
 
-def builder(model_parameters, all_pathways):
+DEBUG = False
 
-    built_pathways = [pathway_builder(model_parameters, *p) for p in all_pathways]
+def builder(all_pathways):
+
+    built_pathways = [pathway_builder(microbe, educts, products) for microbe, educts, products in all_pathways]
 
     def right_hand_side(t, system_state):
         pathway_changes = [pathway(t, system_state) for pathway in built_pathways]
@@ -16,18 +18,15 @@ def builder(model_parameters, all_pathways):
 
     return right_hand_side
 
-def pathway_builder(model_parameters, microbe, educts, products):
+def pathway_builder(microbe, educts, products):
 
     # rows correspond to products, columns correspond to educts
     pathway_vector = np.zeros((len(POOL_ORDER),))
-    Km_vector = np.zeros(len(POOL_ORDER))
-    inhibition_vector = np.ones(len(POOL_ORDER))*np.inf
+    Km_vector = np.zeros((len(POOL_ORDER),))
+    inhibition_vector = np.ones((len(POOL_ORDER),))*np.inf
     henrys_law_vector = np.ones((len(POOL_ORDER),))
 
     microbe_index = pool_index(microbe['name'])
-
-    MM_mask = np.zeros((len(POOL_ORDER),))
-    inhibition_mask = np.zeros((len(POOL_ORDER),))
 
     # TODO: so far, MM is only possible for educts, and inhibition is only possible by products
 
@@ -38,7 +37,6 @@ def pathway_builder(model_parameters, microbe, educts, products):
 
         if 'Km' in educt:
             Km_vector[educt_index] = educt['Km']
-            MM_mask[educt_index] = 1
 
         if 'C_source' in educt:
             c_atoms = educt['C_atoms']
@@ -52,7 +50,6 @@ def pathway_builder(model_parameters, microbe, educts, products):
         henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
         if 'inhibition' in product:
             inhibition_vector[product_index] = product['inhibition']
-            inhibition_mask[product_index] = 1
 
     # for inverse MM
     if 'Kmb' in microbe:
@@ -64,25 +61,49 @@ def pathway_builder(model_parameters, microbe, educts, products):
     growth_rate_vector = np.zeros((len(POOL_ORDER),))
     growth_rate_vector[microbe_index] -= microbe['death_rate']
 
-    # print(microbe['name'])
-    # for a, b in zip(POOL_ORDER, pathway_vector):
-    #     print(a,b)
+    if DEBUG:
+        print_matrix = np.concatenate([np.reshape(henrys_law_vector, (-1, 1)),
+                                       np.reshape(Km_vector, (-1, 1)),
+                                       np.reshape(inhibition_vector, (-1, 1)),
+                                       np.reshape(growth_rate_vector, (-1,1))], axis = 1)
+
+        print('building: ', microbe['name'])
+        print('===========' + '='*len(microbe['name']))
+        print_array(print_matrix,columns = ['henry', 'Km', 'inhib', 'grow'])
+        input()
 
     def pathway(t, system_state):
 
         dissolved_system_state = henrys_law_vector * system_state
-        MM_factors = dissolved_system_state/(Km_vector + dissolved_system_state)
-        MM_factors[dissolved_system_state == 0] = 0
-        total_MM_factor = np.prod(MM_factors[MM_mask==1])
 
-        inhibition_factors = 1 - dissolved_system_state/(inhibition_vector + dissolved_system_state)
-        inhibition_factors[dissolved_system_state == 0] = 1
-        total_inibition_factor = np.prod(inhibition_factors[inhibition_mask == 1])
+        MM = np.where(dissolved_system_state == 0, 0,
+                      dissolved_system_state/(Km_vector + dissolved_system_state))
+        MM = np.where(Km_vector == 0, 1, MM)
+        total_MM_factor = np.prod(MM)
+
+        invMM = np.where(dissolved_system_state == 0, 1,
+                         1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))
+        invMM = np.where(inhibition_vector == np.inf, 1, invMM)
+        total_inibition_factor = np.prod(invMM)
 
         v = v_max * total_MM_factor * total_inibition_factor
 
         biomass = system_state[microbe_index]
         system_state_changes = biomass * v * pathway_vector + growth_rate_vector
+
+        if DEBUG:
+            print_matrix = np.concatenate([np.reshape(dissolved_system_state, (-1, 1)),
+                                           np.reshape(MM_factors, (-1, 1)),
+                                           np.reshape(inhibition_factors, (-1, 1)),
+                                           np.reshape(system_state_changes, (-1,1))], axis = 1)
+
+            print('calling: ', microbe['name'])
+            print('==========' + '='*len(microbe['name']))
+            print_array(print_matrix,columns = ['diss', 'MM', 'inh', 'changes'])
+
+            print('total MM' , total_MM_factor)
+            print('total inh', total_inibition_factor)
+            input()
 
         # TODO: required for solver stability?
         # system_state_changes[system_state_changes < 1e-30] = 0
@@ -90,3 +111,26 @@ def pathway_builder(model_parameters, microbe, educts, products):
         return system_state_changes
 
     return pathway
+
+
+def print_array(arr, title = '', columns = None):
+    np.set_printoptions(precision = 2,
+                        suppress=True)
+    if not len(arr.shape) == 2:
+        arr = np.reshape(arr, (-1,1))
+    arr_str = np.array2string(arr)
+    spl = arr_str.split('\n')
+
+    label_width = 10
+    labeled_str = '\n'.join(list([f'{p:<{label_width}} {s}' for p, s in zip(POOL_ORDER, spl)]))
+
+    print('')
+    if not title == '':
+        print(title)
+        print('='*len(title))
+
+    if columns is None:
+        columns = list()
+    print(' '*label_width + ' ' + '     '.join([f'{c:5}' for c in columns]))
+
+    print(labeled_str)

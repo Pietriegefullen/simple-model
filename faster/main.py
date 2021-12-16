@@ -123,8 +123,8 @@ def fit_specimen(specimen_index, site):
     plt.show()
 
 if __name__ == '__main__':
-    fit_specimen(9, 'all')
-    #run_specimen(9)
+    #fit_specimen(9, 'all')
+    run_specimen(9)
 
 
     # TODO:
@@ -140,3 +140,5 @@ if __name__ == '__main__':
     #
 
     # TODO: no microbes, but changes anyway! -> multiply v with biomass! => adjust values for v_max!
+
+    # TODO: compute the gradients?

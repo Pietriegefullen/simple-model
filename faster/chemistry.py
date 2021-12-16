@@ -4,7 +4,7 @@ import numpy as np
 import CONSTANTS
 
 
-HENRYS_DICT = { 'CO2' : {'H_cp_Standard': 3.4*10e-4,
+HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*10e-4,
                          'H_cp_temp':    2400                  },
 
                'CH4' : {'H_cp_Standard': 1.4*10e-5,
