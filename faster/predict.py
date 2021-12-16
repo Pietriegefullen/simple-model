@@ -9,24 +9,30 @@ import numpy as np
 
 import pathways
 import model
-import INTEGRATION_PARAMETERS
 from ORDER import POOL_ORDER, pool_index
 
-counter = 0
+METHOD = 'Radau' #'LSODA' #'BDF'
 
-def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verbose = False, mark = None):
-    # global counter
-    # counter += 1
-    # print(counter)
+def predictor(t_eval,
+              model_parameters,
+              chosen_pathways,
+              verbose = False,
+              mark = None,
+              ask = False):
 
-    built_pathways = [pathway_builder(model_parameters) for pathway_builder in all_pathways]
-    right_hand_side = model.builder(built_pathways)
+    defined_pathways = [pathway_definer(model_parameters) for pathway_definer in chosen_pathways]
+    right_hand_side = model.builder(defined_pathways)
+
+    initial_system_state = np.array([model_parameters[name]
+                                     if name in model_parameters else 0.
+                                     for name in POOL_ORDER])
 
     if verbose:
+        print('')
         print('running model:')
         print('=============')
         print('pathways:')
-        for p in all_pathways:
+        for p in chosen_pathways:
             print(f'   {p.__name__}')
         print('')
 
@@ -43,11 +49,14 @@ def predictor(t_eval, model_parameters, all_pathways, initial_system_state, verb
             print(f'   {k[:20]:20}{star:2s} {v}')
         print('')
 
+    if ask:
+        input('Start?')
+
     try:
         solver_result = scipy.integrate.solve_ivp(right_hand_side,
                                                   (0, max(t_eval)),
                                                   initial_system_state,
-                                                  method = INTEGRATION_PARAMETERS.METHOD,
+                                                  method = METHOD,
                                                   t_eval = t_eval)#,
                                                   # atol = 1e-100,
                                                   # rtol = 1e-1,

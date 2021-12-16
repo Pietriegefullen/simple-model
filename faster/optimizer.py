@@ -7,12 +7,13 @@ import data
 import OPTIMIZATION_PARAMETERS
 from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
-def fit_specimen(specimen_index, site, pathways, parameters, algo, verbose = True):
+def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose = True):
 
-    model_parameters = data.model_parameters_from_data(specimen_index, site)
-    fixed_parameters = {k:v for k,v in model_parameters.items()
-                        if not k in CHANGEABLES}
-    fixed_parameters.update(parameters)
+    for name in CHANGEABLES:
+        if name in fixed_parameters.keys():
+            print(f'Deleting {name} from fixed parameters')
+            del fixed_parameters[name]
+            #raise Exception('A changeable model parameter is also in fixed_parameters!')
 
     initial_guess_dict = OPTIMIZATION_PARAMETERS.get_initial_guesses()
     lower_bounds = [initial_guess_dict[key][1] for key in CHANGEABLES]
@@ -69,29 +70,13 @@ def specimen_objective(pathways, fixed_parameters, measured_data_dict):
 
     def objective_function(changeable_parameters):
 
-        # get any fixed or changeable parameters that initialize pools
-        initial_system_state = np.zeros((len(POOL_ORDER),))
-        model_parameters = {}
-        for name, value in zip(CHANGEABLES, changeable_parameters):
-            if name in POOL_ORDER:
-                initial_system_state[pool_index(name)] = value
-
-            else:
-                model_parameters[name] = value
-
-        for name, value in fixed_parameters.items():
-            if name in POOL_ORDER:
-                initial_system_state[pool_index(name)] = value
-
-            else:
-                model_parameters[name] = value
+        fixed_parameters.update({k:v for k,v in zip(CHANGEABLES, changeable_parameters)})
 
         measure_days = measured_data_dict['measured_time']
         y_predicted_dict = predictor(t_eval = measure_days,
-                                    model_parameters = model_parameters,
-                                    all_pathways = pathways,
-                                    initial_system_state = initial_system_state,
-                                    verbose = True,
+                                    model_parameters = fixed_parameters,
+                                    chosen_pathways = pathways,
+                                    verbose = False,
                                     mark = CHANGEABLES)
 
         CO2_predicted = y_predicted_dict['CO2']

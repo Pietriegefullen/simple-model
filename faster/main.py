@@ -9,12 +9,14 @@ import optimizer
 from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
 
-# what are the required functionalities?
-# run for a single sample? run for arbitrary parameters?
-# run for several samples?
-def run(all_days, model_parameters):
+def run_model(specimen_index):
 
-    chosen_pathways = [pathways.Ferm_help,
+    model_parameters = pathways.default_model_parameters(specimen_index)
+
+    all_days = np.arange(4500)     # Days to make predictions for
+
+    chosen_pathways = [
+                       pathways.Ferm_help,
                        pathways.Ferm,
                        pathways.Fe3,
                        pathways.Hydro,
@@ -22,50 +24,15 @@ def run(all_days, model_parameters):
                        pathways.Ac
                        ]
 
-    initial_system_state = np.array([model_parameters[name]
-                                     if name in model_parameters else 0.
-                                     for name in POOL_ORDER])
-
-    pool_value_dict = predict.predictor(all_days,                                      # vorhersagen erstellen
+    pool_value_dict = predict.predictor(all_days,
                                         model_parameters,
                                         chosen_pathways,
-                                        initial_system_state,
                                         verbose = True)
-
-    return pool_value_dict
-
-
-def run_specimen(specimen_index):
-
-    model_parameters = data.model_parameters_from_data(specimen_index, site = 'all')
-
-    model_parameters.update({'M_Fe3':           0.2,
-                            'M_Ferm':           0.7,
-                            'M_Hydro':          0.0025,
-                            'M_Homo':           0.0001,
-                            'M_Ac':             0.001,
-
-                            'Sensenmann':       8.33e-5,
-
-                            'Vmax_Fe3':         1.709,
-                            'Vmax_help_Ferm':   0.177,
-                            'Vmax_Ferm':        0.606,
-                            'Vmax_Homo':        0.85,
-                            'Vmax_Hydro':       0.423,
-                            'Vmax_Ac':          0.159,
-
-                            'Kmb_help_Ferm':    1.0,
-                            'Inhibition_Ferm':  1.0,
-
-                            'Fe3':              3.645})
-
-    all_days = np.arange(4500)                                                 # Days to make predictions for
-    pool_value_dict = run(all_days, model_parameters)
 
     plot.all_pools(pool_value_dict, all_days)
 
 
-def fit_specimen(specimen_index, site):
+def fit_model(specimen_index, site):
 
     chosen_pathways = [pathways.Ferm_help,
                        pathways.Ferm,
@@ -75,25 +42,7 @@ def fit_specimen(specimen_index, site):
                        pathways.Ac
                        ]
 
-    fixed_parameters = {    'M_Fe3':            0.2,
-                            'M_Ferm':           0.7,
-                            'M_Hydro':          0.0025,
-                            'M_Homo':           0.0001,
-                            'M_Ac':             0.001,
-
-                            'Sensenmann':       0,#8.33e-5,
-
-                            'Vmax_Fe3':         1.709,
-                            'Vmax_help_Ferm':   0.177,
-                            'Vmax_Ferm':        0.606,
-                            'Vmax_Homo':        0.85,
-                            'Vmax_Hydro':       0.423,
-                            'Vmax_Ac':          0.159,
-
-                            'Kmb_help_Ferm':    9.829,
-                            'Inhibition_Ferm':  0.412,
-
-                            'Fe3':              3.645}
+    fixed_parameters = pathways.default_model_parameters(specimen_index)
 
     optimal_parameters = optimizer.fit_specimen(specimen_index,
                                                 site,
@@ -107,9 +56,11 @@ def fit_specimen(specimen_index, site):
     model_parameters.update(optimal_parameters)
 
     all_days = np.arange(4500)
-    pool_value_dict = run(all_days, model_parameters)
 
-    # plot.all_pools(pool_value_dict, all_days)
+    pool_value_dict = predict.predictor(all_days,
+                                        model_parameters,
+                                        chosen_pathways,
+                                        verbose = True)
 
     measured_data_dict = data.specimen_data(specimen_index, site)
 
@@ -123,9 +74,10 @@ def fit_specimen(specimen_index, site):
     plt.show()
 
 if __name__ == '__main__':
-    #fit_specimen(9, 'all')
-    run_specimen(9)
+    fit_model(9, 'all')
+    #run_model(9)
 
+    # TODO: print setup, then ask for confirmation
 
     # TODO:
     # extract extra dicts after run
@@ -139,6 +91,6 @@ if __name__ == '__main__':
     # scaling for the optimization algorithm!
     #
 
-    # TODO: no microbes, but changes anyway! -> multiply v with biomass! => adjust values for v_max!
+    # TODO: no microbes, but changes anyway! -> multiply v with biomass! => adjust values for v_max?
 
     # TODO: compute the gradients?

@@ -1,6 +1,47 @@
 
 
+import data
 import CONSTANTS
+
+def default_model_parameters(specimen_index = None):
+
+    model_parameters = {}
+    model_parameters.update({'M_Fe3':           0.2,
+                            'M_Ferm':           0.7,
+                            'M_Hydro':          0.0025,
+                            'M_Homo':           0.0001,
+                            'M_Ac':             0.001,
+
+                            'Sensenmann':       8.33e-5,
+
+                            'Vmax_Fe3':         1.709,
+                            'Vmax_help_Ferm':   0.177,
+                            'Vmax_Ferm':        0.606,
+                            'Vmax_Homo':        0.85,
+                            'Vmax_Hydro':       0.423,
+                            'Vmax_Ac':          0.159,
+
+                            'Kmb_help_Ferm':    1.0,
+                            'Inhibition_Ferm':  1.0,
+
+                            'Fe3':              3.645})
+
+    specimen_model_parameters = {}
+    if not specimen_index is None:
+        specimen_model_parameters = data.model_parameters_from_data(specimen_index,
+                                                                    site = 'all')
+        model_parameters.update(specimen_model_parameters)
+
+    print('model parameters:')
+    print('================')
+    for k, v in model_parameters.items():
+        source = 'specimen data' if k in specimen_model_parameters else ''
+        print(f'   {k:10} {v:20g} {source}')
+
+    print('')
+
+    return model_parameters
+
 
 def Ferm_help(model_parameters):
     microbe = {'name' :         'M_Ferm',
@@ -26,7 +67,6 @@ def Ferm(model_parameters):
     microbe = {'name':          'M_Ferm',
                'vmax':          model_parameters['Vmax_Ferm'],
                'death_rate':    model_parameters['Sensenmann'],
-               'Ferm'          : True,
                'microbe'       : "Ferm" ,
                'CUE'           :   0.5,
                'C_source'       : 'DOC'}

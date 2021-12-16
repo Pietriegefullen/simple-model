@@ -1,3 +1,0 @@
-
-
-METHOD = 'Radau' #'LSODA' #'BDF'
