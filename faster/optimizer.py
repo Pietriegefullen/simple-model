@@ -9,14 +9,8 @@ import data
 import OPTIMIZATION_PARAMETERS
 from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
-def objective_function(changeable_parameters, specimen_objectives):
-    losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
-    total_loss = np.sum(losses)
-    #print(f'{total_loss:.5e}')
-    return total_loss
 
-def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose = True):
-
+def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
     for name in CHANGEABLES:
         if name in fixed_parameters.keys():
             print(f'Deleting {name} from fixed parameters')
@@ -31,22 +25,21 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose
 
     sample_list = [(specimen_index, site)]
     objectives = [SpecimenObjective(pathways,
-                                         fixed_parameters,
-                                         data.specimen_data(sample, site))
-                       for sample, site in sample_list]
+                                    fixed_parameters,
+                                    data.specimen_data(sample, site))
+                  for sample, site in sample_list]
+
+    changeables_string = '\nchangeables:\n' + '='*11 + '\n   ' + '\n   '.join(CHANGEABLES) + '\n'
+    print(changeables_string)
 
     if algo == 'differential_evolution':
         workers = OPTIMIZATION_PARAMETERS.WORKERS
         if workers == -1:
             workers = multiprocessing.cpu_count()
         opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
-        print('')
-        print('#'*len(opti_string))
-        print(opti_string)
-        print('#'*len(opti_string))
-        print('')
+        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
 
-        optimization_result  = scipy.optimize.differential_evolution(objective_function,
+        optimization_result  = scipy.optimize.differential_evolution(ObjectiveFunction(),
                                                                      bounds = initial_guess_bounds,
                                                                      args = (objectives,),
                                                                      disp = True,
@@ -55,14 +48,11 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose
 
     elif algo == 'gradient':
         method_name = OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS['method']
-        print('')
         opti_string = f'fitting {len(objectives):d} samples with {method_name:}'
-        print('#'*len(opti_string))
-        print(opti_string)
-        print('#'*len(opti_string))
-        print('')
+        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
+
         initial_guess_array = np.array([initial_guess_dict[k][0] for k in CHANGEABLES])
-        optimization_result = scipy.optimize.minimize(objective_function,
+        optimization_result = scipy.optimize.minimize(ObjectiveFunction(),
                                                       initial_guess_array,
                                                       args = (objectives,),
                                                       bounds = initial_guess_bounds,
@@ -79,6 +69,22 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose
     return changeables_optimal_dict
 
 
+
+class ObjectiveFunction():
+    def __init__(self):
+        self.best = np.inf
+
+    def __call__(self,changeable_parameters, specimen_objectives):
+        losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
+        total_loss = np.sum(losses)
+        #print(f'{total_loss:.5e}')
+
+        if total_loss < self.best:
+            self.best = total_loss
+            specimen_objectives[0].plot(changeable_parameters)
+
+        return total_loss
+
 class SpecimenObjective:
     def __init__(self,pathways, fixed_parameters, measured_data_dict):
         self.pathways = pathways
@@ -86,11 +92,10 @@ class SpecimenObjective:
         self.measured_data_dict = measured_data_dict
 
         if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
-            import matplotlib.pyplot as plt
             plt.ion()
             self.fig, (self.ax0, self.ax1) = plt.subplots(2,1)
 
-    def __call__(self,changeable_parameters):
+    def __call__(self, changeable_parameters):
 
         self.fixed_parameters.update({k:v for k,v in zip(CHANGEABLES, changeable_parameters)})
 
@@ -107,24 +112,6 @@ class SpecimenObjective:
         CO2_measured = self.measured_data_dict['CO2']
         CH4_measured = self.measured_data_dict['CH4']
 
-        if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
-            plt.figure(self.fig.number)
-            self.ax0.plot(measure_days, CO2_predicted)
-            self.ax0.plot(measure_days, CO2_measured, 'x')
-            self.ax0.set_ylim([np.min(CO2_measured), np.max(CO2_measured)])
-            self.ax0.set_title('CO2')
-
-            self.ax1.plot(measure_days, CH4_predicted)
-            self.ax1.plot(measure_days, CH4_measured, 'x')
-            self.ax1 .set_ylim([np.min(CH4_measured), np.max(CH4_measured)])
-            self.ax1.set_title('CH4')
-
-            plt.draw()
-            plt.pause(0.0001)
-
-            self.ax0.clear()
-            self.ax1.clear()
-
         measure_day_weight = np.ones((len(CO2_measured),))
         if OPTIMIZATION_PARAMETERS.MEASURE_DAYS_WEIGHTING:
             measure_day_weight = np.concatenate([np.array([1]), np.diff(measure_days)])
@@ -140,3 +127,45 @@ class SpecimenObjective:
         sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)
 
         return sum_of_squared_residuals
+
+    def plot(self,changeable_parameters):
+        if not OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
+            return
+
+        self.fixed_parameters.update({k:v for k,v in zip(CHANGEABLES, changeable_parameters)})
+
+        measure_days = self.measured_data_dict['measured_time']
+        y_predicted_dict = predictor(t_eval = measure_days,
+                                    model_parameters = self.fixed_parameters,
+                                    chosen_pathways = self.pathways,
+                                    verbose = False,
+                                    mark = CHANGEABLES)
+
+        CO2_predicted = y_predicted_dict['CO2']
+        CH4_predicted = y_predicted_dict['CH4']
+
+        CO2_measured = self.measured_data_dict['CO2']
+        CH4_measured = self.measured_data_dict['CH4']
+
+        measure_day_weight = np.ones((len(CO2_measured),))
+
+
+        self.ax0.clear()
+        self.ax1.clear()
+
+        plt.figure(self.fig.number)
+        self.ax0.plot(measure_days, CO2_predicted)
+        self.ax0.plot(measure_days, CO2_measured, 'x')
+        self.ax0.set_ylim([np.min(CO2_measured), np.max(CO2_measured)])
+        self.ax0.set_title('CO2')
+
+        self.ax1.plot(measure_days, CH4_predicted)
+        self.ax1.plot(measure_days, CH4_measured, 'x')
+        self.ax1 .set_ylim([np.min(CH4_measured), np.max(CH4_measured)])
+        self.ax1.set_title('CH4')
+
+        loss = self.__call__(changeable_parameters)
+        self.fig.suptitle(f'{loss:>.2f}')
+
+        plt.draw()
+        plt.pause(0.0001)

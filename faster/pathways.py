@@ -2,11 +2,11 @@
 
 import data
 import CONSTANTS
+import OPTIMIZATION_PARAMETERS
 
 def default_model_parameters(specimen_index = None):
 
-    model_parameters = {}
-    model_parameters.update({'M_Fe3':           0.2,
+    model_parameters =     {'M_Fe3':            0.2,
                             'M_Ferm':           0.7,
                             'M_Hydro':          0.0025,
                             'M_Homo':           0.0001,
@@ -24,7 +24,7 @@ def default_model_parameters(specimen_index = None):
                             'Kmb_help_Ferm':    1.0,
                             'Inhibition_Ferm':  1.0,
 
-                            'Fe3':              3.645})
+                            'Fe3':              3.645}
 
     specimen_model_parameters = {}
     if not specimen_index is None:
@@ -36,8 +36,7 @@ def default_model_parameters(specimen_index = None):
     print('================')
     for k, v in model_parameters.items():
         source = 'specimen data' if k in specimen_model_parameters else ''
-        print(f'   {k:10} {v:20g} {source}')
-
+        print(f'   {k[:20]:20} {v:10g} {source}')
     print('')
 
     return model_parameters

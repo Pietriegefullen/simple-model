@@ -94,9 +94,10 @@ def pathway_builder(microbe, educts, products):
         dissolved_system_state = henrys_law_vector * system_state
 
         # compute the Michalis-Menten factors given the current pools
-        MM = np.where(Km_vector == 0, 1,
+        eps = np.where(dissolved_system_state == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
+        MM = np.where(Km_vector + dissolved_system_state == 0, 1,
                       np.where(dissolved_system_state == 0, 0,
-                               dissolved_system_state/(Km_vector + dissolved_system_state)))
+                               dissolved_system_state/(Km_vector + dissolved_system_state + eps)))
         # compute the total MM factor
         total_MM_factor = np.prod(MM)
 
