@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
+import multiprocessing
 
 from predict import predictor
 from ORDER import POOL_ORDER, pool_index
@@ -11,7 +12,7 @@ from OPTIMIZATION_PARAMETERS import CHANGEABLES
 def objective_function(changeable_parameters, specimen_objectives):
     losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
     total_loss = np.sum(losses)
-    print(f'{total_loss:.5e}')
+    #print(f'{total_loss:.5e}')
     return total_loss
 
 def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose = True):
@@ -35,17 +36,35 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo, verbose
                        for sample, site in sample_list]
 
     if algo == 'differential_evolution':
+        workers = OPTIMIZATION_PARAMETERS.WORKERS
+        if workers == -1:
+            workers = multiprocessing.cpu_count()
+        opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
+        print('')
+        print('#'*len(opti_string))
+        print(opti_string)
+        print('#'*len(opti_string))
+        print('')
+
         optimization_result  = scipy.optimize.differential_evolution(objective_function,
                                                                      bounds = initial_guess_bounds,
                                                                      args = (objectives,),
                                                                      disp = True,
-                                                                     workers = -1,
-                                                                     **OPTIMIZATION_PARAMETERS.DIFF_EVOL_PARAMETERS) #welche Größe ist angemessen?
+                                                                     workers = workers,
+                                                                     **OPTIMIZATION_PARAMETERS.DIFF_EVOL_PARAMETERS)
 
     elif algo == 'gradient':
+        method_name = OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS['method']
+        print('')
+        opti_string = f'fitting {len(objectives):d} samples with {method_name:}'
+        print('#'*len(opti_string))
+        print(opti_string)
+        print('#'*len(opti_string))
+        print('')
         initial_guess_array = np.array([initial_guess_dict[k][0] for k in CHANGEABLES])
         optimization_result = scipy.optimize.minimize(objective_function,
                                                       initial_guess_array,
+                                                      args = (objectives,),
                                                       bounds = initial_guess_bounds,
                                                       **OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS)
 
