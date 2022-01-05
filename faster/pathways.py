@@ -4,32 +4,32 @@ import data
 import CONSTANTS
 import OPTIMIZATION_PARAMETERS
 
-def default_model_parameters(specimen_index = None):
+def default_model_parameters(specimen_index = None, site = 'all'):
 
     model_parameters =     {'M_Fe3':            0.2,
-                            'M_Ferm':           0.7,
+                            'M_Ferm':           0.02,
                             'M_Hydro':          0.0025,
                             'M_Homo':           0.0001,
-                            'M_Ac':             0.001,
+                            'M_Ac':             0.0002,
 
-                            'Sensenmann':       8.33e-5,
+                            'Sensenmann':       0,#8.33e-5,
 
-                            'Vmax_Fe3':         1.709,
-                            'Vmax_help_Ferm':   0.177,
-                            'Vmax_Ferm':        0.606,
-                            'Vmax_Homo':        0.85,
-                            'Vmax_Hydro':       0.423,
-                            'Vmax_Ac':          0.159,
+                            'Vmax_Fe3':         20.27,
+                            'Vmax_help_Ferm':   0.030966,
+                            'Vmax_Ferm':        0.0943461,
+                            'Vmax_Homo':        0.066571,
+                            'Vmax_Hydro':       0.070321,
+                            'Vmax_Ac':          0.040890,
 
-                            'Kmb_help_Ferm':    1.0,
-                            'Inhibition_Ferm':  1.0,
+                            'Kmb_help_Ferm':    11.748221,
+                            'Inhibition_Ferm':  9.424312,
 
-                            'Fe3':              3.645}
+                            'Fe3':              15.090783}
 
     specimen_model_parameters = {}
     if not specimen_index is None:
         specimen_model_parameters = data.model_parameters_from_data(specimen_index,
-                                                                    site = 'all')
+                                                                    site = site)
         model_parameters.update(specimen_model_parameters)
 
     print('model parameters:')

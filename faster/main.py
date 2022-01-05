@@ -9,9 +9,9 @@ import optimizer
 from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
 
-def run_model(specimen_index):
+def run_model(specimen_index, site):
 
-    model_parameters = pathways.default_model_parameters(specimen_index)
+    model_parameters = pathways.default_model_parameters(specimen_index, site)
 
     all_days = np.arange(4500)     # Days to make predictions for
 
@@ -29,7 +29,9 @@ def run_model(specimen_index):
                                         chosen_pathways,
                                         verbose = True)
 
-    plot.all_pools(pool_value_dict, all_days)
+
+    measured_data = data.specimen_data(specimen_index, site)
+    plot.all_pools(pool_value_dict, all_days, measured_data)
 
 
 def fit_model(specimen_index, site):
@@ -51,7 +53,7 @@ def fit_model(specimen_index, site):
                                                 algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
 
     model_parameters = fixed_parameters
-    model_parameters.update(data.model_parameters_from_data(specimen_index, site = 'all'))
+    model_parameters.update(data.model_parameters_from_data(specimen_index, site = site))
 
     model_parameters.update(optimal_parameters)
 
@@ -75,7 +77,7 @@ def fit_model(specimen_index, site):
 
 if __name__ == '__main__':
     fit_model(9, 'all')
-    #run_model(9)
+    #run_model(9, site = 'all')
 
     # TODO: print setup, then ask for confirmation
 
@@ -83,14 +85,9 @@ if __name__ == '__main__':
     # extract extra dicts after run
     # do all the plotting
     # optimization tolerances
-    # explicit separation of model parameters, changeables, ...
     # callback print during optimization?
     # save optimization checkpoints
     # fix model errors
     #
     # scaling for the optimization algorithm!
     #
-
-    # TODO: no microbes, but changes anyway! -> multiply v with biomass! => adjust values for v_max?
-
-    # TODO: compute the gradients?

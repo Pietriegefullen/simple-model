@@ -10,7 +10,8 @@ import OPTIMIZATION_PARAMETERS
 from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
 
-def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
+def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo): 
+    # falls run not fit sin fixed_parameters die model_parameters
     for name in CHANGEABLES:
         if name in fixed_parameters.keys():
             print(f'Deleting {name} from fixed parameters')
@@ -70,14 +71,14 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
 
 
 
-class ObjectiveFunction():
+class ObjectiveFunction:
     def __init__(self):
         self.best = np.inf
 
     def __call__(self,changeable_parameters, specimen_objectives):
         losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
         total_loss = np.sum(losses)
-        #print(f'{total_loss:.5e}')
+        print(f'{total_loss:.5e}')
 
         if total_loss < self.best:
             self.best = total_loss
@@ -146,9 +147,6 @@ class SpecimenObjective:
 
         CO2_measured = self.measured_data_dict['CO2']
         CH4_measured = self.measured_data_dict['CH4']
-
-        measure_day_weight = np.ones((len(CO2_measured),))
-
 
         self.ax0.clear()
         self.ax1.clear()

@@ -61,14 +61,19 @@ def predictor(t_eval,
                                                   # atol = 1e-100,
                                                   # rtol = 1e-1,
                                                   # max_step = 10)
-
+        pool_results = solver_result.y
+  
+                                                      
     except Exception:
-        print(traceback.format_exc())
+        #print(traceback.format_exc())
+        print('EXCEPTION IN SOLVER')
+        pool_results = np.empty((n_pools, t_eval.size))
+        pool_results[:] = np.nan
 
-    n_pools, n_days = solver_result.y.shape
+    n_pools, n_days = pool_results.shape
     nan_array = np.empty((n_pools, t_eval.size - n_days))
     nan_array[:] = np.nan
-    padded_pools = np.concatenate([solver_result.y,
+    padded_pools = np.concatenate([pool_results,
                                    nan_array], axis = -1)
 
     pool_dict = dict(zip(POOL_ORDER, padded_pools))

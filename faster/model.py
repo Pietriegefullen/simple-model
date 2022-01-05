@@ -41,8 +41,6 @@ def pathway_builder(microbe, educts, products):
 
     microbe_index = pool_index(microbe['name'])
 
-    # TODO: so far, MM is only possible for educts, and inhibition is only possible by products
-
     for educt in educts:
         educt_index = pool_index(educt['name'])
         pathway_vector[educt_index] = -educt['stoich']
@@ -51,11 +49,11 @@ def pathway_builder(microbe, educts, products):
         if 'Km' in educt:
             Km_vector[educt_index] = educt['Km']
 
-        if 'C_source' in educt:
+        if 'C_source' in microbe and 'C_atoms' in educt:
             c_atoms = educt['C_atoms']
             CUE = microbe['CUE']
             pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
-            pathway_vector[educt_index] = -stoich*1/(1-CUE)
+            pathway_vector[educt_index] = -educt['stoich']*1/(1-CUE)
 
     for product in products:
         product_index = pool_index(product['name'])
@@ -71,14 +69,14 @@ def pathway_builder(microbe, educts, products):
     v_max = microbe['vmax']
 
     # handle microbe death
-    growth_rate_vector = np.zeros((len(POOL_ORDER),))
-    growth_rate_vector[microbe_index] -= microbe['death_rate']
+    death_rate_vector = np.zeros((len(POOL_ORDER),))
+    death_rate_vector[microbe_index] = microbe['death_rate']
 
     if DEBUG:
         print_matrix = np.concatenate([np.reshape(henrys_law_vector, (-1, 1)),
                                        np.reshape(Km_vector, (-1, 1)),
                                        np.reshape(inhibition_vector, (-1, 1)),
-                                       np.reshape(growth_rate_vector, (-1,1))], axis = 1)
+                                       np.reshape(death_rate_vector, (-1,1))], axis = 1)
 
         print('')
         print('building: ', microbe['name'], 'pathway')
@@ -97,7 +95,9 @@ def pathway_builder(microbe, educts, products):
         eps = np.where(dissolved_system_state == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
         MM = np.where(Km_vector + dissolved_system_state == 0, 1,
                       np.where(dissolved_system_state == 0, 0,
+                               
                                dissolved_system_state/(Km_vector + dissolved_system_state + eps)))
+        
         # compute the total MM factor
         total_MM_factor = np.prod(MM)
 
@@ -113,12 +113,12 @@ def pathway_builder(microbe, educts, products):
 
         # compute the changes for all pools given the current biomass and reaction rate
         biomass = system_state[microbe_index]
-        system_state_changes = biomass * v * pathway_vector + growth_rate_vector
+        system_state_changes = biomass * v * pathway_vector - death_rate_vector
 
         if DEBUG:
             print_matrix = np.concatenate([np.reshape(dissolved_system_state, (-1, 1)),
-                                           np.reshape(MM_factors, (-1, 1)),
-                                           np.reshape(inhibition_factors, (-1, 1)),
+                                           np.reshape(MM, (-1, 1)),
+                                           np.reshape(invMM, (-1, 1)),
                                            np.reshape(system_state_changes, (-1,1))], axis = 1)
 
             print('calling: ', microbe['name'])
@@ -127,9 +127,6 @@ def pathway_builder(microbe, educts, products):
 
             print('total MM' , total_MM_factor)
             print('total inh', total_inibition_factor)
-
-        # TODO: required for solver stability?
-        # system_state_changes[system_state_changes < 1e-30] = 0
 
         return system_state_changes
 
