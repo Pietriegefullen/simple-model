@@ -27,6 +27,10 @@ GRADIENT_PARAMETERS = {'method':            'L-BFGS-B',
                                              'disp':        True}
                        }
 
+PSO_PARAMETERS = {'options':{'c1': 0.5, 'c2': 0.3, 'w':0.9},
+                  'particles':100,
+                  'iterations':5000}
+
 def get_initial_guesses():
     # specify initial guesses and bounds for the parameters to be optimized
     initial_guess_dict = {}        #   init    lower upper  ok guesses to start with

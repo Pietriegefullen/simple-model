@@ -64,15 +64,21 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
 
     elif algo == 'PSO':
         import pyswarms as ps
-        options = {'c1': 0.5, 'c2': 0.3, 'w':0.9}
+        
+        options = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['options']
+        particles = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['particles']
+        iters = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['iterations']
+        
+        opti_string = f'fitting {len(objectives):d} samples with PSO on {workers:d} workers'
+        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
 
         # Call instance of GlobalBestPSO
-        optimizer = ps.single.GlobalBestPSO(n_particles=20, 
+        optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
                                             dimensions=len(OPTIMIZATION_PARAMETERS.CHANGEABLES),
                                             options=options,
                                             bounds = (np.array(lower_bounds), np.array(upper_bounds)))
         _, changeables_optimal_array = optimizer.optimize(ParticleObjective(),
-                                                           iters = 1000,
+                                                           iters = iters,
                                                            specimen_objectives=objectives,
                                                            n_processes = workers)
 

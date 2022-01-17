@@ -1,0 +1,413 @@
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033{\fonttbl{\f0\fmodern Consolas;}{\f1\fmodern\fcharset0 Consolas;}{\f2\fnil\fcharset129 Courier New;}}
+{\colortbl ;\red20\green20\blue20;\red142\green142\blue142;\red16\green158\blue98;\red148\green146\blue12;\red170\green51\blue170;\red56\green136\blue159;\red170\green64\blue64;\red9\green118\blue72;\red85\green85\blue85;}
+\viewkind4\uc1\pard\f0\fs20     \u9484?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9488?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?                 \cf3\f1\bullet  MobaXterm Personal Edition v21.4 \bullet\cf0\f0                  \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?               \cf4 (SSH client, X server and network tools)\cf0                \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?                                                                      \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474? \u8594? SSH session to \cf5 u290380@turbel.cen.uni-hamburg.de         \cf0           \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?\f1    \bullet  SSH gateway     :  \cf3\f0 v\cf0  (u290380@login.cen.uni-hamburg.de)          \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?\f1    \bullet  SSH compression :  \cf3\f0 v\cf0                                              \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?\f1    \bullet  SSH-browser     :  \cf3\f0 v\cf0                                              \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?\f1    \bullet  X11-forwarding  :  \cf3\f0 v\cf0   (remote display is forwarded through SSH)  \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474?                                                                      \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9474? \u8594? For more info, ctrl+click on \cf6\ul help\cf0\ulnone  or visit our \cf6\ul website\cf0\ulnone .            \u9474?\cf1\highlight2 
+\par \cf0\highlight0     \u9492?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9496?\cf1\highlight2 
+\par 
+\par \cf0\highlight0 Linux turbel 4.9.0-11-amd64 #1 SMP Debian 4.9.189-3+deb9u2 (2019-11-11) x86_64\cf1\highlight2 
+\par \cf0\highlight0 ************************************************************\cf1\highlight2 
+\par \cf0\highlight0 *                       Help needed ?                      *\cf1\highlight2 
+\par \cf0\highlight0 *                                                          *\cf1\highlight2 
+\par \cf0\highlight0 *  https://www.cen.uni-hamburg.de/facilities/cen-it.html   *\cf1\highlight2 
+\par \cf0\highlight0 *                   CEN-IT Service Group                   *\cf1\highlight2 
+\par \cf0\highlight0 ************************************************************\cf1\highlight2 
+\par \cf0\highlight0 Last login: Mon Jan 17 10:30:30 2022 from 134.100.240.1\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~$ module load anaconda3\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~$\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~$ cd code/simple-model/\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model$\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model$ git pull origin cleanup/20211212_parallel_broken\cf1\highlight2 
+\par \cf0\highlight0 remote: Enumerating objects: 7, done.\cf1\highlight2 
+\par \cf0\highlight0 remote: Counting objects: 100% (7/7), done.\cf1\highlight2 
+\par \cf0\highlight0 remote: Compressing objects: 100% (5/5), done.\cf1\highlight2 
+\par \cf0\highlight0 remote: Total 5 (delta 2), reused 3 (delta 0), pack-reused 0\cf1\highlight2 
+\par \cf0\highlight0 Unpacking objects: 100% (5/5), done.\cf1\highlight2 
+\par \cf0\highlight0 From https://github.com/Pietriegefullen/simple-model\cf1\highlight2 
+\par \cf0\highlight0  * branch            cleanup/20211212_parallel_broken -> FETCH_HEAD\cf1\highlight2 
+\par \cf0\highlight0    63324c9..b4acda5  cleanup/20211212_parallel_broken -> origin/cleanup/20211212_parallel_broken\cf1\highlight2 
+\par \cf0\highlight0 Updating 63324c9..b4acda5\cf1\highlight2 
+\par \cf0\highlight0 Fast-forward\cf1\highlight2 
+\par \cf0\highlight0  faster/Carex_addition_2021_clean.xlsx     | Bin \cf7 0\cf0  -> \cf8 52911\cf0  bytes\cf1\highlight2 
+\par \cf0\highlight0  faster/Metadaten_all_86_cleanandneat.xlsx | Bin \cf7 0\cf0  -> \cf8 17014\cf0  bytes\cf1\highlight2 
+\par \cf0\highlight0  2 files changed, 0 insertions(+), 0 deletions(-)\cf1\highlight2 
+\par \cf0\highlight0  create mode 100644 faster/Carex_addition_2021_clean.xlsx\cf1\highlight2 
+\par \cf0\highlight0  create mode 100644 faster/Metadaten_all_86_cleanandneat.xlsx\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model$\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model$ cd faster/\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model/faster$ python main.py\cf1\highlight2 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 Traceback (most recent call last):\cf1\highlight2 
+\par \cf0\highlight0   File "main.py", line 81, in <module>\cf1\highlight2 
+\par \cf0\highlight0     fit_model(17, 'all')\cf1\highlight2 
+\par \cf0\highlight0   File "main.py", line 47, in fit_model\cf1\highlight2 
+\par \cf0\highlight0     fixed_parameters = pathways.default_model_parameters(specimen_index)\cf1\highlight2 
+\par \cf0\highlight0   File "/home/zmaw/u290380/code/simple-model/faster/pathways.py", line 32, in default_model_parameters\cf1\highlight2 
+\par \cf0\highlight0     site = site)\cf1\highlight2 
+\par \cf0\highlight0   File "/home/zmaw/u290380/code/simple-model/faster/data.py", line 12, in model_parameters_from_data\cf1\highlight2 
+\par \cf0\highlight0     data = specimen_data(specimen_index, site)\cf1\highlight2 
+\par \cf0\highlight0   File "/home/zmaw/u290380/code/simple-model/faster/data.py", line 42, in specimen_data\cf1\highlight2 
+\par \cf0\highlight0     Rep_mit_Fe3) = load_matlab()\cf1\highlight2 
+\par \cf0\highlight0   File "/home/zmaw/u290380/code/simple-model/faster/data.py", line 97, in load_matlab\cf1\highlight2 
+\par \cf0\highlight0     Metadata = pd.read_excel(excel_file,engine = 'openpyxl')\cf1\highlight2 
+\par \cf0\highlight0   File "/sw/stretch-x64/anaconda3-7.0.0/lib/python3.7/site-packages/pandas/util/_decorators.py", line 178, in wrapper\cf1\highlight2 
+\par \cf0\highlight0     return func(*args, **kwargs)\cf1\highlight2 
+\par \cf0\highlight0   File "/sw/stretch-x64/anaconda3-7.0.0/lib/python3.7/site-packages/pandas/util/_decorators.py", line 178, in wrapper\cf1\highlight2 
+\par \cf0\highlight0     return func(*args, **kwargs)\cf1\highlight2 
+\par \cf0\highlight0   File "/sw/stretch-x64/anaconda3-7.0.0/lib/python3.7/site-packages/pandas/io/excel.py", line 307, in read_excel\cf1\highlight2 
+\par \cf0\highlight0     io = ExcelFile(io, engine=engine)\cf1\highlight2 
+\par \cf0\highlight0   File "/sw/stretch-x64/anaconda3-7.0.0/lib/python3.7/site-packages/pandas/io/excel.py", line 369, in __init__\cf1\highlight2 
+\par \cf0\highlight0     raise ValueError("Unknown engine: \{engine\}".format(engine=engine))\cf1\highlight2 
+\par \cf0\highlight0 ValueError: Unknown engine: openpyxl\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model/faster$\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model/faster$ which conda\cf1\highlight2 
+\par \cf0\highlight0 /sw/stretch-x64/anaconda3-7.0.0/bin/conda\cf1\highlight2 
+\par \cf0\highlight0 u290380@turbel:~/code/simple-model/faster$ source /sw/stretch-x64/anaconda3-7.0.0/bin/activate turbel_may\cf1\highlight2 
+\par \cf0\highlight0 (turbel_may) u290380@turbel:~/code/simple-model/faster$\cf1\highlight2 
+\par \cf0\highlight0 (turbel_may) u290380@turbel:~/code/simple-model/faster$ python main.py\cf1\highlight2 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par \cf0\highlight0 model parameters:\cf1\highlight2 
+\par \cf0\highlight0 ================\cf1\highlight2 
+\par \cf0\highlight0    M_Fe3                       0.2\cf1\highlight2 
+\par \cf0\highlight0    M_Ferm                     0.02\cf1\highlight2 
+\par \cf0\highlight0    M_Hydro                  0.0025\cf1\highlight2 
+\par \cf0\highlight0    M_Homo                   0.0001\cf1\highlight2 
+\par \cf0\highlight0    M_Ac                     0.0002\cf1\highlight2 
+\par \cf0\highlight0    Sensenmann                    0\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3                  20.27\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm         0.030966\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm             0.0943461\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo              0.066571\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro             0.070321\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac                 0.04089\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm           11.7482\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm         9.42431\cf1\highlight2 
+\par \cf0\highlight0    Fe3                     15.0908\cf1\highlight2 
+\par \cf0\highlight0    C                       588.384 specimen data\cf1\highlight2 
+\par \cf0\highlight0    DOC                     11.7677 specimen data\cf1\highlight2 
+\par \cf0\highlight0    pH                         6.15 specimen data\cf1\highlight2 
+\par \cf0\highlight0    weight                    17.77 specimen data\cf1\highlight2 
+\par \cf0\highlight0    water                       4.6 specimen data\cf1\highlight2 
+\par 
+\par \cf0\highlight0 Deleting Vmax_help_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Fe3 from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Homo from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Hydro from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Ac from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Kmb_help_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Inhibition_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Fe3 from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting M_Ac from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par 
+\par \cf0\highlight0 changeables:\cf1\highlight2 
+\par \cf0\highlight0 ===========\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Fe3\cf1\highlight2 
+\par \cf0\highlight0    M_Ac\cf1\highlight2 
+\par 
+\par \cf0\highlight0 Traceback (most recent call last):\cf1\highlight2 
+\par \cf0\highlight0   File "main.py", line 81, in <module>\cf1\highlight2 
+\par \cf0\highlight0     fit_model(17, 'all')\cf1\highlight2 
+\par \cf0\highlight0   File "main.py", line 49, in fit_model\cf1\highlight2 
+\par \cf0\highlight0     optimal_parameters = optimizer.fit_specimen(specimen_index,\cf1\highlight2 
+\par \cf0\highlight0   File "/home/zmaw/u290380/code/simple-model/faster/optimizer.py", line 66, in fit_specimen\cf1\highlight2 
+\par \cf0\highlight0     import pyswarms as ps\cf1\highlight2 
+\par \cf0\highlight0 ModuleNotFoundError: No module named 'pyswarms'\cf1\highlight2 
+\par \cf0\highlight0 (turbel_may) u290380@turbel:~/code/simple-model/faster$ conda install pyswarms\cf1\highlight2 
+\par \cf0\highlight0 Collecting package metadata (repodata.json): done\cf1\highlight2 
+\par \cf0\highlight0 Solving environment: failed with initial frozen solve. Retrying with flexible solve.\cf1\highlight2 
+\par 
+\par \cf0\highlight0 PackagesNotFoundError: The following packages are not available from current channels:\cf1\highlight2 
+\par 
+\par \cf0\highlight0   - pyswarms\cf1\highlight2 
+\par 
+\par \cf0\highlight0 Current channels:\cf1\highlight2 
+\par 
+\par \cf0\highlight0   - https://repo.anaconda.com/pkgs/main/linux-64\cf1\highlight2 
+\par \cf0\highlight0   - https://repo.anaconda.com/pkgs/main/noarch\cf1\highlight2 
+\par \cf0\highlight0   - https://repo.anaconda.com/pkgs/r/linux-64\cf1\highlight2 
+\par \cf0\highlight0   - https://repo.anaconda.com/pkgs/r/noarch\cf1\highlight2 
+\par 
+\par \cf0\highlight0 To search for alternate channels that may provide the conda package you're\cf1\highlight2 
+\par \cf0\highlight0 looking for, navigate to\cf1\highlight2 
+\par 
+\par \cf0\highlight0     https://anaconda.org\cf1\highlight2 
+\par 
+\par \cf0\highlight0 and use the search bar at the top of the page.\cf1\highlight2 
+\par 
+\par 
+\par \cf0\highlight0 (turbel_may) u290380@turbel:~/code/simple-model/faster$ pip install pyswarms\cf1\highlight2 
+\par \cf0\highlight0 Collecting pyswarms\cf1\highlight2 
+\par \cf0\highlight0   Downloading pyswarms-1.3.0-py2.py3-none-any.whl (104 kB)\cf1\highlight2 
+\par \cf0\highlight0      |\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?| 104 kB 2.7 MB/s\cf1\highlight2 
+\par \cf0\highlight0 Collecting future\cf1\highlight2 
+\par \cf0\highlight0   Downloading future-0.18.2.tar.gz (829 kB)\cf1\highlight2 
+\par \cf0\highlight0      |\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?| 829 kB 10.0 MB/s\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: scipy in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from pyswarms) (1.7.3)\cf1\highlight2 
+\par \cf0\highlight0 Collecting attrs\cf1\highlight2 
+\par \cf0\highlight0   Downloading attrs-21.4.0-py2.py3-none-any.whl (60 kB)\cf1\highlight2 
+\par \cf0\highlight0      |\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?| 60 kB 3.2 MB/s\cf1\highlight2 
+\par \cf0\highlight0 Collecting pyyaml\cf1\highlight2 
+\par \cf0\highlight0   Downloading PyYAML-6.0-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_12_x86_64.manylinux2010_x86_64.whl (701 kB)\cf1\highlight2 
+\par \cf0\highlight0      |\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?| 701 kB 42.6 MB/s\cf1\highlight2 
+\par \cf0\highlight0 Collecting tqdm\cf1\highlight2 
+\par \cf0\highlight0   Downloading tqdm-4.62.3-py2.py3-none-any.whl (76 kB)\cf1\highlight2 
+\par \cf0\highlight0      |\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?| 76 kB 2.4 MB/s\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: numpy in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from pyswarms) (1.22.1)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: matplotlib>=1.3.1 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from pyswarms) (3.5.1)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: cycler>=0.10 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (0.11.0)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: fonttools>=4.22.0 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (4.28.5)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: packaging>=20.0 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (21.3)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: pyparsing>=2.2.1 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (3.0.6)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: python-dateutil>=2.7 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (2.8.2)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: pillow>=6.2.0 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (9.0.0)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: kiwisolver>=1.0.1 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from matplotlib>=1.3.1->pyswarms) (1.3.2)\cf1\highlight2 
+\par \cf0\highlight0 Requirement already satisfied: six>=1.5 in /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages (from python-dateutil>=2.7->matplotlib>=1.3.1->pyswarms) (1.16.0)\cf1\highlight2 
+\par \cf0\highlight0 Building wheels for collected packages: future\cf1\highlight2 
+\par \cf0\highlight0   Building wheel for future (setup.py) ... done\cf1\highlight2 
+\par \cf0\highlight0   Created wheel for future: filename=future-0.18.2-py3-none-any.whl size=491070 sha256=14e43e61a5b0176600be09e798dcd1c64c382b26dce6f2251508056ab8a0552d\cf1\highlight2 
+\par \cf0\highlight0   Stored in directory: /home/zmaw/u290380/.cache/pip/wheels/8e/70/28/3d6ccd6e315f65f245da085482a2e1c7d14b90b30f239e2cf4\cf1\highlight2 
+\par \cf0\highlight0 Successfully built future\cf1\highlight2 
+\par \cf0\highlight0 Installing collected packages: tqdm, pyyaml, future, attrs, pyswarms\cf1\highlight2 
+\par \cf0\highlight0 Successfully installed attrs-21.4.0 future-0.18.2 pyswarms-1.3.0 pyyaml-6.0 tqdm-4.62.3\cf1\highlight2 
+\par \cf0\highlight0 (turbel_may) u290380@turbel:~/code/simple-model/faster$ python main.py\cf1\highlight2 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par \cf0\highlight0 model parameters:\cf1\highlight2 
+\par \cf0\highlight0 ================\cf1\highlight2 
+\par \cf0\highlight0    M_Fe3                       0.2\cf1\highlight2 
+\par \cf0\highlight0    M_Ferm                     0.02\cf1\highlight2 
+\par \cf0\highlight0    M_Hydro                  0.0025\cf1\highlight2 
+\par \cf0\highlight0    M_Homo                   0.0001\cf1\highlight2 
+\par \cf0\highlight0    M_Ac                     0.0002\cf1\highlight2 
+\par \cf0\highlight0    Sensenmann                    0\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3                  20.27\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm         0.030966\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm             0.0943461\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo              0.066571\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro             0.070321\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac                 0.04089\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm           11.7482\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm         9.42431\cf1\highlight2 
+\par \cf0\highlight0    Fe3                     15.0908\cf1\highlight2 
+\par \cf0\highlight0    C                       588.384 specimen data\cf1\highlight2 
+\par \cf0\highlight0    DOC                     11.7677 specimen data\cf1\highlight2 
+\par \cf0\highlight0    pH                         6.15 specimen data\cf1\highlight2 
+\par \cf0\highlight0    weight                    17.77 specimen data\cf1\highlight2 
+\par \cf0\highlight0    water                       4.6 specimen data\cf1\highlight2 
+\par 
+\par \cf0\highlight0 Deleting Vmax_help_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Fe3 from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Homo from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Hydro from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Vmax_Ac from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Kmb_help_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Inhibition_Ferm from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting Fe3 from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 Deleting M_Ac from fixed parameters\cf1\highlight2 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par 
+\par \cf0\highlight0 changeables:\cf1\highlight2 
+\par \cf0\highlight0 ===========\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm\cf1\highlight2 
+\par \cf0\highlight0    Fe3\cf1\highlight2 
+\par \cf0\highlight0    M_Ac\cf1\highlight2 
+\par 
+\par \cf0\highlight0 2022-01-17 11:13:30,002 - pyswarms.single.global_best - INFO - Optimize for 1000 iters with \{'c1': 0.5, 'c2': 0.3, 'w': 0.9\}\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:   4%|\u9608?\u9608?                                                    |39/1000, best_cost=8.27e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  20%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9610?                                           |200/1000, best_cost=8.1e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  30%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9614?                                     |302/1000, best_cost=8.1e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  51%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9609?                          |508/1000, best_cost=7.65e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  52%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9611?                         |523/1000, best_cost=7.65e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  53%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9609?                         |526/1000, best_cost=7.65e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  69%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9610?                |694/1000, best_cost=7.65e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best:  77%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9611?            |768/1000, best_cost=7.65e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best: 100%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9611?|995/1000, best_cost=7e+7/home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:337: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h_new = (y[ind] + new_factor * y_scale[ind]) - y[ind]\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:99: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   dissolved_system_state/(Km_vector + dissolved_system_state + eps)))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/code/simple-model/faster/model.py:106: RuntimeWarning: invalid value encountered in true_divide\cf1\highlight2 
+\par \cf0\highlight0   1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))\cf1\highlight2 
+\par \cf0\highlight0 /home/zmaw/u290380/.conda/envs/turbel_may/lib/python3.8/site-packages/scipy/integrate/_ivp/common.py:306: RuntimeWarning: overflow encountered in multiply\cf1\highlight2 
+\par \cf0\highlight0   h = (y + factor * y_scale) - y\cf1\highlight2 
+\par \cf0\highlight0 EXCEPTION IN SOLVER\cf1\highlight2 
+\par \cf0\highlight0 pyswarms.single.global_best: 100%|\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?\u9608?|1000/1000, best_cost=7e+7\cf1\highlight2 
+\par \cf0\highlight0 2022-01-17 11:42:26,049 - pyswarms.single.global_best - INFO - Optimization finished | best cost: 69962912.50440763, best pos: [9.50549372e-02 3.21789171e-01 1.70761195e+00 4.68898461e-01\cf1\highlight2 
+\par \cf0\highlight0  1.21585888e-01 9.63078227e-01 4.71705369e-02 1.08973897e+01\cf1\highlight2 
+\par \cf0\highlight0  2.04230075e+01 5.27517216e-03]\cf1\highlight2 
+\par \cf0\highlight0 optimal parameters:\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm  0.09505493720911337\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm       0.3217891705671502\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3        1.707611948657538\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo       0.46889846090871007\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro      0.12158588759561795\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac         0.9630782266855087\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm   0.047170536918176964\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm 10.897389711107026\cf1\highlight2 
+\par \cf0\highlight0    Fe3             20.423007501794608\cf1\highlight2 
+\par \cf0\highlight0    M_Ac            0.005275172162494159\cf1\highlight2 
+\par 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par 
+\par \cf0\highlight0 running model:\cf1\highlight2 
+\par \cf0\highlight0 =============\cf1\highlight2 
+\par \cf0\highlight0 pathways:\cf1\highlight2 
+\par \cf0\highlight0    Ferm_help\cf1\highlight2 
+\par \cf0\highlight0    Ferm\cf1\highlight2 
+\par \cf0\highlight0    Fe3\cf1\highlight2 
+\par \cf0\highlight0    Ac\cf1\highlight2 
+\par 
+\par \cf0\highlight0 initial system:\cf1\highlight2 
+\par \cf0\highlight0    C            588.384\cf1\highlight2 
+\par \cf0\highlight0    DOC          11.7677\cf1\highlight2 
+\par \cf0\highlight0    CH4          0\cf1\highlight2 
+\par \cf0\highlight0    CO2          0\cf1\highlight2 
+\par \cf0\highlight0    Fe3          20.423\cf1\highlight2 
+\par \cf0\highlight0    M_Ac         0.00527517\cf1\highlight2 
+\par \cf0\highlight0    M_Ferm       0.02\cf1\highlight2 
+\par \cf0\highlight0    M_Fe3        0.2\cf1\highlight2 
+\par \cf0\highlight0    M_Hydro      0.0025\cf1\highlight2 
+\par \cf0\highlight0    M_Homo       0.0001\cf1\highlight2 
+\par \cf0\highlight0    Acetate      0\cf1\highlight2 
+\par \cf0\highlight0    H2           0\cf1\highlight2 
+\par \cf0\highlight0    Fe2          0\cf1\highlight2 
+\par \cf0\highlight0    pH           6.15\cf1\highlight2 
+\par \cf0\highlight0    HCO3         0\cf1\highlight2 
+\par \cf0\highlight0    weight       17.77\cf1\highlight2 
+\par \cf0\highlight0    water        4.6\cf1\highlight2 
+\par 
+\par \cf0\highlight0 model parameters:\cf1\highlight2 
+\par \cf0\highlight0    M_Fe3                  0.2\cf1\highlight2 
+\par \cf0\highlight0    M_Ferm                 0.02\cf1\highlight2 
+\par \cf0\highlight0    M_Hydro                0.0025\cf1\highlight2 
+\par \cf0\highlight0    M_Homo                 0.0001\cf1\highlight2 
+\par \cf0\highlight0    Sensenmann             0\cf1\highlight2 
+\par \cf0\highlight0    C                      588.3844444444444\cf1\highlight2 
+\par \cf0\highlight0    DOC                    11.767688888888888\cf1\highlight2 
+\par \cf0\highlight0    pH                     6.15\cf1\highlight2 
+\par \cf0\highlight0    weight                 17.77\cf1\highlight2 
+\par \cf0\highlight0    water                  4.6\cf1\highlight2 
+\par \cf0\highlight0    Vmax_help_Ferm         0.09505493720911337\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ferm              0.3217891705671502\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Fe3               1.707611948657538\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Homo              0.46889846090871007\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Hydro             0.12158588759561795\cf1\highlight2 
+\par \cf0\highlight0    Vmax_Ac                0.9630782266855087\cf1\highlight2 
+\par \cf0\highlight0    Kmb_help_Ferm          0.047170536918176964\cf1\highlight2 
+\par \cf0\highlight0    Inhibition_Ferm        10.897389711107026\cf1\highlight2 
+\par \cf0\highlight0    Fe3                    20.423007501794608\cf1\highlight2 
+\par \cf0\highlight0    M_Ac                   0.005275172162494159\cf1\highlight2 
+\par 
+\par \cf0\highlight0 load_data\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13520\cf1\highlight2 
+\par \cf0\highlight0 No carex data for specimen 13691\cf1\highlight2 
+\par 
+\par \cf7\highlight0 Remote side unexpectedly closed network connection\cf1\highlight2 
+\par 
+\par \cf9\highlight0\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\u9472?\cf1\highlight2 
+\par 
+\par \cf7\highlight0 Session stopped\cf1\highlight2 
+\par \cf0\highlight0     - Press \cf5 <return>\cf0  to exit tab\cf1\highlight2 
+\par \cf0\highlight0     - Press \cf5 R\cf0  to restart session\cf1\highlight2 
+\par \cf0\highlight0     - Press \cf5 S\cf0  to save terminal output to file\cf1\highlight2 
+\par \pard\cf0\highlight0\f2\fs16 
+\par }
+ 

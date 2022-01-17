@@ -1,0 +1,2 @@
+source /sw/stretch-x64/anaconda3-7.0.0/bin/activate turbel_may
+cd code/simple-model/faster
