@@ -39,8 +39,8 @@ def fit_model(specimen_index, site):
     chosen_pathways = [pathways.Ferm_help,
                        pathways.Ferm,
                        pathways.Fe3,
-                       pathways.Hydro,
-                       pathways.Homo,
+                       #pathways.Hydro,
+                       #pathways.Homo,
                        pathways.Ac
                        ]
 
@@ -70,13 +70,15 @@ def fit_model(specimen_index, site):
     CO2 =  measured_data_dict['CO2']
     CH4 =  measured_data_dict['CH4']
 
+    plot.all_pools(pool_value_dict, all_days)
     plot.fit(days, CO2, pool_value_dict['CO2'], all_days)
     plot.fit(days, CH4, pool_value_dict['CH4'], all_days)
 
     plt.show()
 
 if __name__ == '__main__':
-    fit_model(9, 'all')
+    # 9 ist die probe die ich normalerweise hab
+    fit_model(17, 'all')
     #run_model(9, site = 'all')
 
     # TODO: print setup, then ask for confirmation

@@ -32,11 +32,12 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
 
     changeables_string = '\nchangeables:\n' + '='*11 + '\n   ' + '\n   '.join(CHANGEABLES) + '\n'
     print(changeables_string)
-
+    workers = OPTIMIZATION_PARAMETERS.WORKERS
+    if workers == -1:
+        workers = multiprocessing.cpu_count()
+        
     if algo == 'differential_evolution':
-        workers = OPTIMIZATION_PARAMETERS.WORKERS
-        if workers == -1:
-            workers = multiprocessing.cpu_count()
+        
         opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
         print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
 
@@ -46,6 +47,7 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
                                                                      disp = True,
                                                                      workers = workers,
                                                                      **OPTIMIZATION_PARAMETERS.DIFF_EVOL_PARAMETERS)
+        changeables_optimal_array = optimization_result.x
 
     elif algo == 'gradient':
         method_name = OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS['method']
@@ -58,8 +60,22 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
                                                       args = (objectives,),
                                                       bounds = initial_guess_bounds,
                                                       **OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS)
+        changeables_optimal_array = optimization_result.x
 
-    changeables_optimal_array = optimization_result.x
+    elif algo == 'PSO':
+        import pyswarms as ps
+        options = {'c1': 0.5, 'c2': 0.3, 'w':0.9}
+
+        # Call instance of GlobalBestPSO
+        optimizer = ps.single.GlobalBestPSO(n_particles=20, 
+                                            dimensions=len(OPTIMIZATION_PARAMETERS.CHANGEABLES),
+                                            options=options,
+                                            bounds = (np.array(lower_bounds), np.array(upper_bounds)))
+        _, changeables_optimal_array = optimizer.optimize(ParticleObjective(),
+                                                           iters = 1000,
+                                                           specimen_objectives=objectives,
+                                                           n_processes = workers)
+
     changeables_optimal_dict = dict(zip(CHANGEABLES, changeables_optimal_array))
 
     print('optimal parameters:')
@@ -69,6 +85,17 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
 
     return changeables_optimal_dict
 
+
+class ParticleObjective():
+    
+    def __call__(self, changeable_parameters, specimen_objectives):
+        particle_fitnesses = []
+        for particle_changeables in changeable_parameters:
+            losses = [sample_loss(particle_changeables) for sample_loss in specimen_objectives]
+            total_loss = np.sum(losses)
+            particle_fitnesses.append(total_loss)
+        
+        return np.array(particle_fitnesses)
 
 
 class ObjectiveFunction:

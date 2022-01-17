@@ -67,6 +67,7 @@ def predictor(t_eval,
     except Exception:
         #print(traceback.format_exc())
         print('EXCEPTION IN SOLVER')
+        n_pools = len(POOL_ORDER)
         pool_results = np.empty((n_pools, t_eval.size))
         pool_results[:] = np.nan
 

@@ -30,3 +30,4 @@ def fit(days, CO2, pool_values, all_days):
     plt.figure()
     plt.plot(days, CO2, 'x')
     plt.plot(all_days, pool_values, '-')
+    print('\007')

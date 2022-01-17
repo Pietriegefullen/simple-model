@@ -70,7 +70,7 @@ def pathway_builder(microbe, educts, products):
 
     # handle microbe death
     death_rate_vector = np.zeros((len(POOL_ORDER),))
-    death_rate_vector[microbe_index] = microbe['death_rate']
+    death_rate_vector[microbe_index] = microbe['death_rate'] 
 
     if DEBUG:
         print_matrix = np.concatenate([np.reshape(henrys_law_vector, (-1, 1)),
@@ -113,7 +113,8 @@ def pathway_builder(microbe, educts, products):
 
         # compute the changes for all pools given the current biomass and reaction rate
         biomass = system_state[microbe_index]
-        system_state_changes = biomass * v * pathway_vector - death_rate_vector
+        death_rate_vector_biomass = death_rate_vector * biomass
+        system_state_changes = biomass * v * pathway_vector - death_rate_vector_biomass
 
         if DEBUG:
             print_matrix = np.concatenate([np.reshape(dissolved_system_state, (-1, 1)),
