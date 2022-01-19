@@ -2,7 +2,7 @@
 MEASURE_DAYS_WEIGHTING = True
 
 ALGORITHM = 'PSO' #'differential_evolution'#'gradient' #
-WORKERS = -1 # -1 uses all that are available on this machine
+WORKERS = 64 # -1 uses all that are available on this machine
 
 PLOT_LIVE_FIT = False
 
