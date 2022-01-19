@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import argparse
+
 import predict
 import pathways
 import plot
@@ -8,6 +10,7 @@ import data
 import optimizer
 from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
+
 
 def run_model(specimen_index, site):
 
@@ -75,6 +78,17 @@ def fit_model(specimen_index, site):
     plot.fit(days, CH4, pool_value_dict['CH4'], all_days)
 
     plt.show()
+
+my_parser = argparse.ArgumentParser(description='simple model main')
+
+my_parser.add_argument('-w', '-workers',
+                       metavar='workers',
+                       type=int,
+                       help='number of workers used by optimization',
+                       default = 8)
+
+args = my_parser.parse_args()
+OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 if __name__ == '__main__':
     # 9 ist die probe die ich normalerweise hab
