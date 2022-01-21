@@ -1,7 +1,10 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
 import argparse
+from datetime import datetime
+import json
 
 import predict
 import pathways
@@ -10,7 +13,7 @@ import data
 import optimizer
 from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
-
+import USER_VARIABLES
 
 def run_model(specimen_index, site):
 
@@ -39,6 +42,8 @@ def run_model(specimen_index, site):
 
 def fit_model(specimen_index, site):
 
+    start_time = datetime.now()    
+
     chosen_pathways = [pathways.Ferm_help,
                        pathways.Ferm,
                        pathways.Fe3,
@@ -55,10 +60,17 @@ def fit_model(specimen_index, site):
                                                 fixed_parameters,
                                                 algo = OPTIMIZATION_PARAMETERS.ALGORITHM)
 
-    model_parameters = fixed_parameters
-    model_parameters.update(data.model_parameters_from_data(specimen_index, site = site))
-
+    model_parameters = dict(fixed_parameters)
     model_parameters.update(optimal_parameters)
+    
+    file_name = '_'.join([start_time.strftime('%Y-%m-%d_%H-%M-%S'),
+                          'specimen',
+                          str(specimen_index),
+                          'site',
+                          site]) + '.json'
+    parameter_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file_name)
+    with open(parameter_file, 'w') as pf:
+        json.dump(model_parameters, pf,indent = 4)
 
     all_days = np.arange(4500)
 
