@@ -95,7 +95,8 @@ def fit_model(specimen_index, site):
     model_parameters = dict(fixed_parameters)
     model_parameters.update(optimal_parameters)
     
-    file_name = '_'.join([start_time.strftime('%Y-%m-%d_%H-%M-%S'),
+    timestamp = start_time.strftime('%Y-%m-%d_%H-%M-%S')
+    file_name = '_'.join([timestamp,
                           'specimen',
                           str(specimen_index),
                           'site',
@@ -103,6 +104,13 @@ def fit_model(specimen_index, site):
     parameter_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file_name)
     with open(parameter_file, 'w') as pf:
         json.dump(model_parameters, pf,indent = 4)
+        
+    pathway_file_name = '_'.join([timestamp,
+                                  'pathways']) + '.txt'
+    pathway_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, pathway_file_name)
+    with open(pathway_file, 'w') as pf:
+        for p in chosen_pathways:
+            pf.write(p.__name__ + '\n')
 
     all_days = np.arange(4500)
 
