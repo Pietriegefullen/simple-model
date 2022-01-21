@@ -15,11 +15,45 @@ from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
 import USER_VARIABLES
 
-def run_model(specimen_index, site):
+def load_model_parameters(file):
+    
+    file_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file)
+    if not file_path.endswith('.json'):
+        file_path += '.json'
+        
+    with open(file_path, 'r') as pf:
+        model_parameters = json.load(pf)
+
+    return model_parameters
+
+def load_and_plot(file):
+    
+    splitparts = file.split('_')
+    specimen_index = int(splitparts[splitparts.index('specimen')+1])
+    site = splitparts[splitparts.index('site')+1]
+    
+    all_days = np.arange(4500)     # Days to make predictions for
+
+    model_parameters = load_model_parameters(file)
+    pool_value_dict = run_model(model_parameters, all_days)
+    
+    measured_data = data.specimen_data(specimen_index, site)
+    plot.all_pools(pool_value_dict, all_days, measured_data)
+
+def run_and_plot(specimen_index, site):
+    
+    all_days = np.arange(4500)     # Days to make predictions for
 
     model_parameters = pathways.default_model_parameters(specimen_index, site)
+    
+    pool_value_dict = run_model(model_parameters, all_days)
+    
+    measured_data = data.specimen_data(specimen_index, site)
+    plot.all_pools(pool_value_dict, all_days, measured_data)
 
-    all_days = np.arange(4500)     # Days to make predictions for
+
+    
+def run_model(model_parameters, all_days):
 
     chosen_pathways = [
                        pathways.Ferm_help,
@@ -36,9 +70,7 @@ def run_model(specimen_index, site):
                                         verbose = True)
 
 
-    measured_data = data.specimen_data(specimen_index, site)
-    plot.all_pools(pool_value_dict, all_days, measured_data)
-
+    return pool_value_dict
 
 def fit_model(specimen_index, site):
 
@@ -104,8 +136,10 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 if __name__ == '__main__':
     # 9 ist die probe die ich normalerweise hab
+    #load_and_plot('2022-01-21_10-32-02_specimen_17_site_all')
     fit_model(17, 'all')
-    #run_model(9, site = 'all')
+    
+    #run_and_plot(9, site = 'all')
 
     # TODO: print setup, then ask for confirmation
 
