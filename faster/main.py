@@ -145,9 +145,9 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 if __name__ == '__main__':
     # 9 ist die probe die ich normalerweise hab
     #load_and_plot('2022-01-21_10-32-02_specimen_17_site_all')
-    #fit_model(17, 'all')
     
-    run_and_plot("13782", site = 'all')
+    #run_and_plot("13782", site = 'all')
+    fit_model("13782", site = 'all')
 
     # TODO: print setup, then ask for confirmation
 
