@@ -2,3 +2,5 @@
 *.xlsx
 
 __pycache__/
+
+faster/report.log
