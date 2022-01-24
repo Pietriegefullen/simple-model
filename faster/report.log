@@ -993,3 +993,16 @@ fitting 1 samples with PSO on 8 workers
 2022-01-21 10:40:57,583 - pyswarms.single.global_best - INFO - Optimization finished | best cost: 128332444.8235328, best pos: [9.37093113e-02 3.41737964e-01 1.95033720e+00 5.38884752e-01
  8.20328691e-01 2.59884292e-01 3.23042476e+00 1.21387464e+01
  2.30561685e+01 1.26725703e-02]
+2022-01-21 11:00:41,830 - pyswarms.single.global_best - INFO - Optimize for 5000 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2022-01-21 14:00:13,861 - pyswarms.single.global_best - INFO - Optimize for 5000 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2022-01-21 18:00:21,488 - pyswarms.single.global_best - INFO - Optimization finished | best cost: 58422946.01868098, best pos: [9.90126234e-02 2.59449343e-01 2.80679600e+00 2.06608799e-01
+ 8.17517667e-01 5.85815101e-01 2.04529042e-02 7.50541786e+00
+ 1.47825189e+01 1.10969382e-03]
+2022-01-21 18:53:49,761 - pyswarms.single.global_best - INFO - Optimization finished | best cost: 56129695.85111031, best pos: [9.89479814e-02 3.27225218e-01 1.47412326e+00 4.62285037e-01
+ 7.70305201e-01 7.19268244e-01 5.60354278e-03 1.36824532e+01
+ 1.50310743e+01 1.18441490e-02]
+2022-01-24 10:07:55,984 - pyswarms.single.global_best - INFO - Optimize for 5000 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2022-01-24 10:10:36,682 - pyswarms.single.global_best - INFO - Optimize for 5000 iters with {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+2022-01-24 13:07:40,623 - pyswarms.single.global_best - INFO - Optimization finished | best cost: 54221570.956836805, best pos: [9.99152569e-02 3.89909726e-01 5.94592392e-01 2.99550041e-01
+ 5.52892791e-01 1.02940403e-01 4.61085870e-02 1.09432841e+01
+ 1.04467510e+01 1.30770090e-03]
