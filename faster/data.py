@@ -40,13 +40,16 @@ def specimen_data(specimen_index, site):
      Rep_ohne_Fe3,
      superdata_mit_Fe3,
      Rep_mit_Fe3) = load_matlab()
-
+    
+    
+    
     if site == "S":
         data = superdata_Sam[replica_list_Sam[specimen_index]]
     elif site == "K":
         data = superdata_Kuru[replica_list_Kuru[specimen_index]]
     elif site == "all":
-        data = superdata_2021_all[replica_list_superdata_2021_all[specimen_index]]
+        index = list(superdata_2021_all.keys()).index(specimen_index)
+        data = superdata_2021_all[replica_list_superdata_2021_all[index]]
 
     return data
 
@@ -244,3 +247,6 @@ def load_matlab():
 
 
     return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
+
+
+superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
