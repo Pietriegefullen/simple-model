@@ -24,7 +24,9 @@ def default_model_parameters(specimen_index = None, site = 'all'):
                             'Kmb_help_Ferm':    11.748221,
                             'Inhibition_Ferm':  9.424312,
 
-                            'Fe3':              15.090783}
+                            'Fe3':              15.090783,
+                            
+                            'temperature':      4.0}
 
     specimen_model_parameters = {}
     if not specimen_index is None:
@@ -48,6 +50,7 @@ def Ferm_help(model_parameters):
                'death_rate':    0,
                'Kmb':           model_parameters['Kmb_help_Ferm'], # MM Faktor für die Exoenzyme
                'CUE':           0, # weil Ferm_help nicht wächst (nur Ferm wächst)
+               'thermodynamics': False
                }
 
     educts =  [{'name':         'C',
@@ -68,7 +71,8 @@ def Ferm(model_parameters):
                'death_rate':    model_parameters['Sensenmann'],
                'microbe'       : "Ferm" ,
                'CUE'           :   0.5,
-               'C_source'       : 'DOC'}
+               'C_source'       : 'DOC',
+               'thermodynamics': False}
 
 
     educts =  [{'name':         'DOC',

@@ -19,9 +19,16 @@ def predictor(t_eval,
               verbose = False,
               mark = None,
               ask = False):
-
+    
+    environment = {} 
+    if 'temperature' in model_parameters:
+        environment.update({'temperature': model_parameters['temperature']})
+                            
+    if 'pH' in model_parameters:
+        environment.update({'pH': model_parameters['pH']})
+    
     defined_pathways = [pathway_definer(model_parameters) for pathway_definer in chosen_pathways]
-    right_hand_side = model.builder(defined_pathways)
+    right_hand_side = model.builder(defined_pathways, environment)
 
     initial_system_state = np.array([model_parameters[name]
                                      if name in model_parameters else 0.
@@ -65,7 +72,7 @@ def predictor(t_eval,
   
                                                       
     except Exception:
-        #print(traceback.format_exc())
+        print(traceback.format_exc())
         print('EXCEPTION IN SOLVER')
         n_pools = len(POOL_ORDER)
         pool_results = np.empty((n_pools, t_eval.size))

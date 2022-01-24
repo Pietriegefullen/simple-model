@@ -14,6 +14,19 @@ HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*10e-4,
                          'H_cp_temp':    500              }
                }
 
+GIBBS_FORMATION = {'Acetate' :  -396.46*1e3,    # Tabellenwerte üblicherweise in kJ /mol, hier J/mol
+                   'Fe3'     :  -4.6*1e3 , 
+                   'Fe2'     :  -78.*1e3,
+                   'CO2'     :  -386.36*1e3, # Wert für aq!
+                   'H2'      :   0.0,
+                   'CH4'     :  -34.4*1e3  ,# Wert für aq!
+                   'HCO3'    :  -586.85 * 1e3, # # Wert für aq!
+                   #'H2O'    :   -237.178408 *1e3,
+                   'H_plus' :          0}  
+
+
+GIBBS_MINIMUM = -26.*1e3      # J/mol, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
+                              # wert DGmin z.b aus Schink 1997, ist 1/3 der Energie die für ein ATP Herstellung benötigt wird
 
 def henrys_law(substance):
     if not substance in HENRYS_DICT:

@@ -6,13 +6,13 @@ import numpy as np
 
 DEBUG = False
 
-def builder(defined_pathways):
+def builder(defined_pathways, environment):
 
     if DEBUG:
         print('pathway parameters:')
         [pathway_formatter(microbe, educts, products) for microbe, educts, products in defined_pathways]
 
-    built_pathways = [pathway_builder(microbe, educts, products) for microbe, educts, products in defined_pathways]
+    built_pathways = [pathway_builder(microbe, educts, products, environment) for microbe, educts, products in defined_pathways]
 
     def right_hand_side(t, system_state):
         """
@@ -25,7 +25,7 @@ def builder(defined_pathways):
 
     return right_hand_side
 
-def pathway_builder(microbe, educts, products):
+def pathway_builder(microbe, educts, products, environment):
     """
     This wrapper around the pathway(...) function precomputes all vectors that
     are constant during time stepping with the IVP solver.
@@ -35,16 +35,22 @@ def pathway_builder(microbe, educts, products):
 
     # initialize the vectors needed at each time step
     pathway_vector = np.zeros((len(POOL_ORDER),))
+    stoich_vector = np.zeros((len(POOL_ORDER),))
     Km_vector = np.zeros((len(POOL_ORDER),))
     inhibition_vector = np.ones((len(POOL_ORDER),))*np.inf
     henrys_law_vector = np.ones((len(POOL_ORDER),))
+    deltaG_f = np.zeros((len(POOL_ORDER),))
 
     microbe_index = pool_index(microbe['name'])
+    
+    use_thermodynamics = not 'thermodynamics' in microbe or microbe['thermodynamics'] is True
 
     for educt in educts:
         educt_index = pool_index(educt['name'])
-        pathway_vector[educt_index] = -educt['stoich']
+        stoich_vector[educt_index] = -educt['stoich']
         henrys_law_vector[educt_index] = chemistry.henrys_law(educt['name'])
+        if use_thermodynamics:
+            deltaG_f[educt_index] = -chemistry.GIBBS_FORMATION[educt['name']]
 
         if 'Km' in educt:
             Km_vector[educt_index] = educt['Km']
@@ -53,24 +59,36 @@ def pathway_builder(microbe, educts, products):
             c_atoms = educt['C_atoms']
             CUE = microbe['CUE']
             pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
-            pathway_vector[educt_index] = -educt['stoich']*1/(1-CUE)
+            stoich_vector[educt_index] = -educt['stoich']*1/(1-CUE)
 
     for product in products:
         product_index = pool_index(product['name'])
-        pathway_vector[product_index] = product['stoich']
+        stoich_vector[product_index] = product['stoich']
         henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
+        if use_thermodynamics:
+            deltaG_f[educt_index] = chemistry.GIBBS_FORMATION[educt['name']]
+        
         if 'inhibition' in product:
             inhibition_vector[product_index] = product['inhibition']
+
+    # pathway vector includes microbes (which should not contribute to thermodynamics!)
+    pathway_vector += stoich_vector
 
     # for inverse MM
     if 'Kmb' in microbe:
         Km_vector[microbe_index] = microbe['Kmb']
 
     v_max = microbe['vmax']
+    
+    # for thermodynamics
+    deltaG_s = np.sum(deltaG_f)
 
     # handle microbe death
     death_rate_vector = np.zeros((len(POOL_ORDER),))
     death_rate_vector[microbe_index] = microbe['death_rate'] 
+
+    # environment
+    T = environment['temperature'] + CONSTANTS.KELVIN
 
     if DEBUG:
         print_matrix = np.concatenate([np.reshape(henrys_law_vector, (-1, 1)),
@@ -108,8 +126,21 @@ def pathway_builder(microbe, educts, products):
         # compute the total inhibition factor
         total_inibition_factor = np.prod(invMM)
 
+        # compute the thermodynamic factor
+        thermodynamic_factor = 1.
+        if use_thermodynamics:
+            R = CONSTANTS.GAS_CONSTANT
+            log_Q = np.zeros_like(stoich_vector)
+            contributes = np.logical_and(stoich_vector != 0, system_state > 0)
+            log_Q[contributes] = np.log(1e-6*system_state[contributes])
+            log_Q = stoich_vector*log_Q
+            deltaG_r = deltaG_s + R*T*np.sum(log_Q)
+            
+            deltaG_rmin = chemistry.GIBBS_MINIMUM
+            thermodynamic_factor = np.maximum(0., 1 - np.exp((deltaG_r - deltaG_rmin)/(R*T)))
+
         # compute the actual reaction rate
-        v = v_max * total_MM_factor * total_inibition_factor
+        v = v_max * total_MM_factor * total_inibition_factor * thermodynamic_factor
 
         # compute the changes for all pools given the current biomass and reaction rate
         biomass = system_state[microbe_index]
