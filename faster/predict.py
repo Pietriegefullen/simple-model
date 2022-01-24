@@ -40,7 +40,8 @@ def predictor(t_eval,
         print('=============')
         print('pathways:')
         for p in chosen_pathways:
-           print(f'   {p.__name__:s}')
+            print('   ' + p.__name__)
+           #print(f'   {p.__name__:s}')
         print('')
 
         print('initial system:')
