@@ -6,13 +6,15 @@ import numpy as np
 
 DEBUG = False
 
-def builder(defined_pathways, environment):
+def builder(defined_pathways, environment, extended_output = None):
 
     if DEBUG:
         print('pathway parameters:')
-        [pathway_formatter(microbe, educts, products) for microbe, educts, products in defined_pathways]
+        [pathway_formatter(microbe, educts, products) 
+         for microbe, educts, products in defined_pathways]
 
-    built_pathways = [pathway_builder(microbe, educts, products, environment) for microbe, educts, products in defined_pathways]
+    built_pathways = [pathway_builder(microbe, educts, products, environment, extended_output) 
+                      for microbe, educts, products in defined_pathways]
 
     def right_hand_side(t, system_state):
         """
@@ -22,10 +24,19 @@ def builder(defined_pathways, environment):
         changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)
         changes = np.clip(changes, -system_state, np.inf)
         return changes
-
+    
+    def extended(t, system_state):
+        extended_values = {pathway.__name__ + '_' + name: value
+                          for pathway in built_pathways 
+                          for name, value in zip(extended_output,pathway(t, system_state))}
+        return extended_values
+    
+    if not extended_output is None:
+        return extended
+        
     return right_hand_side
 
-def pathway_builder(microbe, educts, products, environment):
+def pathway_builder(microbe, educts, products, environment, extended_output = None):
     """
     This wrapper around the pathway(...) function precomputes all vectors that
     are constant during time stepping with the IVP solver.
@@ -50,7 +61,7 @@ def pathway_builder(microbe, educts, products, environment):
         stoich_vector[educt_index] = -educt['stoich']
         henrys_law_vector[educt_index] = chemistry.henrys_law(educt['name'])
         if use_thermodynamics:
-            deltaG_f[educt_index] = -chemistry.GIBBS_FORMATION[educt['name']]
+            deltaG_f[educt_index] = chemistry.GIBBS_FORMATION[educt['name']]
 
         if 'Km' in educt:
             Km_vector[educt_index] = educt['Km']
@@ -59,14 +70,14 @@ def pathway_builder(microbe, educts, products, environment):
             c_atoms = educt['C_atoms']
             CUE = microbe['CUE']
             pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
-            stoich_vector[educt_index] = -educt['stoich']*1/(1-CUE)
+            pathway_vector[educt_index] = -educt['stoich']*1/(1-CUE)
 
     for product in products:
         product_index = pool_index(product['name'])
         stoich_vector[product_index] = product['stoich']
         henrys_law_vector[product_index] = chemistry.henrys_law(product['name'])
         if use_thermodynamics:
-            deltaG_f[educt_index] = chemistry.GIBBS_FORMATION[educt['name']]
+            deltaG_f[product_index] = chemistry.GIBBS_FORMATION[product['name']]
         
         if 'inhibition' in product:
             inhibition_vector[product_index] = product['inhibition']
@@ -81,7 +92,7 @@ def pathway_builder(microbe, educts, products, environment):
     v_max = microbe['vmax']
     
     # for thermodynamics
-    deltaG_s = np.sum(deltaG_f)
+    deltaG_s = np.sum(stoich_vector*deltaG_f) # TODO: normalized stoichimetry? HOW?
 
     # handle microbe death
     death_rate_vector = np.zeros((len(POOL_ORDER),))
@@ -137,7 +148,7 @@ def pathway_builder(microbe, educts, products, environment):
             deltaG_r = deltaG_s + R*T*np.sum(log_Q)
             
             deltaG_rmin = chemistry.GIBBS_MINIMUM
-            thermodynamic_factor = np.maximum(0., 1 - np.exp((deltaG_r - deltaG_rmin)/(R*T)))
+            thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
 
         # compute the actual reaction rate
         v = v_max * total_MM_factor * total_inibition_factor * thermodynamic_factor
@@ -160,8 +171,27 @@ def pathway_builder(microbe, educts, products, environment):
             print('total MM' , total_MM_factor)
             print('total inh', total_inibition_factor)
 
-        return system_state_changes
 
+        if not extended_output is None:
+            extended_dict = {'MM': total_MM_factor,
+                             'thermo': thermodynamic_factor,
+                             'deltaCO2': system_state_changes[pool_index('CO2')],
+                             'deltaCH4': system_state_changes[pool_index('CH4')],
+                             'deltaH2': system_state_changes[pool_index('H2')],
+                             'v':v,
+                             'inhibition': total_inibition_factor}
+            if use_thermodynamics:
+                extended_dict.update({'deltaGr': deltaG_r,
+                                      'deltaGs': deltaG_s,
+                                      'logQ':log_Q})
+            extended_system_state = np.array([extended_dict[k] if k in extended_dict else np.nan 
+                                              for k in extended_output ])
+            
+            return extended_system_state
+
+        return system_state_changes
+    
+    pathway.__name__ = microbe['name']
     return pathway
 
 

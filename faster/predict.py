@@ -18,7 +18,8 @@ def predictor(t_eval,
               chosen_pathways,
               verbose = False,
               mark = None,
-              ask = False):
+              ask = False,
+              extended_output = None):
     
     environment = {} 
     if 'temperature' in model_parameters:
@@ -71,7 +72,18 @@ def predictor(t_eval,
                                                   # max_step = 10)
         pool_results = solver_result.y
   
-                                                      
+        # extended output
+        extended_results = {}
+        if not extended_output is None:
+            extended_model = model.builder(defined_pathways, environment, extended_output)
+            extended_results = {}
+            for t, system_state in zip(t_eval, np.transpose(pool_results)):
+                extended_values = extended_model(t,system_state)
+                for k,v in extended_values.items():
+                    if not k in extended_results:
+                        extended_results[k] = list()
+                    extended_results[k].append(v)
+                                           
     except Exception:
         print(traceback.format_exc())
         print('EXCEPTION IN SOLVER')
@@ -86,5 +98,7 @@ def predictor(t_eval,
                                    nan_array], axis = -1)
 
     pool_dict = dict(zip(POOL_ORDER, padded_pools))
-
+    
+    pool_dict.update(extended_results)
+    
     return pool_dict

@@ -27,7 +27,10 @@ def model_parameters_from_data(specimen_index, site):
 
 def specimen_data(specimen_index, site):
 
-    (superdata,
+    (superdata_after_No_CH4,
+     superdata_bevor_No_CH4,
+     superdata_No_CH4,
+     superdata,
      replica_list,
      superdata_carex,
      superdata_Kuru,
@@ -93,6 +96,34 @@ def load_matlab():
         superdata[replica_name]['measured_time'] = measurement_time[:,index_for_anaerobic_sample]
         superdata[replica_name]['CH4'] = Data['ch4'][:,index_for_anaerobic_sample]
         superdata[replica_name]['CO2'] = Data['co2'][:,index_for_anaerobic_sample]
+        
+    #___________________________________________________________________
+    superdata_No_CH4 = copy.deepcopy(superdata)
+
+    excel_file_No_CH4 = os.path.join(ROOT_DIRECTORY, 'Daten_Erganzung_temp.xlsx')
+    No_CH4_addition = pd.read_excel(excel_file_No_CH4,engine = 'openpyxl')
+    No_CH4 = np.array(No_CH4_addition)
+    
+    
+    # finde unique keys
+    no_ch4_keys = np.unique(No_CH4[:,0])
+    
+
+   # vergleich der keys und ermitteln der Indizes
+    for key in no_ch4_keys:
+        
+        indices_for_key = np.nonzero(No_CH4[:,0]==key)[0]
+    
+        sample_name = str(int(key))
+        superdata[sample_name] = {}
+        superdata[sample_name]['measured_time'] = No_CH4[indices_for_key, 1]
+        superdata[sample_name]['CO2'] = No_CH4[indices_for_key, 2]
+        superdata[sample_name]['CH4'] = No_CH4[indices_for_key, 3]
+    replica_list_superdata_2021_all = list(superdata.keys()) 
+    replica_list_superdata_2021_all.extend(list(superdata_No_CH4.keys()))
+
+   # print(superdata.keys())
+   #_________________________________________________________________      
 
 
     # fügt den Proben jeweils die relevanten Metadaten hinzu
@@ -114,6 +145,7 @@ def load_matlab():
     replica_list = list(superdata.keys())
 
 
+
     for key in superdata.keys():
         #ersetzt negative messwerte mit den jeweils vorherigen messwerten, und nan mit 0
         for index in range(len(superdata[key]['CH4'])):
@@ -130,9 +162,13 @@ def load_matlab():
     # findet den ersten nan wert in measured_time und überträgt alles danach in superdata_carex
     superdata_carex = copy.deepcopy(superdata)
     superdata_all = copy.deepcopy(superdata)
-
+    
     for key in superdata.keys():
-        FirstNan = np.where(np.isnan(superdata[key]['measured_time']))[0][0]
+        
+        all_nans_found = np.where(np.isnan(superdata[key]['measured_time']))[0]
+        if all_nans_found.size == 0:
+            continue
+        FirstNan = all_nans_found[0]
         for column_name in ['CO2','CH4','measured_time']:
             superdata[key][column_name] = superdata[key][column_name][:FirstNan]
             superdata_carex[key][column_name] = superdata_carex[key][column_name][(FirstNan+1):]
@@ -211,6 +247,12 @@ def load_matlab():
           superdata_2021_all[key]['CO2'] = CO2_all_values
 
 
+
+
+
+
+
+
     #erstellt einen Datensatz nur für die Kurunak daten
     superdata_Kuru = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
@@ -224,29 +266,49 @@ def load_matlab():
         if not superdata_2021_all[key]['Site']=='S':
             del superdata_Sam[key]
     replica_list_Sam = list(superdata_Sam.keys())
+    
+    
+    Rep_No_CH4 = [13560, 13562, 13580, 13581, 13590, 13591, 13600, 13602, 13622, 13641]
+    superdata_No_CH4 = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not int(key) in Rep_No_CH4:
+            del superdata_No_CH4[key]
 
+    #die Daten bevor ich die Ergänzung mit No_CH4 vorgenommen hab
+    superdata_bevor_No_CH4 = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not int(key) in no_ch4_keys:
+            del superdata_bevor_No_CH4[key]
+            
+            
+    superdata_after_No_CH4 = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if int(key) in no_ch4_keys:
+            del superdata_after_No_CH4[key]        
+   
+   
      # erstellen der Datenreihen, die vermutlich ohne Fe3 Pool sind
     Rep_ohne_Fe3 = [13690, 13531,13530,13521,13520,13742, 13741, 13740,13732,13731, 13730,13721,13720]
+    
 
     superdata_ohne_Fe3 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not superdata_2021_all[key] in Rep_ohne_Fe3:
+        if not int(key) in Rep_ohne_Fe3:
             del superdata_ohne_Fe3[key]
 
 
      # erstellen der Datenreihen, die vermutlich MIT Fe3 Pool sind
-
     Rep_mit_Fe3 = [13510,13511,13512,13670,13671,13672,13691,13692,13700,13722, 13731, 13750,13751,13752]
 
     superdata_mit_Fe3 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not superdata_2021_all[key] in Rep_mit_Fe3:
+        if not int(key) in Rep_mit_Fe3:
             del superdata_mit_Fe3[key]
 
     #print(superdata_Kuru['13510']['First_Carex_index'])
 
 
-    return superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
+    return superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4, superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
 
 
-superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4,  superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()

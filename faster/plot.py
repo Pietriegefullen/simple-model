@@ -8,13 +8,38 @@ def all_pools(pool_value_dict, all_days, measured_data = None):
     del(pool_value_dict['water'])
     del(pool_value_dict['HCO3'])
 
-    for k, v in pool_value_dict.items():
-        plot_pool(k,v,all_days)
+
+    # check keys:
+    # if ending is same, use same subplot
+    same_plot = list()
+    for k in pool_value_dict.keys():
+        found = False
+        if '_' in k:
+            for i,s in enumerate(same_plot):
+                if '_' in s[0] and s[0].split('_')[-1] == k.split('_')[-1]:
+                    same_plot[i].append(k)
+                    found = True
+                    break
+                
+        if not found:
+            same_plot.append([k])
+            
+    for key_list in same_plot:
+        plt.figure()
+        title = key_list[0].split('_')[-1] if len(key_list) > 1 else key_list[0]
+        for k in key_list:
+            plt.plot(all_days, 
+                     pool_value_dict[k], 
+                     label = k.replace('_'+title, '') if len(key_list) > 1 else None)
+        if len(key_list)>1:
+            plt.legend()
+        plt.title(title)
         
-        if not measured_data is None and k in measured_data:
+        if not measured_data is None and title in measured_data:
             plt.plot(measured_data['measured_time'],
-                     measured_data[k],
-                     'rx')
+                      measured_data[title],
+                      'rx',
+                      label = 'measured')
 
     plt.show()
 
