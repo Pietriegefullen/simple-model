@@ -273,6 +273,9 @@ def load_matlab():
     for key in superdata_2021_all.keys():
         if not int(key) in Rep_No_CH4:
             del superdata_No_CH4[key]
+            
+            
+            
 
     #die Daten bevor ich die Ergänzung mit No_CH4 vorgenommen hab
     superdata_bevor_No_CH4 = copy.deepcopy(superdata_2021_all)

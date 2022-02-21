@@ -70,7 +70,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
             c_atoms = educt['C_atoms']
             CUE = microbe['CUE']
             pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
-            pathway_vector[educt_index] = -educt['stoich']*1/(1-CUE)
+            pathway_vector[educt_index] = -educt['stoich']*CUE/(1-CUE)
 
     for product in products:
         product_index = pool_index(product['name'])

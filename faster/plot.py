@@ -1,8 +1,8 @@
 
 import matplotlib.pyplot as plt
 
-def all_pools(pool_value_dict, all_days, measured_data = None):
-    
+def all_pools(pool_value_dict, all_days, measured_data = None, show = True):
+
     del(pool_value_dict['weight'])
     del(pool_value_dict['pH'])
     del(pool_value_dict['water'])
@@ -20,28 +20,34 @@ def all_pools(pool_value_dict, all_days, measured_data = None):
                     same_plot[i].append(k)
                     found = True
                     break
-                
+
         if not found:
             same_plot.append([k])
-            
+
+
+    plot_figures = list()
     for key_list in same_plot:
-        plt.figure()
+        fig = plt.figure()
+        plot_figures.append(fig)
         title = key_list[0].split('_')[-1] if len(key_list) > 1 else key_list[0]
         for k in key_list:
-            plt.plot(all_days, 
-                     pool_value_dict[k], 
+            plt.plot(all_days,
+                     pool_value_dict[k],
                      label = k.replace('_'+title, '') if len(key_list) > 1 else None)
         if len(key_list)>1:
             plt.legend()
         plt.title(title)
-        
+
         if not measured_data is None and title in measured_data:
             plt.plot(measured_data['measured_time'],
                       measured_data[title],
                       'rx',
                       label = 'measured')
 
-    plt.show()
+    if show:
+        plt.show()
+
+    return fig
 
 def plot_pool(name, values, time):
 

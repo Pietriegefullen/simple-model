@@ -99,6 +99,8 @@ def Ferm(model_parameters):
     return microbe, educts, products
 
 def Fe3(model_parameters):
+    # PATHWAY:   C2H3O2 − + 4H2O + 8Fe3(III)   --->       9H+ + 2 HCO3− + 8Fe2+   Delattre 2019 , jason 2001
+    # H2 + 2Fe3+ -> 2H+ +2Fe2+ aus der Vorlesung von Christian K.
     microbe = {'name':          'M_Fe3',
                'C_source':      'Acetate',
                'CUE':           0.5,
@@ -123,6 +125,8 @@ def Fe3(model_parameters):
     return microbe, educts, products
 
 def Hydro(model_parameters):
+    # PATHWAY: 4 H2 + 1 CO2 -> 1 CH4 + 2 H2O conrad2000selective, Fe3nchel -131kj/mol
+    # Pathway beer2007transport: CO2 (aq) + 4H2 (aq)   - > CH4 (aq) + 2H2O (l)
     microbe = {'name':          'M_Hydro',
                'vmax':          model_parameters['Vmax_Hydro'],
                'death_rate':    model_parameters['Sensenmann'],
@@ -146,6 +150,8 @@ def Hydro(model_parameters):
     return microbe, educts, products
 
 def Homo(model_parameters):
+    # PATHWAY: song,Fe3nchel,conrad2000selective : 4H2 + 2CO2 → CH3COOH+ 2H2O. Alternativ: 2CO2 + 8H2  = CH3COOH +H2O., laut Thauer sind es 4 H2 + Co2 -> CH4 +2H2O
+    # Pathway beer2007transport :CO2 (aq) + 2H2 (aq) -> 1/2CH3COO?(aq) + 1/2H+(aq) + H2O(l)
     microbe = {'name':          'M_Homo',
                'vmax':          model_parameters['Vmax_Homo'],
                'death_rate':    model_parameters['Sensenmann'],
@@ -169,6 +175,8 @@ def Homo(model_parameters):
     return microbe, educts, products
 
 def Ac(model_parameters):
+     #PATHWAY:  CH3COO + H+ ->  CH4 + CO2 Fe3y_Conrad2000
+    #CH3COO (aq) + H+ (aq) ->CO2 (aq) + CH4 (aq), beer2007transport
     microbe = {'name':          'M_Ac',
                'vmax':          model_parameters['Vmax_Ac'],
                'death_rate':    model_parameters['Sensenmann'],
