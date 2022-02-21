@@ -16,7 +16,12 @@ CHANGEABLES = ['Vmax_help_Ferm',
                 'Kmb_help_Ferm',
                 'Inhibition_Ferm',
                 'Fe3',
-                'M_Ac'
+                'M_Ac',
+                'CUE_Ferm',
+                'CUE_Fe3',
+                'CUE_Ac',
+                'CUE_Homo',
+                'CUE_Hydro'
                 ]
 
 DIFF_EVOL_PARAMETERS = {'strategy':         'best1bin',
@@ -46,7 +51,11 @@ def get_initial_guesses():
     initial_guess_dict['Fe3'] =             (15.09,      10,    30)    # 15.587,
     initial_guess_dict['M_Ac'] =            (0.002,   1.3e-08,   0.02) # 0.002
     initial_guess_dict['Inhibition_Ferm']=  (9.4,   0.001,    20) # Je niedriger desto hemmung # Diese Boundaries müssen anhander Acetatekurven angepasst werden
-
+    initial_guess_dict['CUE_Ferm']=  (.5,   0.,    1.)
+    initial_guess_dict['CUE_Fe3']=  (.5,   0.,    1.)
+    initial_guess_dict['CUE_Ac']=  (.5,   0.,    1.)
+    initial_guess_dict['CUE_Homo']=  (.5,   0.,    1.)
+    initial_guess_dict['CUE_Hydro']=  (.5,   0.,    1.)
     return(initial_guess_dict)
 
 

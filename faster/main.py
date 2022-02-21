@@ -152,17 +152,15 @@ if __name__ == '__main__':
     #load_and_plot('2022-01-21_10-32-02_specimen_17_site_all')
 
     speciemen_identifier = "13760"
-# =============================================================================
-#     run_and_plot(speciemen_identifier, site = 'all', extended_output = ['deltaGr',
-#                                                                          'deltaCO2',
-#                                                                          'deltaCH4',
-#                                                                          'thermo',
-#                                                                          'MM',
-#                                                                          'v',
-#                                                                          'deltaGs',
-#                                                                          'inhibition'])
-# =============================================================================
-    fit_model(speciemen_identifier, site = 'all')
+    run_and_plot(speciemen_identifier, site = 'all', extended_output = ['deltaGr',
+                                                                         'deltaCO2',
+                                                                         'deltaCH4',
+                                                                         'thermo',
+                                                                         'MM',
+                                                                         'v',
+                                                                         'deltaGs',
+                                                                         'inhibition'])
+    # fit_model(speciemen_identifier, site = 'all')
 
 """
 '13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',

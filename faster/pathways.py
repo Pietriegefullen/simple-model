@@ -26,7 +26,14 @@ def default_model_parameters(specimen_index = None, site = 'all'):
 
                             'Fe3':              15.090783,
                             
-                            'temperature':      4.0}
+                            'temperature':      4.0,
+                            
+                            'CUE_Ferm':         0.5,
+                            'CUE_Fe3':          0.5,
+                            'CUE_Ac':           0.5,
+                            'CUE_Homo':         0.5,
+                            'CUE_Hydro':        0.5
+                            }
 
     specimen_model_parameters = {}
     if not specimen_index is None:
@@ -70,7 +77,7 @@ def Ferm(model_parameters):
                'vmax':          model_parameters['Vmax_Ferm'],
                'death_rate':    model_parameters['Sensenmann'],
                'microbe'       : "Ferm" ,
-               'CUE'           :   0.5,
+               'CUE'           :   model_parameters['CUE_Ferm'],
                'C_source'       : 'DOC',
                'thermodynamics': False}
 
@@ -103,7 +110,7 @@ def Fe3(model_parameters):
     # H2 + 2Fe3+ -> 2H+ +2Fe2+ aus der Vorlesung von Christian K.
     microbe = {'name':          'M_Fe3',
                'C_source':      'Acetate',
-               'CUE':           0.5,
+               'CUE':           model_parameters['CUE_Fe3'],
                'death_rate':    model_parameters['Sensenmann'],
                'vmax':          model_parameters['Vmax_Fe3']}
 
@@ -130,7 +137,7 @@ def Hydro(model_parameters):
     microbe = {'name':          'M_Hydro',
                'vmax':          model_parameters['Vmax_Hydro'],
                'death_rate':    model_parameters['Sensenmann'],
-               'CUE':           0.5,
+               'CUE':           model_parameters['CUE_Hydro'],
                'C_source':      'CO2'}
 
     educts = [{'name':          'H2',
@@ -155,7 +162,7 @@ def Homo(model_parameters):
     microbe = {'name':          'M_Homo',
                'vmax':          model_parameters['Vmax_Homo'],
                'death_rate':    model_parameters['Sensenmann'],
-               'CUE':           0.5 ,
+               'CUE':           model_parameters['CUE_Homo'] ,
                'C_source':      'CO2'}
 
     educts = [{'name':          'H2',
@@ -180,7 +187,7 @@ def Ac(model_parameters):
     microbe = {'name':          'M_Ac',
                'vmax':          model_parameters['Vmax_Ac'],
                'death_rate':    model_parameters['Sensenmann'],
-               'CUE':           0.5,
+               'CUE':           model_parameters['CUE_Ac'],
                'C_source':      'Acetate'}
 
     educts = [{'name':          'Acetate',
