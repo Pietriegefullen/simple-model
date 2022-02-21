@@ -110,9 +110,24 @@ class Window():
 
         self.view_controls()
 
-        self.control_frame = Frame(relief=RAISED, borderwidth=1)
-        self.control_frame.pack(side = 'left', fill = 'y')
+        self.container = Frame()
+        self.canvas = Canvas(self.container)
+        self.scrollbar = Scrollbar(self.container,orient='vertical', command = self.canvas.yview)
+        self.control_frame = Frame(self.canvas, relief=RAISED, borderwidth=1)
         
+        self.canvas.create_window(0,0, window = self.control_frame, anchor = 'nw')
+        
+        self.container.pack(side = 'left', fill = 'y')
+        self.canvas.pack(side = 'left', fill = 'both', expand = True)
+        self.scrollbar.pack(side = 'right', fill = 'y')
+        #self.control_frame.pack()
+        
+        def conf(e):
+            self.canvas.configure(scrollregion=self.canvas.bbox('all'))
+        
+        self.control_frame.bind('<Configure>',conf)
+        self.canvas.configure(yscrollcommand = self.scrollbar.set)
+
         #scrollbar = Scrollbar(self.control_frame, orient = 'vertical')
         #scrollbar.pack(side = RIGHT, fill = 'y')
 
@@ -123,6 +138,9 @@ class Window():
         for ctr in controls:
             ctr.pack()
 
+        self.control_frame.update()
+        self.canvas.configure(scrollregion = self.canvas.bbox('all'))
+        
         self.view_frame = Frame(relief=RAISED, borderwidth=1)
         self.view_frame.pack(side = 'left', fill = BOTH, expand = True)
 
