@@ -29,31 +29,42 @@ def load_model_parameters(file):
 def load_and_plot(file):
 
     splitparts = file.split('_')
-    specimen_index = int(splitparts[splitparts.index('specimen')+1])
+    specimen_index = str(splitparts[splitparts.index('specimen')+1])
     site = splitparts[splitparts.index('site')+1]
+
+    pathway_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY,
+                                file + '_pathways.txt')
+    with open(pathway_file, 'r') as pwf:
+        used_pathways = [line.replace('\n', '') for line in pwf.readlines()]
 
     all_days = np.arange(4500)     # Days to make predictions for
 
+    default_model_parameters = pathways.default_model_parameters(specimen_index, site)
     model_parameters = load_model_parameters(file)
-    pool_value_dict = run_model(model_parameters, all_days)
+    
+    for default_key, default_value in default_model_parameters.items():
+        if not default_key in model_parameters.keys():
+            print(f'Could not find {default_key} in model parameters. Using default value.')
+            model_parameters[default_key] = default_value
+
+    pool_value_dict = run_model(model_parameters, all_days, pathway_names = used_pathways)
 
     measured_data = data.specimen_data(str(specimen_index), site)
     plot.all_pools(pool_value_dict, all_days, measured_data)
 
-def run_and_plot(specimen_index, site, extended_output = None):
+def run_and_plot(specimen_index, site, extended_output = None, pathway_names = None):
 
     all_days = np.arange(4500)     # Days to make predictions for
 
     model_parameters = pathways.default_model_parameters(specimen_index, site)
 
-    pool_value_dict = run_model(model_parameters, all_days, extended_output)
+    pool_value_dict = run_model(model_parameters, all_days, extended_output, pathway_names)
 
     measured_data = data.specimen_data(specimen_index, site)
     plot.all_pools(pool_value_dict, all_days, measured_data)
 
-def run_model(model_parameters, all_days, extended_output = None):
-
-    chosen_pathways = [
+def run_model(model_parameters, all_days, extended_output = None, pathway_names = None):
+    all_pathways = [
                        pathways.Ferm_help,
                        pathways.Ferm,
                        pathways.Fe3,
@@ -61,6 +72,13 @@ def run_model(model_parameters, all_days, extended_output = None):
                        pathways.Homo,
                        pathways.Ac
                        ]
+    
+    if pathway_names is None:
+        chosen_pathways = all_pathways
+        
+    else:    
+        chosen_pathways = [pw for pw in all_pathways if pw.__name__ in pathway_names]    
+
 
     pool_value_dict = predict.predictor(all_days,
                                         model_parameters,
@@ -90,16 +108,21 @@ def save_model(specimen_index, site, model_parameters, prefix = ''):
     
     return parameter_file
 
-def fit_model(specimen_index, site):
-
-    chosen_pathways = [pathways.Ferm_help,
+def fit_model(specimen_index, site, pathway_names = None):
+    all_pathways = [
+                       pathways.Ferm_help,
                        pathways.Ferm,
                        pathways.Fe3,
                        pathways.Hydro,
                        pathways.Homo,
                        pathways.Ac
                        ]
-
+    
+    if pathway_names is None:
+        chosen_pathways = all_pathways
+        
+    else:    
+        chosen_pathways = [pw for pw in all_pathways if pw.__name__ in pathway_names]   
     fixed_parameters = pathways.default_model_parameters(specimen_index)
 
     optimal_parameters = optimizer.fit_specimen(specimen_index,
@@ -153,18 +176,35 @@ if __name__ == '__main__':
 
     speciemen_identifier = "13560"
 #=============================================================================
-# =============================================================================
-#     run_and_plot(speciemen_identifier, site = 'all', extended_output = ['deltaGr',
-#                                                                           'deltaCO2',
-#                                                                           'deltaCH4',
-#                                                                           'thermo',
-#                                                                           'MM',
-#                                                                           'v',
-#                                                                           'deltaGs',
-#                                                                           'inhibition'])
-# =============================================================================
+    # run_and_plot(speciemen_identifier, 
+    #              site = 'all', 
+    #              extended_output = ['deltaGr',
+    #                                 'deltaCO2',
+    #                                 'deltaCH4',
+    #                                 'thermo',
+    #                                 'MM',
+    #                                 'v',
+    #                                 'deltaGs',
+    #                                 'inhibition'],
+    #               pathway_names = [
+    #                                 'Ferm_help',
+    #                                 'Ferm',
+    #                                 'Fe3',
+    #                                 # 'Ac',
+    #                                 # 'Hydro',
+    #                                 # 'Homo'
+    #                                 ])
 #=============================================================================
-   # fit_model(speciemen_identifier, site = 'all')
+    fit_model(speciemen_identifier, 
+             site = 'all', 
+             pathway_names = [
+                                'Ferm_help',
+                                'Ferm',
+                                'Fe3',
+                                # 'Ac',
+                                # 'Hydro',
+                                # 'Homo'
+                                ])
 
 """
 '13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',
