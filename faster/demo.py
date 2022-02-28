@@ -30,6 +30,9 @@ class Model(ABC):
 
     def controls(self, container):
         return list()
+    
+    def bindings(self):
+        return {}
 
 class View(ABC):
     def __init__(self, model):
@@ -140,7 +143,10 @@ class Window():
 
         self.control_frame.update()
         self.canvas.configure(scrollregion = self.canvas.bbox('all'))
-        
+
+        for key, func in self.model.bindings().items():
+            self.master.bind(key,func)
+
         self.view_frame = Frame(relief=RAISED, borderwidth=1)
         self.view_frame.pack(side = 'left', fill = BOTH, expand = True)
 

@@ -37,7 +37,7 @@ def load_and_plot(file):
     model_parameters = load_model_parameters(file)
     pool_value_dict = run_model(model_parameters, all_days)
 
-    measured_data = data.specimen_data(specimen_index, site)
+    measured_data = data.specimen_data(str(specimen_index), site)
     plot.all_pools(pool_value_dict, all_days, measured_data)
 
 def run_and_plot(specimen_index, site, extended_output = None):
@@ -149,18 +149,22 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 if __name__ == '__main__':
     # 9 ist die probe die ich normalerweise hab
-    #load_and_plot('2022-01-21_10-32-02_specimen_17_site_all')
+    load_and_plot('_2022-02-25_19-09-04_specimen_13560_site_all')
 
-    speciemen_identifier = "13760"
-    run_and_plot(speciemen_identifier, site = 'all', extended_output = ['deltaGr',
-                                                                         'deltaCO2',
-                                                                         'deltaCH4',
-                                                                         'thermo',
-                                                                         'MM',
-                                                                         'v',
-                                                                         'deltaGs',
-                                                                         'inhibition'])
-    # fit_model(speciemen_identifier, site = 'all')
+    speciemen_identifier = "13560"
+#=============================================================================
+# =============================================================================
+#     run_and_plot(speciemen_identifier, site = 'all', extended_output = ['deltaGr',
+#                                                                           'deltaCO2',
+#                                                                           'deltaCH4',
+#                                                                           'thermo',
+#                                                                           'MM',
+#                                                                           'v',
+#                                                                           'deltaGs',
+#                                                                           'inhibition'])
+# =============================================================================
+#=============================================================================
+   # fit_model(speciemen_identifier, site = 'all')
 
 """
 '13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',
@@ -172,6 +176,8 @@ if __name__ == '__main__':
  '13662', '13680', '13681', '13682', '13710', '13711', '13712', '13760', '13761', '13762',
  '13790', '13791', '13792', '13800', '13801', '13802'
 
+    
+    Rep_No_CH4 = [13560, 13562, 13580, 13581, 13590, 13591, 13600, 13602, 13622, 13641]
 
 """
 

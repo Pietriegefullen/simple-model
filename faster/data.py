@@ -3,6 +3,8 @@ import scipy.io as sio
 import pandas as pd
 import numpy as np
 import copy
+import matplotlib.pyplot as plt
+
 
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
@@ -27,7 +29,10 @@ def model_parameters_from_data(specimen_index, site):
 
 def specimen_data(specimen_index, site):
 
-    (superdata_after_No_CH4,
+    (replica_list_No_CH4,
+     superdata_No_CH4_vor_Impfung, 
+     superdata_No_CH4_nach_Impfung,
+     superdata_after_No_CH4,
      superdata_bevor_No_CH4,
      superdata_No_CH4,
      superdata,
@@ -53,6 +58,11 @@ def specimen_data(specimen_index, site):
     elif site == "all":
         index = list(superdata_2021_all.keys()).index(specimen_index)
         data = superdata_2021_all[replica_list_superdata_2021_all[index]]
+    elif site == "No_CH4":
+        data = superdata_No_CH4_vor_Impfung[replica_list_No_CH4[specimen_index]]
+        
+    
+    
 
     return data
 
@@ -273,7 +283,7 @@ def load_matlab():
     for key in superdata_2021_all.keys():
         if not int(key) in Rep_No_CH4:
             del superdata_No_CH4[key]
-            
+    replica_list_No_CH4 = list (superdata_No_CH4.keys())        
             
             
 
@@ -283,7 +293,8 @@ def load_matlab():
         if not int(key) in no_ch4_keys:
             del superdata_bevor_No_CH4[key]
             
-            
+      
+    #die No_CH4 daten 
     superdata_after_No_CH4 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
         if int(key) in no_ch4_keys:
@@ -307,11 +318,73 @@ def load_matlab():
     for key in superdata_2021_all.keys():
         if not int(key) in Rep_mit_Fe3:
             del superdata_mit_Fe3[key]
+            
+    #print('here we go',superdata_2021_all['13520']['measured_time']) 
+      
 
     #print(superdata_Kuru['13510']['First_Carex_index'])
+    
+
+    # Alle CH4 Messwerte die nur 'Artefakte' sind werden auf 0 gesetzt. Grenzwert aus Knoblauch2018
+    for i in superdata_2021_all.keys():
+        superdata_2021_all[i]['CH4'] = [ 0 if x < 0.05 else x for x in superdata_2021_all[i]['CH4']]
+        
+        # [x for x in CH4_values]
+        # [x for x in CH4_values if x < 0.05]#
+        # [ (0 if x < 0.05 else x) for x in CH4_values]
+        
+        #plt.figure()
+        #plt.plot(superdata_2021_all[i]['measured_time'] ,superdata_2021_all[i]['CH4'])
+        plt.title(i)
+     #
+    # Trennen der CH4 freien Proben in vor und nach der Impfung
+    
+   # I = next((index for index,value in enumerate(superdata_2021_all['13600']['CH4']) if value != 0), None)
+    #print(I, 'index')
+    
+    # Trennen der daten in die proben die kein CH4 produziert haben ..
+    # Vor Impfung sind die Daten wo CH4 0 ist
+    #Nach Impfung sind die Daten voWO CH4 produziert wurde nach mikriobenzugabe
+    superdata_No_CH4_vor_Impfung =  copy.deepcopy(superdata_2021_all)
+    superdata_No_CH4_nach_Impfung = copy.deepcopy(superdata_2021_all)
+    for key in superdata_2021_all.keys():
+        if not int(key) in Rep_No_CH4:
+            del superdata_No_CH4_vor_Impfung[str(key)]
+            del superdata_No_CH4_nach_Impfung[str(key)]
+            
+        else:
+            #I = next((index for index,value in enumerate(superdata_2021_all[str(key)]['CH4']) if value != 0), None)
+            I = np.argmax(np.array(superdata_2021_all[str(key)]['CH4']) > 0)
+            if np.max(superdata_2021_all[str(key)]['CH4']) == 0:
+                del superdata_No_CH4_nach_Impfung[str(key)]
+                continue
+                
+            for column, rows in superdata_2021_all[str(key)].items():
+                if isinstance(rows,list):
+                    superdata_No_CH4_vor_Impfung[str(key)][column] = rows[:I]
+                    superdata_No_CH4_nach_Impfung[str(key)][column] = rows[I:]
+                    
+            
 
 
-    return superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4, superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
+    #superdata_No_CH4_nach_Impfung
+    
+    
+    
 
 
-superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4,  superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+
+    
+
+
+
+    return replica_list_No_CH4,superdata_No_CH4_vor_Impfung, superdata_No_CH4_nach_Impfung, superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4, superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
+
+
+replica_list_No_CH4, superdata_No_CH4_vor_Impfung,superdata_No_CH4_nach_Impfung,superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4,  superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+
+
+
+
+
+

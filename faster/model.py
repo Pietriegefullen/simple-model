@@ -92,7 +92,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
     v_max = microbe['vmax']
     
     # for thermodynamics
-    deltaG_s = np.sum(stoich_vector*deltaG_f) # TODO: normalized stoichimetry? HOW?
+    deltaG_s = np.sum(stoich_vector*deltaG_f) -600000# TODO: normalized stoichimetry? HOW? die -500000 sind um Hydro und Homo zu zwingen
 
     # handle microbe death
     death_rate_vector = np.zeros((len(POOL_ORDER),))

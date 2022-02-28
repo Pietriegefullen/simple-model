@@ -61,6 +61,8 @@ def predictor(t_eval,
     if ask:
         input('Start?')
 
+    extended_results = {}
+
     try:
         solver_result = scipy.integrate.solve_ivp(right_hand_side,
                                                   (0, max(t_eval)),
@@ -73,7 +75,6 @@ def predictor(t_eval,
         pool_results = solver_result.y
   
         # extended output
-        extended_results = {}
         if not extended_output is None:
             extended_model = model.builder(defined_pathways, environment, extended_output)
             extended_results = {}
