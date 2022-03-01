@@ -1,0 +1,414 @@
+fixed:
+=====
+M_Ferm              0.700000
+M_Fe3               0.200000
+M_Hydro             0.002500
+M_Homo              0.000100
+C                   2734.618889
+DOC                 54.692378
+Sensenmann          8.330000
+
+
+SSR   1518.855
+==============
+Vmax_help_Ferm      49.329777
+Vmax_Ferm           2.729684
+Vmax_Fe3            1.619473
+Vmax_Homo           0.281638
+Vmax_Hydro          3.995651
+Vmax_Ac             0.639018
+Kmb_help_Ferm       5.785470
+Inhibition_Ferm     330.480491
+Fe3                 9.648636
+M_Ac                4305.278721
+
+SSR    153.602
+==============
+Vmax_help_Ferm      12.569230
+Vmax_Ferm           2.120792
+Vmax_Fe3            0.078845
+Vmax_Homo           0.563288
+Vmax_Hydro          8.159821
+Vmax_Ac             0.347775
+Kmb_help_Ferm       4.722590
+Inhibition_Ferm     927.604762
+Fe3                 1.868794
+M_Ac                1723.728237
+
+SSR    118.630
+==============
+Vmax_help_Ferm      22.409899
+Vmax_Ferm           0.300440
+Vmax_Fe3            1.294024
+Vmax_Homo           0.506891
+Vmax_Hydro          2.696282
+Vmax_Ac             0.816381
+Kmb_help_Ferm       17.074240
+Inhibition_Ferm     1630.159810
+Fe3                 9.950183
+M_Ac                1085.138501
+
+SSR     93.113
+==============
+Vmax_help_Ferm      10.354460
+Vmax_Ferm           1.514672
+Vmax_Fe3            1.093943
+Vmax_Homo           0.170559
+Vmax_Hydro          8.436634
+Vmax_Ac             0.446797
+Kmb_help_Ferm       6.154789
+Inhibition_Ferm     838.740808
+Fe3                 2.051378
+M_Ac                1979.407120
+
+SSR     49.120
+==============
+Vmax_help_Ferm      37.893433
+Vmax_Ferm           0.514975
+Vmax_Fe3            1.826115
+Vmax_Homo           0.145282
+Vmax_Hydro          8.911554
+Vmax_Ac             0.212414
+Kmb_help_Ferm       18.212024
+Inhibition_Ferm     272.376728
+Fe3                 0.143939
+M_Ac                1790.165148
+
+SSR     40.536
+==============
+Vmax_help_Ferm      14.131076
+Vmax_Ferm           0.379502
+Vmax_Fe3            2.901580
+Vmax_Homo           0.249336
+Vmax_Hydro          5.707427
+Vmax_Ac             0.285362
+Kmb_help_Ferm       16.836273
+Inhibition_Ferm     820.287218
+Fe3                 1.552710
+M_Ac                2651.629755
+
+SSR     34.472
+==============
+Vmax_help_Ferm      44.194656
+Vmax_Ferm           0.403289
+Vmax_Fe3            1.877007
+Vmax_Homo           0.188965
+Vmax_Hydro          4.341655
+Vmax_Ac             0.539110
+Kmb_help_Ferm       15.712945
+Inhibition_Ferm     184.122337
+Fe3                 1.960896
+M_Ac                4944.463487
+
+SSR     27.234
+==============
+Vmax_help_Ferm      14.131076
+Vmax_Ferm           0.379502
+Vmax_Fe3            2.901580
+Vmax_Homo           0.249336
+Vmax_Hydro          5.707427
+Vmax_Ac             0.403266
+Kmb_help_Ferm       6.757415
+Inhibition_Ferm     488.488022
+Fe3                 1.409990
+M_Ac                3003.730346
+
+SSR     26.613
+==============
+Vmax_help_Ferm      32.534031
+Vmax_Ferm           0.317355
+Vmax_Fe3            1.035508
+Vmax_Homo           0.280284
+Vmax_Hydro          2.394948
+Vmax_Ac             0.469417
+Kmb_help_Ferm       11.211115
+Inhibition_Ferm     226.949846
+Fe3                 0.730581
+M_Ac                4207.857611
+
+SSR     21.666
+==============
+Vmax_help_Ferm      37.652344
+Vmax_Ferm           0.562425
+Vmax_Fe3            0.978291
+Vmax_Homo           0.496909
+Vmax_Hydro          1.519837
+Vmax_Ac             0.798190
+Kmb_help_Ferm       10.280867
+Inhibition_Ferm     633.160376
+Fe3                 1.965430
+M_Ac                102.995372
+
+SSR     19.093
+==============
+Vmax_help_Ferm      29.035023
+Vmax_Ferm           0.341856
+Vmax_Fe3            0.767979
+Vmax_Homo           0.304252
+Vmax_Hydro          1.084040
+Vmax_Ac             0.986885
+Kmb_help_Ferm       6.932995
+Inhibition_Ferm     442.292992
+Fe3                 0.008900
+M_Ac                4992.500685
+
+SSR     18.821
+==============
+Vmax_help_Ferm      16.791100
+Vmax_Ferm           0.356028
+Vmax_Fe3            1.169906
+Vmax_Homo           0.202172
+Vmax_Hydro          4.999098
+Vmax_Ac             0.876843
+Kmb_help_Ferm       5.206185
+Inhibition_Ferm     1090.145083
+Fe3                 0.132678
+M_Ac                4227.466323
+
+SSR     18.762
+==============
+Vmax_help_Ferm      24.629901
+Vmax_Ferm           0.356028
+Vmax_Fe3            1.548740
+Vmax_Homo           0.202172
+Vmax_Hydro          4.999098
+Vmax_Ac             0.986723
+Kmb_help_Ferm       8.467991
+Inhibition_Ferm     1426.181731
+Fe3                 0.132678
+M_Ac                1870.443848
+
+SSR     17.527
+==============
+Vmax_help_Ferm      7.472320
+Vmax_Ferm           0.331227
+Vmax_Fe3            0.979706
+Vmax_Homo           0.167258
+Vmax_Hydro          4.014290
+Vmax_Ac             0.769607
+Kmb_help_Ferm       3.634146
+Inhibition_Ferm     1573.762564
+Fe3                 2.437978
+M_Ac                135.361438
+
+SSR     17.048
+==============
+Vmax_help_Ferm      19.047057
+Vmax_Ferm           0.336836
+Vmax_Fe3            0.518306
+Vmax_Homo           0.146080
+Vmax_Hydro          4.528143
+Vmax_Ac             0.909048
+Kmb_help_Ferm       3.626338
+Inhibition_Ferm     1287.798900
+Fe3                 0.509396
+M_Ac                2983.884051
+
+SSR     17.023
+==============
+Vmax_help_Ferm      17.259043
+Vmax_Ferm           0.335456
+Vmax_Fe3            0.481550
+Vmax_Homo           0.119910
+Vmax_Hydro          4.503759
+Vmax_Ac             0.935141
+Kmb_help_Ferm       3.394343
+Inhibition_Ferm     855.445193
+Fe3                 0.465617
+M_Ac                2507.902007
+
+SSR     16.959
+==============
+Vmax_help_Ferm      24.487899
+Vmax_Ferm           0.339313
+Vmax_Fe3            0.658082
+Vmax_Homo           0.124271
+Vmax_Hydro          4.740817
+Vmax_Ac             0.908683
+Kmb_help_Ferm       5.198969
+Inhibition_Ferm     837.425740
+Fe3                 0.560716
+M_Ac                4813.353517
+
+SSR     16.810
+==============
+Vmax_help_Ferm      17.256543
+Vmax_Ferm           0.346245
+Vmax_Fe3            0.438266
+Vmax_Homo           0.153443
+Vmax_Hydro          4.980869
+Vmax_Ac             0.595784
+Kmb_help_Ferm       4.441794
+Inhibition_Ferm     1139.142928
+Fe3                 0.336391
+M_Ac                3482.404256
+
+SSR     16.765
+==============
+Vmax_help_Ferm      12.309435
+Vmax_Ferm           0.347416
+Vmax_Fe3            0.467756
+Vmax_Homo           0.209357
+Vmax_Hydro          4.932571
+Vmax_Ac             0.526250
+Kmb_help_Ferm       2.248055
+Inhibition_Ferm     1099.168045
+Fe3                 0.298509
+M_Ac                4539.842347
+
+SSR     16.510
+==============
+Vmax_help_Ferm      10.573665
+Vmax_Ferm           0.349023
+Vmax_Fe3            0.518896
+Vmax_Homo           0.290575
+Vmax_Hydro          4.552554
+Vmax_Ac             0.630818
+Kmb_help_Ferm       1.925755
+Inhibition_Ferm     288.340490
+Fe3                 0.451659
+M_Ac                4544.536889
+
+SSR     16.480
+==============
+Vmax_help_Ferm      12.332781
+Vmax_Ferm           0.356520
+Vmax_Fe3            0.481158
+Vmax_Homo           0.340146
+Vmax_Hydro          4.794311
+Vmax_Ac             0.533377
+Kmb_help_Ferm       2.330904
+Inhibition_Ferm     562.591632
+Fe3                 0.327783
+M_Ac                4958.684654
+
+SSR     16.474
+==============
+Vmax_help_Ferm      20.471768
+Vmax_Ferm           0.355744
+Vmax_Fe3            0.333746
+Vmax_Homo           0.363068
+Vmax_Hydro          5.264484
+Vmax_Ac             0.390371
+Kmb_help_Ferm       3.915558
+Inhibition_Ferm     861.960905
+Fe3                 0.442700
+M_Ac                4339.647322
+
+SSR     16.279
+==============
+Vmax_help_Ferm      19.053912
+Vmax_Ferm           0.349076
+Vmax_Fe3            0.529034
+Vmax_Homo           0.347841
+Vmax_Hydro          5.068085
+Vmax_Ac             0.715484
+Kmb_help_Ferm       3.977164
+Inhibition_Ferm     969.378539
+Fe3                 0.411576
+M_Ac                4450.996796
+
+SSR     16.067
+==============
+Vmax_help_Ferm      21.858164
+Vmax_Ferm           0.349573
+Vmax_Fe3            0.355540
+Vmax_Homo           0.362502
+Vmax_Hydro          5.177463
+Vmax_Ac             0.430464
+Kmb_help_Ferm       4.876073
+Inhibition_Ferm     1018.333928
+Fe3                 0.439675
+M_Ac                3826.409758
+
+SSR     15.381
+==============
+Vmax_help_Ferm      23.354117
+Vmax_Ferm           0.356871
+Vmax_Fe3            0.200232
+Vmax_Homo           0.333881
+Vmax_Hydro          5.264890
+Vmax_Ac             0.168310
+Kmb_help_Ferm       5.903230
+Inhibition_Ferm     328.418710
+Fe3                 0.491508
+M_Ac                3319.896083
+
+SSR     15.218
+==============
+Vmax_help_Ferm      22.517242
+Vmax_Ferm           0.359362
+Vmax_Fe3            0.201224
+Vmax_Homo           0.384351
+Vmax_Hydro          5.226951
+Vmax_Ac             0.161624
+Kmb_help_Ferm       5.887623
+Inhibition_Ferm     465.027630
+Fe3                 0.576773
+M_Ac                3802.451047
+
+SSR     15.110
+==============
+Vmax_help_Ferm      23.909213
+Vmax_Ferm           0.365082
+Vmax_Fe3            0.254764
+Vmax_Homo           0.507147
+Vmax_Hydro          4.821203
+Vmax_Ac             0.257923
+Kmb_help_Ferm       5.710900
+Inhibition_Ferm     447.616838
+Fe3                 0.392392
+M_Ac                4333.569845
+
+SSR     15.086
+==============
+Vmax_help_Ferm      23.251979
+Vmax_Ferm           0.365223
+Vmax_Fe3            0.215246
+Vmax_Homo           0.508039
+Vmax_Hydro          4.431983
+Vmax_Ac             0.200561
+Kmb_help_Ferm       5.571827
+Inhibition_Ferm     778.676756
+Fe3                 0.447237
+M_Ac                4231.100952
+
+SSR     14.976
+==============
+Vmax_help_Ferm      21.462886
+Vmax_Ferm           0.365378
+Vmax_Fe3            0.242032
+Vmax_Homo           0.522692
+Vmax_Hydro          4.414666
+Vmax_Ac             0.243361
+Kmb_help_Ferm       4.899708
+Inhibition_Ferm     1493.775052
+Fe3                 0.467992
+M_Ac                4129.210818
+
+SSR     14.946
+==============
+Vmax_help_Ferm      18.328251
+Vmax_Ferm           0.359290
+Vmax_Fe3            0.204657
+Vmax_Homo           0.523536
+Vmax_Hydro          4.350381
+Vmax_Ac             0.189112
+Kmb_help_Ferm       3.639026
+Inhibition_Ferm     1143.495293
+Fe3                 0.449017
+M_Ac                3593.016315
+
+SSR     14.829
+==============
+Vmax_help_Ferm      19.935338
+Vmax_Ferm           0.360879
+Vmax_Fe3            0.225457
+Vmax_Homo           0.536615
+Vmax_Hydro          4.329711
+Vmax_Ac             0.292942
+Kmb_help_Ferm       4.405108
+Inhibition_Ferm     541.857936
+Fe3                 0.495623
+M_Ac                2596.003718
+

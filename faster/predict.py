@@ -11,7 +11,11 @@ import pathways
 import model
 from ORDER import POOL_ORDER, pool_index
 
-METHOD = 'Radau' #'LSODA' #'BDF'
+METHOD = 'LSODA' #'BDF' # 'Radau' #
+#
+# Radau yields bad results (negative CH4! pool)
+# -> can be mitigated by setting first_step very small but even so, negative values remain!
+# -> use LSODA instead
 
 def predictor(t_eval,
               model_parameters,

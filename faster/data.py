@@ -24,6 +24,7 @@ def model_parameters_from_data(specimen_index, site):
     model_parameters['pH'] = data['pH (H2O)']#[0]
     model_parameters['weight'] = float(specimen_mass)
     model_parameters['water'] = float(data['water'])
+    model_parameters['H2O'] = float(data['water'])/CONSTANTS.MOLAR_MASS_H2O*1e6
 
     return model_parameters
 
@@ -58,8 +59,9 @@ def specimen_data(specimen_index, site):
     elif site == "all":
         index = list(superdata_2021_all.keys()).index(specimen_index)
         data = superdata_2021_all[replica_list_superdata_2021_all[index]]
-    elif site == "No_CH4":
-        data = superdata_No_CH4_vor_Impfung[replica_list_No_CH4[specimen_index]]
+    elif site == "No-CH4":
+        index = list(superdata_No_CH4_vor_Impfung.keys()).index(specimen_index)
+        data = superdata_No_CH4_vor_Impfung[replica_list_No_CH4[index]]
         
     
     
@@ -278,10 +280,11 @@ def load_matlab():
     replica_list_Sam = list(superdata_Sam.keys())
     
     
-    Rep_No_CH4 = [13560, 13562, 13580, 13581, 13590, 13591, 13600, 13602, 13622, 13641]
+    Rep_No_CH4 = [str(k) for k in [13560, 13562, 13580, 13581, 13590, 13591, 
+                                   13600, 13602, 13622, 13641]]
     superdata_No_CH4 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not int(key) in Rep_No_CH4:
+        if not key in Rep_No_CH4:
             del superdata_No_CH4[key]
     replica_list_No_CH4 = list (superdata_No_CH4.keys())        
             
@@ -290,33 +293,37 @@ def load_matlab():
     #die Daten bevor ich die Ergänzung mit No_CH4 vorgenommen hab
     superdata_bevor_No_CH4 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not int(key) in no_ch4_keys:
+        if not key in [str(int(k)) for k in no_ch4_keys]:
             del superdata_bevor_No_CH4[key]
             
       
     #die No_CH4 daten 
     superdata_after_No_CH4 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if int(key) in no_ch4_keys:
+        if key in [str(int(k)) for k in no_ch4_keys]:
             del superdata_after_No_CH4[key]        
    
    
      # erstellen der Datenreihen, die vermutlich ohne Fe3 Pool sind
-    Rep_ohne_Fe3 = [13690, 13531,13530,13521,13520,13742, 13741, 13740,13732,13731, 13730,13721,13720]
+    Rep_ohne_Fe3 = [str(k) for k in 
+                    [13690, 13531,13530,13521,13520,13742, 13741, 
+                     13740,13732,13731, 13730,13721,13720]]
     
 
     superdata_ohne_Fe3 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not int(key) in Rep_ohne_Fe3:
+        if not key in Rep_ohne_Fe3:
             del superdata_ohne_Fe3[key]
 
 
      # erstellen der Datenreihen, die vermutlich MIT Fe3 Pool sind
-    Rep_mit_Fe3 = [13510,13511,13512,13670,13671,13672,13691,13692,13700,13722, 13731, 13750,13751,13752]
+    Rep_mit_Fe3 = [str(k) for k in 
+                    [13510,13511,13512,13670,13671,13672,13691,
+                     13692,13700,13722, 13731, 13750,13751,13752]]
 
     superdata_mit_Fe3 = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not int(key) in Rep_mit_Fe3:
+        if not key in Rep_mit_Fe3:
             del superdata_mit_Fe3[key]
             
     #print('here we go',superdata_2021_all['13520']['measured_time']) 
@@ -348,21 +355,21 @@ def load_matlab():
     superdata_No_CH4_vor_Impfung =  copy.deepcopy(superdata_2021_all)
     superdata_No_CH4_nach_Impfung = copy.deepcopy(superdata_2021_all)
     for key in superdata_2021_all.keys():
-        if not int(key) in Rep_No_CH4:
-            del superdata_No_CH4_vor_Impfung[str(key)]
-            del superdata_No_CH4_nach_Impfung[str(key)]
+        if not key in Rep_No_CH4:
+            del superdata_No_CH4_vor_Impfung[key]
+            del superdata_No_CH4_nach_Impfung[key]
             
         else:
             #I = next((index for index,value in enumerate(superdata_2021_all[str(key)]['CH4']) if value != 0), None)
-            I = np.argmax(np.array(superdata_2021_all[str(key)]['CH4']) > 0)
-            if np.max(superdata_2021_all[str(key)]['CH4']) == 0:
-                del superdata_No_CH4_nach_Impfung[str(key)]
+            I = np.argmax(np.array(superdata_2021_all[key]['CH4']) > 0)
+            if np.max(superdata_2021_all[key]['CH4']) == 0:
+                del superdata_No_CH4_nach_Impfung[key]
                 continue
                 
-            for column, rows in superdata_2021_all[str(key)].items():
+            for column, rows in superdata_2021_all[key].items():
                 if isinstance(rows,list):
-                    superdata_No_CH4_vor_Impfung[str(key)][column] = rows[:I]
-                    superdata_No_CH4_nach_Impfung[str(key)][column] = rows[I:]
+                    superdata_No_CH4_vor_Impfung[key][column] = rows[:I]
+                    superdata_No_CH4_nach_Impfung[key][column] = rows[I:]
                     
             
 

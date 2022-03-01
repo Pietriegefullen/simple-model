@@ -1,3 +1,4 @@
+import CONSTANTS
 
 MEASURE_DAYS_WEIGHTING = True
 
@@ -14,6 +15,15 @@ CHANGEABLES = ['Vmax_help_Ferm',
                 'Vmax_Hydro',
                 'Vmax_Ac',
                 'Kmb_help_Ferm',
+                "Km_help_Ferm",
+                "Km_Ac_Acetate",
+                "Km_Homo_CO2",
+                "Km_Homo_H2",
+                "Km_Hydro_CO2",
+                "Km_Hydro_H2",
+                "Km_Fe3_Fe3",
+                "Km_Fe3_Acetate",
+                "Km_Ferm",
                 'Inhibition_Ferm',
                 'Fe3',
                 'M_Ac',
@@ -48,7 +58,16 @@ def get_initial_guesses():
     initial_guess_dict['Vmax_Ac'] =         (0.240890,   0.05,      1.0)  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
     initial_guess_dict['Sensenmann'] =      (8.33e-4,    0.0000001,      0.001)# (8.33e-5, 0, 8.44e-5)# 0
     initial_guess_dict['Kmb_help_Ferm'] =   (2.6174,   0.005,    20)      # 10
-    initial_guess_dict['Fe3'] =             (25.09,      10,    30)    # 15.587,
+    initial_guess_dict["Km_help_Ferm"] =     (10000/CONSTANTS.SOIL_DENSITY,1, 10000)
+    initial_guess_dict["Km_Ac_Acetate"] =    (0.2 / CONSTANTS.SOIL_DENSITY, 0.01, 1000)
+    initial_guess_dict[ "Km_Homo_CO2"] =     (0.0005 / CONSTANTS.SOIL_DENSITY,0.00005, 1000)
+    initial_guess_dict[ "Km_Homo_H2"] =      (0.0001 / CONSTANTS.SOIL_DENSITY ,0.00005, 1000)
+    initial_guess_dict[ "Km_Hydro_CO2"] =    (0.005/CONSTANTS.SOIL_DENSITY ,0.0005, 1000)
+    initial_guess_dict[ "Km_Hydro_H2"] =     (0.001 / CONSTANTS.SOIL_DENSITY,0.0005, 1000)
+    initial_guess_dict[ "Km_Fe3_Fe3"] =      (2/CONSTANTS.SOIL_DENSITY,0.01, 1000)
+    initial_guess_dict[ "Km_Fe3_Acetate"] =  (0.01/CONSTANTS.SOIL_DENSITY,0.00005, 1000)
+    initial_guess_dict[ "Km_Ferm"] =         (100 / CONSTANTS.SOIL_DENSITY,0.05, 1000)  
+    initial_guess_dict['Fe3'] =             (25.09,      0,    30)    # 15.587,
     initial_guess_dict['Acetate'] =         (0.1, 0, 10 )
     initial_guess_dict['M_Ac'] =            (0.002,   1.3e-08,   0.02) # 0.002
     initial_guess_dict['Inhibition_Ferm']=  (9.4,   0.001,    20) # Je niedriger desto hemmung # Diese Boundaries müssen anhander Acetatekurven angepasst werden

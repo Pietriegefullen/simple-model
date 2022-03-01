@@ -1,0 +1,23 @@
+{
+    "M_Fe3": 1.12,
+    "M_Ferm": 0.02,
+    "M_Hydro": 0.0025,
+    "M_Homo": 0.0001,
+    "M_Ac": 0.0002,
+    "Sensenmann": 0,
+    "Vmax_Fe3": 20,
+    "Vmax_help_Ferm": 0.031,
+    "Vmax_Ferm": 0.09,
+    "Vmax_Homo": 0.07,
+    "Vmax_Hydro": 0.07,
+    "Vmax_Ac": 0.041,
+    "Kmb_help_Ferm": 12,
+    "Inhibition_Ferm": 9,
+    "Fe3": 15,
+    "temperature": 4.0,
+    "C": 3306,
+    "DOC": 66,
+    "pH": 7,
+    "weight": 12,
+    "water": 7
+}

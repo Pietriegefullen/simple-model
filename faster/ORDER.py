@@ -14,7 +14,7 @@ POOL_ORDER = ['C',
             'H2',
             'Fe2',
             'pH',
-            #'H2O',
+            'H2O',
             'HCO3',
             'weight',
             'water'

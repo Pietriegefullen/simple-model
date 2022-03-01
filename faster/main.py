@@ -26,7 +26,7 @@ def load_model_parameters(file):
 
     return model_parameters
 
-def load_and_plot(file):
+def load_and_plot(file, extended_output = None):
 
     splitparts = file.split('_')
     specimen_index = str(splitparts[splitparts.index('specimen')+1])
@@ -46,8 +46,11 @@ def load_and_plot(file):
         if not default_key in model_parameters.keys():
             print(f'Could not find {default_key} in model parameters. Using default value.')
             model_parameters[default_key] = default_value
-
-    pool_value_dict = run_model(model_parameters, all_days, pathway_names = used_pathways)
+    
+    pool_value_dict = run_model(model_parameters, 
+                                all_days, 
+                                extended_output = extended_output,
+                                pathway_names = used_pathways)
 
     measured_data = data.specimen_data(str(specimen_index), site)
     plot.all_pools(pool_value_dict, all_days, measured_data)
@@ -172,39 +175,51 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 if __name__ == '__main__':
     # 9 ist die probe die ich normalerweise hab
-    load_and_plot('_2022-02-25_19-09-04_specimen_13560_site_all')
-
-    speciemen_identifier = "13560"
-#=============================================================================
-    # run_and_plot(speciemen_identifier, 
-    #              site = 'all', 
-    #              extended_output = ['deltaGr',
+    # load_and_plot('_2022-03-01_14-48-29_specimen_13560_site_No-CH4', 
+    #               extended_output = ['deltaGr',
     #                                 'deltaCO2',
     #                                 'deltaCH4',
     #                                 'thermo',
     #                                 'MM',
     #                                 'v',
     #                                 'deltaGs',
-    #                                 'inhibition'],
-    #               pathway_names = [
-    #                                 'Ferm_help',
-    #                                 'Ferm',
-    #                                 'Fe3',
-    #                                 # 'Ac',
-    #                                 # 'Hydro',
-    #                                 # 'Homo'
-    #                                 ])
+    #                                 'inhibition',
+    #                                 'logQ',
+    #                                 'deltaH2',
+    #                                 'logFe3',
+    #                                 'negX'])
+
+    speciemen_identifier = "13690"
 #=============================================================================
-    fit_model(speciemen_identifier, 
-             site = 'all', 
-             pathway_names = [
-                                'Ferm_help',
-                                'Ferm',
-                                'Fe3',
-                                # 'Ac',
-                                # 'Hydro',
-                                # 'Homo'
-                                ])
+    run_and_plot(speciemen_identifier, 
+                  site = 'all', 
+                  extended_output = ['deltaGr',
+                                    'deltaCO2',
+                                    'deltaCH4',
+                                    'thermo',
+                                    'MM',
+                                    'v',
+                                    'deltaGs',
+                                    'inhibition'],
+                  pathway_names = [
+                                    'Ferm_help',
+                                    'Ferm',
+                                    'Fe3',
+                                    'Ac',
+                                    'Hydro',
+                                    'Homo'
+                                    ])
+#=============================================================================
+    # fit_model(speciemen_identifier, 
+    #           site = "No-CH4", 
+    #           pathway_names = [
+    #                              'Ferm_help',
+    #                              'Ferm',
+    #                              'Fe3',
+    #                              'Ac',
+    #                              'Hydro',
+    #                              'Homo'
+    #                              ])
 
 """
 '13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',

@@ -21,7 +21,7 @@ GIBBS_FORMATION = {'Acetate' :  -396.46*1e3,    # Tabellenwerte üblicherweise i
                    'H2'      :   0.0,
                    'CH4'     :  -34.4*1e3  ,# Wert für aq!
                    'HCO3'    :  -586.85 * 1e3, # # Wert für aq!
-                   #'H2O'    :   -237.178408 *1e3,
+                   'H2O'    :   -237.178408 *1e3,# Wert für aq!
                    'H_plus' :          0}  
 
 

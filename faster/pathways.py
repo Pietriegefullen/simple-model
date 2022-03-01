@@ -132,15 +132,20 @@ def Fe3(model_parameters):
                'stoich':        1,
                'Km':            model_parameters['Km_Fe3_Acetate'] ,#0.01/CONSTANTS.SOIL_DENSITY,
                'C_atoms':       2},
-
+              
+              {'name':          'H2O',
+               'stoich':        1,
+               'Km':            0 }, # kein Einfluss von H2O
+               
               {'name':          'Fe3',
                'stoich':        8,
                'Km':            model_parameters['Km_Fe3_Fe3'],}] #2/CONSTANTS.SOIL_DENSITY}]
 
     products = [{'name':        'Fe2',
                  'stoich':      8},
+                
 
-                {'name':        'CO2',
+                {'name':        'CO2', # proxy für HCO3
                  'stoich':      2}]
 
     return microbe, educts, products
@@ -165,6 +170,9 @@ def Hydro(model_parameters):
               ]
 
     products = [{'name':        'CH4',
+                 'stoich':      1},
+                
+                {'name':        'H2O',
                  'stoich':      1}
                 ]
 
@@ -190,7 +198,10 @@ def Homo(model_parameters):
                ]
 
     products = [{'name':        'Acetate',
-                 'stoich':       1}
+                 'stoich':       1},
+                
+                 {'name':        'H2O',
+                 'stoich':      1}
                 ]
 
     return microbe, educts, products

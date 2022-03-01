@@ -20,8 +20,9 @@ def builder(defined_pathways, environment, extended_output = None):
         """
         This is the function given to the IVP solver.
         """
+        system_state = np.where(system_state < 1e-40, 0, system_state)
         pathway_changes = [pathway(t, system_state) for pathway in built_pathways]
-        changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)
+        changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)        
         changes = np.clip(changes, -system_state, np.inf)
         return changes
     
@@ -92,7 +93,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
     v_max = microbe['vmax']
     
     # for thermodynamics
-    deltaG_s = np.sum(stoich_vector*deltaG_f) -600000# TODO: normalized stoichimetry? HOW? die -500000 sind um Hydro und Homo zu zwingen
+    deltaG_s = np.sum(stoich_vector*deltaG_f)# -600000# TODO: normalized stoichimetry? HOW? die -500000 sind um Hydro und Homo zu zwingen
 
     # handle microbe death
     death_rate_vector = np.zeros((len(POOL_ORDER),))
@@ -111,15 +112,17 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         print('building: ', microbe['name'], 'pathway')
         print('===========' + '='*len(microbe['name']) + '========')
         print_array(print_matrix,columns = ['henry', 'Km', 'inhib', 'grow'])
+        input()
 
     def pathway(t, system_state):
         """
         This is the actual model.
         """
-
+        system_state = np.clip(system_state, 0, np.inf)
+    
         # compute the available fraction for all pools
         dissolved_system_state = henrys_law_vector * system_state
-
+        
         # compute the Michalis-Menten factors given the current pools
         eps = np.where(dissolved_system_state == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
         MM = np.where(Km_vector + dissolved_system_state == 0, 1,
@@ -154,7 +157,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         v = v_max * total_MM_factor * total_inibition_factor * thermodynamic_factor
 
         # compute the changes for all pools given the current biomass and reaction rate
-        biomass = system_state[microbe_index]
+        biomass = np.clip(system_state[microbe_index], 1e-8,np.inf)
         death_rate_vector_biomass = death_rate_vector * biomass
         system_state_changes = biomass * v * pathway_vector - death_rate_vector_biomass
 
@@ -183,11 +186,14 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
             if use_thermodynamics:
                 extended_dict.update({'deltaGr': deltaG_r,
                                       'deltaGs': deltaG_s,
-                                      'logQ':log_Q})
+                                      'logQ':np.sum(log_Q),
+                                      'logFe3':np.log(system_state[pool_index('Fe3')])})
             extended_system_state = np.array([extended_dict[k] if k in extended_dict else np.nan 
                                               for k in extended_output ])
             
             return extended_system_state
+
+        system_state_changes = np.clip(system_state_changes, -system_state, np.inf)
 
         return system_state_changes
     
