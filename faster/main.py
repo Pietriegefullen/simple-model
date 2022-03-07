@@ -37,7 +37,7 @@ def load_and_plot(file, extended_output = None):
     with open(pathway_file, 'r') as pwf:
         used_pathways = [line.replace('\n', '') for line in pwf.readlines()]
 
-    all_days = np.arange(4500)     # Days to make predictions for
+    all_days = np.arange(7500)     # Days to make predictions for
 
     default_model_parameters = pathways.default_model_parameters(specimen_index, site)
     model_parameters = load_model_parameters(file)
@@ -57,7 +57,7 @@ def load_and_plot(file, extended_output = None):
 
 def run_and_plot(specimen_index, site, extended_output = None, pathway_names = None):
 
-    all_days = np.arange(4500)     # Days to make predictions for
+    all_days = np.arange(7500)     # Days to make predictions for
 
     model_parameters = pathways.default_model_parameters(specimen_index, site)
 
@@ -143,7 +143,7 @@ def fit_model(specimen_index, site, pathway_names = None):
         for p in chosen_pathways:
             pf.write(p.__name__ + '\n')
 
-    all_days = np.arange(4500)
+    all_days = np.arange(7500)
 
     pool_value_dict = predict.predictor(all_days,
                                         model_parameters,
@@ -174,25 +174,8 @@ args = my_parser.parse_args()
 OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 if __name__ == '__main__':
-    # 9 ist die probe die ich normalerweise hab
-    # load_and_plot('_2022-03-01_14-48-29_specimen_13560_site_No-CH4', 
-    #               extended_output = ['deltaGr',
-    #                                 'deltaCO2',
-    #                                 'deltaCH4',
-    #                                 'thermo',
-    #                                 'MM',
-    #                                 'v',
-    #                                 'deltaGs',
-    #                                 'inhibition',
-    #                                 'logQ',
-    #                                 'deltaH2',
-    #                                 'logFe3',
-    #                                 'negX'])
-
-    speciemen_identifier = "13690"
-#=============================================================================
-    run_and_plot(speciemen_identifier, 
-                  site = 'all', 
+   # 9 ist die probe die ich normalerweise hab
+    load_and_plot('_2022-03-06_06-33-52_specimen_13510_site_all', 
                   extended_output = ['deltaGr',
                                     'deltaCO2',
                                     'deltaCH4',
@@ -200,29 +183,47 @@ if __name__ == '__main__':
                                     'MM',
                                     'v',
                                     'deltaGs',
-                                    'inhibition'],
-                  pathway_names = [
-                                    'Ferm_help',
-                                    'Ferm',
-                                    'Fe3',
-                                    'Ac',
-                                    'Hydro',
-                                    'Homo'
-                                    ])
+                                    'inhibition',
+                                    'logQ',
+                                    'deltaH2',
+                                    'logFe3',
+                                    'logQH2O',
+                                    'dissH2O'])
+
+    speciemen_identifier = "13510"
+#=============================================================================
+    # run_and_plot(speciemen_identifier, 
+    #               site = 'all', 
+    #               extended_output = ['deltaGr',
+    #                                 'deltaCO2',
+    #                                 'deltaCH4',
+    #                                 'thermo',
+    #                                 'MM',
+    #                                 'v',
+    #                                 'deltaGs',
+    #                                 'inhibition'],
+    #               pathway_names = [
+    #                                 'Ferm_help',
+    #                                 'Ferm',
+    #                                 'Fe3',
+    #                                 'Ac',
+    #                                 'Hydro',
+    #                                 'Homo'
+    #                                 ])
 #=============================================================================
     # fit_model(speciemen_identifier, 
-    #           site = "No-CH4", 
+    #           site = "all", 
     #           pathway_names = [
-    #                              'Ferm_help',
-    #                              'Ferm',
-    #                              'Fe3',
-    #                              'Ac',
-    #                              'Hydro',
-    #                              'Homo'
-    #                              ])
+    #                               'Ferm_help',
+    #                               'Ferm',
+    #                               'Fe3',
+    #                               'Ac',
+    #                               'Hydro',
+    #                               'Homo'
+    #                               ])
 
 """
-'13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',
+ '13510', '13511', '13512', '13520', '13521', '13530', '13531', '13670', '13671', '13672',
  '13690', '13691', '13692', '13700', '13701', '13702', '13720', '13721', '13722', '13730',
  '13731', '13732', '13740', '13741', '13742', '13750', '13751', '13752', '13770', '13771',
  '13772', '13780', '13781', '13782', '13540', '13542', '13550', '13551', '13560', '13562',
@@ -235,7 +236,7 @@ if __name__ == '__main__':
     Rep_No_CH4 = [13560, 13562, 13580, 13581, 13590, 13591, 13600, 13602, 13622, 13641]
 
 """
-
+#
 
 
     # TODO: print setup, then ask for confirmation

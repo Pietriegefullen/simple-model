@@ -182,11 +182,13 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
                              'deltaCH4': system_state_changes[pool_index('CH4')],
                              'deltaH2': system_state_changes[pool_index('H2')],
                              'v':v,
-                             'inhibition': total_inibition_factor}
+                             'inhibition': total_inibition_factor,
+                             'dissH2O': dissolved_system_state[pool_index('H2O')]}
             if use_thermodynamics:
                 extended_dict.update({'deltaGr': deltaG_r,
                                       'deltaGs': deltaG_s,
                                       'logQ':np.sum(log_Q),
+                                      'logQH2O':log_Q[pool_index('H2O')],
                                       'logFe3':np.log(system_state[pool_index('Fe3')])})
             extended_system_state = np.array([extended_dict[k] if k in extended_dict else np.nan 
                                               for k in extended_output ])

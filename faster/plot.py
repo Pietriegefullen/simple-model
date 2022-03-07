@@ -6,7 +6,8 @@ def all_pools(pool_value_dict, all_days, measured_data = None, show = True):
     del(pool_value_dict['weight'])
     del(pool_value_dict['pH'])
     del(pool_value_dict['water'])
-    del(pool_value_dict['HCO3'])
+    if 'HCO3' in pool_value_dict:
+        del(pool_value_dict['HCO3'])
 
 
     # check keys:
@@ -34,6 +35,8 @@ def all_pools(pool_value_dict, all_days, measured_data = None, show = True):
             plt.plot(all_days,
                      pool_value_dict[k],
                      label = k.replace('_'+title, '') if len(key_list) > 1 else None)
+            empty = [0] * 7500
+            plt.plot(all_days, empty)
         if len(key_list)>1:
             plt.legend()
         plt.title(title)

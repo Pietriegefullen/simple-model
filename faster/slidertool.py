@@ -28,7 +28,7 @@ import json
 class FasterModel(Model):
 
     def __init__(self):
-        self.specimen_index = '13760'
+        self.specimen_index = '13690'
         self.site = 'all'
         self.measured_data = data.specimen_data(self.specimen_index, self.site)
         self.model_parameters = pathways.default_model_parameters(self.specimen_index, self.site)

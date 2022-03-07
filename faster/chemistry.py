@@ -11,10 +11,13 @@ HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*10e-4,
                             'H_cp_temp':    1700                },
 
                'H2' : {'H_cp_Standard': 7.7*10e-6,
-                         'H_cp_temp':    500              }
+                         'H_cp_temp':    500              },
+               
+               'H2O': {'H_cp_Standard': 0, # bewirkt, dass dissolved system state immer Null für H2O -> kein Beitrag zu logQ
+                         'H_cp_temp':   0              }
                }
 
-GIBBS_FORMATION = {'Acetate' :  -396.46*1e3,    # Tabellenwerte üblicherweise in kJ /mol, hier J/mol
+GIBBS_FORMATION = {'Acetate' :  -369.46*1e3,    # Tabellenwerte üblicherweise in kJ /mol, hier J/mol
                    'Fe3'     :  -4.6*1e3 , 
                    'Fe2'     :  -78.*1e3,
                    'CO2'     :  -386.36*1e3, # Wert für aq!

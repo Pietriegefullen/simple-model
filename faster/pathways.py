@@ -6,47 +6,48 @@ import OPTIMIZATION_PARAMETERS
 
 def default_model_parameters(specimen_index = None, site = 'all'):
 
+        #Startparameter für das slidertool
     model_parameters =     {'M_Fe3':            0.2,
                             'M_Ferm':           0.02,
                             'M_Hydro':          0.0025,
                             'M_Homo':           0.0001,
-                            'M_Ac':             0.0002,
+                            'M_Ac':             0.01010,
 
                             'Sensenmann':       8.33e-5,
 
-                            'Vmax_Fe3':         0.027,
-                            'Vmax_help_Ferm':   0.030966,
-                            'Vmax_Ferm':        0.0943461,
-                            'Vmax_Homo':        0.066571,
-                            'Vmax_Hydro':       0.070321,
-                            'Vmax_Ac':          0.040890,
+                            'Vmax_Fe3':        0.0053274970925869525,
+                            'Vmax_help_Ferm':   0.347557284254151,
+                            'Vmax_Ferm':       2.1826192982834263,
+                            'Vmax_Homo':        0.3842183674485621,
+                            'Vmax_Hydro':       0.6787923256204944,
+                            'Vmax_Ac':         0.6185701320273594,
 
-                            'Kmb_help_Ferm':    11.748221,
-                            'Inhibition_Ferm':  9.424312,
+                            'Kmb_help_Ferm':    1322.0602068699052,
+                            'Inhibition_Ferm':  10.118875996129882,
                             
-                            "Km_help_Ferm":     10000/CONSTANTS.SOIL_DENSITY,
-                            "Km_Ac_Acetate":    0.2 / CONSTANTS.SOIL_DENSITY,
-                            "Km_Homo_CO2":      0.0005 / CONSTANTS.SOIL_DENSITY,
-                            "Km_Homo_H2":       0.0001 / CONSTANTS.SOIL_DENSITY ,
-                            "Km_Hydro_CO2":     0.005/CONSTANTS.SOIL_DENSITY ,
-                            "Km_Hydro_H2":      0.001 / CONSTANTS.SOIL_DENSITY,
-                            "Km_Fe3_Fe3":       2/CONSTANTS.SOIL_DENSITY,
-                            "Km_Fe3_Acetate":   0.01/CONSTANTS.SOIL_DENSITY,
-                            "Km_Ferm":          100 / CONSTANTS.SOIL_DENSITY,
-                            
+                            "Km_help_Ferm":    5188.51170010838/CONSTANTS.SOIL_DENSITY,
+                            "Km_Ac_Acetate" :  7.030348185396872/ CONSTANTS.SOIL_DENSITY, 
+                            "Km_Homo_CO2"  :   848.9503500185294 / CONSTANTS.SOIL_DENSITY,
+                            "Km_Homo_H2"    :  584.5061484463681 / CONSTANTS.SOIL_DENSITY ,
+                            "Km_Hydro_CO2"  :  869.0991529683715/CONSTANTS.SOIL_DENSITY ,
+                            "Km_Hydro_H2"    : 489.1731054166966 / CONSTANTS.SOIL_DENSITY,
+                            "Km_Fe3_Fe3"   :   533.3685302693583/CONSTANTS.SOIL_DENSITY,
+                            "Km_Fe3_Acetate"  :818.2462137022104/CONSTANTS.SOIL_DENSITY,
+                            "Km_Ferm"       :  630.4916492204161 / CONSTANTS.SOIL_DENSITY,
+                                                
                             
 
-                            'Fe3':              15.090783,
+                            'Fe3':              117.37574379080921,
                             
                             'Acetate':          1,
                             
                             'temperature':      4.0,
                             
-                            'CUE_Ferm':         0.5,
-                            'CUE_Fe3':          0.5,
-                            'CUE_Ac':           0.5,
-                            'CUE_Homo':         0.5,
-                            'CUE_Hydro':        0.5
+                           "CUE_Ferm": 0.3698723525408035,
+                            "CUE_Fe3": 0.5572385007984572,
+                            "CUE_Ac": 0.08453242432990166,
+                            "CUE_Homo": 0.3602422303950234,
+                            "CUE_Hydro": 0.7433100141164364
                             }
 
     specimen_model_parameters = {}
@@ -173,7 +174,7 @@ def Hydro(model_parameters):
                  'stoich':      1},
                 
                 {'name':        'H2O',
-                 'stoich':      1}
+                 'stoich':      2}
                 ]
 
     return microbe, educts, products
@@ -201,7 +202,7 @@ def Homo(model_parameters):
                  'stoich':       1},
                 
                  {'name':        'H2O',
-                 'stoich':      1}
+                 'stoich':      2}
                 ]
 
     return microbe, educts, products
