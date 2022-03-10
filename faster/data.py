@@ -342,7 +342,7 @@ def load_matlab():
         
         #plt.figure()
         #plt.plot(superdata_2021_all[i]['measured_time'] ,superdata_2021_all[i]['CH4'])
-        plt.title(i)
+        #plt.title(i)
      #
     # Trennen der CH4 freien Proben in vor und nach der Impfung
     

@@ -49,6 +49,36 @@ def default_model_parameters(specimen_index = None, site = 'all'):
                             "CUE_Homo": 0.3602422303950234,
                             "CUE_Hydro": 0.7433100141164364
                             }
+    
+
+    model_parameters_2 = {}        #   init    lower upper  ok guesses to start with
+    model_parameters_2['Vmax_help_Ferm'] =  0.9999306161130834  # 0.05
+    model_parameters_2['Vmax_Ferm'] =      4.1380785394837005  # 0.011       # Vmax = 0.5e6 / SOIL_DENSITY # 0.5 from Song
+    model_parameters_2['Vmax_Fe3'] =       0.89817626250035  # 0.8         # Vprod_max = 0.3* 10**6/ SOIL_DENSITY    # geschätzt
+    model_parameters_2['Vmax_Homo'] =       0.5457394394384627  # 0.869       # 0.15 from Song, Laut Ye13 3 bis 6 mal schneller als Hydro
+    model_parameters_2['Vmax_Hydro'] =      0.24706244797942814   # 0.182 1.8   # 0.15 mikromol pro cm^3 from Song
+    model_parameters_2['Vmax_Ac'] =         0.5665115584644631  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
+    model_parameters_2['Sensenmann'] =      8.33e-5# (8.33e-5, 0, 8.44e-5)# 0
+    model_parameters_2['Kmb_help_Ferm'] =   891.7732649811559      # 10
+    model_parameters_2["Km_help_Ferm"] =    3618.5403636705505
+    model_parameters_2["Km_Ac_Acetate"] =   77.45512661594466
+    model_parameters_2["Km_Homo_CO2"] =     267.17305425499063
+    model_parameters_2["Km_Homo_H2"] =      752.0140435559757
+    model_parameters_2["Km_Hydro_CO2"] =    357.87351679143444 
+    model_parameters_2["Km_Hydro_H2"] =     424.58131001540846 
+    model_parameters_2["Km_Fe3_Fe3"] =      738.8197995059913
+    model_parameters_2["Km_Fe3_Acetate"] =  458.2426314432057
+    model_parameters_2["Km_Ferm"] =         780.2347021088556 
+    model_parameters_2['Fe3'] =             119.09123130773733    # 15.587,
+    model_parameters_2['Acetate'] =         1
+    model_parameters_2['M_Ac'] =            0.015401704858753227 # 0.002
+    model_parameters_2['Inhibition_Ferm']=  7.350034345938164 # Je niedriger desto hemmung # Diese Boundaries müssen anhander Acetatekurven angepasst werden
+    model_parameters_2['CUE_Ferm']=         0.22251799068790443
+    model_parameters_2['CUE_Fe3']=           0.308964760641128
+    model_parameters_2['CUE_Ac']=           0.26964564053185136
+    model_parameters_2['CUE_Homo']=         0.7182020298979199
+    model_parameters_2['CUE_Hydro']=        0.6157316796638491
+    model_parameters.update(model_parameters_2)
 
     specimen_model_parameters = {}
     if not specimen_index is None:
@@ -87,6 +117,7 @@ def Ferm_help(model_parameters):
     return microbe, educts, products
 
 def Ferm(model_parameters):
+    # laut wikipedia: C6H12O6 + 2 H2O → 2 CH3CO2H + 2 CO2 + 4 H2
 
     microbe = {'name':          'M_Ferm',
                'vmax':          model_parameters['Vmax_Ferm'],
@@ -98,7 +129,7 @@ def Ferm(model_parameters):
 
 
     educts =  [{'name':         'DOC',
-                'stoich':       6,
+                'stoich':       6, # warum 6 ? warum nicht 1? 
                 'Km':           model_parameters['Km_Ferm'], #100 / CONSTANTS.SOIL_DENSITY,      # 10 from Song  mikromol pro gram
                 'C_atoms':      6}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist
                ]
@@ -109,7 +140,7 @@ def Ferm(model_parameters):
     #laut mir DOC = A: 7 ,CO2 :6 H2:12 (teile durch 2 weil dann näher am Grant verhältnis)
     #laut neumann2016modeling  Glucose = A:2 CO2:2 H2:4  C6H12O6 +2H2O -> 2CH3COOH+2CO2 + 4H2
     products = [{'name':        'Acetate',
-                 'stoich':       3.5,
+                 'stoich':       3.5, # 3.5
                  'inhibition':   model_parameters['Inhibition_Ferm']}  , # MM faktor für Acetathemmung
 
                 {'name':        'CO2',
