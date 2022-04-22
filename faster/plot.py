@@ -38,6 +38,8 @@ def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, 
             #plt.plot(all_days, empty)
         if len(key_list)>1:
             plt.legend()
+        #plt.title(title)    
+        
         plt.title(str(specimen_index) + ': ' + title)
 
         if not measured_data is None and title in measured_data:

@@ -25,7 +25,7 @@ def default_model_parameters(specimen_index = None, site = 'all'):
                             'Kmb_help_Ferm':    1322.0602068699052,
                             'Inhibition_Ferm':  10.118875996129882,
                             
-                            "Km_help_Ferm":    5188.51170010838/CONSTANTS.SOIL_DENSITY,
+                            #"Km_help_Ferm":    5188.51170010838/CONSTANTS.SOIL_DENSITY,
                             "Km_Ac_Acetate" :  7.030348185396872/ CONSTANTS.SOIL_DENSITY, 
                             "Km_Homo_CO2"  :   848.9503500185294 / CONSTANTS.SOIL_DENSITY,
                             "Km_Homo_H2"    :  584.5061484463681 / CONSTANTS.SOIL_DENSITY ,
@@ -60,7 +60,7 @@ def default_model_parameters(specimen_index = None, site = 'all'):
     model_parameters_2['Vmax_Ac'] =         0.5665115584644631  # 0.99           # Vprod_max_Ac = 0.5/ SOIL_DENSITY # 0.5 from song
     model_parameters_2['Sensenmann'] =      8.33e-5# (8.33e-5, 0, 8.44e-5)# 0
     model_parameters_2['Kmb_help_Ferm'] =   891.7732649811559      # 10
-    model_parameters_2["Km_help_Ferm"] =    3618.5403636705505
+    #model_parameters_2["Km_help_Ferm"] =    3618.5403636705505
     model_parameters_2["Km_Ac_Acetate"] =   77.45512661594466
     model_parameters_2["Km_Homo_CO2"] =     267.17305425499063
     model_parameters_2["Km_Homo_H2"] =      752.0140435559757
@@ -107,7 +107,7 @@ def Ferm_help(model_parameters):
 
     educts =  [{'name':         'C',
                 'stoich':       1,
-                'Km':           model_parameters['Km_help_Ferm']} #10000/CONSTANTS.SOIL_DENSITY} # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited
+                'Km':           0} #model_parameters['Km_help_Ferm']} #10000/CONSTANTS.SOIL_DENSITY} # For Ferm_help, Km must be 0 so that MM_factors evaluates to 1.0, Process is Enzyme Limited not Substrate limited
                ]
 
     products = [{'name':        'DOC',
@@ -129,9 +129,10 @@ def Ferm(model_parameters):
 
 
     educts =  [{'name':         'DOC',
-                'stoich':       6, # warum 6 ? warum nicht 1? 
+                'stoich':       6, #20, # 6
                 'Km':           model_parameters['Km_Ferm'], #100 / CONSTANTS.SOIL_DENSITY,      # 10 from Song  mikromol pro gram
-                'C_atoms':      6}    # weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist
+                'C_atoms':      10/6}   #10/6 weil sich das rückwärts aus den Endprodukten ergibt
+                                       #6 weil glucose (und andere Monomere) 6 C atome hat und ein momomer aus der spaltung von Coellulose ist
                ]
 
     #------------------------------------------------------------------------------------------------------------
@@ -140,14 +141,14 @@ def Ferm(model_parameters):
     #laut mir DOC = A: 7 ,CO2 :6 H2:12 (teile durch 2 weil dann näher am Grant verhältnis)
     #laut neumann2016modeling  Glucose = A:2 CO2:2 H2:4  C6H12O6 +2H2O -> 2CH3COOH+2CO2 + 4H2
     products = [{'name':        'Acetate',
-                 'stoich':       3.5, # 3.5
+                 'stoich':       3.5, #42, # 3.5
                  'inhibition':   model_parameters['Inhibition_Ferm']}  , # MM faktor für Acetathemmung
 
                 {'name':        'CO2',
-                 'stoich':       3}  ,
+                 'stoich':       3},#36}  , #3
 
                 {'name':        'H2',
-                 'stoich':      2}   # laut berechnung eine 6
+                 'stoich':       6 } #72}   #  6
                 ]
     return microbe, educts, products
 

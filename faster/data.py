@@ -9,6 +9,45 @@ import matplotlib.pyplot as plt
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
 
+def specimen_sites(specimen_indices):    
+    (replica_list_No_CH4,
+     superdata_No_CH4_vor_Impfung, 
+     superdata_No_CH4_nach_Impfung,
+     superdata_after_No_CH4,
+     superdata_bevor_No_CH4,
+     superdata_No_CH4,
+     superdata,
+     replica_list,
+     superdata_carex,
+     superdata_Kuru,
+     superdata_Sam,
+     replica_list_Kuru,
+     replica_list_Sam,
+     superdata_2021_all,
+     replica_list_superdata_2021_all,
+     superdata_ohne_Fe3,
+     Rep_ohne_Fe3,
+     superdata_mit_Fe3,
+     Rep_mit_Fe3) = load_matlab()
+    
+    all_sites = {}
+    for specimen_index in specimen_indices:
+        all_sites[specimen_index] = []
+    
+        if str(specimen_index) in superdata_2021_all:
+            all_sites[specimen_index].append('all')
+            
+        if str(specimen_index) in superdata_No_CH4_vor_Impfung:
+            all_sites[specimen_index].append('No-CH4')
+            
+        if str(specimen_index) in superdata_Kuru:
+            all_sites[specimen_index].append('K')
+    
+        if str(specimen_index) in superdata_Sam:
+            all_sites[specimen_index].append('S')
+
+    return all_sites
+
 def model_parameters_from_data(specimen_index, site):
 
     data = specimen_data(specimen_index, site)
@@ -222,8 +261,8 @@ def load_matlab():
             if specimen_key == int(key):
                 indices.append(row_index)
 
-        if len(indices) == 0:
-            print('No carex data for specimen', key)
+        #if len(indices) == 0:
+           # print('No carex data for specimen', key)
         #hier werden die neuen Werte eingefügt
         superdata_carex[key]['measured_time'] = Carex[indices,1]
         superdata_carex[key]['CO2'] = Carex[indices,2]
@@ -367,7 +406,7 @@ def load_matlab():
                 continue
                 
             for column, rows in superdata_2021_all[key].items():
-                if isinstance(rows,list):
+                if isinstance(rows,list) or isinstance(rows, np.ndarray):
                     superdata_No_CH4_vor_Impfung[key][column] = rows[:I]
                     superdata_No_CH4_nach_Impfung[key][column] = rows[I:]
                     
