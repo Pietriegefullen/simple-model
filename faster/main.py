@@ -215,7 +215,7 @@ for sample, sites in data.specimen_sites(all_the_samples).items():
 
 if __name__ == '__main__':
    # 9 ist die probe die ich normalerweise hab
-    load_and_plot('_2022-04-21_04-27-24_specimen_13662_site_all', 
+    load_and_plot('_2022-04-21_16-25-39_specimen_13680_site_all', 
                   extended_output = ['deltaGr',
                                     'deltaCO2',
                                     'deltaCH4',
