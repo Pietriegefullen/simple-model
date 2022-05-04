@@ -10,6 +10,19 @@ import OPTIMIZATION_PARAMETERS
 from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
 
+def evaluate_loss(sample, site, pathways, optimal_parameters):
+    
+    objectives = [SpecimenObjective(pathways,
+                                    optimal_parameters,
+                                    data.specimen_data(sample, site))]
+                  
+    total_objective = ObjectiveFunction()
+    
+    loss = total_objective({}, objectives)
+    
+    return loss
+
+
 def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo): 
     # falls run not fit sin fixed_parameters die model_parameters
     for name in CHANGEABLES:
@@ -111,7 +124,7 @@ class ObjectiveFunction:
     def __call__(self,changeable_parameters, specimen_objectives):
         losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
         total_loss = np.sum(losses)
-        print(f'{total_loss:.5e}')
+        #print(f'{total_loss:.5e}')
 
         if total_loss < self.best:
             self.best = total_loss

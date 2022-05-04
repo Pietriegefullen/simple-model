@@ -45,7 +45,7 @@ def load_and_plot(file, extended_output = None):
     with open(pathway_file, 'r') as pwf:
         used_pathways = [line.replace('\n', '') for line in pwf.readlines()]
 
-    all_days = np.arange(4500)     # Days to make predictions for
+    all_days = np.arange(1000001)     # Days to make predictions for
 
     default_model_parameters = pathways.default_model_parameters(specimen_index, site)
     model_parameters = load_model_parameters(file)
@@ -66,7 +66,7 @@ def load_and_plot(file, extended_output = None):
 
 def run_and_plot(specimen_index, site, extended_output = None, pathway_names = None):
 
-    all_days = np.arange(4500)     # Days to make predictions for
+    all_days = np.arange(1000001)     # Days to make predictions for
 
     model_parameters = pathways.default_model_parameters(specimen_index, site)
 
@@ -160,7 +160,7 @@ def fit_model(specimen_index, site, pathway_names = None):
     if notplot:
         return
 
-    all_days = np.arange(4500)
+    all_days = np.arange(1000001)
 
     pool_value_dict = predict.predictor(all_days,
                                         model_parameters,
@@ -178,6 +178,41 @@ def fit_model(specimen_index, site, pathway_names = None):
     plot.fit(days, CH4, pool_value_dict['CH4'], all_days)
 
     plt.show()
+
+
+
+
+
+def evaluate_loss(file):
+    splitparts = file.split('_')
+    specimen_index = str(splitparts[splitparts.index('specimen')+1])
+    site = splitparts[splitparts.index('site')+1]
+
+    pathway_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY,
+                                file + '_pathways.txt')
+    with open(pathway_file, 'r') as pwf:
+        used_pathways = [line.replace('\n', '') for line in pwf.readlines()]
+
+    model_parameters = load_model_parameters(file)
+    
+    all_pathways = [
+                       pathways.Ferm_help,
+                       pathways.Ferm,
+                       pathways.Fe3,
+                       pathways.Hydro,
+                       pathways.Homo,
+                       pathways.Ac
+                       ]
+    
+    if used_pathways is None:
+        chosen_pathways = all_pathways
+        
+    else:    
+        chosen_pathways = [pw for pw in all_pathways if pw.__name__ in used_pathways]  
+    
+    loss = optimizer.evaluate_loss(specimen_index, site, chosen_pathways, model_parameters)
+    return (specimen_index, loss)
+
 
 my_parser = argparse.ArgumentParser(description='simple model main')
 
@@ -212,10 +247,48 @@ for sample, sites in data.specimen_sites(all_the_samples).items():
     if 'No-CH4' in sites:
         chosen_site = 'No-CH4'
     all_samples_and_sites.append((sample, chosen_site))
+    
+    
+# laden aller log files um den loss zu bekommen    
+all_files =[]
+for filename in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
+     
+     if filename.endswith(".json") : 
+         all_files.append(filename.replace('.json', ''))
+             
+         
+print(all_files)         
+         
 
 if __name__ == '__main__':
+    
+    
+    
+    
+    # all_losses = []
+    # for file in all_files:
+    #     loss_tuple = evaluate_loss(file)
+    #     all_losses.append(loss_tuple)
+    # print(all_losses)
+    
+    # if not os.path.isdir(USER_VARIABLES.LOG_DIRECTORY):
+    #     os.makedirs(USER_VARIABLES.LOG_DIRECTORY)
+    
+    # file_name= ''.join('all_losses'+'.txt' ) 
+        
+    # parameter_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file_name)
+
+    # with open(parameter_file, 'w') as pf:
+    #     json.dump(all_losses, pf,indent = 4)
+        
+        
+        
+        
+        
+        
+    
    # 9 ist die probe die ich normalerweise hab
-    load_and_plot('_2022-04-21_16-25-39_specimen_13680_site_all', 
+    load_and_plot('_2022-04-20_09-15-08_specimen_13610_site_all', 
                   extended_output = ['deltaGr',
                                     'deltaCO2',
                                     'deltaCH4',

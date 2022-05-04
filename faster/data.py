@@ -124,7 +124,7 @@ def load_matlab():
       """
 
 
-    print('load_data')
+    #print('load_data')
     mat_file = os.path.join(ROOT_DIRECTORY,'ActivityData_04062016')
     Data = sio.loadmat(mat_file, appendmat=True)
 
