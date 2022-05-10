@@ -29,7 +29,18 @@ import OPTIMIZATION_PARAMETERS
 import USER_VARIABLES
 
 
+
 import seaborn as sns
+
+Initials = OPTIMIZATION_PARAMETERS.get_initial_guesses()
+
+Bounds= {}
+
+for key in Initials.keys():
+    Bounds[key] = Initials[key][1:]
+
+
+    
 
 
 
@@ -172,7 +183,6 @@ def parallel_plot():
     ## PARAMETER COMPARISM PLOT
     Km_Values = [col for col in specimen_df.columns if 'Km' in col or 'Inh' in col] 
     K_df = specimen_df [Km_Values]
-    
    
     Km_Values_Kuru = [col for col in specimen_df_Kuru.columns if 'Km' in col or 'Inh' in col] 
     K_df_Kuru = specimen_df_Kuru [Km_Values_Kuru]
@@ -185,11 +195,52 @@ def parallel_plot():
     
     #ax = sns.boxplot( data=K_df, showfliers = False)
 
-    ax = sns.swarmplot( data=K_df_Kuru, color="r")
-    ax = sns.swarmplot( data=K_df_Sam, color="b")
+    ax = sns.swarmplot( data=K_df_Kuru, color="r", s=2)
+    ax = sns.swarmplot( data=K_df_Sam, color="b", s=2)
     plt.xticks(rotation=90)
     plt.show()
         
+  
+    Km_Values.append('Fe3')
+    Km_Values.append( 'Sensenmann')
+    Km_Values.append('Acetate')
+    Km_Values.append('site')
+    Para_Values_all = [col for col in specimen_df.columns ] 
+    Para_Values_no_Km =  [p for p in Para_Values_all if not p in Km_Values]
+    print('Km_Values_no_LM',Para_Values_no_Km )
+    
+
+    Para_df = specimen_df[Para_Values_no_Km]
+    Para_df_Kuru = specimen_df_Kuru[Para_Values_no_Km]
+    Para_df_Sam = specimen_df_Sam[Para_Values_no_Km]
+   
+    
+    ax = sns.swarmplot( data=Para_df_Kuru, color="r" , s=2)
+    plt.xticks(rotation=90)
+    
+    
+    plt.figure()
+    ax = sns.swarmplot( data=Para_df_Sam, color="b", s=2)
+    plt.xticks(rotation=90)
+    
+    plt.figure()
+    ax = sns.boxplot( data=Para_df_Kuru, showfliers = False)
+    ax.set_ylim([0, 5])
+    ax.set_title('Kuru')
+    plt.xticks(rotation=90)
+    
+    plt.figure()
+    ax = sns.boxplot( data=Para_df_Sam, showfliers = False)
+    ax.set_ylim([0, 5])
+    ax.set_title('Sam')
+    plt.xticks(rotation=90)
+    
+    plt.show()
+    
+    
+    plt.figure()
+    
+    
     
     
     
