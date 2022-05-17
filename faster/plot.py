@@ -53,10 +53,10 @@ def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, 
 
     return fig
 
-def plot_pool(name, values, time):
+def plot_pool(name, values, time, style = '-'):
 
     plt.figure()
-    plt.plot(time, values)
+    plt.plot(time, values, style)
     plt.title(name)
 
 

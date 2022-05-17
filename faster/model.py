@@ -70,8 +70,8 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         if 'C_source' in microbe and 'C_atoms' in educt:
             c_atoms = educt['C_atoms']
             CUE = microbe['CUE']
-            pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C
-            pathway_vector[educt_index] = -educt['stoich']*CUE/(1-CUE)
+            pathway_vector[microbe_index] = educt['stoich']*CUE/(1-CUE)*c_atoms*CONSTANTS.MOLAR_MASS_C # hier das C das zu biomasse wird
+            pathway_vector[educt_index] = -educt['stoich']*CUE/(1-CUE) # das gleiche C das deshalb aus dem pool verschwinden muss
 
     for product in products:
         product_index = pool_index(product['name'])
@@ -86,7 +86,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
     # pathway vector includes microbes (which should not contribute to thermodynamics!)
     pathway_vector += stoich_vector
 
-    # for inverse MM
+    # for inverse MM (for exoenzymes?)
     if 'Kmb' in microbe:
         Km_vector[microbe_index] = microbe['Kmb']
 
@@ -133,7 +133,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         # compute the total MM factor
         total_MM_factor = np.prod(MM)
 
-        # compute the inverse Michaelis-Menten factors
+        # compute the inverse Michaelis-Menten factors (for Acetate inhibition )
         invMM = np.where(dissolved_system_state == 0, 1,
                          1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))
         invMM = np.where(inhibition_vector == np.inf, 1, invMM)

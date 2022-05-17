@@ -45,7 +45,7 @@ def load_and_plot(file, extended_output = None):
     with open(pathway_file, 'r') as pwf:
         used_pathways = [line.replace('\n', '') for line in pwf.readlines()]
 
-    all_days = np.arange(1000001)     # Days to make predictions for
+    all_days = np.arange(4500)     # Days to make predictions for
 
     default_model_parameters = pathways.default_model_parameters(specimen_index, site)
     model_parameters = load_model_parameters(file)
@@ -61,12 +61,27 @@ def load_and_plot(file, extended_output = None):
                                 pathway_names = used_pathways)
 
     measured_data = data.specimen_data(str(specimen_index), site)
-    plot.all_pools(pool_value_dict, all_days, specimen_index, 
-                   measured_data)
+    
+    # plot both model and data:
+    # plot.all_pools(pool_value_dict, all_days, specimen_index, 
+    #                measured_data)
+    
+    # plot only data:
+    days = measured_data['measured_time']
+    for name, measurements in measured_data.items():
+        if 'time' in name: 
+            continue
+        if not np.array(measurements).size == len(days):
+            continue
+        plot.plot_pool(name, measurements, days, 'xr')
+    
+    #plot.plot_pool(specimen_index, measured_data[1], all_days)
+
+                   
 
 def run_and_plot(specimen_index, site, extended_output = None, pathway_names = None):
 
-    all_days = np.arange(1000001)     # Days to make predictions for
+    all_days = np.arange(4500)     # Days to make predictions for
 
     model_parameters = pathways.default_model_parameters(specimen_index, site)
 
@@ -160,7 +175,7 @@ def fit_model(specimen_index, site, pathway_names = None):
     if notplot:
         return
 
-    all_days = np.arange(1000001)
+    all_days = np.arange(4500)
 
     pool_value_dict = predict.predictor(all_days,
                                         model_parameters,
@@ -231,14 +246,16 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 #'13510', '13511','13512','13520',  '13521', '13530', '13531', '13670', '13671',
 #                  '13672', '13690', '13691', '13692', '13700',
                   
-all_the_samples =[ '13701', '13702', '13720', '13721',
-                  '13722', '13730', '13731', '13732', '13740', '13741', '13742', '13750', '13751', 
-                  '13752', '13770', '13771','13772', '13780', '13781', '13782', '13540', '13542', 
-                  '13550', '13551', '13560', '13562','13571', '13572', '13580', '13581', '13590', 
-                  '13591', '13600', '13602', '13610', '13612','13620', '13622', '13630', '13631', 
-                  '13640', '13641', '13650', '13651', '13652', '13661','13662', '13680', '13681',
-                  '13682', '13710', '13711', '13712', '13760', '13761', '13762','13790', '13791', 
-                  '13792', '13800', '13801', '13802']
+# all_the_samples =[ '13701', '13702', '13720', '13721',
+#                   '13722', '13730', '13731', '13732', '13740', '13741', '13742', '13750', '13751', 
+#                   '13752', '13770', '13771','13772', '13780', '13781', '13782', '13540', '13542', 
+#                   '13550', '13551', '13560', '13562','13571', '13572', '13580', '13581', '13590', 
+#                   '13591', '13600', '13602', '13610', '13612','13620', '13622', '13630', '13631', 
+#                   '13640', '13641', '13650', '13651', '13652', '13661','13662', '13680', '13681',
+#                   '13682', '13710', '13711', '13712', '13760', '13761', '13762','13790', '13791', 
+#                   '13792', '13800', '13801', '13802']
+
+all_the_samples =[ '13692']
 
 # automatically assign a site to each specimen.
 all_samples_and_sites = []
@@ -263,6 +280,7 @@ print(all_files)
 if __name__ == '__main__':
     
     
+
     
     
     # all_losses = []
@@ -288,20 +306,20 @@ if __name__ == '__main__':
         
     
    # 9 ist die probe die ich normalerweise hab
-    load_and_plot('_2022-04-20_09-15-08_specimen_13610_site_all', 
-                  extended_output = ['deltaGr',
-                                    'deltaCO2',
-                                    'deltaCH4',
-                                    'thermo',
-                                    'MM',
-                                    'v',
-                                    'deltaGs',
-                                    'inhibition',
-                                    'logQ',
-                                    'deltaH2',
-                                    'logFe3',
-                                    'logQH2O',
-                                    'dissH2O'])
+    # load_and_plot('_2022-04-20_09-15-08_specimen_13610_site_all', 
+    #               extended_output = ['deltaGr',
+    #                                 'deltaCO2',
+    #                                 'deltaCH4',
+    #                                 'thermo',
+    #                                 'MM',
+    #                                 'v',
+    #                                 'deltaGs',
+    #                                 'inhibition',
+    #                                 'logQ',
+    #                                 'deltaH2',
+    #                                 'logFe3',
+    #                                 'logQH2O',
+    #                                 'dissH2O'])
 
 
 
@@ -332,16 +350,16 @@ if __name__ == '__main__':
         #                                 ])
     #=============================================================================
 #=============================================================================
-        # fit_model(speciemen_identifier, 
-        #           site = site_name, 
-        #           pathway_names = [
-        #                               'Ferm_help',
-        #                               'Ferm',
-        #                               'Fe3',
-        #                               'Ac',
-        #                               'Hydro',
-        #                               'Homo'
-        #                               ])
+        fit_model(speciemen_identifier, 
+                  site = site_name, 
+                  pathway_names = [
+                                      'Ferm_help',
+                                      'Ferm',
+                                      'Fe3',
+                                      'Ac',
+                                      'Hydro',
+                                      'Homo'
+                                      ])
 #=============================================================================
     
 """
