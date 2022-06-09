@@ -251,7 +251,6 @@ def boxplot():
         ax = sns.boxplot( data=plot_data[plot_columns], showfliers = False, palette = plot_colors)
         plt.xticks(rotation=90)
         
-        plt.update_layout(boxmode='group')
         plt.show()      
   
     

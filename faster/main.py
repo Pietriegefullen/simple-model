@@ -63,17 +63,17 @@ def load_and_plot(file, extended_output = None):
     measured_data = data.specimen_data(str(specimen_index), site)
     
     # plot both model and data:
-    # plot.all_pools(pool_value_dict, all_days, specimen_index, 
-    #                measured_data)
+    plot.all_pools(pool_value_dict, all_days, specimen_index, 
+                    measured_data)
     
     # plot only data:
-    days = measured_data['measured_time']
-    for name, measurements in measured_data.items():
-        if 'time' in name: 
-            continue
-        if not np.array(measurements).size == len(days):
-            continue
-        plot.plot_pool(name, measurements, days, 'xr')
+    # days = measured_data['measured_time']
+    # for name, measurements in measured_data.items():
+    #     if 'time' in name: 
+    #         continue
+    #     if not np.array(measurements).size == len(days):
+    #         continue
+    #     plot.plot_pool(name, measurements, days, 'xr')
     
     #plot.plot_pool(specimen_index, measured_data[1], all_days)
 
@@ -226,6 +226,8 @@ def evaluate_loss(file):
         chosen_pathways = [pw for pw in all_pathways if pw.__name__ in used_pathways]  
     
     loss = optimizer.evaluate_loss(specimen_index, site, chosen_pathways, model_parameters)
+    #anzeigen vom loss einer bestimmten Probe
+    #print(loss)
     return (specimen_index, loss)
 
 
@@ -246,16 +248,16 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 #'13510', '13511','13512','13520',  '13521', '13530', '13531', '13670', '13671',
 #                  '13672', '13690', '13691', '13692', '13700',
                   
-# all_the_samples =[ '13701', '13702', '13720', '13721',
-#                   '13722', '13730', '13731', '13732', '13740', '13741', '13742', '13750', '13751', 
-#                   '13752', '13770', '13771','13772', '13780', '13781', '13782', '13540', '13542', 
-#                   '13550', '13551', '13560', '13562','13571', '13572', '13580', '13581', '13590', 
-#                   '13591', '13600', '13602', '13610', '13612','13620', '13622', '13630', '13631', 
-#                   '13640', '13641', '13650', '13651', '13652', '13661','13662', '13680', '13681',
-#                   '13682', '13710', '13711', '13712', '13760', '13761', '13762','13790', '13791', 
-#                   '13792', '13800', '13801', '13802']
+all_the_samples =[ '13701', '13702', '13720', '13721',
+                  '13722', '13730', '13731', '13732', '13740', '13741', '13742', '13750', '13751', 
+                  '13752', '13770', '13771','13772', '13780', '13781', '13782', '13540', '13542', 
+                  '13550', '13551', '13560', '13562','13571', '13572', '13580', '13581', '13590', 
+                  '13591', '13600', '13602', '13610', '13612','13620', '13622', '13630', '13631', 
+                  '13640', '13641', '13650', '13651', '13652', '13661','13662', '13680', '13681',
+                  '13682', '13710', '13711', '13712', '13760', '13761', '13762','13790', '13791', 
+                  '13792', '13800', '13801', '13802']
 
-all_the_samples =[ '13692']
+#all_the_samples =[ '13692']
 
 # automatically assign a site to each specimen.
 all_samples_and_sites = []
@@ -279,7 +281,8 @@ print(all_files)
 
 if __name__ == '__main__':
     
-    
+    #anzeigen vom Loss einer bestimmten Probe
+    #evaluate_loss('_2022-05-18_16-31-47_specimen_13692_site_all')
 
     
     
@@ -304,22 +307,21 @@ if __name__ == '__main__':
         
         
         
-    
-   # 9 ist die probe die ich normalerweise hab
-    # load_and_plot('_2022-04-20_09-15-08_specimen_13610_site_all', 
-    #               extended_output = ['deltaGr',
-    #                                 'deltaCO2',
-    #                                 'deltaCH4',
-    #                                 'thermo',
-    #                                 'MM',
-    #                                 'v',
-    #                                 'deltaGs',
-    #                                 'inhibition',
-    #                                 'logQ',
-    #                                 'deltaH2',
-    #                                 'logFe3',
-    #                                 'logQH2O',
-    #                                 'dissH2O'])
+# # 1369 ist die Probe auf der meine Annahmen basieren
+#     load_and_plot('_2022-03-19_00-44-15_specimen_13511_site_all', 
+#                   extended_output = ['deltaGr',
+#                                     'deltaCO2',
+#                                     'deltaCH4',
+#                                     'thermo',
+#                                     'MM',
+#                                     'v',
+#                                     'deltaGs',
+#                                     'inhibition',
+#                                     'logQ',
+#                                     'deltaH2',
+#                                     'logFe3',
+#                                     'logQH2O',
+#                                     'dissH2O'])
 
 
 
@@ -349,18 +351,19 @@ if __name__ == '__main__':
         #                                 'Homo'
         #                                 ])
     #=============================================================================
-#=============================================================================
-        fit_model(speciemen_identifier, 
-                  site = site_name, 
+# #=============================================================================
+
+    fit_model(speciemen_identifier, 
+                   site = site_name, 
                   pathway_names = [
-                                      'Ferm_help',
-                                      'Ferm',
-                                      'Fe3',
-                                      'Ac',
-                                      'Hydro',
-                                      'Homo'
-                                      ])
-#=============================================================================
+                                       'Ferm_help',
+                                       'Ferm',
+                                       #'Fe3',
+                                       'Ac',
+                                       #'Hydro',
+                                       #'Homo'
+                                       ])
+# #=============================================================================
     
 """
   '13510', '13511', '13512',
