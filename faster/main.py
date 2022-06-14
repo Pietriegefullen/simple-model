@@ -142,13 +142,14 @@ def fit_model(specimen_index, site, pathway_names = None):
     all_pathways = [
                        pathways.Ferm_help,
                        pathways.Ferm,
-                       pathways.Fe3,
-                       pathways.Homo,
+                       #pathways.Fe3,
+                       #pathways.Homo,
                        ]
     
     if site == 'all':
         all_pathways += [pathways.Ac,
-                         pathways.Hydro]
+                        # pathways.Hydro
+                        ]
     
     if pathway_names is None:
         chosen_pathways = all_pathways
@@ -213,9 +214,9 @@ def evaluate_loss(file):
     all_pathways = [
                        pathways.Ferm_help,
                        pathways.Ferm,
-                       pathways.Fe3,
-                       pathways.Hydro,
-                       pathways.Homo,
+                       #pathways.Fe3,
+                       #pathways.Hydro,
+                       #pathways.Homo,
                        pathways.Ac
                        ]
     
@@ -327,10 +328,11 @@ if __name__ == '__main__':
 
 
     for sample_number, site_name in all_samples_and_sites: 
-        print('sample_number', sample_number)
-        print('site_name', site_name)
+        #print('sample_number', sample_number)
+        #print('site_name', site_name)
             
         speciemen_identifier = sample_number
+        print(sample_number)
     #=============================================================================
         # run_and_plot(speciemen_identifier, 
         #               site = 'all', 
@@ -352,17 +354,17 @@ if __name__ == '__main__':
         #                                 ])
     #=============================================================================
 # #=============================================================================
-
-    fit_model(speciemen_identifier, 
-                   site = site_name, 
-                  pathway_names = [
-                                       'Ferm_help',
-                                       'Ferm',
-                                       #'Fe3',
-                                       'Ac',
-                                       #'Hydro',
-                                       #'Homo'
-                                       ])
+    
+        fit_model(speciemen_identifier, 
+                       site = site_name, 
+                      pathway_names = [
+                                           'Ferm_help',
+                                           'Ferm',
+                                           #'Fe3',
+                                           'Ac',
+                                           #'Hydro',
+                                           #'Homo'
+                                           ])
 # #=============================================================================
     
 """
