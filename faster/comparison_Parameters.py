@@ -32,16 +32,18 @@ import USER_VARIABLES
 
 import seaborn as sns
 
-Initials = OPTIMIZATION_PARAMETERS.get_initial_guesses()
+def get_bounds():
 
-Bounds= {}
-
-for key in Initials.keys():
-    Bounds[key] = Initials[key][1:]
-
-print(Bounds)
-
+    Initials = OPTIMIZATION_PARAMETERS.get_initial_guesses()
     
+    Bounds= {}
+    
+    for key in Initials.keys():
+        Bounds[key] = Initials[key][1:]
+    
+    return Bounds
+    
+        
 
 
 
@@ -72,14 +74,14 @@ def load_model_parameters(file):
 
 def load_singel_file(filename):
 
-    all_losses =  os.path.join(USER_VARIABLES.LOG_DIRECTORY, filename + '.txt')
+    singel_file =  os.path.join(USER_VARIABLES.LOG_DIRECTORY, filename + '.txt')
     
     
-    with open(all_losses, 'r') as p:
-        all_losses = json.load(p)
+    with open(singel_file, 'r') as p:
+        singel_file = json.load(p)
        
         
-    return all_losses
+    return singel_file
 
 
 
@@ -137,7 +139,7 @@ def plot_preperations():
     #läd alle parametersätze rein
     for file in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
          
-         if file.endswith(".json") : 
+         if file.endswith(".json") and not 'mean_parameters' in file.lower(): 
              
              specimen_dict, columns = load_and_compare(file)
       
@@ -211,9 +213,11 @@ def plot_preperations():
     
     
     
-    return  specimen_df, specimen_df_Kuru, specimen_df_Sam, Km_Values, Microbes_Values, Vmax_Values, CUE_Values, columns_list
+    return  specimen_df, specimen_df_Kuru, specimen_df_Sam, Km_Values, Microbes_Values, Vmax_Values, CUE_Values, columns_list, all_speciemen_dict
     
 def boxplot():   
+   
+    bounds = get_bounds() 
    
     import itertools 
    
@@ -224,12 +228,17 @@ def boxplot():
      Microbes_Values,
      Vmax_Values,
      CUE_Values,
-     columns_list) = plot_preperations()
+     columns_list, 
+     all_speciemen_dict) = plot_preperations()
    
     sns.set(style="whitegrid") 
     
+    # If I want to look at a single variable I have to define it here and add it to Selected_Params
+    Microbe_Values_Ac = ['M_Ac']
+    Inhib = ['Inhibition_Ferm']
+    Small_Vmax =['Vmax_help_Ferm', 'Vmax_Homo', 'Vmax_Hydro', 'Vmax_Ac']
 
-    Selected_Params = [ Km_Values, Microbes_Values, Vmax_Values, CUE_Values]
+    Selected_Params = [ Km_Values, Microbes_Values, Vmax_Values, CUE_Values, Microbe_Values_Ac, Inhib,Small_Vmax]
 
 
     specimen_df_Kuru = specimen_df_Kuru.rename({column: column + '_K' for column in specimen_df_Kuru.columns}, axis = 1)
@@ -247,17 +256,84 @@ def boxplot():
         plot_colors = []
         for column in plot_columns:
             plot_colors.append(next(base_colors) if column.endswith('_K') else next(modified_colors))
-            
+         
+        fig, ax = plt.subplots()    
         ax = sns.boxplot( data=plot_data[plot_columns], showfliers = False, palette = plot_colors)
+        sns.stripplot( data=plot_data[plot_columns],  dodge=True)
         plt.xticks(rotation=90)
+        
+        
+        
+        
+        
+        xtickslocs = ax.get_xticks()
+        xtickslocs_sites =xtickslocs[::2]
+       
+        for (xtick, label) in zip(xtickslocs_sites,z):
+ 
+            #print(label)
+            upper_bound = bounds[label][1]
+            #print(upper_bound)
+            lower_bound = bounds[label][0]
+            #print(lower_bound)
+                    
+            ax.plot( xtick, upper_bound, color = 'r', marker='*' )
+            
+            ax.plot( xtick +1, upper_bound, color = 'r', marker = '*' )
+            
+            ax.plot( xtick, lower_bound, color = 'r', marker='*' )        
+            
+            ax.plot( xtick+1, lower_bound, color = 'r', marker='*' )
+            
+  
+      
         
         plt.show()      
   
     
-  
+def Mean_model_prep():
+    
     
      
+     (specimen_df,
+     specimen_df_Kuru,
+     specimen_df_Sam,
+     Km_Values,
+     Microbes_Values,
+     Vmax_Values,
+     CUE_Values,
+     columns_list, 
+     all_speciemen_dict) = plot_preperations()
+            
+             
+     all_specimens_parameters = dict()
+     for specimen_name, sp_parameters in all_speciemen_dict.items():
+         
+         for sp_parameter_name, sp_parameter_value in sp_parameters.items():
+             
+             if not sp_parameter_name in all_specimens_parameters:
+                 all_specimens_parameters[sp_parameter_name] = []
+                 
+             all_specimens_parameters[sp_parameter_name].append(sp_parameter_value)
+             
+ 
+     mean_parameters = {}
+     for parameter_name, all_sp_values in all_specimens_parameters.items():
+         mean_parameters[parameter_name] = np.mean(all_sp_values)
+         
+
+     
+     file_name = '_'.join(['Mean_Parameters', 'specimen','000000','site','None']) + '.json'
+         
+     parameter_file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file_name)
+
+     if not os.path.isdir(USER_VARIABLES.LOG_DIRECTORY):
+         os.makedirs(USER_VARIABLES.LOG_DIRECTORY)
+
+     with open(parameter_file, 'w') as pf:
+         json.dump(mean_parameters, pf,indent = 4)
     
+     return parameter_file
     
     
     
@@ -270,7 +346,8 @@ def PAIRWISE_Correlation_plot():
      Microbes_Values,
      Vmax_Values,
      CUE_Values,
-     columns_list) = plot_preperations()
+     columns_list, 
+     all_speciemen_dict) = plot_preperations()
     
 
     # for microbe in Microbe_groups:
@@ -285,7 +362,7 @@ def PAIRWISE_Correlation_plot():
                     
     #     Microbes_sam[microbe] = specimen_df_Sam[plot_list]
     #     Microbes_kuru[microbe] = specimen_df_Kuru[plot_list]
-    
+
     #     plt.figure()
     #     sns.pairplot(Microbes_sam[microbe],kind="reg")
     #     plo_sam = sns.pairplot(Microbes_sam[microbe],kind="reg")
@@ -329,6 +406,48 @@ def PAIRWISE_Correlation_plot():
         minmaxdict_Sam.update({col: [col_min, col_max]})
         specimen_df_Sam[col] = (specimen_df_Sam[col] - col_min) /(col_max - col_min)    
     
+
+
+
+
+
+
+if __name__ == '__main__':
+    
+    
+    
+    Mean_model_prep()
+    
+    
+    
+    #parallel_plot()
+    boxplot()  
+
+    PAIRWISE_Correlation_plot()      
+   
+    all_losses = load_singel_file('all_losses')
+        
+    # all_losses_hist = [item[1] for item in all_losses]
+    
+    # all_losses_hist2 = sorted(np.log10(all_losses_hist))
+    
+    
+    # plt.hist(all_losses_hist2, bins = 50)
+    # plt.figure()
+    # plt.plot(all_losses_hist2)    
+    # plt.show()
+    (specimen_df,
+     specimen_df_Kuru,
+     specimen_df_Sam,
+     Km_Values,
+     Microbes_Values,
+     Vmax_Values,
+     CUE_Values,
+     columns_list, 
+     all_speciemen_dict) = plot_preperations()
+
+
+
     
     
     # # plottet alle parameter
@@ -747,28 +866,7 @@ def PAIRWISE_Correlation_plot():
 #     # plt.show() 
             
           
-if __name__ == '__main__':
-    
-    
-    
-    
-    
-    #parallel_plot()
-    boxplot()  
 
-    PAIRWISE_Correlation_plot()      
-   
-    all_losses = load_singel_file('all_losses')
-        
-    # all_losses_hist = [item[1] for item in all_losses]
-    
-    # all_losses_hist2 = sorted(np.log10(all_losses_hist))
-    
-    
-    # plt.hist(all_losses_hist2, bins = 50)
-    # plt.figure()
-    # plt.plot(all_losses_hist2)    
-    # plt.show()
     
     
             

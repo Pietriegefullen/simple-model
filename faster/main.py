@@ -34,7 +34,7 @@ def load_model_parameters(file):
 
     return model_parameters
 
-def load_and_plot(file, extended_output = None):
+def load_and_plot(file, extended_output = None, which_plot = 'measured_and_modelled'):
 
     splitparts = file.split('_')
     specimen_index = str(splitparts[splitparts.index('specimen')+1])
@@ -47,7 +47,9 @@ def load_and_plot(file, extended_output = None):
 
     all_days = np.arange(4500)     # Days to make predictions for
 
-    default_model_parameters = pathways.default_model_parameters(specimen_index, site)
+    default_model_parameters = {}
+    if not site == 'None': # um das durchschnittsmodell zu plotten
+        default_model_parameters = pathways.default_model_parameters(specimen_index, site)
     model_parameters = load_model_parameters(file)
     
     for default_key, default_value in default_model_parameters.items():
@@ -60,22 +62,25 @@ def load_and_plot(file, extended_output = None):
                                 extended_output = extended_output,
                                 pathway_names = used_pathways)
 
-    measured_data = data.specimen_data(str(specimen_index), site)
+    measured_data = None# um das durchschnittsmodell zu plotten
+    if not site == 'None':# um das durchschnittsmodell zu plotten
+        measured_data = data.specimen_data(str(specimen_index), site)
     
-    # plot both model and data:
-    plot.all_pools(pool_value_dict, all_days, specimen_index, 
-                    measured_data)
-    
-    # plot only data:
-    # days = measured_data['measured_time']
-    # for name, measurements in measured_data.items():
-    #     if 'time' in name: 
-    #         continue
-    #     if not np.array(measurements).size == len(days):
-    #         continue
-    #     plot.plot_pool(name, measurements, days, 'xr')
-    
-    #plot.plot_pool(specimen_index, measured_data[1], all_days)
+    if which_plot == 'measured_and_modelled':
+        # plot both model and data:
+        plot.all_pools(pool_value_dict, all_days, specimen_index, 
+                        measured_data)
+        
+    elif which_plot == 'only_data':
+        days = measured_data['measured_time']
+        for name, measurements in measured_data.items():
+            if 'time' in name: 
+                continue
+            if not np.array(measurements).size == len(days):
+                continue
+            plot.plot_pool(name, measurements, days, 'xr')
+        
+        plot.plot_pool(specimen_index, measured_data[1], all_days)
 
                    
 
@@ -135,6 +140,8 @@ def save_model(specimen_index, site, model_parameters, prefix = ''):
         json.dump(model_parameters, pf,indent = 4)
     
     return parameter_file
+
+
 
 def fit_model(specimen_index, site, pathway_names = None):
     notplot = True
@@ -228,7 +235,7 @@ def evaluate_loss(file):
     
     loss = optimizer.evaluate_loss(specimen_index, site, chosen_pathways, model_parameters)
     #anzeigen vom loss einer bestimmten Probe
-    #print(loss)
+    print('the loss of',file,'is', loss)
     return (specimen_index, loss)
 
 
@@ -248,6 +255,7 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 #'13510', '13511','13512','13520',  '13521', '13530', '13531', '13670', '13671',
 #                  '13672', '13690', '13691', '13692', '13700',
+#
                   
 all_the_samples =[ '13701', '13702', '13720', '13721',
                   '13722', '13730', '13731', '13732', '13740', '13741', '13742', '13750', '13751', 
@@ -277,19 +285,24 @@ for filename in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
          all_files.append(filename.replace('.json', ''))
              
          
-print(all_files)         
+#print(all_files)         
          
 
 if __name__ == '__main__':
     
+    # Mean_Parameters_specimen_000000_site_None # durchschnittliche Parameterwerte
+    
+    file = ('Mean_Parameters_specimen_000000_site_None')
+    
     #anzeigen vom Loss einer bestimmten Probe
-    #evaluate_loss('_2022-05-18_16-31-47_specimen_13692_site_all')
+    #evaluate_loss(file)
 
     
+    # erstellen der Loss liste aller fits:
     
     # all_losses = []
-    # for file in all_files:
-    #     loss_tuple = evaluate_loss(file)
+    # for file_0 in all_files:
+    #     loss_tuple = evaluate_loss(file_0)
     #     all_losses.append(loss_tuple)
     # print(all_losses)
     
@@ -308,21 +321,22 @@ if __name__ == '__main__':
         
         
         
-# # 1369 ist die Probe auf der meine Annahmen basieren
-#     load_and_plot('_2022-03-19_00-44-15_specimen_13511_site_all', 
-#                   extended_output = ['deltaGr',
-#                                     'deltaCO2',
-#                                     'deltaCH4',
-#                                     'thermo',
-#                                     'MM',
-#                                     'v',
-#                                     'deltaGs',
-#                                     'inhibition',
-#                                     'logQ',
-#                                     'deltaH2',
-#                                     'logFe3',
-#                                     'logQH2O',
-#                                     'dissH2O'])
+# 1369 ist die Probe auf der meine Annahmen basieren
+    load_and_plot(file, 
+                  extended_output = ['deltaGr',
+                                    'deltaCO2',
+                                    'deltaCH4',
+                                    'thermo',
+                                    'MM',
+                                    'v',
+                                    'deltaGs',
+                                    'inhibition',
+                                    'logQ',
+                                    'deltaH2',
+                                    'logFe3',
+                                    'logQH2O',
+                                    'dissH2O'],
+                                     which_plot = 'measured_and_modelled') # 'only_data' oder 'measured_and_modelled
 
 
 
@@ -332,7 +346,7 @@ if __name__ == '__main__':
         #print('site_name', site_name)
             
         speciemen_identifier = sample_number
-        print(sample_number)
+      #  print(sample_number)
     #=============================================================================
         # run_and_plot(speciemen_identifier, 
         #               site = 'all', 
@@ -353,37 +367,104 @@ if __name__ == '__main__':
         #                                 'Homo'
         #                                 ])
     #=============================================================================
-# #=============================================================================
+# # #=============================================================================
     
-        fit_model(speciemen_identifier, 
-                       site = site_name, 
-                      pathway_names = [
-                                           'Ferm_help',
-                                           'Ferm',
-                                           #'Fe3',
-                                           'Ac',
-                                           #'Hydro',
-                                           #'Homo'
-                                           ])
-# #=============================================================================
+#         fit_model(speciemen_identifier, 
+#                        site = site_name, 
+#                       pathway_names = [
+#                                            'Ferm_help',
+#                                            'Ferm',
+#                                            #'Fe3',
+#                                            'Ac',
+#                                            #'Hydro',
+#                                            #'Homo'
+#                                            ])
+# # #=============================================================================
     
 """
-  '13510', '13511', '13512',
-  '13520', '13521', '13530', '13531', '13670', '13671', '13672',
-  '13690', '13691', '13692', '13700', '13701', '13702', '13720', '13721', '13722', '13730',
-  '13731', '13732', '13740', '13741', '13742', '13750', '13751', '13752', '13770', '13771',
-  '13772', '13780', '13781', '13782', '13540', '13542', '13550', '13551', '13560', '13562',
-  '13571', '13572', '13580', '13581', '13590', '13591', '13600', '13602', '13610', '13612',
-  '13620', '13622', '13630', '13631', '13640', '13641', '13650', '13651', '13652', '13661',
-  '13662', '13680', '13681', '13682', '13710', '13711', '13712', '13760', '13761', '13762',
-  '13790', '13791', '13792', '13800', '13801', '13802'
+  '13510',
+  '13511', 
+  '13512',
+  '13520',
+  '13521',
+  '13530',
+  '13531',
+  '13670',
+  '13671',
+  '13672',
+  '13690',
+  '13691',
+  '13692',
+  '13700',
+  '13701',
+  '13702',
+  '13720',
+  '13721',
+  '13722',
+  '13730',
+  '13731',
+  '13732', 
+  '13740',
+  '13741',
+  '13742',
+  '13750',
+  '13751',
+  '13752',
+  '13770',
+  '13771',
+  '13772',
+  '13780',
+  '13781',
+  '13782',
+  '13540',
+  '13542',
+  '13550',
+  '13551',
+  '13560',
+  '13562',
+  '13571', 
+  '13572',
+  '13580',
+  '13581',
+  '13590',
+  '13591',
+  '13600',
+  '13602',
+  '13610',
+  '13612',
+  '13620',
+  '13622',
+  '13630',
+  '13631',
+  '13640',
+  '13641',
+  '13650',
+  '13651',
+  '13652',
+  '13661',
+  '13662',
+  '13680',
+  '13681',
+  '13682',
+  '13710',
+  '13711',
+  '13712',
+  '13760',
+  '13761',
+  '13762',
+  '13790',
+  '13791',
+  '13792',
+  '13800',
+  '13801',
+  '13802'
  
  
  Rep_No_CH4 = [13560, 13562, 13580, 13581, 13590, 13591, 13600, 13602, 13622, 13641]
  
 """
     #
-    
+  #  
     
     # TODO: print setup, then ask for confirmation
     
