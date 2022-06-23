@@ -14,7 +14,10 @@ import optimizer
 from ORDER import POOL_ORDER
 import OPTIMIZATION_PARAMETERS
 import USER_VARIABLES
-
+from data import load_matlab
+import math
+import random 
+import seaborn as sns
 
 
 
@@ -34,7 +37,9 @@ def load_model_parameters(file):
 
     return model_parameters
 
-def load_and_plot(file, extended_output = None, which_plot = 'measured_and_modelled'):
+def load_and_plot(file, extended_output = None, which_plot = 'measured_and_modelled', show = True):
+
+    figures = []    
 
     splitparts = file.split('_')
     specimen_index = str(splitparts[splitparts.index('specimen')+1])
@@ -68,8 +73,8 @@ def load_and_plot(file, extended_output = None, which_plot = 'measured_and_model
     
     if which_plot == 'measured_and_modelled':
         # plot both model and data:
-        plot.all_pools(pool_value_dict, all_days, specimen_index, 
-                        measured_data)
+        figures = plot.all_pools(pool_value_dict, all_days, specimen_index, 
+                                 measured_data, show = show)
         
     elif which_plot == 'only_data':
         days = measured_data['measured_time']
@@ -80,9 +85,10 @@ def load_and_plot(file, extended_output = None, which_plot = 'measured_and_model
                 continue
             plot.plot_pool(name, measurements, days, 'xr')
         
-        plot.plot_pool(specimen_index, measured_data[1], all_days)
+        figures = plot.plot_pool(specimen_index, measured_data[1], all_days)
 
-                   
+    return figures
+
 
 def run_and_plot(specimen_index, site, extended_output = None, pathway_names = None):
 
@@ -253,6 +259,71 @@ OPTIMIZATION_PARAMETERS.WORKERS = args.w
 
 
 
+def mean_model_and_datapoints():
+    
+    replica_list_No_CH4, superdata_No_CH4_vor_Impfung,superdata_No_CH4_nach_Impfung,superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4,  superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
+
+    #site = superdata_2021_all
+    #site = superdata_Kuru
+    site = superdata_Sam
+    
+    plotted_figures = load_and_plot('Mean_Parameters_specimen_000000_site_None', 
+                                    which_plot = 'measured_and_modelled',
+                                    show = False)
+    
+    CO2_plot = plotted_figures['CO2']
+    CH4_plot = plotted_figures['CH4']
+    
+
+    Random_day_values = dict()
+    
+    all_measured_days = [int(day) for specimen in site.values() for day in specimen['measured_time']]
+
+    # extract for all specimens the days for which most specimens were measured
+    consider_more_than = 10
+    unique, counts = np.unique(all_measured_days, return_counts = True)    
+    sorted_by_freq = reversed(sorted(zip(unique, counts), key = lambda x: x[1]))
+    only_most_freq = sorted(list(filter(lambda x: x[1] >= consider_more_than, sorted_by_freq)))
+    chosen_days, _ = zip(*only_most_freq)
+
+    # from all specimens that have been measured on the chosen day, 
+    # extract the CO2 and CH4 measurements
+    boxplot_dict = {'CO2':{},
+                    'CH4':{}}
+    CO2_boxplot_data = {}
+    CH4_boxplot_data = {}
+    for day in chosen_days:
+        CO2_boxplot_data[day] = []
+        CH4_boxplot_data[day] = []
+        for specimen, specimen_data in site.items():
+            int_measured_time = [int(d) for d in specimen_data['measured_time']]
+            if not day in int_measured_time:
+                continue
+            day_index = int_measured_time.index(day)
+            CO2_boxplot_data[day].append(specimen_data['CO2'][day_index])
+            CH4_boxplot_data[day].append(specimen_data['CH4'][day_index])
+       
+    
+    plt.figure('CO2')    
+    plt.boxplot(list(CO2_boxplot_data.values()), 
+                showmeans=True,
+                positions = list(CO2_boxplot_data.keys()))
+    
+    plt.figure('CH4')    
+    plt.boxplot(list(CH4_boxplot_data.values()), 
+                showmeans=True,
+                positions = list(CH4_boxplot_data.keys()))
+
+
+    
+   
+      
+    
+    
+
+
+
+
 #'13510', '13511','13512','13520',  '13521', '13530', '13531', '13670', '13671',
 #                  '13672', '13690', '13691', '13692', '13700',
 #
@@ -291,6 +362,7 @@ for filename in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
 if __name__ == '__main__':
     
     # Mean_Parameters_specimen_000000_site_None # durchschnittliche Parameterwerte
+    mean_model_and_datapoints() 
     
     file = ('Mean_Parameters_specimen_000000_site_None')
     
@@ -316,27 +388,27 @@ if __name__ == '__main__':
     # with open(parameter_file, 'w') as pf:
     #     json.dump(all_losses, pf,indent = 4)
         
+    # plot the mean model with sample datapoints   
+     
         
         
         
-        
-        
-# 1369 ist die Probe auf der meine Annahmen basieren
-    load_and_plot(file, 
-                  extended_output = ['deltaGr',
-                                    'deltaCO2',
-                                    'deltaCH4',
-                                    'thermo',
-                                    'MM',
-                                    'v',
-                                    'deltaGs',
-                                    'inhibition',
-                                    'logQ',
-                                    'deltaH2',
-                                    'logFe3',
-                                    'logQH2O',
-                                    'dissH2O'],
-                                     which_plot = 'measured_and_modelled') # 'only_data' oder 'measured_and_modelled
+# # 1369 ist die Probe auf der meine Annahmen basieren
+#     load_and_plot(file, 
+#                   extended_output = ['deltaGr',
+#                                     'deltaCO2',
+#                                     'deltaCH4',
+#                                     'thermo',
+#                                     'MM',
+#                                     'v',
+#                                     'deltaGs',
+#                                     'inhibition',
+#                                     'logQ',
+#                                     'deltaH2',
+#                                     'logFe3',
+#                                     'logQH2O',
+#                                     'dissH2O'],
+#                                      which_plot = 'measured_and_modelled') # 'only_data' oder 'measured_and_modelled
 
 
 

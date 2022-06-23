@@ -1,7 +1,7 @@
 
 import matplotlib.pyplot as plt
 
-def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, show = True):
+def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, show = True, plot_only = None):
 #def all_pools(pool_value_dict, all_days,  measured_data = None, show = True):
     dont_plot = ['weight', 'pH', 'water', 'HCO3']
     for name in dont_plot:
@@ -23,12 +23,10 @@ def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, 
         if not found:
             same_plot.append([k])
 
-
-    plot_figures = list()
+    plot_figures = dict()
     for key_list in same_plot:
-        fig = plt.figure()
-        plot_figures.append(fig)
         title = key_list[0].split('_')[-1] if len(key_list) > 1 else key_list[0]
+        fig = plt.figure(title)
         for k in key_list:
             plt.plot(all_days,
                      pool_value_dict[k],
@@ -47,11 +45,13 @@ def all_pools(pool_value_dict, all_days, specimen_index,  measured_data = None, 
                       measured_data[title],
                       'rx',
                       label = 'measured')
+            
+        plot_figures[title] = fig
 
     if show:
         plt.show()
 
-    return fig
+    return plot_figures
 
 def plot_pool(name, values, time, style = '-'):
 
