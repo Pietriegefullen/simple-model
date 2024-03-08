@@ -7,14 +7,16 @@ from predict import predictor
 from ORDER import POOL_ORDER, pool_index
 import data
 import OPTIMIZATION_PARAMETERS
-from OPTIMIZATION_PARAMETERS import CHANGEABLES
+#from OPTIMIZATION_PARAMETERS import CHANGEABLES
 
 
-def evaluate_loss(sample, site, pathways, optimal_parameters):
+#TODO: who uses this function? need to add 'changeables' to arguments!
+def evaluate_loss(sample, site, pathways, optimal_parameters, changeables):
     
     objectives = [SpecimenObjective(pathways,
                                     optimal_parameters,
-                                    data.specimen_data(sample, site))]
+                                    data.specimen_data(sample, site),
+                                    changeables)]
                   
     total_objective = ObjectiveFunction()
     
@@ -23,34 +25,86 @@ def evaluate_loss(sample, site, pathways, optimal_parameters):
     return loss
 
 
-def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo): 
-    # falls run not fit sin fixed_parameters die model_parameters
-    for name in CHANGEABLES:
+def fit_specimen(specimen_indices, site, pathways, fixed_parameters, algo, before = None):
+    """
+    Fits a model to the specimen.
+    The model contains only the specified pathways.
+    
+    Different optimization algorithms may be used:
+        differential evolution
+        gradient
+        PSO (particle swarm optimization)
+        
+    Returns a dict containing the optimal values for the model parameters 
+    listed in the list CHANGEABLES in the file OPTIMIZATION_PARAMETERS.py 
+
+    """
+    
+    pathway_strings = [p.__name__ for p in pathways]
+    pathways_string = '\npathways:\n' + '='*11 + '\n   ' + '\n   '.join(pathway_strings) + '\n'
+    print(pathways_string)
+    
+    # leave only those changeable parameters to be optimized that are actually used by the model
+    # i.e. remove changeables of unused pathways
+    changeables = list(OPTIMIZATION_PARAMETERS.CHANGEABLES)
+    for c in changeables:
+        if not '_' in c:
+            continue
+        pathway_name = c.split('_')[-1]
+        if c.startswith('Km_'):
+            pathway_name = c.split('_')[1]
+        
+        if pathway_name == 'Acetate':
+            pathway_name = 'Ac'
+        if not pathway_name in pathway_strings:
+            changeables.remove(c)
+    
+    for name in changeables:
         if name in fixed_parameters.keys():
-            print(f'Deleting {name} from fixed parameters')
             del fixed_parameters[name]
-            #raise Exception('A changeable model parameter is also in fixed_parameters!')
+
+    print('Optimization')
+    print('============')
+    print('changeables:')
+    for c in changeables:
+        print('   ' + c)
+    print('fixed parameters:')
+    for c in fixed_parameters.keys():
+        print('   ' + c)
 
     initial_guess_dict = OPTIMIZATION_PARAMETERS.get_initial_guesses()
-    lower_bounds = [initial_guess_dict[key][1] for key in CHANGEABLES]
-    upper_bounds = [initial_guess_dict[key][2] for key in CHANGEABLES]
+    lower_bounds = [initial_guess_dict[key][1] for key in changeables]
+    upper_bounds = [initial_guess_dict[key][2] for key in changeables]
 
     initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
 
-    sample_list = [(specimen_index, site)]
-    objectives = [SpecimenObjective(pathways,
-                                    fixed_parameters,
-                                    data.specimen_data(sample, site))
-                  for sample, site in sample_list]
-
-    changeables_string = '\nchangeables:\n' + '='*11 + '\n   ' + '\n   '.join(CHANGEABLES) + '\n'
-    print(changeables_string)
+    if not isinstance(specimen_indices, list):
+        specimen_indices = [specimen_indices]
+        
+    objectives = []
+    for specimen in specimen_indices:
+        specimen_data = data.specimen_data(specimen, site)
+        if not before is None:
+            days_before = []
+            for d in specimen_data['measured_time']:
+                if d < before:
+                    days_before.append(d)
+                else:
+                    break
+            specimen_data['measured_time'] = np.array(days_before)
+            specimen_data['CO2'] = specimen_data['CO2'][:len(days_before)]
+            specimen_data['CH4'] = specimen_data['CH4'][:len(days_before)]
+        objectives.append(SpecimenObjective(pathways,
+                                            fixed_parameters,
+                                            specimen_data,
+                                            changeables))
+    
+    
     workers = OPTIMIZATION_PARAMETERS.WORKERS
     if workers == -1:
         workers = multiprocessing.cpu_count()
         
     if algo == 'differential_evolution':
-        
         opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
         print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
 
@@ -67,7 +121,7 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
         opti_string = f'fitting {len(objectives):d} samples with {method_name:}'
         print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
 
-        initial_guess_array = np.array([initial_guess_dict[k][0] for k in CHANGEABLES])
+        initial_guess_array = np.array([initial_guess_dict[k][0] for k in changeables])
         optimization_result = scipy.optimize.minimize(ObjectiveFunction(),
                                                       initial_guess_array,
                                                       args = (objectives,),
@@ -87,15 +141,31 @@ def fit_specimen(specimen_index, site, pathways, fixed_parameters, algo):
 
         # Call instance of GlobalBestPSO
         optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
-                                            dimensions=len(OPTIMIZATION_PARAMETERS.CHANGEABLES),
+                                            dimensions=len(changeables),
                                             options=options,
                                             bounds = (np.array(lower_bounds), np.array(upper_bounds)))
         _, changeables_optimal_array = optimizer.optimize(ParticleObjective(),
                                                            iters = iters,
-                                                           specimen_objectives=objectives,
-                                                           n_processes = workers)
+                                                           n_processes = workers,
+                                                           specimen_objectives=objectives)
+    elif algo == 'direct':
+        res = scipy.optimize.direct(ObjectiveFunction(),
+                              bounds = initial_guess_bounds,
+                              args = (objectives, ))
+        changeables_optimal_array = res.x
+        print('final objective value:', res.fun)
+        
+    elif algo == 'dual_annealing':
+        res = scipy.optimize.dual_annealing(ObjectiveFunction(),
+                              bounds = initial_guess_bounds,
+                              args = (objectives, ))
+        changeables_optimal_array = res.x
+        print('final objective value:', res.fun)
+        
+    else:
+        raise NotImplementedError()
 
-    changeables_optimal_dict = dict(zip(CHANGEABLES, changeables_optimal_array))
+    changeables_optimal_dict = dict(zip(changeables, changeables_optimal_array))
 
     print('optimal parameters:')
     for k, v in changeables_optimal_dict.items():
@@ -121,8 +191,9 @@ class ObjectiveFunction:
     def __init__(self):
         self.best = np.inf
 
-    def __call__(self,changeable_parameters, specimen_objectives):
-        losses = [sample_loss(changeable_parameters) for sample_loss in specimen_objectives]
+    def __call__(self, changeable_parameters, specimen_objectives):
+        losses = [sample_loss(changeable_parameters) 
+                  for sample_loss in specimen_objectives]
         total_loss = np.sum(losses)
         #print(f'{total_loss:.5e}')
 
@@ -133,10 +204,11 @@ class ObjectiveFunction:
         return total_loss
 
 class SpecimenObjective:
-    def __init__(self,pathways, fixed_parameters, measured_data_dict):
+    def __init__(self,pathways, fixed_parameters, measured_data_dict, changeables):
         self.pathways = pathways
         self.fixed_parameters = fixed_parameters
         self.measured_data_dict = measured_data_dict
+        self.changeables = changeables
 
         if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
             plt.ion()
@@ -144,14 +216,14 @@ class SpecimenObjective:
 
     def __call__(self, changeable_parameters):
 
-        self.fixed_parameters.update({k:v for k,v in zip(CHANGEABLES, changeable_parameters)})
+        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, changeable_parameters)})
 
         measure_days = self.measured_data_dict['measured_time']
         y_predicted_dict = predictor(t_eval = measure_days,
                                     model_parameters = self.fixed_parameters,
                                     chosen_pathways = self.pathways,
                                     verbose = False,
-                                    mark = CHANGEABLES)
+                                    mark = self.changeables)
 
         CO2_predicted = y_predicted_dict['CO2']
         CH4_predicted = y_predicted_dict['CH4']
@@ -173,20 +245,21 @@ class SpecimenObjective:
 
         sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)
 
+        print('SSR', f'{sum_of_squared_residuals:.3e}')
         return sum_of_squared_residuals
 
     def plot(self,changeable_parameters):
         if not OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
             return
 
-        self.fixed_parameters.update({k:v for k,v in zip(CHANGEABLES, changeable_parameters)})
+        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, changeable_parameters)})
 
         measure_days = self.measured_data_dict['measured_time']
         y_predicted_dict = predictor(t_eval = measure_days,
                                     model_parameters = self.fixed_parameters,
                                     chosen_pathways = self.pathways,
                                     verbose = False,
-                                    mark = CHANGEABLES)
+                                    mark = self.changeables)
 
         CO2_predicted = y_predicted_dict['CO2']
         CH4_predicted = y_predicted_dict['CH4']

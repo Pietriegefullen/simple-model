@@ -5,8 +5,12 @@ import CONSTANTS
 import OPTIMIZATION_PARAMETERS
 
 def default_model_parameters(specimen_index = None, site = 'all'):
-
-        #Startparameter für das slidertool
+    """
+    if no specimen index is provided, return default model parameters
+    otherwise, return model parameters specific to the specimen
+    """
+    # define default values for initial pool values and model parameters
+    # ATTENTION! some of these parameters are overwritten below! (why?)
     model_parameters =     {'M_Fe3':            0.2,
                             'M_Ferm':           0.02,
                             'M_Hydro':          0.0025,
@@ -78,20 +82,24 @@ def default_model_parameters(specimen_index = None, site = 'all'):
     model_parameters_2['CUE_Ac']=           0.26964564053185136
     model_parameters_2['CUE_Homo']=         0.7182020298979199
     model_parameters_2['CUE_Hydro']=        0.6157316796638491
+    
+    # overwrite parameters in model_parameters with values from model_parameters_2
     model_parameters.update(model_parameters_2)
 
+    # load data for the specimen and update the default model_parameters 
+    # with the data from the specimen
     specimen_model_parameters = {}
     if not specimen_index is None:
         specimen_model_parameters = data.model_parameters_from_data(specimen_index,
                                                                     site = site)
         model_parameters.update(specimen_model_parameters)
 
-    print('model parameters:')
-    print('================')
-    for k, v in model_parameters.items():
-        source = 'specimen data' if k in specimen_model_parameters else ''
-        print(f'   {k[:20]:20} {v:10g} {source}')
-    print('')
+    #print('model parameters:')
+    #print('================')
+    #for k, v in model_parameters.items():
+    #    source = 'specimen data' if k in specimen_model_parameters else ''
+    #    print(f'   {k[:20]:20} {v:10g} {source}')
+    #print('')
 
     return model_parameters
 

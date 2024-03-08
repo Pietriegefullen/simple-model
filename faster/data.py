@@ -107,9 +107,11 @@ def specimen_data(specimen_index, site):
 
     return data
 
-def load_matlab():
+def load_matlab(dataset = None):
 
     """
+     # NOTE: order in returned tuple has changed.
+     #       it is NO LONGER as listed here:
      superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
 
      superdata sind alle Datensätze VOR dem Carexexperiment,
@@ -418,10 +420,59 @@ def load_matlab():
     
     
 
-
-
+    if not dataset is None:
+        returned_datasets = []
+        if not isinstance(dataset, list):
+            dataset = [dataset]
+        datasets = {'replica_list_no_CH4': replica_list_No_CH4,
+                    'superdata_no_CH4_vor_impfung': superdata_No_CH4_vor_Impfung,
+                    'superdata_no_CH4_nach_impfung': superdata_No_CH4_nach_Impfung,
+                    'superdata_after_no_CH4': superdata_after_No_CH4,
+                    'superdata_before_no_CH4': superdata_bevor_No_CH4,
+                    'superdata_no_CH4': superdata_No_CH4,
+                    'superdata': superdata,
+                    'replica_list': replica_list,
+                    'superdata_carex': superdata_carex,
+                    'superdata_Kuru': superdata_Kuru,
+                    'superdata_Sam': superdata_Sam,
+                    'replica_list_Kuru': replica_list_Kuru,
+                    'replica_list_Sam': replica_list_Sam,
+                    'superdata_2021_all': superdata_2021_all,
+                    'replica_list_superdata_2021_all': replica_list_superdata_2021_all,
+                    'superdata_ohne_Fe3': superdata_ohne_Fe3,
+                    'Rep_ohne_Fe3': Rep_ohne_Fe3
+                    }
+        for d in dataset:
+            returned_datasets.append(datasets[d])
+        
+        if len(returned_datasets) == 1:
+                return returned_datasets[0]
+        return tuple(returned_datasets)
     
-
+    """
+    replica_list_No_CH4,
+    superdata_No_CH4_vor_Impfung,
+    superdata_No_CH4_nach_Impfung,
+    
+    superdata_after_No_CH4,
+    superdata_bevor_No_CH4,
+    superdata_No_CH4,
+    
+    superdata, 
+    replica_list,
+    superdata_carex,
+    
+    superdata_Kuru,
+    superdata_Sam,
+    replica_list_Kuru,
+    replica_list_Sam,
+    superdata_2021_all,
+    replica_list_superdata_2021_all,
+    superdata_ohne_Fe3,
+    Rep_ohne_Fe3,
+    superdata_mit_Fe3,
+    Rep_mit_Fe3
+"""
 
 
     return replica_list_No_CH4,superdata_No_CH4_vor_Impfung, superdata_No_CH4_nach_Impfung, superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4, superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
