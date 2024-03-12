@@ -8,6 +8,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
+from sklearn.metrics import r2_score 
 import data
 import optimizer
 import OPTIMIZATION_PARAMETERS
@@ -16,24 +17,23 @@ import predict
 import main
 import USER_VARIABLES
 
-
 COLORS = {'CO2': 'r',
           'CH4': 'b'}
 
-before = 1500 # TODO: test!
+before = 1500
 save_dir = 'before_' + str(before)
 
+# TODO: handle samples with 2 or more replicas
+# TODO: nomenclature: core, sample, replica, specimen, ...
+# TODO: clean up (redo) loading from data sources (object-oriented!)
 # TODO: unclear which parameters are fixed and which optimized.#
 #       change s.t. either are given explicitly, terminology "default parameters", not "fixed"
 # TODO: cleanup, collect settings
-# TODO: daten beschneiden vor dem fit? -> delete after day ????
 # TODO: same axis formats for scatter (only major tick labels)
-# TODO: plot all you find in folder.
-
 # TODO: compute R2 (Or other measures of goondess of fit)
-# TODO: remove unused parameters (faster optimization?)
 # TODO: log final loss value 
 # TODO: use standard error of regression (=RMSE?) => value independent of number of samples
+# TODO: check fit/loss, continue optimization (parameters?)
 
 def build_replica_groups(sample_numbers):
     replica_groups = {}
@@ -90,6 +90,8 @@ def fit_specimens():
     superdata = data.load_matlab(['superdata_2021_all'])
     sample_numbers = superdata.keys()
     all_specimen_groups = list(build_replica_groups(sample_numbers).values())
+    
+    #TODO: Handle samples with 1 replica (ignore), use samples with 2 or more replicas
     all_specimen_groups = [g for g in all_specimen_groups if len(g) == 3]
     
     goodness = {}
@@ -135,8 +137,8 @@ def fit_specimens():
                     for p in model_pathways[model_type]:
                         pf.write(p.__name__ + '\n')
                 
-def load_fitted():
-    plot_specimens = ['13691']
+def load_and_plot_fitted():
+    plot_specimens = ['1372']
     
     goodness = {}
     
@@ -156,6 +158,8 @@ def load_fitted():
     for specimen_number in sample_numbers:
         if not specimen_number in plot_specimens and not specimen_number[:4] in plot_specimens:
             continue
+        
+        print()
         
         for model_type in ['simple', 'complex']:
             
@@ -224,6 +228,7 @@ def load_fitted():
         plot_time_series(goodness[specimen_number])
                 
         print(specimen_number, ' plotting correlation')
+        print()
         for model_type, model_results in goodness[specimen_number].items():
             plot_scatter(model_results, specimen_number, model_type)
         
@@ -259,28 +264,9 @@ def plot_pool(model_results, pool ,model_line = 'k-', fig = None, plot_measured 
     plt.xlabel('day')
     plt.ylabel(pool)
     return fig
-
-def plot_goodness():
-    plt.close('all')
-    goodness = load_fitted()
-
-    for sample_number, models in goodness.items():
-        for model_type, model_results in models.items():
-            plot_scatter(model_results, sample_number, model_type)
-        
-        for pool in ['CO2', 'CH4']:
-            if not 'complex' in goodness[sample_number] or not 'simple' in goodness[sample_number]:
-                continue
-            fig = plot_pool(goodness[sample_number]['complex'], pool, 
-                            model_line = 'k-')
-            _   = plot_pool(goodness[sample_number]['simple'], pool, 
-                            model_line = 'k--',
-                            fig = fig,
-                            plot_measured = False)
                     
    
 def plot_scatter(model_results, specimen_number, model_type):
-
     plt.figure()
     
     max_value = 0
@@ -288,11 +274,19 @@ def plot_scatter(model_results, specimen_number, model_type):
         measured = model_results['measured_' + gas]
         modelled = model_results[gas]
         max_value = max(max_value, max(max(measured), max(modelled)))
-        
-        plt.plot(measured, modelled, COLORS[gas] + '.', label = gas)
-        
+        r2 = r2_score(measured, modelled)
+        print(f"The R2 for {gas} in {specimen_number} ({model_type}) is {r2:.3f}")
+
+        plt.plot(modelled, measured, COLORS[gas] + '.', label = gas)
+            
+    combined_measured = list(model_results['measured_CO2']) + list(model_results['measured_CH4'])
+    combined_modelled = list(model_results['CO2']) + list(model_results['CH4'])
+    combined_r2 = r2_score(combined_measured, combined_modelled)
+    print(f"The combined R2 for CO2 and CH4 in {specimen_number} ({model_type}) is {combined_r2:.3f}")
+
+    
     plt.plot([0, max_value], [0, max_value], 'k-', linewidth=1) # plot diagonal
-    plt.xlabel('measured')
+    plt.ylabel('measured')
     plt.xlabel('modelled')
     
     ax = plt.gca()
@@ -301,13 +295,14 @@ def plot_scatter(model_results, specimen_number, model_type):
     ax.set_ylim([0, max_value])
     ax.set_aspect('equal', 'box')
     plt.title(' '.join([specimen_number, model_type]))
+    
 
 
 
 
 if __name__ == '__main__':
-    #fit_specimens()
-    load_fitted()
+   # fit_specimens()
+    load_and_plot_fitted()
 
 
 
