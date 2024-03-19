@@ -146,22 +146,23 @@ def fit_specimens():
                         pf.write(p.__name__ + '\n')
                 
 def load_and_plot_fitted(plot = True):
-    plot_specimens = ['13510']
+    plot_specimens = []
     
     goodness = {}
     
     superdata = data.load_matlab(['superdata_2021_all'])
     sample_numbers = superdata.keys()
     all_specimen_groups = list(build_replica_groups(sample_numbers).values())
-    all_specimen_groups = [g for g in all_specimen_groups if len(g) == 3]
+    all_specimen_groups = [g for g in all_specimen_groups if len(g) > 1]
     
     save_name = {}
     for specimen_replicas in all_specimen_groups:
-        for replica in range(3):
+        replicas = len(specimen_replicas)
+        
+        for replica in range(replicas):
             validation_replica = specimen_replicas[replica]
-            training_replicas = [specimen_replicas[(replica+1)%3],
-                                 specimen_replicas[(replica+2)%3]]
-            save_name[validation_replica] = '_'.join(training_replicas)
+            training_replicas = [specimen_replicas[(replica+i+1)%replicas] for i in range(replicas - 1)]
+            save_name[validation_replica] = 'v_' + validation_replica + '_t_' + '_'.join(training_replicas)
 
     for specimen_number in sample_numbers:
         if len(plot_specimens) > 0 and not specimen_number in plot_specimens and not specimen_number[:4] in plot_specimens:

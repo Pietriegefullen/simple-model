@@ -9,6 +9,34 @@ import matplotlib.pyplot as plt
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
 
+class KnoblauchData():
+    
+    def __init__(self):
+        # set source files
+         
+    
+# site
+# core/cliff
+# depth
+# id
+# events: flushed, shaked, reintegrated, carex, ...
+# pH
+# dry weight
+# water content
+# days, CO2
+# days, CH4
+
+class Sample():
+    pass
+
+class Specimen():
+    pass
+
+class Replica():
+    pass
+
+
+
 def specimen_sites(specimen_indices):    
     (replica_list_No_CH4,
      superdata_No_CH4_vor_Impfung, 
