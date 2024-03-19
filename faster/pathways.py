@@ -4,6 +4,8 @@ import data
 import CONSTANTS
 import OPTIMIZATION_PARAMETERS
 
+
+
 def default_model_parameters(specimen_index = None, site = 'all'):
     """
     if no specimen index is provided, return default model parameters
@@ -103,10 +105,9 @@ def default_model_parameters(specimen_index = None, site = 'all'):
 
     return model_parameters
 
-
 def Ferm_help(model_parameters):
     microbe = {'name' :         'M_Ferm',
-               'vmax':          model_parameters['Vmax_help_Ferm'],
+               'vmax':          model_parameters['Vmax_help_Ferm'], # wäre k in Knoblauch et al. 2013 (ohne Kmb_help_Ferm)
                'death_rate':    0,
                'Kmb':           model_parameters['Kmb_help_Ferm'], # MM Faktor für die Exoenzyme
                'CUE':           0, # weil Ferm_help nicht wächst (nur Ferm wächst)
@@ -270,3 +271,12 @@ def Ac(model_parameters):
                 ]
 
     return microbe, educts, products
+
+
+
+ALL_PATHWAYS = [Ferm_help,
+                Ferm,
+                Fe3,
+                Homo,
+                Hydro,
+                Ac]

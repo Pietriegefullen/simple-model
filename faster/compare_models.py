@@ -16,13 +16,31 @@ import pathways
 import predict
 import main
 import USER_VARIABLES
+from ORDER import POOL_ORDER
 
 COLORS = {'CO2': 'r',
           'CH4': 'b'}
 
 before = 1500
+fit = False
 save_dir = 'before_' + str(before)
 
+PLOT_POOLS = POOL_ORDER + ['thermo', 'deltaGr', 'deltaGs']
+DONT_PLOT = ['weight', 'pH', 'water']
+
+model_pathways = {'complex': [pathways.Ferm,
+                              pathways.Ferm_help,
+                              pathways.Fe3,
+                              pathways.Hydro,
+                              pathways.Homo,
+                              pathways.Ac],
+                      'simple': [pathways.Ferm,
+                                 pathways.Ferm_help,
+                                 pathways.Hydro,
+                                 pathways.Ac],}
+
+
+# TODO: do model results include day 0, i.e. initial conditions?
 # TODO: handle samples with 2 or more replicas
 # TODO: nomenclature: core, sample, replica, specimen, ...
 # TODO: clean up (redo) loading from data sources (object-oriented!)
@@ -47,16 +65,6 @@ def build_replica_groups(sample_numbers):
     
     return replica_groups
 
-model_pathways = {'complex': [pathways.Ferm,
-                                  pathways.Ferm_help,
-                                  pathways.Fe3,
-                                  pathways.Hydro,
-                                  pathways.Homo,
-                                  pathways.Ac],
-                      'simple': [pathways.Ferm,
-                                 pathways.Ferm_help,
-                                  pathways.Hydro,
-                                  pathways.Ac],}
 
 def file_exists(replica_name, model_type, save_dir = None):
     file = None
@@ -137,8 +145,8 @@ def fit_specimens():
                     for p in model_pathways[model_type]:
                         pf.write(p.__name__ + '\n')
                 
-def load_and_plot_fitted():
-    plot_specimens = ['1372']
+def load_and_plot_fitted(plot = True):
+    plot_specimens = ['13510']
     
     goodness = {}
     
@@ -156,7 +164,7 @@ def load_and_plot_fitted():
             save_name[validation_replica] = '_'.join(training_replicas)
 
     for specimen_number in sample_numbers:
-        if not specimen_number in plot_specimens and not specimen_number[:4] in plot_specimens:
+        if len(plot_specimens) > 0 and not specimen_number in plot_specimens and not specimen_number[:4] in plot_specimens:
             continue
         
         print()
@@ -199,7 +207,9 @@ def load_and_plot_fitted():
             print(specimen_number, model_type, 'predicting')
             pools = predict.predictor(measurement_days,
                                       model_parameters,
-                                      model_pathways[model_type])
+                                      model_pathways[model_type],
+                                      extended_output = ['thermo', 'deltaGr', 'deltaGs'])
+
             
             model_results = {'specimen_number': specimen_number,
                              'model_type': model_type,
@@ -207,10 +217,9 @@ def load_and_plot_fitted():
                              'days': measurement_days,
                              'measured_CO2': validation_replica_data['CO2'],
                              'measured_CH4': validation_replica_data['CH4'],
-                             'CO2': pools['CO2'],
-                             'CH4': pools['CH4'],
                              'CO2_R2': None,
                              'CH4_R2': None}
+            model_results.update(pools)
             
             if not specimen_number in goodness:
                 goodness[specimen_number] = {}
@@ -224,20 +233,27 @@ def load_and_plot_fitted():
             print(specimen_number, 'missing model')
             continue
         
-        print(specimen_number, ' plotting pools')
-        plot_time_series(goodness[specimen_number])
+        if plot:
+            print(specimen_number, ' plotting pools')
+            plot_time_series(goodness[specimen_number])
                 
-        print(specimen_number, ' plotting correlation')
-        print()
-        for model_type, model_results in goodness[specimen_number].items():
-            plot_scatter(model_results, specimen_number, model_type)
+            print(specimen_number, ' plotting correlation')
+            print()
+            for model_type, model_results in goodness[specimen_number].items():
+                plot_scatter(model_results, specimen_number, model_type)
         
     return goodness
 
 def plot_time_series(specimen_results):
-    for pool in ['CO2', 'CH4']:
+    for pool in specimen_results['complex'].keys():
+        if 'measured' in pool or (not pool in PLOT_POOLS and not any([pool.endswith(p) for p in PLOT_POOLS])):
+            continue
+        if pool in DONT_PLOT:
+            continue
         fig = plot_pool(specimen_results['complex'], pool, 
                         model_line = 'k-')
+        if not pool in specimen_results['simple']:
+            continue
         _   = plot_pool(specimen_results['simple'], pool, 
                         model_line = 'k--',
                         fig = fig,
@@ -248,11 +264,32 @@ def plot_pool(model_results, pool ,model_line = 'k-', fig = None, plot_measured 
         fig = plt.figure()
     else:    
         fig = plt.figure(fig.number)
-        
-    if plot_measured:
+    
+    print('plotting', pool)
+    if plot_measured and ('measured_' + pool) in model_results:
         plt.plot(model_results['days'],
                  model_results['measured_' + pool], COLORS[pool]+'x',
                  label = 'measured '+ pool)
+    plt.plot(model_results['days'],
+             model_results[pool], model_line,
+             label = 'modelled ' + pool + ' ('+model_results['model_type']+')')
+    plt.title(' '.join([pool, 
+                        model_results['specimen_number']]))
+    ax = plt.gca()
+    ax.legend()
+    #ax.set_ylim([0,40])
+    plt.xlabel('day')
+    plt.ylabel(pool)
+    return fig
+
+
+def plot_sub_pool(model_results, pool ,model_line = 'k-', fig = None, plot_measured = True):
+    if fig is None:
+        fig = plt.figure()
+    else:    
+        fig = plt.figure(fig.number)
+        
+
     plt.plot(model_results['days'],
              model_results[pool], model_line,
              label = 'modelled ' + pool + ' ('+model_results['model_type']+')')
@@ -297,12 +334,22 @@ def plot_scatter(model_results, specimen_number, model_type):
     plt.title(' '.join([specimen_number, model_type]))
     
 
-
+def plot_parameter_boxplots(goodness):
+    # goodness = {13510:{'simple': parameter_for_simple,
+    #                    'complex':pars_for_complex}}
+    specimen_number = '13510'
+    model_type = 'simple'
+    parameters = goodness[specimen_number][model_type]['optimal_parameters']
+    print(parameters)
 
 
 if __name__ == '__main__':
-   # fit_specimens()
-    load_and_plot_fitted()
-
+    if fit:
+        fit_specimens()
+    goodness = load_and_plot_fitted(plot = False)
+    
+    
+    print(goodness.keys())
+    plot_parameter_boxplots(goodness)
 
 

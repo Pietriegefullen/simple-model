@@ -29,7 +29,7 @@ def builder(defined_pathways, environment, extended_output = None):
     def extended(t, system_state):
         extended_values = {pathway.__name__ + '_' + name: value
                           for pathway in built_pathways 
-                          for name, value in zip(extended_output,pathway(t, system_state))}
+                          for name, value in zip(extended_output, pathway(t, system_state))}
         return extended_values
     
     if not extended_output is None:
@@ -103,7 +103,8 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
     T = environment['temperature'] + CONSTANTS.KELVIN
 
     if DEBUG:
-        print_matrix = np.concatenate([np.reshape(henrys_law_vector, (-1, 1)),
+        print_matrix = np.concatenate([np.reshape(pathway_vector, (-1,1)),
+                                       np.reshape(henrys_law_vector, (-1, 1)),
                                        np.reshape(Km_vector, (-1, 1)),
                                        np.reshape(inhibition_vector, (-1, 1)),
                                        np.reshape(death_rate_vector, (-1,1))], axis = 1)
@@ -111,8 +112,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         print('')
         print('building: ', microbe['name'], 'pathway')
         print('===========' + '='*len(microbe['name']) + '========')
-        print_array(print_matrix,columns = ['henry', 'Km', 'inhib', 'grow'])
-        input()
+        print_array(print_matrix, columns = ['pathway', 'henry', 'Km', 'inhib', 'grow'])
 
     def pathway(t, system_state):
         """
@@ -133,7 +133,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         # compute the total MM factor
         total_MM_factor = np.prod(MM)
 
-        # compute the inverse Michaelis-Menten factors (for Acetate inhibition )
+        # compute the inverse Michaelis-Menten factors (for inhibition of ferm through acetate)
         invMM = np.where(dissolved_system_state == 0, 1,
                          1 - dissolved_system_state/(inhibition_vector + dissolved_system_state))
         invMM = np.where(inhibition_vector == np.inf, 1, invMM)
@@ -232,15 +232,17 @@ def pathway_formatter(microbe, educts, products):
     print('')
 
 def print_array(arr, title = '', columns = None):
-    np.set_printoptions(precision = 2,
+    np.set_printoptions(precision = 4,
                         suppress=True)
     if not len(arr.shape) == 2:
         arr = np.reshape(arr, (-1,1))
-    arr_str = np.array2string(arr)
+    arr_str = np.array2string(arr).replace('[','').replace(']','')
     spl = arr_str.split('\n')
+    cells = [[c.strip() for c in row.split(' ') if len(c) > 0] for row in spl  ]
 
     label_width = 10
-    labeled_str = '\n'.join(list([f'{p:<{label_width}} {s}' for p, s in zip(POOL_ORDER, spl)]))
+    labeled_str = '\n'.join(list([f'{p:<{label_width}}' + ''.join([f'{c: >{label_width}}' for c in row])
+                                  for p, row in zip(POOL_ORDER, cells)]))
 
     print('')
     if not title == '':
@@ -252,3 +254,14 @@ def print_array(arr, title = '', columns = None):
     print(' '*label_width + ' ' + '     '.join([f'{c:5}' for c in columns]))
 
     print(labeled_str)
+
+
+if __name__ == '__main__':
+    import pathways
+    DEBUG = True
+    environment = {'temperature': 4.,
+                   'pH': 7.}
+    
+    d = pathways.default_model_parameters()
+        
+    builder([p(d) for p in pathways.ALL_PATHWAYS], environment)

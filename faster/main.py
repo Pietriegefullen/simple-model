@@ -30,7 +30,7 @@ def load_model_parameters(file):
 
     if not os.path.isfile(file):
         file = os.path.join(USER_VARIABLES.LOG_DIRECTORY, file)
-        if not file_path.endswith('.json'):
+        if not file.endswith('.json'):
             file += '.json'
 
     with open(file, 'r') as pf:
@@ -155,8 +155,8 @@ def save_model(specimen_index, site, model_parameters, prefix = '', save_dir = N
     return parameter_file
 
 
-
-def fit_model(specimen_index, site, pathway_names = None):
+# TODO: deprecated?
+def _fit_model(specimen_index, site, pathway_names = None):
     notplot = True
     
     all_pathways = [

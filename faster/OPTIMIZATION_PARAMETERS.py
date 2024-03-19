@@ -47,8 +47,8 @@ GRADIENT_PARAMETERS = {'method':            'L-BFGS-B',
                        }
 
 PSO_PARAMETERS = {'options':{'c1': 0.5, 'c2': 0.3, 'w':0.9},
-                  'particles':10, #100
-                  'iterations':500 #5000
+                  'particles':100, #100
+                  'iterations':5000 #5000
                   }
 
 
