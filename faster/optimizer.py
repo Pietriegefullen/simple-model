@@ -187,7 +187,7 @@ class ParticleObjective():
         return np.array(particle_fitnesses)
 
 
-class ObjectiveFunction:
+class ObjectiveFunction():
     def __init__(self):
         self.best = np.inf
 
@@ -203,7 +203,7 @@ class ObjectiveFunction:
 
         return total_loss
 
-class SpecimenObjective:
+class SpecimenObjective():
     def __init__(self,pathways, fixed_parameters, measured_data_dict, changeables):
         self.pathways = pathways
         self.fixed_parameters = fixed_parameters
@@ -216,11 +216,13 @@ class SpecimenObjective:
 
     def __call__(self, changeable_parameters):
 
-        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, changeable_parameters)})
+        model_parameters = dict(self.fixed_parameters)
+        model_parameters.update({k:v for k,v in zip(self.changeables, 
+                                                    changeable_parameters)})
 
         measure_days = self.measured_data_dict['measured_time']
         y_predicted_dict = predictor(t_eval = measure_days,
-                                    model_parameters = self.fixed_parameters,
+                                    model_parameters = model_parameters,
                                     chosen_pathways = self.pathways,
                                     verbose = False,
                                     mark = self.changeables)
@@ -252,7 +254,8 @@ class SpecimenObjective:
         if not OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
             return
 
-        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, changeable_parameters)})
+        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, 
+                                                         changeable_parameters)})
 
         measure_days = self.measured_data_dict['measured_time']
         y_predicted_dict = predictor(t_eval = measure_days,

@@ -53,6 +53,11 @@ model_pathways = {'complex': [pathways.Ferm,
 # TODO: use standard error of regression (=RMSE?) => value independent of number of samples
 # TODO: check fit/loss, continue optimization (parameters?)
 
+# TODO: do we need replica weight and water content as model parameters?
+# TODO: initial C depends on replica! cannot be taken from either replica if more than one is fitted!!!
+
+
+# NOTE: obsolete when using data.KnobaluchData
 def build_replica_groups(sample_numbers):
     replica_groups = {}
     
@@ -99,28 +104,16 @@ def fit_specimens():
     sample_numbers = superdata.keys()
     all_specimen_groups = list(build_replica_groups(sample_numbers).values())
     
-    #TODO: Handle samples with 1 replica (ignore), use samples with 2 or more replicas
-    all_specimen_groups = [g for g in all_specimen_groups if len(g) == 3]
-    
-    goodness = {}
-    for specimen_replicas in all_specimen_groups:
-        
-        for replica in range(3):
-            validation_replica = specimen_replicas[replica]
-            training_replicas = [specimen_replicas[(replica+1)%3],
-                                 specimen_replicas[(replica+2)%3]]
-                        
-            replica_default_parameters = {}
-            for sn in training_replicas:
-                replica_default_parameters[sn] = pathways.default_model_parameters(sn, 'all')
-            
-            for k,v in replica_default_parameters[training_replicas[0]].items():
-                v2 = replica_default_parameters[training_replicas[1]][k]
-                assert v == v2
+    knoblauch_data = data.get_data_before_carex()
+    for sample in knoblauch_data.samples():
+        for split in sample.leave_one_out_split():
+            fit_replicas = split['fit']
+            validation_replica = split['val']
             
             for model_type in ['simple', 'complex']:
-                
-                if file_exists('_'.join(training_replicas), model_type, save_dir):
+                if file_exists('_'.join([str(r) for r in training_replicas]), 
+                               model_type, 
+                               save_dir):
                     print('skipping', model_type, 'for', validation_replica)
                     continue
                                 
@@ -128,9 +121,8 @@ def fit_specimens():
                 optimal_parameters = optimizer.fit_specimen(training_replicas, 
                                                'all',
                                                model_pathways[model_type], 
-                                               replica_default_parameters[training_replicas[0]], 
-                                               OPTIMIZATION_PARAMETERS.ALGORITHM,
-                                               before = before)
+                                               replica_default_parameters, 
+                                               OPTIMIZATION_PARAMETERS.ALGORITHM)
                 
                 # save model parameters and pathways
                 model_parameters = replica_default_parameters[training_replicas[0]]

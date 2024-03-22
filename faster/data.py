@@ -9,16 +9,22 @@ import matplotlib.pyplot as plt
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
 
+# TODO: check units (replica mass, water content, ...)
+# TODO: check replica: water content must have correct OOM
+
 knoblauch_data = None
 
-def get_data():
+def get_data_before_carex():
     global knoblauch_data
     if knoblauch_data is None:
         print('Loading Knoblauch data...')
         knoblauch_data = KnoblauchData()
-    print('...here it is.')
+        _ = [r.before_carex() for r in knoblauch_data.replicas()]
     return knoblauch_data
 
+def check_sample(sample):
+    pass
+    
 def check_replica(replica):
     assert 'days' in replica.incubation
     assert 'CO2' in replica.incubation
@@ -33,6 +39,7 @@ def check_replica(replica):
     
     assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
     assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
+    
 
 class KnoblauchData():
     def __init__(self):
@@ -69,21 +76,19 @@ class KnoblauchData():
                                           'CO2': replica_data['CO2'],
                                           'CH4': replica_data['CH4']}
                 new_sample.add_replica(new_replica)
-                new_replica.before_carex()
 
             self.add_sample(new_sample)
 
     def __getitem__(self, key):
         key = str(key).replace('/','')
         if len(key) == 4:
-            return self.samples[key]
+            return [s for s in self.samples if s.sample_name == key][0]
         elif len(key) == 5:
-            return self.replicas()[key]
+            return [r for r in self.replicas() if str(r) == key][0]
         raise Exception('Invalid sample or replica name.')
 
     def add_sample(self, sample):
-        # TODO: perform sample checks
-        
+        check_sample(sample)        
         self.samples[sample.sample_name] = sample
     
     def load_metadata(self):
@@ -289,7 +294,7 @@ class KnoblauchData():
 
     
     def replicas(self):
-        return {str(r): r for s in self.samples.values() for r in s.replicas}
+        return [r for s in self.samples for r in s.replicas]
 
     def plot_replicas(self):
         for r in self.replicas():
@@ -308,7 +313,6 @@ class KnoblauchData():
         text = '\n'.join([str(s) for s in self.samples]) 
         text += f'\n {len(self.samples)} samples, {total_replicas} replicas'
         return text
-            
     
 class Sample():
     def __init__(self, sample_name):
@@ -322,6 +326,8 @@ class Sample():
         self.depth = None
         self.C_org = None
         self.pH = None
+        self.TOC = None
+        
         
     def add_replica(self, replica):
         check_replica(replica)
@@ -368,6 +374,15 @@ class Replica():
         self.events = {}
         self.incubation = {}
         
+    def initial_C(self):
+        return (10**6)*self.dry_weight*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
+        
+    def initial_DOC(self):
+        return self.initial_C()*.02
+    
+    def initial_H2O(self):
+        return self.water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
+    
     def CO2(self):
         return self.incubation['days'], self.incubation['CO2']
     
