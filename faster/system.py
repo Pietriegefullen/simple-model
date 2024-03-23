@@ -50,16 +50,16 @@ def initial_state(replica, model_parameters):
     S0 += vector(0, 'DOC', replica.initial_DOC())
     S0 += vector(0, 'H2O', replica.water_content)
     
-    model_parameters.add('Fe3', 20, [0, 300])
-    model_parameters.add('M_Ferm', .2, [1e-8, 0.5])
-    model_parameters.add('M_Hydro', .0025, [1e-8, 0.5])
-    model_parameters.add('M_Homo', .0001, [1e-8, 0.5])
-    model_parameters.add('M_Ac', .0101, [1e-8, 0.5])
-    model_parameters.add('Acetate', 50, [0, 100])
+    model_parameters['Fe3']
+    model_parameters['M_Ferm']
+    model_parameters['M_Hydro']
+    model_parameters['M_Homo']
+    model_parameters['M_Ac']
+    model_parameters['Acetate']
     
     for pool in SYSTEM:
         if pool in model_parameters:
-            init = model_parameters[pool].value()
+            init = model_parameters[pool]
             v = vector(0, pool, init)
             S0 += v
     

@@ -4,7 +4,7 @@ import CONSTANTS
 import chemistry
 import numpy as np
 
-DEBUG = False
+DEBUG = True
 
 def builder(defined_pathways, environment, extended_output = None):
 
@@ -21,6 +21,7 @@ def builder(defined_pathways, environment, extended_output = None):
         """
         This is the function given to the IVP solver.
         """
+        print(t)
         system_state = np.where(system_state < 1e-40, 0, system_state)
         pathway_changes = [pathway(t, system_state) for pathway in built_pathways]
         changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)        
@@ -116,6 +117,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         print_array(print_matrix, columns = ['pathway', 'henry', 'Km', 'inhib', 'grow'])
 
     def pathway(t, system_state):
+        1/0
         """
         This is the actual model.
         """

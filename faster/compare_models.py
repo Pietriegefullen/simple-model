@@ -119,6 +119,52 @@ def fit_specimens():
                     print('skipping', model_type, 'for', validation_replica)
                     continue
                 
+                model_parameters = {
+    "Sensenmann": 8.33e-05,
+    "Acetate": 1,
+    "temperature": 4.0,
+    "C": 2546.5533333333337,
+    "DOC": 50.93106666666667,
+    "pH": 3.95,
+    "weight": 11.82,
+    "water": 4.0,
+    "H2O": 222033.74024716797,
+    "M_Fe3": 0.15377556552732402,
+    "M_Ferm": 0.29386173195040044,
+    "M_Hydro": 0.43281383907529236,
+    "M_Homo": 0.2574949776769526,
+    "Vmax_help_Ferm": 0.6166340111649226,
+    "Vmax_Ferm": 1.070276371909682,
+    "Vmax_Fe3": 1.3804244562902253,
+    "Vmax_Homo": 0.9318093189492231,
+    "Vmax_Hydro": 0.7064582813317815,
+    "Vmax_Ac": 0.4599047701351146,
+    "Kmb_help_Ferm": 288.99678942466437,
+    "Km_Ac_Acetate": 145.99705636830586,
+    "Km_Homo_CO2": 376.8013896720814,
+    "Km_Homo_H2": 688.3240608121672,
+    "Km_Hydro_CO2": 661.7562751340953,
+    "Km_Hydro_H2": 497.8934720994153,
+    "Km_Fe3_Fe3": 173.34626557916957,
+    "Km_Fe3_Acetate": 637.4030208609411,
+    "Km_Ferm": 160.15461453008587,
+    "Inhibition_Ferm": 4.643075236732733,
+    "Fe3": 81.99097055433658,
+    "M_Ac": 0.014042559314258995,
+    "CUE_Ferm": 0.30944032735284144,
+    "CUE_Fe3": 0.012291327263939777,
+    "CUE_Ac": 0.5724913805190271,
+    "CUE_Homo": 0.4988932700684491,
+    "CUE_Hydro": 0.5054549655151662
+}
+                import predict
+                r = predict.predictor(range(1500),
+                                  model_parameters,
+                                  model_pathways['simple'])
+                
+                plt.plot(range(1500), r['CO2'])
+                1/0
+                
                 print(f'fitting {model_type} to ' + ' and '.join([str(r) for r in fit_replicas]))
                 optimal_parameters = optimizer.fit_specimen(fit_replicas, 
                                                model_pathways[model_type], 
