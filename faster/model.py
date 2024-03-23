@@ -17,6 +17,7 @@ def builder(defined_pathways, environment, extended_output = None):
                       for microbe, educts, products in defined_pathways]
 
     def right_hand_side(t, system_state):
+        
         """
         This is the function given to the IVP solver.
         """

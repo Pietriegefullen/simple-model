@@ -31,6 +31,12 @@ GIBBS_FORMATION = {'Acetate' :  -369.46*1e3,    # Tabellenwerte üblicherweise i
 GIBBS_MINIMUM = -26.*1e3      # J/mol, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
                               # wert DGmin z.b aus Schink 1997, ist 1/3 der Energie die für ein ATP Herstellung benötigt wird
 
+def C_atoms(substance):
+    sources = {'CO2': 1,
+               'Acetate': 2,
+               'DOC': 10/6}
+    return sources[substance]
+
 def henrys_law(substance):
     if not substance in HENRYS_DICT:
         return 1.0

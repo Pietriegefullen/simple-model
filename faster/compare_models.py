@@ -21,9 +21,8 @@ from ORDER import POOL_ORDER
 COLORS = {'CO2': 'r',
           'CH4': 'b'}
 
-before = 1500
-fit = False
-save_dir = 'before_' + str(before)
+fit = True
+save_dir = 'before_carex'
 
 PLOT_POOLS = POOL_ORDER + ['thermo', 'deltaGr', 'deltaGs']
 DONT_PLOT = ['weight', 'pH', 'water']
@@ -99,35 +98,36 @@ def file_exists(replica_name, model_type, save_dir = None):
     return file
 
 def fit_specimens():
-    
-    superdata = data.load_matlab(['superdata_2021_all'])
-    sample_numbers = superdata.keys()
-    all_specimen_groups = list(build_replica_groups(sample_numbers).values())
+    fit_samples = None
+    #superdata = data.load_matlab(['superdata_2021_all'])
+    #sample_numbers = superdata.keys()
+    #all_specimen_groups = list(build_replica_groups(sample_numbers).values())
     
     knoblauch_data = data.get_data_before_carex()
-    for sample in knoblauch_data.samples():
+    for sample in knoblauch_data.samples:
+        if fit_samples and not str(sample) in fit_samples:
+            continue
+        
         for split in sample.leave_one_out_split():
             fit_replicas = split['fit']
             validation_replica = split['val']
             
             for model_type in ['simple', 'complex']:
-                if file_exists('_'.join([str(r) for r in training_replicas]), 
+                if file_exists('_'.join([str(r) for r in fit_replicas]), 
                                model_type, 
                                save_dir):
                     print('skipping', model_type, 'for', validation_replica)
                     continue
-                                
-                print('fitting ' + model_type + 'to' + '_'.join(training_replicas))
-                optimal_parameters = optimizer.fit_specimen(training_replicas, 
-                                               'all',
+                
+                print(f'fitting {model_type} to ' + ' and '.join([str(r) for r in fit_replicas]))
+                optimal_parameters = optimizer.fit_specimen(fit_replicas, 
                                                model_pathways[model_type], 
-                                               replica_default_parameters, 
                                                OPTIMIZATION_PARAMETERS.ALGORITHM)
                 
                 # save model parameters and pathways
-                model_parameters = replica_default_parameters[training_replicas[0]]
+                model_parameters = pathways.default_model_parameters()
                 model_parameters.update(optimal_parameters)
-                parameter_file =  main.save_model('_'.join(training_replicas), 
+                parameter_file =  main.save_model('_'.join([str(r) for r in fit_replicas]), 
                                         'all',
                                         model_parameters, 
                                         prefix = model_type + '_leave-one-out',
@@ -339,6 +339,9 @@ def plot_parameter_boxplots(goodness):
 if __name__ == '__main__':
     if fit:
         fit_specimens()
+        
+    1/0
+        
     goodness = load_and_plot_fitted(plot = False)
     
     

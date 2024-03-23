@@ -4,10 +4,13 @@ import pandas as pd
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+import traceback
 
 
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
+
+import loading
 
 # TODO: check units (replica mass, water content, ...)
 # TODO: check replica: water content must have correct OOM
@@ -22,46 +25,27 @@ def get_data_before_carex():
         _ = [r.before_carex() for r in knoblauch_data.replicas()]
     return knoblauch_data
 
-def check_sample(sample):
-    pass
-    
-def check_replica(replica):
-    assert 'days' in replica.incubation
-    assert 'CO2' in replica.incubation
-    assert 'CH4' in replica.incubation
-    
-    assert all([isinstance(s, (int, float)) 
-                for s in replica.incubation['days']]), replica.incubation['days']
-    assert all([isinstance(s, (int, float)) 
-                for s in replica.incubation['CO2']]), replica.incubation['CO2']
-    assert all([isinstance(s, (int, float)) 
-                for s in replica.incubation['CH4']]), replica.incubation['CH4']
-    
-    assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
-    assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
-    
-
 class KnoblauchData():
     def __init__(self):
         self.source_directory = 'D:\OneDrive - Universität Hamburg\daten und code'
-        self.samples = {}
+        self.samples = []
         #superdata = load_matlab('superdata')
         
         print('loading incubation data')
-        incubation_data = self._load_raw_incubation()
+        incubation_data = loading._load_raw_incubation(self.source_directory)
         print('loading ergaenzung data')
-        ergaenzung_data = self._load_raw_ergaenzung()
+        ergaenzung_data = loading._load_raw_ergaenzung(self.source_directory)
 
         incubation_data.update(ergaenzung_data)
         
         print('loading metadata')
-        metadata = self.load_metadata()
+        metadata = loading.load_metadata(self.source_directory)
         
         print('building samples and replicas')
         for sample_name, sample_metadata in metadata.items():
             new_sample = Sample(sample_name)
             new_sample.site = sample_metadata['site']
-            new_sample.C_org = sample_metadata['Corg']
+            new_sample.TOC = sample_metadata['Corg']/100
             new_sample.pH = sample_metadata['pH']
             new_sample.depth = sample_metadata['depth']
             new_sample.origin = sample_metadata['origin']
@@ -72,9 +56,11 @@ class KnoblauchData():
 
                 new_replica = Replica(replica_name[-1])
                 new_replica.events = {event:day for (day, event) in replica_data['events']}
-                new_replica.incubation = {'days': replica_data['days'],
-                                          'CO2': replica_data['CO2'],
-                                          'CH4': replica_data['CH4']}
+                new_replica.incubation = {'days': np.reshape(replica_data['days'], (-1,)),
+                                          'CO2': np.reshape(replica_data['CO2'], (-1,)),
+                                          'CH4': np.reshape(replica_data['CH4'], (-1,))}
+                new_replica.dry_weight = replica_data['dry weight']
+                new_replica.water_content = replica_data['water content']
                 new_sample.add_replica(new_replica)
 
             self.add_sample(new_sample)
@@ -88,210 +74,13 @@ class KnoblauchData():
         raise Exception('Invalid sample or replica name.')
 
     def add_sample(self, sample):
-        check_sample(sample)        
-        self.samples[sample.sample_name] = sample
-    
-    def load_metadata(self):
-        raw_metadata = self._load_raw_metadata()
-        
-        use_columns = ['sample number',
-                        'depth', 
-                        'Corg (%)',
-                        'pH (H2O)',
-                        'Wassergehalt (%)',
-                        'site',
-                        'origin']
-        raw_metadata = raw_metadata.loc[:,use_columns]        
-        raw_metadata.loc[:,use_columns[:5]] = raw_metadata.loc[:,use_columns[:5]].astype(float)
-        raw_metadata['sample number'] = raw_metadata['sample number'].astype(int).astype(str)
-        
-        metadata_dict = {}
-        for _, row in raw_metadata.iterrows():
-            metadata_dict[row['sample number']] = {'depth': row['depth'],
-                                                   'Corg': row['Corg (%)'],
-                                                   'pH': row['pH (H2O)'],
-                                                   'site': row['site'],
-                                                   'origin': row['origin']}
-        
-        return metadata_dict
-    
-    
-    def _load_raw_metadata(self):
-        metadata_file = os.path.join(self.source_directory, 'Metadaten_all_86.xlsx')
-        raw_metadata = pd.read_excel(metadata_file, 
-                                     engine = 'openpyxl',
-                                     header = None)
-        
-        drop_rows = []
-        headers = None
-        site = {'Kurugnakh':[], 'Samoylov':[]}
-        origin = {'cliff':[], 'core':[]}
-        current_site = None
-        current_origin = None
-        for i, row in raw_metadata.iterrows():
-            if all(row.isnull()):
-                drop_rows.append(i)
-                continue 
-            if any(row.str.contains('from', na = False)):
-                is_core = any(row.str.contains('core', case = False, na = False))
-                is_cliff = any(row.str.contains('cliff', case = False, na = False))
-                if is_core and not is_cliff:
-                    current_origin = 'core'
-                elif is_cliff and not is_core:
-                    current_origin = 'cliff'
-                        
-                if any(row.str.contains('Kurugnakh', na = False)):
-                    current_site = 'Kurugnakh'
-                   
-                elif any(row.str.contains('Samoylov', na = False)):
-                    current_site = 'Samoylov'
-                
-                drop_rows.append(i)
-                continue
+        try:
+            check_sample(sample)        
+            self.samples.append(sample)
             
-            if any(row.str.contains('Lab-number', na = False)):
-                # header row
-                if not headers:
-                    row = row.iloc[1:]
-                    row.iloc[1] = 'sample number'
-                    headers = row.array
-                drop_rows.append(i)
-                continue
-            
-            site[current_site].append(i)
-            origin[current_origin].append(i)
-        
-        raw_metadata['site'] = np.nan
-        for s, indices in site.items():
-            raw_metadata.loc[indices, 'site'] = s
-            
-        raw_metadata['origin'] = np.nan
-        for s, indices in origin.items():
-            raw_metadata.loc[indices, 'origin'] = s
-
-        raw_metadata = raw_metadata.drop(drop_rows, axis = 0)
-        raw_metadata = raw_metadata.iloc[:,1:].rename(columns = {i+1:name for i, name in enumerate(headers)})
-        
-        return raw_metadata
-                        
-    def _load_raw_incubation(self):
-        incubation_file = os.path.join(self.source_directory, 'Perm - alle.xlsx')
-        raw_incubation = pd.read_excel(incubation_file, engine = 'openpyxl',
-                                       sheet_name = 'incubation data')
-        
-        raw_constants = raw_incubation.iloc[:,:3]
-        raw_incubation = raw_incubation.iloc[:,3:]
-        
-        raw_incubation.dropna(axis = 0, how = 'all', inplace = True)
-        raw_incubation.dropna(axis = 1, how = 'all', inplace = True)
-        
-        headers = None
-        current_sample = None
-        samples = {}
-        previous_row = None
-        for i, row in raw_incubation.iterrows():
-            if row['Unnamed: 3'] == 'Probe':
-                previous_row = raw_incubation.loc[i-1, :]
-                titles = [(p if not str(p) == 'nan' else r) 
-                          for p, r in zip(previous_row.array, row.array)]
-                raw_incubation.rename(columns = {('Unnamed: ' + str(k+3)):title
-                                       for k, title in enumerate(titles)},
-                                      inplace = True)
-                break
-
-        for i, row in raw_incubation.iterrows():
-            if type(row['Probe']) == str and row['Probe'].startswith('09-'):
-                sample_name = row['Probe'].replace('09-','').replace('/','')
-                if sample_name == current_sample:
-                    day = row['duration days total']
-                    samples[current_sample]['events'].append((day, 'carex'))
-                    continue
-                
-                current_sample = sample_name
-                # extract replica constants (weight wet sample)
-                dry_weight = row['dry weight (g)']
-                samples[current_sample] = {'days':[], 'CO2':[], 'CH4':[],
-                                           'events': [], 
-                                           'dry weight': dry_weight}
-                continue
-            
-            if current_sample is None:
-                continue
-            
-            co2_value = row['cummulative CO2 produced']
-            ch4_value = row['CH4 produced']
-            day = row['duration days total']
-            if not isinstance(co2_value, (int, float)) or not isinstance(ch4_value, (int, float)) or not isinstance(day, (int, float)):
-                print(current_sample, 'excluding measurements on day', day, 'CO2:', co2_value, 'CH4:', ch4_value)
-            else:
-                samples[current_sample]['days'].append(day)
-                samples[current_sample]['CO2'].append(co2_value)
-                samples[current_sample]['CH4'].append(ch4_value)
-        
-            if isinstance(day, (int, float)) and not type(row['Probe']) is float and  not str(row['Probe']).lower() == 'nan':
-                event = (day,str(row['Probe']))
-                samples[current_sample]['events'].append(event)
-                
-        return samples
-    
-    def _load_raw_ergaenzung(self):
-        excel_file = os.path.join(self.source_directory,'Daten_Erganzung.xlsx')
-    
-        raw_ergaenzung = pd.read_excel(excel_file, engine = 'openpyxl',
-                                       sheet_name = 'samples without priming anaerob',
-                                       header = None)
-        
-        raw_ergaenzung_const = raw_ergaenzung.iloc[:,:3]
-        raw_ergaenzung = raw_ergaenzung.iloc[:,3:]
-        
-        raw_ergaenzung.dropna(axis = 1, how = 'all', inplace = True)
-        raw_ergaenzung.dropna(axis = 0, how = 'all', inplace = True)
-        
-        headers = None
-        current_replica = None
-        samples = {}
-        previous_row = None
-        for i, row in raw_ergaenzung.iterrows():
-            if row[3] == 'Probe':
-                previous_row = raw_ergaenzung.loc[i-1, :]
-                titles = [(p if not str(p) == 'nan' else r) 
-                          for p, r in zip(previous_row.array, row.array)]
-                raw_ergaenzung.rename(columns = {k+3:title
-                                       for k, title in enumerate(titles)},
-                                      inplace = True)
-                break
-
-        for i, row in raw_ergaenzung.iterrows():
-            if str(row['Probe']).startswith('09-'):
-                replica_name = row['Probe'].replace('09-','').replace('/','')
-                current_replica = replica_name
-                # extract replica constants (weight wet sample)
-                dry_weight = row['dry weight (g)']
-                samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
-                                           'events': [], 
-                                           'dry weight': dry_weight}
-                continue
-            
-            
-            if current_replica is None:
-                continue
-            
-            co2_value = row['cummulative CO2 release']
-            ch4_value = row['CH4 total']
-            day = row['duration (d)']
-            if not isinstance(co2_value, (int, float)) or not isinstance(ch4_value, (int, float)) or not isinstance(day, (int, float)):
-                print(current_replica, 'excluding measurements on day', day, 'CO2:', co2_value, 'CH4:', ch4_value)
-            else:
-                samples[current_replica]['days'].append(day)
-                samples[current_replica]['CO2'].append(co2_value)
-                samples[current_replica]['CH4'].append(ch4_value)
-        
-            if isinstance(day, (int,float)) and not type(row['Probe']) is float and not str(row['Probe']).lower() == 'nan':
-                event = (day,str(row['Probe']))
-                samples[current_replica]['events'].append(event)
-                
-        return samples
-
+        except AssertionError as ex:
+            print(f'Skipping sample {str(sample)}: {str(ex)}')
+            print(traceback.format_exc())
     
     def replicas(self):
         return [r for s in self.samples for r in s.replicas]
@@ -324,15 +113,18 @@ class Sample():
         self.site = None
         self.origin = None
         self.depth = None
-        self.C_org = None
         self.pH = None
         self.TOC = None
         
         
     def add_replica(self, replica):
-        check_replica(replica)
         replica.sample = self
-        self.replicas.append(replica)
+        try:
+            check_replica(replica)
+            self.replicas.append(replica)
+          
+        except AssertionError as ex:
+            print(f'Skipping replica {str(replica)}: {str(ex)}')
         
     def has_replicas(self):
         return len(self.replicas)
@@ -435,6 +227,60 @@ class Replica():
             
     def __str__(self):
         return self.sample.sample_name + self.replica_number
+
+
+def check_sample(sample):
+    assert not sample.sample_name is None
+    assert len(sample.sample_name) == 4
+    assert all([c in '0123456789' for c in sample.sample_name])
+    
+    assert sample.site == 'Kurugnakh' or sample.site == 'Samoylov'
+    assert sample.origin == 'cliff' or sample.origin == 'core'
+    
+    assert not sample.depth is None
+    assert isinstance(sample.depth, (int, float))
+        
+    assert not sample.pH is None
+    assert isinstance(sample.pH, (int, float))
+    assert sample.pH >= 0 and sample.pH <= 14
+    
+    assert not sample.TOC is None
+    assert isinstance(sample.TOC, (int, float))
+    assert sample.TOC >= 0 and sample.TOC <= 1.0
+    
+def check_replica(replica):
+    assert 'days' in replica.incubation
+    assert 'CO2' in replica.incubation
+    assert 'CH4' in replica.incubation
+    
+    assert all([isinstance(s, (int, float)) 
+                for s in replica.incubation['days']]), replica.incubation['days']
+    assert all([isinstance(s, (int, float)) 
+                for s in replica.incubation['CO2']]), replica.incubation['CO2']
+    assert all([isinstance(s, (int, float)) 
+                for s in replica.incubation['CH4']]), replica.incubation['CH4']
+    
+    assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
+    assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
+    
+    assert not replica.sample is None
+    
+    assert isinstance(replica.replica_number, (int, str))
+    assert len(str(replica.replica_number)) == 1
+    assert int(replica.replica_number) <=6 and int(replica.replica_number) > 0
+    
+    assert isinstance(replica.dry_weight, (int, float))
+    print(str(replica), replica.dry_weight)
+    assert replica.dry_weight > 0
+    
+    assert isinstance(replica.water_content, (int, float))
+    assert replica.water_content > 0
+    
+    assert replica.temperature == 277.15
+        
+
+
+
 
 
 def specimen_sites(specimen_indices):    
