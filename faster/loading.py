@@ -202,7 +202,7 @@ def _load_raw_ergaenzung(source_directory):
         co2_value = row['cummulative CO2 release']
         ch4_value = row['CH4 total']
         day = row['duration (d)']
-        if not isinstance(co2_value, (int, float)) or not isinstance(ch4_value, (int, float)) or not isinstance(day, (int, float)):
+        if str(co2_value) == 'nan' or str(ch4_value) == 'nan' or str(day) == 'nan':
             print(current_replica, 'excluding measurements on day', day, 'CO2:', co2_value, 'CH4:', ch4_value)
         else:
             samples[current_replica]['days'].append(day)

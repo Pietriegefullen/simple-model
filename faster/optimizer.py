@@ -7,8 +7,8 @@ def algo_kwargs(method):
         return {'c1': .5,
                 'c2': .3,
                 'w': .9,
-                'particles': 3,
-                'iterations': 3}
+                'particles': 100,
+                'iterations': 500}
     
     elif method == 'gradient':
         return {'method': 'L-BFGS-B',
@@ -31,7 +31,6 @@ class Algorithm():
     
     def minimize(self, model, replicas):
         variables = model.parameters().variables()
-        x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
@@ -47,6 +46,7 @@ class Algorithm():
             options = {'c1': self.kwargs['c1'],
                        'c2': self.kwargs['c2'],
                        'w': self.kwargs['w']}
+            
             optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
                                                 dimensions=len(variables),
                                                 options=options,
@@ -60,6 +60,7 @@ class Algorithm():
 
             method = self.kwargs['method']
             iterations = self.kwargs['iterations']
+            x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.minimize(objective,
                                         x0,
@@ -127,10 +128,7 @@ class Objective():
     
     def best_call(self):
         sorted_by_loss = sorted(self._calls)
-        best = sorted_by_loss[0]
-        best_loss, best_transformed_parameter_values = best
-        best_parameter_values = self.inverse_transform(best_transformed_parameter_values)
-        return best_loss, best_parameter_values
+        return sorted_by_loss[0]
     
     def __str__(self):
         return 'Objective function: sum of loss from\n' + '\n'.join([str(s) 
@@ -146,7 +144,7 @@ class ParticleObjective(Objective):
             losses = [obj() for obj in self.replica_objectives]
             total_loss = np.sum(losses)
             particle_fitnesses.append(total_loss)
-        self._calls.append((total_loss, particle_fitnesses))
+        self._calls.append((total_loss, parameter_values))
         return np.array(particle_fitnesses)
 
 class Loss():
@@ -205,20 +203,3 @@ class ReplicaObjective():
     def __str__(self):
         return f'fit to replica {self.replica}'
     
-
-
-    """
-    
-    if algo == 'differential_evolution':
-        opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
-        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
-
-        optimization_result  = scipy.optimize.differential_evolution(ObjectiveFunction(),
-                                                                     bounds = initial_guess_bounds,
-                                                                     args = (objectives,),
-                                                                     disp = True,
-                                                                     workers = workers,
-                                                                     **OPTIMIZATION_PARAMETERS.DIFF_EVOL_PARAMETERS)
-        changeables_optimal_array = optimization_result.x
-
-"""

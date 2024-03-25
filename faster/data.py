@@ -259,6 +259,7 @@ def check_replica(replica):
                 for s in replica.incubation['CO2']]), replica.incubation['CO2']
     assert all([isinstance(s, (int, float)) 
                 for s in replica.incubation['CH4']]), replica.incubation['CH4']
+
     
     assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
     assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
@@ -756,7 +757,7 @@ replica_list_No_CH4, superdata_No_CH4_vor_Impfung,superdata_No_CH4_nach_Impfung,
 
 
 if __name__ == '__main__':
-    d = get_data()
+    d = get_data_before_carex()
     d.plot_samples()
     print(d)
 
