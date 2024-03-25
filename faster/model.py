@@ -1,139 +1,37 @@
+import os
+
 import numpy as np
 import scipy.integrate
 import matplotlib.pyplot as plt
+import json
 
 import system
-import chemistry
-import CONSTANTS
 import optimizer
+import pathways
 
-HENRYS_LAW = system.henrys_law()
 
-OPTIMIZATION_ALGORITHM = 'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
-
-class Pathway():
-    def __init__(self, microbe, educts, products):        
-        self.educts = educts
-        self.products = products
-        self.microbe = microbe
-        
-        self.Km = np.sum(np.stack([system.vector(0, educt, educt['Km'])
-                                   for educt in educts], axis = -1), axis = -1)
-        self.Km += system.vector(0, microbe, microbe['Kmb'])
-        
-        stoich_vector = np.sum(np.stack([system.vector(0, subst, -subst['stoichiometry'])
-                                         for subst in educts], axis = -1), axis = -1)
-        stoich_vector += np.sum(np.stack([system.vector(0, subst, subst['stoichiometry'])
-                                         for subst in products], axis = -1), axis = -1)
-        self.stoichiometry = stoich_vector
-        self.inhibition = system.vector(np.inf)
-        for product in products:
-            self.inhibition[system.index(product)] = product['inhibition']
-            
-        self.v_max = microbe['v_max']
-        self.death_rate = system.vector(0, microbe, microbe['death_rate'])
-        
-        C_source = microbe['C_source']
-        self.anabolism = system.vector(0)
-        if not C_source is None:
-            C_atoms = chemistry.C_atoms(C_source)
-            C_source_stoich = [educt for educt in educts 
-                               if str(educt) == C_source][0]['stoichiometry']
-            CUE = microbe['CUE']
-            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + 1e-7)
-            microbe_growth = system.vector(0, microbe, anabolism_fraction*C_atoms*CONSTANTS.MOLAR_MASS_C)
-            C_source_reduction = system.vector(0, microbe['C_source'], anabolism_fraction)
-            self.anabolism = microbe_growth - C_source_reduction
-            
-        self.pathway_vector = self.stoichiometry + self.anabolism
-        
-        self.microbe_index = system.index(microbe)
-        self.use_thermodynamics = microbe['use_thermodynamics']
-        
-        if self.use_thermodynamics:
-            self.deltaG_f = np.sum(np.stack([system.vector(0, str(subst), 
-                                        chemistry.GIBBS_FORMATION[str(subst)])
-                                        for subst in (educts + products)],
-                                             axis = -1), axis = -1)
-            self.deltaG_s = np.sum(self.stoichiometry*self.deltaG_f)
-
-        
-        self.state_logger = None
-        
-        
-    def inject_logger(self, state_logger):
-        self.state_logger = state_logger
-    
-    def log(self, name, t, value):
-        if not self.state_logger is None:
-            self.state_logger.log(self.__class__.__name__ + '_' + name, t, value)
-        
-    def thermodynamics(self, t, S):
-        thermodynamic_factor = 1.
-        if self.use_thermodynamics:
-            R = CONSTANTS.GAS_CONSTANT
-            T = 4. + CONSTANTS.KELVIN
-            log_Q = system.vector(0)
-            
-            contributes = np.logical_and(self.stoichiometry != 0, S > 0)
-            log_Q[contributes] = np.log(1e-6*S[contributes])
-    
-            deltaG_r = self.deltaG_s + R*T*np.sum(self.stoichiometry*log_Q)
-            deltaG_rmin = chemistry.GIBBS_MINIMUM
-            
-            thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
-            self.log('deltaG_r', t, deltaG_r)
-            
-        self.log('thermodynamic_factor', t, thermodynamic_factor)
-        return thermodynamic_factor
-    
-    def __call__(self, t, S):
-        biomass = S[self.microbe_index]
-        biomass = np.clip(biomass, 1e-8,np.inf)
-            
-        dissolved_S = HENRYS_LAW*S
-
-        eps = np.where(dissolved_S == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
-
-        MM = np.where((self.Km + dissolved_S) == 0, 
-                      1,
-                      np.where(dissolved_S == 0,
-                               0,
-                               dissolved_S/(self.Km + dissolved_S + eps)))
-        
-        inhib = np.where(np.logical_or(dissolved_S == 0, (self.inhibition + dissolved_S) == 0),
-                         1,
-                         1 - dissolved_S/(self.inhibition + dissolved_S))
-        inhib = np.where(self.inhibition == np.inf, 1, inhib)
-        thermodynamic_factor = self.thermodynamics(t, S)
-        
-        MM_factor = np.prod(MM)
-        inhib_factor = np.prod(inhib)
-        v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor
-
-        dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
-        dS_dt = np.clip(dS_dt, -S, np.inf)        
-        
-        self.log('MM', t, MM_factor)
-        self.log('inhib', t, inhib_factor)
-        self.log('v', t, v)
-        
-        return np.reshape(dS_dt, (-1,))
-
-    def __str__(self):
-        educts = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.educts])
-        products = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.products])
-        pwy_string = f'{self.__class__.__name__: <12s}: {educts} -> {products}'    
-        return pwy_string
+OPTIMIZATION_ALGORITHM = 'PSO' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
 class Model():
-    def __init__(self, contributing_pathways):
+    def __init__(self, pwys):
         self.system_state_log = ModelRun()
         self.model_parameters = ModelParameters()
-        self._unbuilt_contributing_pathways = contributing_pathways
+        
+        pathway_classes = [pathways.pathway_by_name(p) if isinstance(p, str) else p 
+                           for p in pwys]
+        self._unbuilt_contributing_pathways = pathway_classes
         self.contributing_pathways = None
         self.build(quiet = True)
+        
+    def build(self, quiet = False):
+        self.contributing_pathways = [p(self.model_parameters) 
+                                      for p in self._unbuilt_contributing_pathways]
+        for p in self.contributing_pathways:
+            p.inject_logger(self.system_state_log)
+        
+        # to initialize model parameters used in initial state
+        _ = system.initial_state(None, self.model_parameters)
         
     def __call__(self, t, S):
         S = np.where(S < 1e-40, 0, S)
@@ -145,22 +43,13 @@ class Model():
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
         return dS_dt
     
-    def build(self, quiet = False):
-        self.contributing_pathways = [p(self.model_parameters) 
-                                      for p in self._unbuilt_contributing_pathways]
-        for p in self.contributing_pathways:
-            p.inject_logger(self.system_state_log)
-        
-        # to initialize model parameters used in initial state
-        _ = system.initial_state(None, self.model_parameters)
-        
     def fit(self, replicas):
         if not isinstance(replicas, list):
             replicas = [replicas]
             
         algo = optimizer.Algorithm(OPTIMIZATION_ALGORITHM, 
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
-        algo.minimize(self, replicas)
+        return algo.minimize(self, replicas)
         
         
     def predict(self, replica, t = None, quiet = False):
@@ -196,6 +85,21 @@ class Model():
         model_string += '\n'.join( [str(p) for p in self.contributing_pathways])
         return model_string
 
+    def save(self, target_directory, file_name):
+        cfg = {'pathways': [p.__class__.__name__ 
+                            for p in self.contributing_pathways],
+               'parameters': self.parameters().get_config()}
+        if not os.path.isdir(target_directory):
+            os.makedirs(target_directory)
+        with open(os.path.join(target_directory, file_name + '.json'), 'w') as df:
+            json.dump(cfg, df, indent = 4)
+            
+    def load(self, file):
+        with open(file, 'r') as df:
+            cfg = json.load(df)
+        
+        self.__init__(cfg['pathways'])
+        self.model_parameters.set(cfg['parameters'])
 
 class LogTransform():
     def transform(self, value): return np.log(value)
@@ -409,6 +313,9 @@ class ModelParameters():
             compare = other.name
         return compare in self._parameters.keys()
     
+    def get_config(self):
+        return {p.name: p.value for p in self._parameters.values()}
+    
     def __str__(self):
         title = 'Model Parameters:'
         title += '\n' + '='*len(title) + '\n'
@@ -421,6 +328,9 @@ class ModelRun():
     def __init__(self):
         self._log = {}
         
+    def __eq__(self, other):
+        return self._log == other._log
+    
     def __getitem__(self, key):
         return self._log[key]
         

@@ -1,6 +1,136 @@
 import numpy as np
 
-import model
+import system
+import chemistry
+import CONSTANTS
+
+HENRYS_LAW = system.henrys_law()
+
+def pathway_by_name(name):
+    pwys = {'Homo': Homo,
+            'Aceto': Aceto,
+            'Hydrolysis': Hydrolysis,
+            'Fe3': Fe3,
+            'Hydro': Hydro,
+            'Fermentation': Fermentation}
+    return pwys[name]
+
+class Pathway():
+    def __init__(self, microbe, educts, products):        
+        self.educts = educts
+        self.products = products
+        self.microbe = microbe
+        
+        self.Km = np.sum(np.stack([system.vector(0, educt, educt['Km'])
+                                   for educt in educts], axis = -1), axis = -1)
+        self.Km += system.vector(0, microbe, microbe['Kmb'])
+        
+        stoich_vector = np.sum(np.stack([system.vector(0, subst, -subst['stoichiometry'])
+                                         for subst in educts], axis = -1), axis = -1)
+        stoich_vector += np.sum(np.stack([system.vector(0, subst, subst['stoichiometry'])
+                                         for subst in products], axis = -1), axis = -1)
+        self.stoichiometry = stoich_vector
+        self.inhibition = system.vector(np.inf)
+        for product in products:
+            self.inhibition[system.index(product)] = product['inhibition']
+            
+        self.v_max = microbe['v_max']
+        self.death_rate = system.vector(0, microbe, microbe['death_rate'])
+        
+        C_source = microbe['C_source']
+        self.anabolism = system.vector(0)
+        if not C_source is None:
+            C_atoms = chemistry.C_atoms(C_source)
+            C_source_stoich = [educt for educt in educts 
+                               if str(educt) == C_source][0]['stoichiometry']
+            CUE = microbe['CUE']
+            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + 1e-7)
+            microbe_growth = system.vector(0, microbe, anabolism_fraction*C_atoms*CONSTANTS.MOLAR_MASS_C)
+            C_source_reduction = system.vector(0, microbe['C_source'], anabolism_fraction)
+            self.anabolism = microbe_growth - C_source_reduction
+            
+        self.pathway_vector = self.stoichiometry + self.anabolism
+        
+        self.microbe_index = system.index(microbe)
+        self.use_thermodynamics = microbe['use_thermodynamics']
+        
+        if self.use_thermodynamics:
+            self.deltaG_f = np.sum(np.stack([system.vector(0, str(subst), 
+                                        chemistry.GIBBS_FORMATION[str(subst)])
+                                        for subst in (educts + products)],
+                                             axis = -1), axis = -1)
+            self.deltaG_s = np.sum(self.stoichiometry*self.deltaG_f)
+
+        
+        self.state_logger = None
+        
+        
+    def inject_logger(self, state_logger):
+        self.state_logger = state_logger
+    
+    def log(self, name, t, value):
+        if not self.state_logger is None:
+            self.state_logger.log(self.__class__.__name__ + '_' + name, t, value)
+        
+    def thermodynamics(self, t, S):
+        thermodynamic_factor = 1.
+        if self.use_thermodynamics:
+            R = CONSTANTS.GAS_CONSTANT
+            T = 4. + CONSTANTS.KELVIN
+            log_Q = system.vector(0)
+            
+            contributes = np.logical_and(self.stoichiometry != 0, S > 0)
+            log_Q[contributes] = np.log(1e-6*S[contributes])
+    
+            deltaG_r = self.deltaG_s + R*T*np.sum(self.stoichiometry*log_Q)
+            deltaG_rmin = chemistry.GIBBS_MINIMUM
+            
+            thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
+            self.log('deltaG_r', t, deltaG_r)
+            
+        self.log('thermodynamic_factor', t, thermodynamic_factor)
+        return thermodynamic_factor
+    
+    def __call__(self, t, S):
+        biomass = S[self.microbe_index]
+        biomass = np.clip(biomass, 1e-8,np.inf)
+            
+        dissolved_S = HENRYS_LAW*S
+
+        eps = np.where(dissolved_S == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
+
+        MM = np.where((self.Km + dissolved_S) == 0, 
+                      1,
+                      np.where(dissolved_S == 0,
+                               0,
+                               dissolved_S/(self.Km + dissolved_S + eps)))
+        
+        inhib = np.where(np.logical_or(dissolved_S == 0, (self.inhibition + dissolved_S) == 0),
+                         1,
+                         1 - dissolved_S/(self.inhibition + dissolved_S))
+        inhib = np.where(self.inhibition == np.inf, 1, inhib)
+        thermodynamic_factor = self.thermodynamics(t, S)
+        
+        MM_factor = np.prod(MM)
+        inhib_factor = np.prod(inhib)
+        v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor
+
+        dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
+        dS_dt = np.clip(dS_dt, -S, np.inf)        
+        
+        self.log('MM', t, MM_factor)
+        self.log('inhib', t, inhib_factor)
+        self.log('v', t, v)
+        
+        return np.reshape(dS_dt, (-1,))
+
+    def __str__(self):
+        educts = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.educts])
+        products = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.products])
+        pwy_string = f'{self.__class__.__name__: <12s}: {educts} -> {products}'    
+        return pwy_string
+
+
 
 class Microbe():
     def __init__(self, name, v_max, 
@@ -60,7 +190,7 @@ class Substance():
                 'inhibition': self.inhibition}
 
 
-class Hydrolysis(model.Pathway):
+class Hydrolysis(Pathway):
     def __init__(self, model_parameters):
         educts = [Substance(1, 'C')]
         products = [Substance(1, 'DOC')]
@@ -70,7 +200,7 @@ class Hydrolysis(model.Pathway):
                           use_thermodynamics = False)
         super().__init__(microbe, educts, products)
     
-class Fermentation(model.Pathway):
+class Fermentation(Pathway):
     def __init__(self, model_parameters):
         educts = [Substance(6, 'DOC', 
                             Km = model_parameters['Ferm_Km'])]
@@ -87,7 +217,7 @@ class Fermentation(model.Pathway):
         super().__init__(microbe, educts, products)
         
 
-class Hydro(model.Pathway):
+class Hydro(Pathway):
      def __init__(self, model_parameters):
         educts = [Substance(4, 'H2', 
                             Km = model_parameters['Hydro_Km_H2']),
@@ -102,7 +232,7 @@ class Hydro(model.Pathway):
                           C_source = 'CO2')
         super().__init__(microbe, educts, products)
 
-class Homo(model.Pathway):
+class Homo(Pathway):
     def __init__(self, model_parameters):
         educts = [Substance(4, 'H2', 
                             Km = model_parameters['Homo_Km_H2']),
@@ -117,7 +247,7 @@ class Homo(model.Pathway):
                           C_source = 'CO2')
         super().__init__(microbe, educts, products)
 
-class Aceto(model.Pathway):
+class Aceto(Pathway):
     def __init__(self, model_parameters):
         educts = [Substance(1, 'Acetate', 
                             Km = model_parameters['Aceto_Km_Ac'])]
@@ -130,7 +260,7 @@ class Aceto(model.Pathway):
                           C_source = 'Acetate')
         super().__init__(microbe, educts, products)
 
-class Fe3(model.Pathway):
+class Fe3(Pathway):
     def __init__(self, model_parameters):
         educts = [Substance(1, 'Acetate', 
                             Km = model_parameters['Fe3_Km_Ac']),

@@ -7,8 +7,9 @@ def algo_kwargs(method):
         return {'c1': .5,
                 'c2': .3,
                 'w': .9,
-                'particles': 10,
-                'iterations': 50}
+                'particles': 3,
+                'iterations': 3}
+    
     elif method == 'gradient':
         return {'method': 'L-BFGS-B',
                 'iterations': 200}
@@ -92,6 +93,7 @@ class Algorithm():
         _, optimal_parameters = objective.best_call()
         _ = [variable.set(value) for variable, value in zip(variables, optimal_parameters)]
         
+        return objective.best_call()
 
 class Objective():
     def __init__(self, replica_objectives, variables):
@@ -116,6 +118,10 @@ class Objective():
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
+        if not self._calls or total_loss < self.best_call()[0]:
+            print('best total loss', total_loss)
+            for obj in self.replica_objectives:
+                obj.plot()
         self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
         return total_loss
     
@@ -155,10 +161,9 @@ class ReplicaObjective():
     def __init__(self, replica, model):
         self.model = model
         self.replica = replica
-        self.best = None
+        self.last_call = None
         
     def __call__(self):        
-
         days = self.replica.incubation['days']
         results = self.model.predict(self.replica, days, quiet = True)
         
@@ -174,19 +179,28 @@ class ReplicaObjective():
         
         loss = CO2_loss + CH4_loss
         
-        if not self.best or loss < self.best:
-            self.best = loss
-            plt.figure()
-            plt.plot(days, measured_CO2, 'rx')
-            plt.plot(days, measured_CH4, 'bx')
-
-            plt.plot(days, predicted_CO2, 'k-')
-            plt.plot(days, predicted_CH4, 'k--')
-
-            plt.title(str(self.replica))
-            plt.show()
+        self.last_call = predicted_CO2, predicted_CH4
         
         return loss
+    
+    def plot(self):
+        if not self.last_call:
+            return
+        
+        predicted_CO2, predicted_CH4 = self.last_call
+        days = self.replica.incubation['days']
+        measured_CO2 = self.replica.incubation['CO2']
+        measured_CH4 = self.replica.incubation['CH4']
+
+        plt.figure()
+        plt.plot(days, measured_CO2, 'rx')
+        plt.plot(days, measured_CH4, 'bx')
+
+        plt.plot(days, predicted_CO2, 'k-')
+        plt.plot(days, predicted_CH4, 'k--')
+
+        plt.title(str(self.replica))
+        plt.show()
     
     def __str__(self):
         return f'fit to replica {self.replica}'

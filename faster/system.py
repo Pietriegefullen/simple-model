@@ -51,6 +51,11 @@ def initial_state(replica, model_parameters):
         model_parameters['DOC'].constant(replica.initial_DOC())
         model_parameters['H2O'].constant(replica.water_content)
     
+    else:
+        model_parameters['C']
+        model_parameters['DOC']
+        model_parameters['H2O']
+    
     model_parameters['Fe3']
     model_parameters['M_Ferm']
     model_parameters['M_Hydro']
