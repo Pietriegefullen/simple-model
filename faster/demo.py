@@ -275,5 +275,6 @@ def run_demo(model):
 
 
 if __name__ == '__main__':
-    model = MockModel()
-    run_demo(model)
+    import model
+    pathway_model = model.Model(model.get_pathways('simple'))
+    run_demo(pathway_model)

@@ -12,6 +12,21 @@ import parameters
 
 OPTIMIZATION_ALGORITHM = 'PSO' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
+
+def get_pathways(model_type):
+    basic = ['Hydrolysis',
+             'Fermentation',
+             'Hydro',
+             'Aceto']
+    if model_type == 'complex':
+        return basic + ['Homo',
+                        'Fe3']
+    elif model_type == 'simple':
+        return basic
+    else:
+        raise NotImplementedError()
+
+
 class Model():
     def __init__(self, pwys):
         self.system_state_log = ModelRun()

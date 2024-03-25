@@ -12,19 +12,6 @@ import USER_VARIABLES
 
 # TODO: 1354-6 has no carex but usable only up to day 1309?
 
-def get_pathways(model_type):
-    basic = ['Hydrolysis',
-             'Fermentation',
-             'Hydro',
-             'Aceto']
-    if model_type == 'complex':
-        return basic + ['Homo',
-                        'Fe3']
-    elif model_type == 'simple':
-        return basic
-    else:
-        raise NotImplementedError()
-
 def fit(include_samples = None, exclude_samples = None):
     dataset = data.get_data_before_carex()
     target_directory = USER_VARIABLES.LOG_DIRECTORY
@@ -57,7 +44,7 @@ def fit(include_samples = None, exclude_samples = None):
                 print()
                 print(f'fitting {model_type} to {str(sample)}')
                 
-                chosen_pathways = get_pathways(model_type)
+                chosen_pathways = model.get_pathways(model_type)
                 pathway_model = model.Model(chosen_pathways)
                 pathway_model.parameters().set('default')
             

@@ -15,24 +15,15 @@ from demo import Model, View, Window, run_demo, MockModel, Slider
 
 import matplotlib.pyplot as plt
 
-from main import run_model, save_model
-import pathways
 import data
-import plot
 import USER_VARIABLES
-import OPTIMIZATION_PARAMETERS
-
 import numpy as np
 import json
 
 class FasterModel(Model):
 
     def __init__(self):
-        self.specimen_index = '13510'
-        self.site = 'all'
-        self.measured_data = data.specimen_data(self.specimen_index, self.site)
-        self.model_parameters = pathways.default_model_parameters(self.specimen_index, self.site)
-        # self.figure_list = list()
+        
         self.days = 4500
         self.pool_value_dict = run_model(self.model_parameters,
                                         np.arange(self.days),
