@@ -20,7 +20,6 @@ SYSTEM = [
             ]
 
 
-
 def index(name):
     return SYSTEM.index(str(name))
 

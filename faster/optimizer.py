@@ -1,111 +1,200 @@
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
-import multiprocessing
-import pathways
 
-from predict import predictor
-from ORDER import POOL_ORDER, pool_index
-import data
-import OPTIMIZATION_PARAMETERS
-#from OPTIMIZATION_PARAMETERS import CHANGEABLES
-
-
-#TODO: who uses this function? need to add 'changeables' to arguments!
-def evaluate_loss(sample, site, chosen_pathways, optimal_parameters, changeables):
+def algo_kwargs(method):
+    if method == 'PSO':
+        return {'c1': .5,
+                'c2': .3,
+                'w': .9,
+                'particles': 10,
+                'iterations': 50}
+    elif method == 'gradient':
+        return {'method': 'L-BFGS-B',
+                'iterations': 200}
     
-    objectives = [SpecimenObjective(chosen_pathways,
-                                    optimal_parameters,
-                                    data.specimen_data(sample, site),
-                                    changeables)]
-                  
-    total_objective = ObjectiveFunction()
+    elif method == 'differential_evolution':
+        return {'strategy': 'best1bin',
+                'updating': 'immediate'}
     
-    loss = total_objective({}, objectives)
-    
-    return loss
+    elif method == 'direct' or method == 'dual_annealing':
+        return {}
 
+    else:
+        raise NotImplementedError()
 
-def fit_specimen(replicas, chosen_pathways, algo, before = None):
-    """
-    Fits a model to the specimen.
-    The model contains only the specified pathways.
+class Algorithm():
+    def __init__(self, algorithm, **kwargs):
+        self.algorithm = algorithm
+        self.kwargs = kwargs
     
-    Different optimization algorithms may be used:
-        differential evolution
-        gradient
-        PSO (particle swarm optimization)
+    def minimize(self, model, replicas):
+        variables = model.parameters().variables()
+        x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
+        lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
+        upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
-    Returns a dict containing the optimal values for the model parameters 
-    listed in the list CHANGEABLES in the file OPTIMIZATION_PARAMETERS.py 
-
-    """
-    
-    pathway_strings = [p.__name__ for p in chosen_pathways]
-    pathways_string = '\npathways:\n' + '='*11 + '\n   ' + '\n   '.join(pathway_strings) + '\n'
-    print(pathways_string)
-    
-    # leave only those changeable parameters to be optimized that are actually used by the model
-    # i.e. remove changeables of unused pathways
-    changeables = list(OPTIMIZATION_PARAMETERS.CHANGEABLES)
-    for c in changeables:
-        if not '_' in c:
-            continue
-        pathway_name = c.split('_')[-1]
-        if c.startswith('Km_'):
-            pathway_name = c.split('_')[1]
+        replica_obj = [ReplicaObjective(replica, model) for replica in replicas]
         
-        if pathway_name == 'Acetate':
-            pathway_name = 'Ac'
-        if not pathway_name in pathway_strings:
-            changeables.remove(c)
+        if self.algorithm == 'PSO':
+            import pyswarms as ps
+            objective = ParticleObjective(replica_obj, variables)
+            bounds = (np.array(lower_bounds), np.array(upper_bounds))
             
-    default_model_parameters = pathways.default_model_parameters()
-    for name in changeables:
-        if name in default_model_parameters:
-            del default_model_parameters[name]
+            particles = self.kwargs['particles']
+            iterations = self.kwargs['iterations']
+            options = {'c1': self.kwargs['c1'],
+                       'c2': self.kwargs['c2'],
+                       'w': self.kwargs['w']}
+            optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
+                                                dimensions=len(variables),
+                                                options=options,
+                                                bounds = bounds)
+            _ = optimizer.optimize(objective,
+                                    iters = iterations,
+                                    n_processes = None)
+        
+        elif self.algorithm == 'gradient':
+            objective = Objective(replica_obj, variables)
+
+            method = self.kwargs['method']
+            iterations = self.kwargs['iterations']
+            bounds = list(zip(lower_bounds, upper_bounds))
+            _ = scipy.optimize.minimize(objective,
+                                        x0,
+                                        bounds = bounds,
+                                        method = method,
+                                        options = {'maxiter': iterations})
+        
+        elif self.algorithm == 'direct':
+            objective = Objective(replica_obj, variables)
+            bounds = list(zip(lower_bounds, upper_bounds))
+            _ = scipy.optimize.direct(objective, bounds = bounds)
+                
+        elif self.algorithm == 'dual_annealing':
+            objective = Objective(replica_obj, variables)
+            bounds = list(zip(lower_bounds, upper_bounds))
+            _ = scipy.optimize.dual_annealing(objective, bounds = bounds)
             
-    initial_guess_dict = OPTIMIZATION_PARAMETERS.get_initial_guesses()
-    lower_bounds = [initial_guess_dict[key][1] for key in changeables]
-    upper_bounds = [initial_guess_dict[key][2] for key in changeables]
-
-    initial_guess_bounds = list(zip(lower_bounds, upper_bounds))
-
-    if not isinstance(replicas, list):
-        replicas = [replicas]
-    
-    
-    print('Optimization')
-    print('============')
-    print('changeables:')
-    for c in changeables:
-        print('   ' + c)
+        elif self.algorithm == 'differential_evolution':
+            strategy = self.kwargs['strategy']
+            updating = self.kwargs['updating']
+            
+            objective = Objective(replica_obj, variables)
+            bounds = list(zip(lower_bounds, upper_bounds))
+            _ = scipy.optimize.differential_evolution(objective,
+                                                      bounds = bounds,
+                                                      strategy = strategy,
+                                                      updating = updating)
+        else:
+            raise NotImplementedError()
+            
+        _, optimal_parameters = objective.best_call()
+        _ = [variable.set(value) for variable, value in zip(variables, optimal_parameters)]
         
-    objectives = []
-    for replica in replicas:
-        # replica- or sample-specific model parameters (always fixed)
-        fixed_parameters = {'C': replica.initial_C(),
-                            'DOC': replica.initial_DOC(),
-                            'pH': replica.sample.pH,
-                            'H2O': replica.initial_H2O(),
-                            'weight': replica.dry_weight,
-                            'water': replica.water_content}
-        for name in changeables:
-            if name in fixed_parameters.keys():
-                del fixed_parameters[name]
-        model_parameters = dict(default_model_parameters)
-        model_parameters.update(fixed_parameters)            
 
-        objectives.append(SpecimenObjective(chosen_pathways,
-                                            model_parameters,
-                                            replica,
-                                            changeables))
+class Objective():
+    def __init__(self, replica_objectives, variables):
+        self.replica_objectives = replica_objectives
+        self._calls = []
+        self.variables = variables
     
+    def transform(self, parameter_values):
+        transformed_parameter_values = [v.transform(p)
+                                        for var, p in zip(self.variables, parameter_values)]
+        return np.squeeze(transformed_parameter_values)
     
-    workers = OPTIMIZATION_PARAMETERS.WORKERS
-    if workers == -1:
-        workers = multiprocessing.cpu_count()
+    def inverse_transform(self, transformed_parameter_values):
+        try:
+            parameter_values = [var.inverse_transform(p) 
+                            for var, p in zip(self.variables, transformed_parameter_values)]
+        except Exception as ex:
+            raise Exception(str(transformed_parameter_values))
+        return np.squeeze(parameter_values)
+    
+    def __call__(self, transformed_parameter_values):
+        parameter_values = self.inverse_transform(transformed_parameter_values)
+        _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
+        total_loss = sum([obj() for obj in self.replica_objectives])   
+        self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
+        return total_loss
+    
+    def best_call(self):
+        sorted_by_loss = sorted(self._calls)
+        best = sorted_by_loss[0]
+        best_loss, best_transformed_parameter_values = best
+        best_parameter_values = self.inverse_transform(best_transformed_parameter_values)
+        return best_loss, best_parameter_values
+    
+    def __str__(self):
+        return 'Objective function: sum of loss from\n' + '\n'.join([str(s) 
+                                                         for s in self.replica_objectives])
+
+class ParticleObjective(Objective):
         
+    def __call__(self, particle_model_parameter_values):
+        particle_fitnesses = []
+        for transformed_parameter_values in particle_model_parameter_values:
+            parameter_values = self.inverse_transform(transformed_parameter_values)
+            _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
+            losses = [obj() for obj in self.replica_objectives]
+            total_loss = np.sum(losses)
+            particle_fitnesses.append(total_loss)
+        self._calls.append((total_loss, particle_fitnesses))
+        return np.array(particle_fitnesses)
+
+class Loss():
+    def __init__(self, predicted, measured):
+        self.predicted = predicted
+        self.measured = measured
+    
+    def RMSE(self):
+        return np.sqrt(np.mean((self.predicted - self.measured)**2))
+
+class ReplicaObjective():
+    def __init__(self, replica, model):
+        self.model = model
+        self.replica = replica
+        self.best = None
+        
+    def __call__(self):        
+
+        days = self.replica.incubation['days']
+        results = self.model.predict(self.replica, days, quiet = True)
+        
+        _, predicted_CO2 = zip(*results['CO2'])
+        measured_CO2 = self.replica.incubation['CO2']
+        
+        CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
+        
+        _, predicted_CH4 = zip(*results['CH4'])
+        measured_CH4 = self.replica.incubation['CH4']
+        
+        CH4_loss = Loss(predicted_CH4, measured_CH4).RMSE()
+        
+        loss = CO2_loss + CH4_loss
+        
+        if not self.best or loss < self.best:
+            self.best = loss
+            plt.figure()
+            plt.plot(days, measured_CO2, 'rx')
+            plt.plot(days, measured_CH4, 'bx')
+
+            plt.plot(days, predicted_CO2, 'k-')
+            plt.plot(days, predicted_CH4, 'k--')
+
+            plt.title(str(self.replica))
+            plt.show()
+        
+        return loss
+    
+    def __str__(self):
+        return f'fit to replica {self.replica}'
+    
+
+
+    """
+    
     if algo == 'differential_evolution':
         opti_string = f'fitting {len(objectives):d} samples with DIFFERENTIAL EVOLUTION on {workers:d} workers'
         print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
@@ -118,181 +207,4 @@ def fit_specimen(replicas, chosen_pathways, algo, before = None):
                                                                      **OPTIMIZATION_PARAMETERS.DIFF_EVOL_PARAMETERS)
         changeables_optimal_array = optimization_result.x
 
-    elif algo == 'gradient':
-        method_name = OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS['method']
-        opti_string = f'fitting {len(objectives):d} samples with {method_name:}'
-        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
-
-        initial_guess_array = np.array([initial_guess_dict[k][0] for k in changeables])
-        optimization_result = scipy.optimize.minimize(ObjectiveFunction(),
-                                                      initial_guess_array,
-                                                      args = (objectives,),
-                                                      bounds = initial_guess_bounds,
-                                                      **OPTIMIZATION_PARAMETERS.GRADIENT_PARAMETERS)
-        changeables_optimal_array = optimization_result.x
-
-    elif algo == 'PSO':
-        import pyswarms as ps
-        
-        options = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['options']
-        particles = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['particles']
-        iters = OPTIMIZATION_PARAMETERS.PSO_PARAMETERS['iterations']
-        
-        opti_string = f'fitting {len(objectives):d} samples with PSO on {workers:d} workers'
-        print('\n' + '#'*len(opti_string) + '\n' + opti_string + '\n' + '#'*len(opti_string) + '\n')
-
-        # Call instance of GlobalBestPSO
-        optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
-                                            dimensions=len(changeables),
-                                            options=options,
-                                            bounds = (np.array(lower_bounds), np.array(upper_bounds)))
-        _, changeables_optimal_array = optimizer.optimize(ParticleObjective(),
-                                                           iters = iters,
-                                                           n_processes = workers,
-                                                           specimen_objectives=objectives)
-    elif algo == 'direct':
-        res = scipy.optimize.direct(ObjectiveFunction(),
-                              bounds = initial_guess_bounds,
-                              args = (objectives, ))
-        changeables_optimal_array = res.x
-        print('final objective value:', res.fun)
-        
-    elif algo == 'dual_annealing':
-        res = scipy.optimize.dual_annealing(ObjectiveFunction(),
-                              bounds = initial_guess_bounds,
-                              args = (objectives, ))
-        changeables_optimal_array = res.x
-        print('final objective value:', res.fun)
-        
-    else:
-        raise NotImplementedError()
-
-    changeables_optimal_dict = dict(zip(changeables, changeables_optimal_array))
-
-    print('optimal parameters:')
-    for k, v in changeables_optimal_dict.items():
-        print(f'   {k[:15]:15} {v}')
-    print('')
-
-    return changeables_optimal_dict
-
-
-class ParticleObjective():
-    
-    def __call__(self, changeable_parameters, specimen_objectives):
-        particle_fitnesses = []
-        for particle_changeables in changeable_parameters:
-            losses = [sample_loss(particle_changeables) for sample_loss in specimen_objectives]
-            total_loss = np.sum(losses)
-            particle_fitnesses.append(total_loss)
-        
-        return np.array(particle_fitnesses)
-
-
-class ObjectiveFunction():
-    def __init__(self):
-        self.best = np.inf
-
-    def __call__(self, changeable_parameters, specimen_objectives):
-        losses = [sample_loss(changeable_parameters) 
-                  for sample_loss in specimen_objectives]
-        total_loss = np.sum(losses)
-        #print(f'{total_loss:.5e}')
-
-        if total_loss < self.best:
-            self.best = total_loss
-            specimen_objectives[0].plot(changeable_parameters)
-
-        return total_loss
-
-class SpecimenObjective():
-    def __init__(self, chosen_pathways, fixed_parameters, replica, changeables):
-        self.pathways = chosen_pathways
-        self.fixed_parameters = fixed_parameters
-        self.measured_data_dict = replica.incubation
-        self.changeables = changeables
-
-        if OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
-            plt.ion()
-            self.fig, (self.ax0, self.ax1) = plt.subplots(2,1)
-
-        print(f'fixed parameters for replica {str(replica)}:')
-        for c in fixed_parameters.keys():
-            print('   ' + c)
-
-
-    def __call__(self, changeable_parameters):
-
-        model_parameters = dict(self.fixed_parameters)
-        model_parameters.update({k:v for k,v in zip(self.changeables, 
-                                                    changeable_parameters)})
-
-        measure_days = self.measured_data_dict['days']
-        y_predicted_dict = predictor(t_eval = measure_days,
-                                    model_parameters = model_parameters,
-                                    chosen_pathways = self.pathways,
-                                    verbose = False,
-                                    mark = self.changeables)
-
-        CO2_predicted = y_predicted_dict['CO2']
-        CH4_predicted = y_predicted_dict['CH4']
-
-        CO2_measured = self.measured_data_dict['CO2']
-        CH4_measured = self.measured_data_dict['CH4']
-
-        measure_day_weight = np.ones((len(CO2_measured),))
-        if OPTIMIZATION_PARAMETERS.MEASURE_DAYS_WEIGHTING:
-            measure_day_weight = np.concatenate([np.array([1]), np.diff(measure_days)])
-
-        # Die Berechnung der Abweichung zwischen gemessenem und vorhergesagtem Wert
-        error_CO2 = measure_day_weight * (CO2_predicted - CO2_measured)
-        error_CH4 = measure_day_weight * (CH4_predicted - CH4_measured)
-
-        # ist es wichtiger an CO2 oder an CH4 gut zu fitten. (je höher desto wichtiger)
-        weight_CO2 = 1.
-        weight_CH4 = 1.
-
-        sum_of_squared_residuals = weight_CO2*np.sum(error_CO2**2) + weight_CH4*np.sum(error_CH4**2)
-
-        print('SSR', f'{sum_of_squared_residuals:.3e}')
-        return sum_of_squared_residuals
-
-    def plot(self,changeable_parameters):
-        if not OPTIMIZATION_PARAMETERS.PLOT_LIVE_FIT:
-            return
-
-        self.fixed_parameters.update({k:v for k,v in zip(self.changeables, 
-                                                         changeable_parameters)})
-
-        measure_days = self.measured_data_dict['days']
-        y_predicted_dict = predictor(t_eval = measure_days,
-                                    model_parameters = self.fixed_parameters,
-                                    chosen_pathways = self.pathways,
-                                    verbose = False,
-                                    mark = self.changeables)
-
-        CO2_predicted = y_predicted_dict['CO2']
-        CH4_predicted = y_predicted_dict['CH4']
-
-        CO2_measured = self.measured_data_dict['CO2']
-        CH4_measured = self.measured_data_dict['CH4']
-
-        self.ax0.clear()
-        self.ax1.clear()
-
-        plt.figure(self.fig.number)
-        self.ax0.plot(measure_days, CO2_predicted)
-        self.ax0.plot(measure_days, CO2_measured, 'x')
-        self.ax0.set_ylim([np.min(CO2_measured), np.max(CO2_measured)])
-        self.ax0.set_title('CO2')
-
-        self.ax1.plot(measure_days, CH4_predicted)
-        self.ax1.plot(measure_days, CH4_measured, 'x')
-        self.ax1 .set_ylim([np.min(CH4_measured), np.max(CH4_measured)])
-        self.ax1.set_title('CH4')
-
-        loss = self.__call__(changeable_parameters)
-        self.fig.suptitle(f'{loss:>.2f}')
-
-        plt.draw()
-        plt.pause(0.0001)
+"""
