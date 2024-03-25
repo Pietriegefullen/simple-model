@@ -42,7 +42,7 @@ DIFF_EVOL_PARAMETERS = {'strategy':         'best1bin',
                         'updating':         'immediate'}
 
 GRADIENT_PARAMETERS = {'method':            'L-BFGS-B',
-                       'options':           {'maxiter':     2,
+                       'options':           {'maxiter':     200,
                                              'disp':        True}
                        }
 

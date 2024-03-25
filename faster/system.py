@@ -46,9 +46,11 @@ def vector(full, pool = None, value = None):
 
 def initial_state(replica, model_parameters):
     S0 = np.zeros((len(SYSTEM),))
-    S0 += vector(0, 'C', replica.initial_C())
-    S0 += vector(0, 'DOC', replica.initial_DOC())
-    S0 += vector(0, 'H2O', replica.water_content)
+    
+    if not replica is None:
+        model_parameters['C'].constant(replica.initial_C())
+        model_parameters['DOC'].constant(replica.initial_DOC())
+        model_parameters['H2O'].constant(replica.water_content)
     
     model_parameters['Fe3']
     model_parameters['M_Ferm']

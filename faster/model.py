@@ -20,8 +20,12 @@ def builder(defined_pathways, environment, extended_output = None):
         
         """
         This is the function given to the IVP solver.
-        """
-        print(t)
+        """        
+        if False:
+            print(f't = {t}')
+            for v, n in zip(system_state, POOL_ORDER):
+                print(f'{n[:15]:15}  {v}')
+            input()
         system_state = np.where(system_state < 1e-40, 0, system_state)
         pathway_changes = [pathway(t, system_state) for pathway in built_pathways]
         changes = np.sum(np.stack(pathway_changes, axis = 0), axis = 0)        
@@ -117,7 +121,6 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         print_array(print_matrix, columns = ['pathway', 'henry', 'Km', 'inhib', 'grow'])
 
     def pathway(t, system_state):
-        1/0
         """
         This is the actual model.
         """
@@ -164,7 +167,7 @@ def pathway_builder(microbe, educts, products, environment, extended_output = No
         death_rate_vector_biomass = death_rate_vector * biomass
         system_state_changes = biomass * v * pathway_vector - death_rate_vector_biomass
 
-        if DEBUG:
+        if False:
             print_matrix = np.concatenate([np.reshape(dissolved_system_state, (-1, 1)),
                                            np.reshape(MM, (-1, 1)),
                                            np.reshape(invMM, (-1, 1)),
