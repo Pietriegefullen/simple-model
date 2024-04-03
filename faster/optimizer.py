@@ -7,8 +7,8 @@ def algo_kwargs(method):
         return {'c1': .5,
                 'c2': .3,
                 'w': .9,
-                'particles': 100,
-                'iterations': 500}
+                'particles': 50,
+                'iterations': 25}
     
     elif method == 'gradient':
         return {'method': 'L-BFGS-B',
@@ -34,6 +34,20 @@ class Algorithm():
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
+        print()
+        rep = '_'.join([str(r) for r in replicas])
+        print(f'minimizing with {self.algorithm} for {rep}')
+        print('model:')
+        print(str(model))
+        print()
+        title = 'Variable Parameters:'
+        title += '\n' + '='*len(title) + '\n'
+        sorted_params = sorted(variables, key = lambda x: x.name)
+        print(title + '\n'.join([f'{i+1:3d}) ' + str(p) for i, p in enumerate(sorted_params)]))
+    
+        if not variables:
+            raise Exception('Model has no variable parameters.')
+              
         replica_obj = [ReplicaObjective(replica, model) for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -127,7 +141,7 @@ class Objective():
         return total_loss
     
     def best_call(self):
-        sorted_by_loss = sorted(self._calls)
+        sorted_by_loss = sorted(self._calls, key = lambda x: x[0])
         return sorted_by_loss[0]
     
     def __str__(self):
@@ -202,4 +216,6 @@ class ReplicaObjective():
     
     def __str__(self):
         return f'fit to replica {self.replica}'
+    
+    
     

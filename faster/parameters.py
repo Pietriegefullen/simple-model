@@ -2,37 +2,37 @@ import numpy as np
 
 def default_model_parameters(model_parameters = None):
     p = [
-         Parameter('Hydrolysis_v_max', 1, [1e-8, 1]),
-         Parameter('Hydrolysis_Kmb', 800, [0.0005, 2000]),
+         Parameter('Hydrolysis_v_max', .1, [1e-8, 1]),
+         Parameter('Hydrolysis_Kmb', 300, [0.0005, 2000]),
          
-         Parameter('Ferm_v_max',       4, [0.001, 5]),
+         Parameter('Ferm_v_max',       1, [0.001, 5]),
          #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        780, [0.0005, 1000]),
-         Parameter('Ferm_inhibition',  7, [0.001, 20]),
+         Parameter('Ferm_Km',        150, [0.0005, 1000]),
+         Parameter('Ferm_inhibition',  4, [0.001, 20]),
          Parameter('Ferm_CUE',        .3, [0, 1], 'linear'),
          
          Parameter('death_rate',  8.3e-5),
          
-         Parameter('Hydro_Km_CO2',    77, [.0005, 1000]),
+         Parameter('Hydro_Km_CO2',    500, [.0005, 1000]),
          Parameter('Hydro_v_max',    .24, [0.003, 1.]),
          Parameter('Hydro_CUE',       .3, [0, 1], 'linear'),
-         Parameter('Hydro_Km_H2',     77, [.0005, 1000]),
+         Parameter('Hydro_Km_H2',     500, [.0005, 1000]),
          
-         Parameter('Homo_Km_H2',      77, [0.0005, 1000]),
-         Parameter('Homo_Km_CO2',     77, [0.0005, 1000]),
+         Parameter('Homo_Km_H2',      500, [0.0005, 1000]),
+         Parameter('Homo_Km_CO2',     500, [0.0005, 1000]),
          Parameter('Homo_v_max',      .5, [0.005, 1.]),
          Parameter('Homo_CUE',        .3, [0, 1], 'linear'),
          
-         Parameter('Aceto_Km_Ac',     77, [0.0005, 1000]),
+         Parameter('Aceto_Km_Ac',     150, [0.0005, 1000]),
          Parameter('Ac_v_max',       .56, [0.005, 1.]),
          Parameter('Ac_CUE',          .3, [0, 1], 'linear'), 
          
-         Parameter('Fe3_Km_Ac',       77, [0.0005, 1000]),
-         Parameter('Fe3_Km_Fe3',     738, [0.0005, 1000]),
+         Parameter('Fe3_Km_Ac',      150, [0.0005, 1000]),
+         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000]),
          Parameter('Fe3_v_max',    0.898, [0.002, 3.]), 
          Parameter('Fe3_CUE',        0.3, [0, 1], 'linear'),
          
-         Parameter('Acetate',         50, [0, 100], 'linear'),
+         Parameter('Acetate',         1, [0, 100], 'linear'),
          Parameter('Fe3',             20, [0, 300], 'linear'),
          
          Parameter('M_Ferm',          .2, [1e-8, 0.5]),

@@ -9,8 +9,10 @@ import USER_VARIABLES
 
 # TODO: check matlab data and compare. why different?
 # TODO: compute measures of fit (Whose responsibility?)
-
+# TODO: load model, then continue optimizing with gradient method?
+# TODO: remove unused pools/variables, e.g. initial Fe3 in simple model.
 # TODO: 1354-6 has no carex but usable only up to day 1309?
+# TODO: timeout for solve_ivp in case parameter combination causes too small time steps?
 
 def fit(include_samples = None, exclude_samples = None):
     dataset = data.get_data_before_carex()
@@ -47,7 +49,12 @@ def fit(include_samples = None, exclude_samples = None):
                 chosen_pathways = model.get_pathways(model_type)
                 pathway_model = model.Model(chosen_pathways)
                 pathway_model.parameters().set('default')
-            
+                
+                if not 'Fe3' in chosen_pathways:
+                    pathway_model.parameters()['Fe3'].constant(0)
+                if not 'Homo' in chosen_pathways:
+                    pathway_model.parameters()['M_Homo'].constant(0)
+
                 try:
                     best_loss, _ = pathway_model.fit(fit_replicas)
                     
@@ -90,4 +97,4 @@ def fit(include_samples = None, exclude_samples = None):
                     print()
     
 if __name__ == '__main__':
-    fit(    )
+    fit()
