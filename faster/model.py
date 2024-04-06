@@ -134,7 +134,10 @@ class ModelRun():
     def reset(self):
         self._log = {}
         
-    def plot(self, name, newfigure = True):
+    def plot(self, name = None, newfigure = True):
+        if name is None:
+            name = list(self._log.keys())
+            
         if not isinstance(name, list):
             name = [name]
         
@@ -202,7 +205,10 @@ if __name__ == '__main__':
  
     model.parameters().set('default')
     model.parameters().set(p)
-    results = model.fit([d['13514'], d['13515']], 'PSO')
-    results.plot(['CO2', 'CH4'], newfigure = False)
+    #results = model.fit([d['13514'], d['13515']], 'PSO')
+    model_run = model.predict(d['13514'])
+    model_run.plot(['CO2', 'CH4'], newfigure = False)
     d['13514'].plot()
+    plt.figure()
+    model_run.plot()
     plt.show()

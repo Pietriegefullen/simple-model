@@ -116,7 +116,7 @@ class Pathway():
         v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor
 
         dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
-        dS_dt = np.clip(dS_dt, -S, np.inf)        
+        dS_dt = np.clip(dS_dt, -S, np.inf)
         
         self.log('MM', t, MM_factor)
         self.log('inhib', t, inhib_factor)

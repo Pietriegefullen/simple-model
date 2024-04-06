@@ -56,10 +56,10 @@ class KnoblauchData():
 
                 new_replica = Replica(replica_name[-1])
                 new_replica.events = {event:day for (day, event) in replica_data['events']}
+                new_replica.dry_weight = replica_data['dry weight']
                 new_replica.incubation = {'days': np.reshape(replica_data['days'], (-1,)),
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
-                new_replica.dry_weight = replica_data['dry weight']
                 new_replica.water_content = replica_data['water content']
                 new_sample.add_replica(new_replica)
 
@@ -114,7 +114,7 @@ class Sample():
         self.origin = None
         self.depth = None
         self.pH = None
-        self.TOC = None
+        self.TOC = None # as decimal, e.g. 3% is 0.03
         
         
     def add_replica(self, replica):
@@ -159,21 +159,24 @@ class Replica():
         self.sample = None
         self.replica_number = replica_number
         
-        self.dry_weight = None
-        self.water_content = None
-        self.temperature = 4 + 273.15
+        self.dry_weight = None # directly from Knoblauch, unit is g
+        self.water_content = None # directly from Knoblauch, ml 
+        self.temperature = CONSTANTS.SPECIMEN_TEMPERATURE
         
         self.events = {}
-        self.incubation = {}
+        self.incubation = {} # incubation data is from Knoblauch per g_dw
         
     def initial_C(self):
-        return (10**6)*self.dry_weight*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
+        # micro-mol per g dw
+        return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
         
     def initial_DOC(self):
         return self.initial_C()*.02
     
     def initial_H2O(self):
-        return self.water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
+        # micro mol per g dw
+        relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw
+        return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
     
     def CO2(self):
         return self.incubation['days'], self.incubation['CO2']
