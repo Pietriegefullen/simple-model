@@ -5,6 +5,8 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+import USER_VARIABLES
+
 def algo_kwargs(method):
     if method == 'PSO':
         return {'c1': .5,
