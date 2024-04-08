@@ -145,13 +145,11 @@ class Objective():
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
-        if not self._calls or total_loss < self.best_call()[0]:
-            print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
 
-        parameter_dict = {var.name:p
-                          for var, p in zip(self.variables, parameter_values)}
         if not self._calls or total_loss < self.best_call()[0]:
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
+            parameter_dict = {var.name:p
+                            for var, p in zip(self.variables, parameter_values)}
             replica_objectives = self.replica_objectives
             if not isinstance(replica_objectives, list):
                 replica_objectives = [replica_objectives]
@@ -159,8 +157,7 @@ class Objective():
             checkpoint_file = os.path.join(self.cp_path, file_name)
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
-
-            self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
+            self._calls.append((total_loss, parameter_dict))
 
         return total_loss
     
