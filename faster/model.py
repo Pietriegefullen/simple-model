@@ -10,7 +10,7 @@ import optimizer
 import pathways
 import parameters
 
-OPTIMIZATION_ALGORITHM = 'PSO' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
+OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
 def get_pathways(model_type):

@@ -115,6 +115,7 @@ class Objective():
         self.replica_objectives = replica_objectives
         self._calls = []
         self.variables = variables
+        self._call_count = 0
     
     def transform(self, parameter_values):
         transformed_parameter_values = [v.transform(p)
@@ -130,14 +131,13 @@ class Objective():
         return np.squeeze(parameter_values)
     
     def __call__(self, transformed_parameter_values):
+        self._call_count += 1
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
         if not self._calls or total_loss < self.best_call()[0]:
-            print('best total loss', total_loss)
-            for obj in self.replica_objectives:
-                obj.plot()
-        self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
+            print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
+            self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
         return total_loss
     
     def best_call(self):
@@ -149,7 +149,6 @@ class Objective():
                                                          for s in self.replica_objectives])
 
 class ParticleObjective(Objective):
-        
     def __call__(self, particle_model_parameter_values):
         particle_fitnesses = []
         for transformed_parameter_values in particle_model_parameter_values:
@@ -158,7 +157,7 @@ class ParticleObjective(Objective):
             losses = [obj() for obj in self.replica_objectives]
             total_loss = np.sum(losses)
             particle_fitnesses.append(total_loss)
-        self._calls.append((total_loss, parameter_values))
+            self._calls.append((total_loss, parameter_values))
         return np.array(particle_fitnesses)
 
 class Loss():
