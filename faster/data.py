@@ -27,7 +27,7 @@ def get_data_before_carex():
 
 class KnoblauchData():
     def __init__(self):
-        self.source_directory = 'D:\OneDrive - Universität Hamburg\daten und code'
+        self.source_directory = ROOT_DIRECTORY
         self.samples = []
         #superdata = load_matlab('superdata')
         
@@ -386,7 +386,6 @@ def specimen_data(specimen_index, site):
     return data
 
 def load_matlab(dataset = None):
-
     """
      # NOTE: order in returned tuple has changed.
      #       it is NO LONGER as listed here:
@@ -756,7 +755,6 @@ def load_matlab(dataset = None):
     return replica_list_No_CH4,superdata_No_CH4_vor_Impfung, superdata_No_CH4_nach_Impfung, superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4, superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3
 
 
-replica_list_No_CH4, superdata_No_CH4_vor_Impfung,superdata_No_CH4_nach_Impfung,superdata_after_No_CH4,superdata_bevor_No_CH4, superdata_No_CH4,  superdata, replica_list, superdata_carex, superdata_Kuru, superdata_Sam, replica_list_Kuru, replica_list_Sam,superdata_2021_all, replica_list_superdata_2021_all, superdata_ohne_Fe3, Rep_ohne_Fe3,superdata_mit_Fe3, Rep_mit_Fe3 = load_matlab()
 
 
 if __name__ == '__main__':

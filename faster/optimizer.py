@@ -3,6 +3,7 @@ import json
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
+from datetime import datetime
 
 def algo_kwargs(method):
     if method == 'PSO':
@@ -118,7 +119,12 @@ class Objective():
         self._calls = []
         self.variables = variables
         self._call_count = 0
-    
+        timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
+        name = '_'.join([str(r) for r in replica_objectives]) + '_' + timestamp
+        self.cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
+        if not os.path.isdir(self.cp_path):
+            os.makedirs(self.cp_path)
+
     def transform(self, parameter_values):
         transformed_parameter_values = [v.transform(p)
                                         for var, p in zip(self.variables, parameter_values)]
@@ -147,12 +153,8 @@ class Objective():
             replica_objectives = self.replica_objectives
             if not isinstance(replica_objectives, list):
                 replica_objectives = [replica_objectives]
-            name = '_'.join([str(r) for r in replica_objectives])
-            cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
-            file_name = f'call_{len(self._calls)+1:03d}_loss_{total_loss:.2f}'
-            checkpoint_file = os.path.join(cp_path, file_name)
-            if not os.path.isdir(cp_path):
-                os.makedirs(cp_path)
+            file_name = f'call_{self._call_count:03d}_loss_{total_loss:.2f}'
+            checkpoint_file = os.path.join(self.cp_path, file_name)
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
 

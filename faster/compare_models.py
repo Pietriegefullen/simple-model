@@ -188,4 +188,4 @@ def boxplots():
     
 if __name__ == '__main__':
     #boxplots()
-    fit()
+    fit(['1351'])
