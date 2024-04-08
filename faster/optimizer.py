@@ -1,3 +1,5 @@
+import os
+import json
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -137,7 +139,25 @@ class Objective():
         total_loss = sum([obj() for obj in self.replica_objectives])   
         if not self._calls or total_loss < self.best_call()[0]:
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
+
+        parameter_dict = {var.name:p
+                          for var, p in zip(self.variables, parameter_values)}
+        if not self._calls or total_loss < self.best_call()[0]:
+            print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
+            replica_objectives = self.replica_objectives
+            if not isinstance(replica_objectives, list):
+                replica_objectives = [replica_objectives]
+            name = '_'.join([str(r) for r in replica_objectives])
+            cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
+            file_name = f'call_{len(self._calls)+1:03d}_loss_{total_loss:.2f}'
+            checkpoint_file = os.path.join(cp_path, file_name)
+            if not os.path.isdir(cp_path):
+                os.makedirs(cp_path)
+            with open(checkpoint_file, 'w') as cf:
+                json.dump(parameter_dict, cf, indent = 4)
+
             self._calls.append((total_loss, {var.name:p for var, p in zip(self.variables, parameter_values)}))
+
         return total_loss
     
     def best_call(self):
