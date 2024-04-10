@@ -10,6 +10,7 @@ import optimizer
 import pathways
 import parameters
 
+import USER_VARIABLES
 
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
@@ -164,46 +165,23 @@ if __name__ == '__main__':
     d = data.get_data_before_carex()
     
     model = Model(get_pathways('simple'))
-    
-    p = {
-    "death_rate": 8.33e-05,
-    "Acetate": 1,
-#    "temperature": 4.0,
-#    "C": 2546.5533333333337,
-#    "DOC": 50.93106666666667,
-#    "pH": 3.95,
-#    "weight": 11.82,
-#    "water": 4.0,
-#    "H2O": 222033.74024716797,
-#    "M_Fe3": 0.15377556552732402,
-    "M_Ferm": 0.29386173195040044,
-    "M_Hydro": 0.43281383907529236,
-    "M_Homo": 0.2574949776769526,
-    "Hydrolysis_v_max": 0.6166340111649226,
-    "Ferm_v_max": 1.070276371909682,
-#    "Vmax_Fe3": 1.3804244562902253,
-#    "Vmax_Homo": 0.9318093189492231,
-    "Hydro_v_max": 0.7064582813317815,
-    "Ac_v_max": 0.4599047701351146,
-    "Hydrolysis_Kmb": 288.99678942466437,
-    "Aceto_Km_Ac": 145.99705636830586,
-#    "Km_Homo_CO2": 376.8013896720814,
-#    "Km_Homo_H2": 688.3240608121672,
-    "Hydro_Km_CO2": 661.7562751340953,
-    "Hydro_Km_H2": 497.8934720994153,
-#    "Km_Fe3_Fe3": 173.34626557916957,
-#    "Km_Fe3_Acetate": 637.4030208609411,
-    "Ferm_Km": 160.15461453008587,
-    "Ferm_inhibition": 4.643075236732733,
-    "Fe3": 81.99097055433658,
-    "M_Ac": 0.014042559314258995,
-    "Ferm_CUE": 0.30944032735284144,
-#    "CUE_Fe3": 0.012291327263939777,
-    "Ac_CUE": 0.5724913805190271,
-#    "CUE_Homo": 0.4988932700684491,
-    "Hydro_CUE": 0.5054549655151662
-}
- 
+  
+    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY,'fit to replica 13515_fit to replica 13516_2024-04-08--10-46-01')
+    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY,'fit to replica 13514_fit to replica 13515')
+    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, 'fit to replica 13526_2024-04-09--08-07-16')
+    all_files = []
+    for f in os.listdir(parameter_source):
+        if 'loss_' in f:
+            loss = float(f.split('loss_')[-1])
+            file = os.path.join(parameter_source, f)
+            all_files.append((loss, file))
+    if len(all_files) == 0:
+        raise Exception('loading parameters failed')
+    best_loss, best_loss_file = list(sorted(all_files))[0]
+    print('best loss', best_loss)
+    with open(best_loss_file, 'r') as pf:
+        p = json.load(pf)
+     
     model.parameters().set('default')
     model.parameters().set(p)
     #results = model.fit([d['13514'], d['13515']], 'PSO')
@@ -211,5 +189,5 @@ if __name__ == '__main__':
     model_run.plot(['CO2', 'CH4'], newfigure = False)
     d['13514'].plot()
     plt.figure()
-    model_run.plot()
+    model_run.plot(['DOC'])
     plt.show()
