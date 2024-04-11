@@ -19,7 +19,6 @@ SYSTEM = [
             'H2O',
             ]
 
-
 def index(name):
     return SYSTEM.index(str(name))
 
@@ -44,7 +43,8 @@ def initial_state(replica, model_parameters):
     
     if not replica is None:
         model_parameters['C'].constant(replica.initial_C())
-        model_parameters['DOC'].constant(replica.initial_DOC())
+        DOC = replica.initial_C()*.02*model_parameters['DOC_per_TOC']
+        model_parameters['DOC'].constant(DOC)
         model_parameters['H2O'].constant(replica.water_content)
     
     else:

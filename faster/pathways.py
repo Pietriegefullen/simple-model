@@ -63,7 +63,10 @@ class Pathway():
 
         
         self.state_logger = None
-        
+       
+    def system(self):
+        syst = [self.microbe.name] + [e.name for e in self.educts] + [p.name for p in self.products]
+        return list(set(syst))
         
     def inject_logger(self, state_logger):
         self.state_logger = state_logger

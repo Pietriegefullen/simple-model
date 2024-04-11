@@ -57,7 +57,7 @@ class Algorithm():
         
         if self.algorithm == 'PSO':
             import pyswarms as ps
-            objective = ParticleObjective(replica_obj, variables)
+            objective = ParticleObjective(replica_obj, variables, model)
             bounds = (np.array(lower_bounds), np.array(upper_bounds))
             
             particles = self.kwargs['particles']
@@ -75,7 +75,7 @@ class Algorithm():
                                     n_processes = None)
         
         elif self.algorithm == 'gradient':
-            objective = Objective(replica_obj, variables)
+            objective = Objective(replica_obj, variables, model)
 
             method = self.kwargs['method']
             iterations = self.kwargs['iterations']
@@ -88,12 +88,12 @@ class Algorithm():
                                         options = {'maxiter': iterations})
         
         elif self.algorithm == 'direct':
-            objective = Objective(replica_obj, variables)
+            objective = Objective(replica_obj, variables, model)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.direct(objective, bounds = bounds)
                 
         elif self.algorithm == 'dual_annealing':
-            objective = Objective(replica_obj, variables)
+            objective = Objective(replica_obj, variables, model)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.dual_annealing(objective, bounds = bounds)
             
@@ -101,7 +101,7 @@ class Algorithm():
             strategy = self.kwargs['strategy']
             updating = self.kwargs['updating']
             
-            objective = Objective(replica_obj, variables)
+            objective = Objective(replica_obj, variables, model)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = bounds,
@@ -116,13 +116,15 @@ class Algorithm():
         return objective.best_call()
 
 class Objective():
-    def __init__(self, replica_objectives, variables):
+    def __init__(self, replica_objectives, variables, model):
+        self.model = model
         self.replica_objectives = replica_objectives
         self._calls = []
         self.variables = variables
         self._call_count = 0
         timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
-        name = '_'.join([str(r) for r in replica_objectives]) + '_' + timestamp
+        name = 'fit_' + '_'.join([str(r.replica)
+                                  for r in replica_objectives]) + '_' + timestamp
         self.cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
@@ -148,8 +150,9 @@ class Objective():
 
         if not self._calls or total_loss < self.best_call()[0]:
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
-            parameter_dict = {var.name:p
-                            for var, p in zip(self.variables, parameter_values)}
+            parameter_dict = self.model.parameters().get_config()
+            #parameter_dict = {var.name:p
+            #                for var, p in zip(self.variables, parameter_values)}
             replica_objectives = self.replica_objectives
             if not isinstance(replica_objectives, list):
                 replica_objectives = [replica_objectives]

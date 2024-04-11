@@ -13,7 +13,6 @@ import CONSTANTS
 import loading
 
 # TODO: check units (replica mass, water content, ...)
-# TODO: check replica: water content must have correct OOM
 
 knoblauch_data = None
 
@@ -102,7 +101,8 @@ class KnoblauchData():
         text = '\n'.join([str(s) for s in self.samples]) 
         text += f'\n {len(self.samples)} samples, {total_replicas} replicas'
         return text
-    
+   
+
 class Sample():
     def __init__(self, sample_name):
         super().__init__()
@@ -155,7 +155,6 @@ class Sample():
     
 class Replica():
     def __init__(self, replica_number):
-
         self.sample = None
         self.replica_number = replica_number
         
@@ -170,9 +169,6 @@ class Replica():
         # micro-mol per g dw
         return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
         
-    def initial_DOC(self):
-        return self.initial_C()*.02
-    
     def initial_H2O(self):
         # micro mol per g dw
         relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw
@@ -284,8 +280,7 @@ def check_replica(replica):
 
 if __name__ == '__main__':
     d = get_data_before_carex()
-    d.plot_samples()
+    print('====')
     print(d)
-
 
 

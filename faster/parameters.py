@@ -2,6 +2,8 @@ import numpy as np
 
 def default_model_parameters(model_parameters = None):
     p = [
+         Parameter('DOC_per_TOC',    6.),
+
          Parameter('Hydrolysis_v_max', .83, [1e-8, 1]),
          Parameter('Hydrolysis_Kmb', 333, [0.0005, 2000]),
          

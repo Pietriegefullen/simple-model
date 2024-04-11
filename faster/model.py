@@ -67,7 +67,6 @@ class Model():
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
         return algo.minimize(self, replicas)
         
-        
     def predict(self, replica, t = None, quiet = False):
         if t is None:
             t = replica['days']
@@ -165,10 +164,9 @@ if __name__ == '__main__':
     d = data.get_data_before_carex()
     
     model = Model(get_pathways('simple'))
-  
-    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY,'fit to replica 13515_fit to replica 13516_2024-04-08--10-46-01')
-    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY,'fit to replica 13514_fit to replica 13515')
-    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, 'fit to replica 13526_2024-04-09--08-07-16')
+ 
+    results_folder = 'fit to replica 13546_2024-04-10--19-48-45'
+    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
     for f in os.listdir(parameter_source):
         if 'loss_' in f:
@@ -183,11 +181,16 @@ if __name__ == '__main__':
         p = json.load(pf)
      
     model.parameters().set('default')
+
+    del p['M_Homo']
     model.parameters().set(p)
-    #results = model.fit([d['13514'], d['13515']], 'PSO')
-    model_run = model.predict(d['13514'])
+
+    replica_name = results_folder.split(' ')[-1].split('_')[0]
+    print(replica_name)
+    replica = d[replica_name]
+    model_run = model.predict(replica)
     model_run.plot(['CO2', 'CH4'], newfigure = False)
-    d['13514'].plot()
-    plt.figure()
+    replica.plot()
+
     model_run.plot(['DOC'])
     plt.show()

@@ -1,0 +1,9 @@
+( ) determine DOC per TOC
+( ) save all model parameters during optimization
+    ( ) determine unused system pools?
+        -> e.g. M_Homo is set to zero by default initialization and saved
+         but cannot be set to zero b/c of default bounds
+( ) plan of action
+    ( ) make an overview of
+        
+
