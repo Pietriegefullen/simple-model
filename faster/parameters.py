@@ -1,11 +1,11 @@
 import numpy as np
 
-def default_model_parameters(model_parameters = None):
+def default_model_parameters():
     p = [
-         Parameter('Hydrolysis_v_max', .83, [1e-8, 0.1]),
+         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1]),
          Parameter('Hydrolysis_Kmb', 20, [1e-10, 200]),
          
-         Parameter('Ferm_v_max',     2.5, [0.0001, 5]),
+         Parameter('Ferm_v_max',     .525, [0.0001, 5]),
          #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
          Parameter('Ferm_Km',        833, [0.0001, 100]),
          Parameter('Ferm_inhibition', 16, [0.001, 200]),
@@ -24,7 +24,7 @@ def default_model_parameters(model_parameters = None):
          Parameter('Homo_CUE',        .5, [0, 1], 'linear'),
          
          Parameter('Aceto_Km_Ac',    166, [0.0005, 1000]),
-         Parameter('Ac_v_max',       .83, [0.005, 1.]),
+         Parameter('Ac_v_max',       .0083, [0.005, 1.]),
          Parameter('Ac_CUE',          .5, [0, 1], 'linear'), 
          
          Parameter('Fe3_Km_Ac',      500, [0.0005, 1000]),
@@ -32,7 +32,7 @@ def default_model_parameters(model_parameters = None):
          Parameter('Fe3_v_max',      1.5, [0.002, 3.]), 
          Parameter('Fe3_CUE',        0.5, [0, 1], 'linear'),
          
-         Parameter('Acetate',         1, [0, 100], 'linear'),
+         Parameter('Acetate',         20, [0, 100], 'linear'),
          Parameter('Fe3',            150, [0, 300], 'linear'),
          
          Parameter('M_Ferm',         .42, [1e-8, 5]),
@@ -42,8 +42,6 @@ def default_model_parameters(model_parameters = None):
          Parameter('M_Ac',         .0033, [1e-8, 5]),
         ]
         
-    if not model_parameters is None:
-        return [par for par in p if par in model_parameters]
     return p
 
 class LogTransform():
@@ -59,6 +57,12 @@ class ModelParameters():
     def __init__(self):
         self._parameters = {}
     
+    def as_dict(self):
+        return self._parameters
+    
+    def __iter__(self):
+        return iter(self._parameters.values())
+    
     def __getitem__(self, key):
         if not key in self._parameters:
             self._parameters[key] = Parameter(key)
@@ -66,24 +70,25 @@ class ModelParameters():
             
     def set(self, parameters):
         if isinstance(parameters, str) and parameters == 'default':
-            self.set(default_model_parameters(self))
+            self.set(default_model_parameters())
             
         elif isinstance(parameters, dict):
             for p, value in parameters.items():
                 if not p in self._parameters:
-                    raise Exception('Setting parameter that does not exist:', p)
-                try:
-                    self._parameters[p].set(value)
-                except Exception as ex:
-
-                    raise Exception(parameters)
+                    print('Ignoring parameter that does not exist in model:', p)
+                else:
+                    try:
+                        self._parameters[p].set(value)
+                    except Exception as ex:
+                        raise Exception(parameters)
                     
         elif isinstance(parameters, list):
             for p in parameters:
                 if p.name in self._parameters:
                     self._parameters[p.name].set(p)
                 else:
-                    raise Exception('Setting parameter that does not exist: ' + str(p))
+                    print('Ignoring parameter that does not exist in model:', p)
+
         elif isinstance(parameters, tuple):
             name, value = parameters
             self.set({name:value})
@@ -161,7 +166,7 @@ class Parameter():
             self.scale = p.scale
         elif isinstance(p, (int, float)):
             if self.is_variable() and (not p <= self.high or not p >= self.low):
-                raise Exception(f'Setting {self.name} to {p} is out of bounds.')
+                print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
             self.value = float(p)
         else:
             raise NotImplementedError(str(p))

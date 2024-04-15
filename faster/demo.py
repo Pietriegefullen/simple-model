@@ -60,9 +60,21 @@ class View(ABC):
     def view_controls(self):
         return list()
    
+class LogScale(Scale):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def setValue(self, val):
+        super().set(np.log(val))
+        self.text.configure(text=f'{np.exp(self.number):g}')
+        
+    def get(self):
+        return np.exp(super().get())
+
+    
 class Slider(Frame):
 
-    def __init__(self, container, name, low, high, value, command = None):
+    def __init__(self, container, name, low, high, value, command = None, log_scale = False):
         super().__init__(container)
 
         self.title_frame = Frame(self)
@@ -77,13 +89,14 @@ class Slider(Frame):
                            justify = LEFT)
         name_label.pack(side = 'left')
 
-        from_value = low
-        to_value = high
+        from_value = low if not log_scale else np.log(low)
+        to_value = high if not log_scale else np.log(high)
 
         low_label = Label(self.title_frame,
                           text = f'{low:.2g}')
         low_label.pack(side = 'left')
-        self.scale = Scale(self.title_frame,
+        cls = Scale if not log_scale else LogScale
+        self.scale = cls(self.title_frame,
                           orient=HORIZONTAL,
                           length=200,
                           width=10,

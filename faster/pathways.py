@@ -195,7 +195,7 @@ class Substance():
 
 class Hydrolysis(Pathway):
     def __init__(self, model_parameters):
-        educts = [Substance(1, 'C')]
+        educts = [Substance(1, 'TOC')]
         products = [Substance(1, 'DOC')]
         microbe = Microbe(name = 'M_Ferm',
                           v_max = model_parameters['Hydrolysis_v_max'],

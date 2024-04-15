@@ -12,9 +12,7 @@ import CONSTANTS
 
 import loading
 
-# TODO: check units (replica mass, water content, ...)
-
-DOC_per_TOC = 6.
+DOC_per_TOC = 1.
 
 knoblauch_data = None
 
@@ -23,14 +21,124 @@ def get_data_before_carex():
     if knoblauch_data is None:
         print('Loading Knoblauch data...')
         knoblauch_data = KnoblauchData()
-        _ = [r.before_carex() for r in knoblauch_data.replicas()]
+        _ = [r.before_day(r.carex()) for r in knoblauch_data.replicas()]
     return knoblauch_data
+
+def get_data_before_day():
+    global knoblauch_data
+    if knoblauch_data is None:
+        print('Loading Knoblauch data...')
+        knoblauch_data = KnoblauchData()
+        _ = [r.before_day(r.last_day) for r in knoblauch_data.replicas()]
+    return knoblauch_data
+    
 
 class KnoblauchData():
     def __init__(self):
         self.source_directory = ROOT_DIRECTORY
         self.samples = []
         #superdata = load_matlab('superdata')
+        
+        
+        last_days = {
+                     '13514': '1274',
+                     '13515': '1274',
+                     '13516': '726',#'(1526)',
+                     
+                     '13525': '1274',
+                     '13526': '1274',
+                     
+                     '13534': '1274',
+                     '13535': '1274',
+                     
+                     '13544': '1309',
+                     '13546': '1309',
+                     
+                     '13554': '1309',
+                     '13555': '1309',
+                     
+                     '13575': '1309',
+                     '13576': '1309',
+                     
+                     '13584': '1308',
+                     '13585': '1308',
+                     
+                     '13594': '1308',
+                     '13595': '1308',
+                     
+                     '13604': '1308',
+                     '13606': '1308',
+                     
+                     '13614': '1308',
+                     '13616': '1308',
+                     
+                     '13624': '1308',
+                     '13626': '1308',
+                     
+                     '13634': '1308',
+                     '13635': '1308',
+                     
+                     '13654': '1309',
+                     '13655': '1309',
+                     '13656': '1309',
+                     
+                     '13665': '1309',
+                     '13666': '1309',
+                     
+                     '13674': '1273',
+                     '13675': '1273',
+                     '13676': '1273',
+                     
+                     '13684': '1309',
+                     '13685': '1309',
+                     '13686': '1309',
+                     
+                     '13694': '1273',
+                     '13695': '1273',
+                     '13696': '1274',
+                     
+                     '13704': '1273',
+                     '13706': '1274',
+                     
+                     '13724': '1260',
+                     '13725': '1260',
+                     '13726': '1260',
+                     
+                     '13734': '1260',
+                     '13735': '1260',
+                     '13736': '1260',
+                     
+                     '13744': '1260',
+                     '13745': '1260',
+                     '13746': '1260',
+                     
+                     '13754': '1260',
+                     '13755': '1260',
+                     '13756': '1260',
+                     
+                     '13764': '1295',
+                     '13765': '1295',
+                     '13766': '1295',
+                     
+                     '13774': '1260',
+                     '13775': '1260',
+                     '13776': '1260',
+                     
+                     '13784': '712',
+                     '13785': '1260',
+                     '13786': '1260',
+                     
+                     '13794': '1294',
+                     '13795': '1294',
+                     '13796': '1294',
+                     
+                     '13804': '1294',
+                     '13805': '1294',
+                     '13806': '1294',
+                         }
+                         
+            
+        
         
         print('loading incubation data')
         incubation_data = loading._load_raw_incubation(self.source_directory)
@@ -62,6 +170,9 @@ class KnoblauchData():
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
+                new_replica.last_day = None
+                if replica_name in last_days:
+                    new_replica.last_day = float(last_days[replica_name])
                 new_sample.add_replica(new_replica)
 
             self.add_sample(new_sample)
@@ -167,12 +278,14 @@ class Replica():
         self.events = {}
         self.incubation = {} # incubation data is from Knoblauch per g_dw
         
-    def initial_C(self):
+        self.last_day = None
+        
+    def initial_TOC(self):
         # micro-mol per g dw
         return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
 
     def initial_DOC(self):
-        return self.initial_C()*DOC_per_TOC
+        return self.initial_TOC()*DOC_per_TOC
 
     def initial_H2O(self):
         # micro mol per g dw
@@ -188,8 +301,8 @@ class Replica():
     def carex(self):
         if 'carex' in self.events.keys():
             return self.events['carex']
-        return None
-    
+        print('Found no carex event in ', str(self))
+
     def __getitem__(self, key):
         if key == 'CO2':
             return self.incubation['CO2']
@@ -210,24 +323,28 @@ class Replica():
             return
         
         ax = plt.gca()
+        max_ = max([np.max(self.CO2()[1]), np.max(self.CH4()[1])])
+        ax.set_ylim([0, max_])
         ylim = ax.get_ylim()
         for event, day in self.events.items():
             plt.plot([day, day], ylim, 'r-')
             plt.text(day-100, 0, event, rotation = 'vertical')
         
-    def before_carex(self):
-        carex_day = self.carex()
-        if carex_day is None:
-            print('Found no carex event in ', str(self))
-            return 
-        days_before = [d for d in self.incubation['days'] if d < carex_day]
+    def before_day(self, last_day):
+        if last_day is None:
+            last_day = self.last_day
+            if last_day is None:
+                last_day = self.carex()
+                if last_day is None:    
+                    last_day = max(self.incubation['days'])
+        days_before = [d for d in self.incubation['days'] if d < last_day]
         co2_before = self.incubation['CO2'][:len(days_before)]
         ch4_before = self.incubation['CH4'][:len(days_before)]
         self.incubation = {'days': days_before,
                            'CO2': co2_before,
                            'CH4': ch4_before}
         self.events = {event:day for event,day in self.events.items() 
-                       if day <= carex_day}
+                       if day < last_day}
             
     def __str__(self):
         return self.sample.sample_name + self.replica_number
@@ -284,8 +401,11 @@ def check_replica(replica):
     assert replica.temperature == 277.15
 
 if __name__ == '__main__':
-    d = get_data_before_carex()
+    d = get_data_before_day()
     print('====')
     print(d)
+    
+    d.plot_samples()
+    plt.show()
 
 

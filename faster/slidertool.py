@@ -19,15 +19,20 @@ import data
 import USER_VARIABLES
 import numpy as np
 import json
+import model
+import parameters
+
+d = data.get_data_before_day()
 
 class FasterModel(Model):
 
     def __init__(self):
         
-        self.days = 4500
-        self.pool_value_dict = run_model(self.model_parameters,
-                                        np.arange(self.days),
-                                        extended_output = None)
+        self.replica = d['13546']
+        self.model = model.Model(model.get_pathways('simple'))
+        self.model_parameters = parameters.default_model_parameters()
+        self.model.parameters().set(self.model_parameters)
+        self.pool_value_dict = self.model.predict(self.replica)
 
         same_plot = list()
         for k in self.pool_value_dict.keys():
@@ -47,7 +52,7 @@ class FasterModel(Model):
         super().__init__()
 
     def _get_views(self):
-        return [PlotView(self, key_list) for key_list in self.plot_keys]
+        return [PlotView(self, None)] + [PlotView(self, key_list) for key_list in self.plot_keys]
 
     def controls(self, container):
 
@@ -59,44 +64,38 @@ class FasterModel(Model):
                         text = 'save',
                         command = self.save_parameters),
                         }
-        self.controls.update({'days': Slider(container,
-                                               value = self.days,
-                                               name = 'days',
-                                               low = 1,
-                                               high = 4500)})
         
-        guess_bounds = OPTIMIZATION_PARAMETERS.get_initial_guesses()
-        for k, v in self.model_parameters.items():
-            lower_bound = 0
-            upper_bound = 10*v
-            if k in guess_bounds:
-                upper_bound = 5*guess_bounds[k][2]
+        #guess_bounds = OPTIMIZATION_PARAMETERS.get_initial_guesses()
+        for p in self.model_parameters:
+            if not p.is_variable(): continue
+            k = p.name
+            v = float(p)
             self.controls.update({k: Slider(container,
-                                           value = v,
+                                           value = float(v),
                                            name = k,
-                                           low = lower_bound,
-                                           high = upper_bound)})
+                                           low = p.lower(),
+                                           high = p.upper(),
+                                           log_scale = p.scale == 'log')})
 
         return self.controls
 
     def bindings(self):
-        
         return {'<Return>':lambda e: self.update_model()}
 
     def update_model(self):
         self.update_parameters()
-        self.pool_value_dict = run_model(self.model_parameters,
-                                        np.arange(self.days),
-                                        extended_output = None)
+        self.pool_value_dict = self.model.predict(self.replica)
         self.notify()
 
     def update_parameters(self):
+        parnames = [p.name for p in self.model_parameters]
         for k, slider in self.controls.items():
-            if k in self.model_parameters:
-                self.model_parameters[k] = self.controls[k].get()
+            if k in parnames:
+                i = parnames.index(k)
+                self.model_parameters[i].set(self.controls[k].get())
+                
+        self.model.parameters().set({p.name: float(p) for p in self.model_parameters})
 
-            elif k == 'days':
-                self.days = self.controls[k].get()
 
     def save_parameters(self):
         save_model(self.specimen_index, self.site, self.model_parameters, prefix = 'slidertool')
@@ -111,22 +110,25 @@ class PlotView(View):
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        all_days = np.arange(self.model.days)
+        if self.key_list is None:
+            plt.sca(ax)
+            self.model.replica.plot()
+            all_days, values = zip(*self.model.pool_value_dict['CO2'])
+            ax.plot(all_days, values)
+            all_days, values = zip(*self.model.pool_value_dict['CH4'])
+            ax.plot(all_days, values)
+            return fig
+
         title = self.key_list[0].split('_')[-1] if len(self.key_list) > 1 else self.key_list[0]
         for k in self.key_list:
+            all_days, values = zip(*self.model.pool_value_dict[k])
             ax.plot(all_days,
-                     self.model.pool_value_dict[k],
+                     values,
                      label = k.replace('_'+title, '') if len(self.key_list) > 1 else None)
         if len(self.key_list)>1:
             ax.legend()
         ax.set_title(title)
-
-        if not self.model.measured_data is None and title in self.model.measured_data:
-            ax.plot(self.model.measured_data['measured_time'],
-                      self.model.measured_data[title],
-                      'rx',
-                      label = 'measured')
-
+        
         ax.set_xlim(np.min(all_days), np.max(all_days))
 
         return fig

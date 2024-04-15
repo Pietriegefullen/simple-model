@@ -3,7 +3,7 @@ import numpy as np
 import chemistry
 
 SYSTEM = [
-            'C',
+            'TOC',
             'DOC',
             'CH4',
             'CO2',
@@ -42,12 +42,12 @@ def initial_state(replica, model_parameters):
     S0 = np.zeros((len(SYSTEM),))
     
     if not replica is None:
-        model_parameters['C'].constant(replica.initial_C())
+        model_parameters['TOC'].constant(replica.initial_TOC())
         model_parameters['DOC'].constant(replica.initial_DOC())
         model_parameters['H2O'].constant(replica.water_content)
     
     else:
-        model_parameters['C']
+        model_parameters['TOC']
         model_parameters['DOC']
         model_parameters['H2O']
     

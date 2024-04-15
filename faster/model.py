@@ -95,9 +95,9 @@ class Model():
         model_string = f'Model with {len(self.contributing_pathways)} Pathways:\n'
         model_string += len(model_string)*'=' + '\n'
         model_string += '\n'.join([str(p) for p in self.contributing_pathways])
-        model_string += '\n'
+        model_string += '\n'*2
         model_string += str(self.model_parameters)
-        model_string += '\n'.join( [str(p) for p in self.contributing_pathways])
+        model_string += '\n'
         return model_string
 
     def save(self, target_directory, file_name):
@@ -120,6 +120,9 @@ class ModelRun():
     def __init__(self):
         self._log = {}
         
+    def keys(self):
+        return self._log.keys()
+    
     def __eq__(self, other):
         return self._log == other._log
     
@@ -161,10 +164,20 @@ class ModelRun():
 
 if __name__ == '__main__':
     import data
-    d = data.get_data_before_carex()
+    d = data.get_data_before_day()
     
     model = Model(get_pathways('simple'))
- 
+    print(model)
+    model.parameters().set('default')
+    print(model)
+    replica = d['13546']
+    run = model.predict(replica)
+    run.plot(['CO2', 'CH4'], newfigure = False)
+    replica.plot()
+    plt.figure()
+    run.plot(['DOC'])
+    1/0
+
     results_folder = 'fit_13515_13516_2024-04-11--20-08-12'
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
