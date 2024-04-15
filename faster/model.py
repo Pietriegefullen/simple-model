@@ -165,7 +165,7 @@ if __name__ == '__main__':
     
     model = Model(get_pathways('simple'))
  
-    results_folder = 'fit to replica 13546_2024-04-10--19-48-45'
+    results_folder = 'fit_13515_13516_2024-04-11--20-08-12'
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
     for f in os.listdir(parameter_source):
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     del p['M_Homo']
     model.parameters().set(p)
 
-    replica_name = results_folder.split(' ')[-1].split('_')[0]
+    replica_name = results_folder.split('_2024')[0].replace(' ', '_').split('_')[-1]
     print(replica_name)
     replica = d[replica_name]
     model_run = model.predict(replica)

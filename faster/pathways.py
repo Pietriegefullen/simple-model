@@ -96,7 +96,7 @@ class Pathway():
     
     def __call__(self, t, S):
         biomass = S[self.microbe_index]
-        biomass = np.clip(biomass, 1e-8,np.inf)
+        biomass = np.clip(biomass, 1e-8, np.inf)
             
         dissolved_S = HENRYS_LAW*S
 
@@ -218,7 +218,6 @@ class Fermentation(Pathway):
                           C_source = 'DOC',
                           use_thermodynamics = False)
         super().__init__(microbe, educts, products)
-        
 
 class Hydro(Pathway):
      def __init__(self, model_parameters):

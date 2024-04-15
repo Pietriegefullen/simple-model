@@ -14,6 +14,8 @@ import loading
 
 # TODO: check units (replica mass, water content, ...)
 
+DOC_per_TOC = 6.
+
 knoblauch_data = None
 
 def get_data_before_carex():
@@ -168,7 +170,10 @@ class Replica():
     def initial_C(self):
         # micro-mol per g dw
         return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
-        
+
+    def initial_DOC(self):
+        return self.initial_C()*DOC_per_TOC
+
     def initial_H2O(self):
         # micro mol per g dw
         relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw

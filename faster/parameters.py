@@ -2,30 +2,28 @@ import numpy as np
 
 def default_model_parameters(model_parameters = None):
     p = [
-         Parameter('DOC_per_TOC',    6.),
-
-         Parameter('Hydrolysis_v_max', .83, [1e-8, 1]),
-         Parameter('Hydrolysis_Kmb', 333, [0.0005, 2000]),
+         Parameter('Hydrolysis_v_max', .83, [1e-8, 0.1]),
+         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200]),
          
-         Parameter('Ferm_v_max',     2.5, [0.001, 5]),
+         Parameter('Ferm_v_max',     2.5, [0.0001, 5]),
          #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        833, [0.0005, 1000]),
-         Parameter('Ferm_inhibition', 16, [0.001, 20]),
-         Parameter('Ferm_CUE',        .16, [0, 1], 'linear'),
+         Parameter('Ferm_Km',        833, [0.0001, 100]),
+         Parameter('Ferm_inhibition', 16, [0.001, 200]),
+         Parameter('Ferm_CUE',        .5, [0, 1], 'linear'),
          
          Parameter('death_rate',  8.3e-5),
          
-         Parameter('Hydro_Km_CO2',   833, [.0005, 1000]),
+         Parameter('Hydro_Km_CO2',   500, [.0005, 1000]),
          Parameter('Hydro_v_max',    .17, [0.003, 1.]),
-         Parameter('Hydro_CUE',       .16, [0, 1], 'linear'),
-         Parameter('Hydro_Km_H2',     833, [.0005, 1000]),
+         Parameter('Hydro_CUE',       .5, [0, 1], 'linear'),
+         Parameter('Hydro_Km_H2',    500, [.0005, 1000]),
          
-         Parameter('Homo_Km_H2',      500, [0.0005, 1000]),
-         Parameter('Homo_Km_CO2',     500, [0.0005, 1000]),
+         Parameter('Homo_Km_H2',     500, [0.0005, 1000]),
+         Parameter('Homo_Km_CO2',    500, [0.0005, 1000]),
          Parameter('Homo_v_max',      .5, [0.005, 1.]),
          Parameter('Homo_CUE',        .5, [0, 1], 'linear'),
          
-         Parameter('Aceto_Km_Ac',     166, [0.0005, 1000]),
+         Parameter('Aceto_Km_Ac',    166, [0.0005, 1000]),
          Parameter('Ac_v_max',       .83, [0.005, 1.]),
          Parameter('Ac_CUE',          .5, [0, 1], 'linear'), 
          
@@ -37,11 +35,11 @@ def default_model_parameters(model_parameters = None):
          Parameter('Acetate',         1, [0, 100], 'linear'),
          Parameter('Fe3',            150, [0, 300], 'linear'),
          
-         Parameter('M_Ferm',         .42, [1e-8, 0.5]),
-         Parameter('M_Hydro',       .083, [1e-8, 0.5]),
-         Parameter('M_Fe3',          .25, [1e-8, 0.5]),
-         Parameter('M_Homo',         .25, [1e-8, 0.5]),
-         Parameter('M_Ac',         .0033, [1e-8, 0.5]),
+         Parameter('M_Ferm',         .42, [1e-8, 5]),
+         Parameter('M_Hydro',       .083, [1e-8, 5]),
+         Parameter('M_Fe3',          .25, [1e-8, 5]),
+         Parameter('M_Homo',         .25, [1e-8, 5]),
+         Parameter('M_Ac',         .0033, [1e-8, 5]),
         ]
         
     if not model_parameters is None:
