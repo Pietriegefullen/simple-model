@@ -238,6 +238,8 @@ class Sample():
           
         except AssertionError as ex:
             print(f'Skipping replica {str(replica)}: {str(ex)}')
+            print(traceback.format_exc())
+            input()
         
     def has_replicas(self):
         return len(self.replicas)
@@ -312,10 +314,10 @@ class Replica():
             return self.incubation['days']
     
     def plot(self, events = True, marker = 'x'):
+        plt.figure()
         plt.plot(*self.CO2(),'r' + marker, label = 'CO2')
         plt.plot(*self.CH4(),'b' + marker, label = 'CH4')
         plt.title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
-        axes = plt.axes()
         plt.legend()
         plt.xlabel('day')
         plt.ylabel('gas')
@@ -374,7 +376,30 @@ def check_replica(replica):
     assert 'days' in replica.incubation
     assert 'CO2' in replica.incubation
     assert 'CH4' in replica.incubation
-    
+   
+      
+
+    # make sure measurements are strictly increasing
+    previous_day = None
+    days = []
+    co2_values = []
+    ch4_values = []
+    for d, co2, ch4 in zip(replica.incubation['days'], replica.incubation['CO2'], replica.incubation['CH4']):
+        if any(['na' in s.lower() for s in [str(d), str(co2), str(ch4)]]):
+            continue
+        if not previous_day is None and d <= previous_day:
+            continue
+        days.append(d)
+        co2_values.append(co2)
+        ch4_values.append(ch4)
+        prevous_day = d
+    replica.incubation['days'] = np.array(days)
+    replica.incubation['CO2'] = np.array(co2_values)
+    replica.incubation['CH4'] = np.array(ch4_values)
+
+    assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
+    assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
+
     assert all([isinstance(s, (int, float)) 
                 for s in replica.incubation['days']]), replica.incubation['days']
     assert all([isinstance(s, (int, float)) 
@@ -382,10 +407,7 @@ def check_replica(replica):
     assert all([isinstance(s, (int, float)) 
                 for s in replica.incubation['CH4']]), replica.incubation['CH4']
 
-    
-    assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
-    assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
-    
+ 
     assert not replica.sample is None
     
     assert isinstance(replica.replica_number, (int, str))
@@ -393,7 +415,6 @@ def check_replica(replica):
     assert int(replica.replica_number) <=6 and int(replica.replica_number) > 0
     
     assert isinstance(replica.dry_weight, (int, float))
-    print(str(replica), replica.dry_weight)
     assert replica.dry_weight > 0
     
     assert isinstance(replica.water_content, (int, float))

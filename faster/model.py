@@ -81,7 +81,7 @@ class Model():
                                                   method = 'LSODA',
                                                   max_step = 10,
                                                   first_step = 1e-6)
-        
+
         for t, S in zip(t, np.transpose(solver_result.y)):
             for Si, pool_name in zip(S, system.SYSTEM):
                 self.system_state_log.log(pool_name, t, Si)
@@ -165,20 +165,20 @@ class ModelRun():
 if __name__ == '__main__':
     import data
     d = data.get_data_before_day()
-    
+    #
     model = Model(get_pathways('simple'))
-    print(model)
-    model.parameters().set('default')
-    print(model)
-    replica = d['13546']
-    run = model.predict(replica)
-    run.plot(['CO2', 'CH4'], newfigure = False)
-    replica.plot()
-    plt.figure()
-    run.plot(['DOC'])
-    1/0
+    #print(model)
+    #model.parameters().set('default')
+    #print(model)
+    #replica = d['13546']
+    #run = model.predict(replica)
+    #run.plot(['CO2', 'CH4'], newfigure = False)
+    #replica.plot()
+    #plt.figure()
+    #run.plot(['DOC'])
+    #1/0
 
-    results_folder = 'fit_13515_13516_2024-04-11--20-08-12'
+    results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
     for f in os.listdir(parameter_source):
@@ -193,17 +193,16 @@ if __name__ == '__main__':
     with open(best_loss_file, 'r') as pf:
         p = json.load(pf)
      
-    model.parameters().set('default')
+    #model.parameters().set('default')
 
-    del p['M_Homo']
+    #del p['M_Homo']
     model.parameters().set(p)
+    print(model)
 
     replica_name = results_folder.split('_2024')[0].replace(' ', '_').split('_')[-1]
-    print(replica_name)
     replica = d[replica_name]
     model_run = model.predict(replica)
-    model_run.plot(['CO2', 'CH4'], newfigure = False)
     replica.plot()
-
+    model_run.plot(['CO2', 'CH4'], newfigure = False)
     model_run.plot(['DOC'])
     plt.show()
