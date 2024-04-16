@@ -12,7 +12,7 @@ import CONSTANTS
 
 import loading
 
-DOC_per_TOC = 1.
+DOC_per_TOC = 0.02
 
 knoblauch_data = None
 
@@ -43,7 +43,7 @@ class KnoblauchData():
         last_days = {
                      '13514': '1274',
                      '13515': '1274',
-                     '13516': '726',#'(1526)',
+                     '13516': '1526',#'(726,1526)',
                      
                      '13525': '1274',
                      '13526': '1274',
@@ -51,14 +51,14 @@ class KnoblauchData():
                      '13534': '1274',
                      '13535': '1274',
                      
-                     '13544': '1309',
-                     '13546': '1309',
+                     '13544': '1275',
+                     '13546': '1275',
                      
                      '13554': '1309',
                      '13555': '1309',
                      
-                     '13575': '1309',
-                     '13576': '1309',
+                     '13575': '1275',
+                     '13576': '1275',
                      
                      '13584': '1308',
                      '13585': '1308',
@@ -78,20 +78,20 @@ class KnoblauchData():
                      '13634': '1308',
                      '13635': '1308',
                      
-                     '13654': '1309',
-                     '13655': '1309',
-                     '13656': '1309',
+                     '13654': '1274',
+                     '13655': '1274',
+                     '13656': '1274',
                      
-                     '13665': '1309',
-                     '13666': '1309',
+                     '13665': '1274',
+                     '13666': '1274',
                      
                      '13674': '1273',
                      '13675': '1273',
                      '13676': '1273',
                      
-                     '13684': '1309',
-                     '13685': '1309',
-                     '13686': '1309',
+                     '13684': '1274',
+                     '13685': '1274',
+                     '13686': '1274',
                      
                      '13694': '1273',
                      '13695': '1273',
@@ -116,9 +116,9 @@ class KnoblauchData():
                      '13755': '1260',
                      '13756': '1260',
                      
-                     '13764': '1295',
-                     '13765': '1295',
-                     '13766': '1295',
+                     '13764': '1261',
+                     '13765': '1261',
+                     '13766': '1261',
                      
                      '13774': '1260',
                      '13775': '1260',
@@ -280,11 +280,11 @@ class Replica():
         
         self.last_day = None
         
-    def initial_TOC(self):
+    def initial_TOC(self): # reines C (schwerverfügbar, nur Hydrolyse)
         # micro-mol per g dw
-        return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_GLUCOSE
+        return (10**6)*self.sample.TOC/CONSTANTS.MOLAR_MASS_C_g_mol
 
-    def initial_DOC(self):
+    def initial_DOC(self): # reines C, verfügbar (Fermentations)
         return self.initial_TOC()*DOC_per_TOC
 
     def initial_H2O(self):
@@ -315,6 +315,7 @@ class Replica():
         plt.plot(*self.CO2(),'r' + marker, label = 'CO2')
         plt.plot(*self.CH4(),'b' + marker, label = 'CH4')
         plt.title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
+        axes = plt.axes()
         plt.legend()
         plt.xlabel('day')
         plt.ylabel('gas')

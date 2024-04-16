@@ -205,7 +205,7 @@ class Hydrolysis(Pathway):
     
 class Fermentation(Pathway):
     def __init__(self, model_parameters):
-        educts = [Substance(6, 'DOC', 
+        educts = [Substance(10, 'DOC', 
                             Km = model_parameters['Ferm_Km'])]
         products = [Substance(3.5, 'Acetate', 
                               inhibition = model_parameters['Ferm_inhibition']),
