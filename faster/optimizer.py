@@ -192,6 +192,7 @@ class Loss():
     def RMSE(self):
         return np.sqrt(np.mean((self.predicted - self.measured)**2))
 
+
 class ReplicaObjective():
     def __init__(self, replica, model):
         self.model = model

@@ -28,6 +28,12 @@ def get_pathways(model_type):
     else:
         raise NotImplementedError()
 
+def r2(predicted, measured):
+    measured_mean = np.mean(measured)
+    SS_res = np.sum((predicted - measured)**2)
+    SS_total = np.sum((measured - measured_mean)**2)
+    r2_value = 1 - SS_res/SS_total
+    return r2_value
 
 class Model():
     def __init__(self, pwys):
@@ -85,12 +91,22 @@ class Model():
         for t, S in zip(t, np.transpose(solver_result.y)):
             for Si, pool_name in zip(S, system.SYSTEM):
                 self.system_state_log.log(pool_name, t, Si)
-        
+
+        _, predicted_CO2 = zip(*self.system_state_log['CO2'])
+        measured_CO2 = replica['CO2']
+        co2_r2 = r2(predicted_CO2, measured_CO2)
+
+        _, predicted_CH4 = zip(*self.system_state_log['CH4'])
+        measured_CH4 = replica['CH4']
+        ch4_r2 = r2(predicted_CH4, measured_CH4)
+         
+        self.system_state_log._log['R2'] = {'CO2': co2_r2,
+                                            'CH4': ch4_r2}
         return self.system_state_log
     
     def parameters(self):
         return self.model_parameters
-    
+
     def __str__(self):
         model_string = f'Model with {len(self.contributing_pathways)} Pathways:\n'
         model_string += len(model_string)*'=' + '\n'
@@ -148,11 +164,18 @@ class ModelRun():
         for n in name:
             if not n in self._log:
                 print(n + ' not logged')
+            if not isinstance(self._log[n], list):
+                continue
             if newfigure:
                 plt.figure()
             x, y = zip(*self._log[n])
-            plt.plot(x, y, '-', label = n)
+            label = n
+            if 'R2' in self._log and n in self._log['R2']:
+                value = self._log['R2'][n]
+                label += ' ' + f'R² = {value:4.2f}'
+            plt.plot(x, y, '-', label = label)
             plt.title(n)
+            plt.legend()
         
     def __str__(self):
         run_string = 'Model run:'
@@ -178,8 +201,8 @@ if __name__ == '__main__':
     #run.plot(['DOC'])
     #1/0
 
-    results_folder = 'fit_13526_2024-04-16--13-53-49'
     results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
+    results_folder = 'fit_13526_2024-04-16--13-53-49'
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
     for f in os.listdir(parameter_source):
@@ -205,5 +228,5 @@ if __name__ == '__main__':
     model_run = model.predict(replica)
     replica.plot()
     model_run.plot(['CO2', 'CH4'], newfigure = False)
-    model_run.plot(['DOC'])
+    #model_run.plot(['DOC'])
     plt.show()
