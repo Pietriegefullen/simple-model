@@ -122,6 +122,7 @@ def _load_raw_incubation(source_directory):
                 continue
             
             current_sample = sample_name
+            previous_day = None
             # extract replica constants (weight wet sample)
             dry_weight = row['dry weight (g)']
             water_content = row['Water content (ml)']
@@ -137,21 +138,21 @@ def _load_raw_incubation(source_directory):
         co2_value = row['cummulative CO2 produced']
         ch4_value = row['CH4 produced']
         day = row['duration days total']
-        value_str = [str(co2_value).lower(),
-                     str(ch4_value).lower(),
-                     str(day).lower()]
+        value_str = [str(co2_value),
+                     str(ch4_value),
+                     str(day)]
         if '1352' in current_sample:
             print(value_str)
-        if any(['nan' in s for s in value_str]):
+        if any(['na' in s.lower() for s in value_str]):
             print(current_sample, 'excluding measurements on day', day, 'CO2:', co2_value, 'CH4:', ch4_value)
         
         else:
-            #if previous_day is None or day > previous_day:
-            samples[current_sample]['days'].append(day)
-            samples[current_sample]['CO2'].append(co2_value)
-            samples[current_sample]['CH4'].append(ch4_value)
-            previous_day = day
-    
+            if previous_day is None or day > previous_day:
+                samples[current_sample]['days'].append(day)
+                samples[current_sample]['CO2'].append(co2_value)
+                samples[current_sample]['CH4'].append(ch4_value)
+                previous_day = day
+
         if isinstance(day, (int, float)) and not type(row['Probe']) is float and  not str(row['Probe']).lower() == 'nan':
             event = (day,str(row['Probe']))
             samples[current_sample]['events'].append(event)
@@ -190,6 +191,7 @@ def _load_raw_ergaenzung(source_directory):
         if str(row['Probe']).startswith('09-'):
             replica_name = row['Probe'].replace('09-','').replace('/','')
             current_replica = replica_name
+            previous_day = None
             # extract replica constants (weight wet sample)
             dry_weight = row['dry weight (g)']
             water_content = row['Water content (ml)']
@@ -211,18 +213,18 @@ def _load_raw_ergaenzung(source_directory):
         co2_value = row['cummulative CO2 release']
         ch4_value = row['CH4 total']
         day = row['duration (d)']
-        value_str = [str(co2_value).lower(),
-                     str(ch4_value).lower(),
-                     str(day).lower()]
-        if any(['nan' in s for s in value_str]):
+        value_str = [str(co2_value),
+                     str(ch4_value),
+                     str(day)]
+        if any(['na' in s.lower() for s in value_str]):
             print(current_replica, 'excluding measurements on day', day, 'CO2:', co2_value, 'CH4:', ch4_value)
 
         else:
-            #if previous_day is None or day > previous_day:
-            samples[current_replica]['days'].append(day)
-            samples[current_replica]['CO2'].append(co2_value)
-            samples[current_replica]['CH4'].append(ch4_value)
-            previous_day = day
+            if previous_day is None or day > previous_day:
+                samples[current_replica]['days'].append(day)
+                samples[current_replica]['CO2'].append(co2_value)
+                samples[current_replica]['CH4'].append(ch4_value)
+                previous_day = day
     
         if isinstance(day, (int,float)) and not type(row['Probe']) is float and not str(row['Probe']).lower() == 'nan':
             event = (day,str(row['Probe']))

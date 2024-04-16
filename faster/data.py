@@ -192,7 +192,6 @@ class KnoblauchData():
             
         except AssertionError as ex:
             print(f'Skipping sample {str(sample)}: {str(ex)}')
-            print(traceback.format_exc())
     
     def replicas(self):
         return [r for s in self.samples for r in s.replicas]
@@ -239,7 +238,6 @@ class Sample():
         except AssertionError as ex:
             print(f'Skipping replica {str(replica)}: {str(ex)}')
             print(traceback.format_exc())
-            input()
         
     def has_replicas(self):
         return len(self.replicas)
@@ -376,8 +374,6 @@ def check_replica(replica):
     assert 'days' in replica.incubation
     assert 'CO2' in replica.incubation
     assert 'CH4' in replica.incubation
-   
-      
 
     # make sure measurements are strictly increasing
     previous_day = None
@@ -415,7 +411,7 @@ def check_replica(replica):
     assert int(replica.replica_number) <=6 and int(replica.replica_number) > 0
     
     assert isinstance(replica.dry_weight, (int, float))
-    assert replica.dry_weight > 0
+    assert replica.dry_weight > 0, f'{str(replica)} has dry weight {replica.dry_weight}'
     
     assert isinstance(replica.water_content, (int, float))
     assert replica.water_content > 0

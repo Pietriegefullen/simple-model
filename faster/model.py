@@ -178,6 +178,7 @@ if __name__ == '__main__':
     #run.plot(['DOC'])
     #1/0
 
+    results_folder = 'fit_13526_2024-04-16--13-53-49'
     results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     all_files = []
