@@ -185,6 +185,20 @@ class ModelRun():
         return run_string
     
 
+def get_best_loss_parameters(parameter_source):
+    all_files = []
+    for f in os.listdir(parameter_source):
+        if 'loss_' in f:
+            loss = float(f.split('loss_')[-1])
+            file = os.path.join(parameter_source, f)
+            all_files.append((loss, file))
+    if len(all_files) == 0:
+        raise Exception('loading parameters failed')
+    best_loss, best_loss_file = list(sorted(all_files))[0]
+    with open(best_loss_file, 'r') as pf:
+        best_parameters = json.load(pf)
+    return best_loss, best_parameters
+
 if __name__ == '__main__':
     import data
     d = data.get_data_before_day()
@@ -201,22 +215,13 @@ if __name__ == '__main__':
     #run.plot(['DOC'])
     #1/0
 
-    results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
     results_folder = 'fit_13526_2024-04-16--13-53-49'
+    results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
+
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
-    all_files = []
-    for f in os.listdir(parameter_source):
-        if 'loss_' in f:
-            loss = float(f.split('loss_')[-1])
-            file = os.path.join(parameter_source, f)
-            all_files.append((loss, file))
-    if len(all_files) == 0:
-        raise Exception('loading parameters failed')
-    best_loss, best_loss_file = list(sorted(all_files))[0]
+    best_loss, p = get_best_loss_parameters(parameter_source)
     print('best loss', best_loss)
-    with open(best_loss_file, 'r') as pf:
-        p = json.load(pf)
-     
+    
     #model.parameters().set('default')
 
     #del p['M_Homo']

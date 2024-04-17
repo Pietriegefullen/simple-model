@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def default_model_parameters():
     p = [
@@ -230,3 +231,89 @@ class Parameter():
     def __rdiv__(self, other):
         return float(other)/self.value
     
+def boxplots(loaded_parameters):
+    parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
+    parameter_names = list(set(parameter_names)) # unique names
+
+    parameter_groups = {'pools': [],
+                        'microbes': [],
+                        'CUE': [],
+                        'Kmb': [],
+                        'Km': [],
+                        'v_max': []}
+    for p in parameter_names:
+        if p == 'death_rate': 
+            continue
+        if not '_' in p:
+            parameter_groups['pools'].append(p)
+        elif p.startswith('M_'):
+            parameter_groups['microbes'].append(p)
+        elif 'CUE' in p:
+            parameter_groups['CUE'].append(p)
+        elif 'Kmb' in p:
+            parameter_groups['Kmb'].append(p)
+        elif 'Km' in p:
+            parameter_groups['Km'].append(p)
+        elif 'v_max' in p:
+            parameter_groups['v_max'].append(p)
+            
+    d = .25
+    for group_name, group in parameter_groups.items():
+        plt.figure()
+        i = 0
+        plt.title(group_name)
+        x_tick_labels = []
+        x_tick_pos = []
+        for par_name in group:
+            pos_simple = 2*i + 1.5 - d
+            pos_complex = 2*i + 1.5 + d
+            tick_pos = 2*i + 1.5
+            i += 1
+            
+            parameter_name = par_name.replace(group_name, '').replace('_', ' ')
+            x_tick_labels.append(parameter_name)
+            x_tick_pos.append(tick_pos)
+            
+            simple_data = np.nan
+            if par_name in loaded_parameters['simple']:
+                simple_data = [v for v in loaded_parameters['simple'][par_name]]
+            complex_data = [v if par_name in loaded_parameters['complex'] else np.nan
+                                 for v in loaded_parameters['complex']]
+
+            print(f'found {len(simple_data):2d} parameter values for {par_name} (simple)')
+            print(f'found {len(complex_data):2d} parameter values for {par_name} (complex)')
+            box_data = [simple_data, 
+                        complex_data]
+            plt.boxplot(box_data, 
+                        positions = [pos_simple, pos_complex],
+                        widths = 2*d)
+            
+        plt.xticks(rotation=90)
+        plt.xticks(x_tick_pos, x_tick_labels)
+        if not group_name == 'CUE':# and not group_name == 'pools':
+            plt.yscale('log')
+
+    plt.show()    
+ 
+if __name__ == '__main__':
+    import os
+    import model
+    import USER_VARIABLES
+    all_parameters = {  'simple': {},
+                        'complex': {}}
+    result_source = USER_VARIABLES.LOG_DIRECTORY
+    for f in os.listdir(result_source):
+        parameter_source = os.path.join(result_source, f)
+        if not os.path.isdir(parameter_source) or not f.startswith('fit'):
+            continue
+
+        best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
+        print(f'found parameters with loss {best_loss} for {f}')
+        model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
+
+        for k, p in best_parameters.items():
+            if not k in all_parameters[model_type]:
+                all_parameters[model_type][k] = []
+            all_parameters[model_type][k].append(p)
+   
+    boxplots(all_parameters)
