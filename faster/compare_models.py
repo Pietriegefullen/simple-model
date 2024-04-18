@@ -127,4 +127,4 @@ def fit_sample(sample_name, split_number, model_type, log = False):
     best_loss, _ = pathway_model.fit(fit_replicas, log = log)
     
 if __name__ == '__main__':
-    fit_sample('1354', 1, 'simple', log = True)
+    fit_sample('1361', 1, 'simple', log = False)

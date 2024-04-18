@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 import traceback
-
+import json
 
 from USER_VARIABLES import ROOT_DIRECTORY
 import CONSTANTS
@@ -28,19 +28,29 @@ def get_data_before_day():
     global knoblauch_data
     if knoblauch_data is None:
         print('Loading Knoblauch data...')
-        knoblauch_data = KnoblauchData()
+
+        d_file = os.path.join(ROOT_DIRECTORY, 'KnoblauchData.json')
+        if os.path.isfile(d_file):
+            with open(d_file, 'r') as df:
+                d_dict = json.load(df)
+            knoblauch_data = KnoblauchData(d_dict) # load from json file
+        else:
+            knoblauch_data = KnoblauchData() # load from Excel files
         _ = [r.before_day(r.last_day) for r in knoblauch_data.replicas()]
     return knoblauch_data
     
 
 class KnoblauchData():
-    def __init__(self):
+    def __init__(self, data_dict = None):
+        if data_dict is None:
+            samples = []
+
+        else:
+            samples = [Sample(**s) for s in data_dict['samples']]
+            
         self.source_directory = ROOT_DIRECTORY
-        self.samples = []
-        #superdata = load_matlab('superdata')
         
-        
-        last_days = {
+        self.last_days = {
                      '13514': '1274',
                      '13515': '1274',
                      '13516': '1526',#'(726,1526)',
@@ -136,10 +146,15 @@ class KnoblauchData():
                      '13805': '1294',
                      '13806': '1294',
                          }
-                         
-            
+    
+        self.samples = []
+        for s in samples:
+            self.add_sample(s)
+
+        if not self.samples:
+            self.load()
         
-        
+    def load(self):
         print('loading incubation data')
         incubation_data = loading._load_raw_incubation(self.source_directory)
         print('loading ergaenzung data')
@@ -171,8 +186,8 @@ class KnoblauchData():
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
                 new_replica.last_day = None
-                if replica_name in last_days:
-                    new_replica.last_day = float(last_days[replica_name])
+                if replica_name in self.last_days:
+                    new_replica.last_day = float(self.last_days[replica_name])
                 new_sample.add_replica(new_replica)
 
             self.add_sample(new_sample)
@@ -213,21 +228,29 @@ class KnoblauchData():
         text = '\n'.join([str(s) for s in self.samples]) 
         text += f'\n {len(self.samples)} samples, {total_replicas} replicas'
         return text
-   
+
+    def get_config(self):
+        cfg = {'samples': [s.get_config() for s in self.samples]}
+        return cfg
 
 class Sample():
-    def __init__(self, sample_name):
+    def __init__(self, sample_name, site = None, origin = None, depth = None, pH = None, TOC = None, replicas = None):
         super().__init__()
         
         self.sample_name = sample_name
-        self.replicas = []
+        replicas = []
+        if not replicas is None:
+            for r in replicas:
+                repl = Replica(**r)
+                repl.sample = self
+                replica.append(repl)
+        self.replicas = replicas
         
-        self.site = None
-        self.origin = None
-        self.depth = None
-        self.pH = None
-        self.TOC = None # as decimal, e.g. 3% is 0.03
-        
+        self.site = site
+        self.origin = origin
+        self.depth = depth
+        self.pH = pH
+        self.TOC = TOC # as decimal, e.g. 3% is 0.03
         
     def add_replica(self, replica):
         replica.sample = self
@@ -265,20 +288,42 @@ class Sample():
                                'val': validation_replica})
         return all_splits
         
+    def get_config(self):
+        cfg = {'sample_name': self.sample_name,
+               'replicas': [r.get_config() for r in self.replicas],
+               'site': self.site,
+               'origin': self.origin,
+               'depth': self.depth,
+               'pH': self.pH,
+               'TOC': self.TOC
+               } 
+        return cfg
     
 class Replica():
-    def __init__(self, replica_number):
+    def __init__(self, replica_number,
+                 dry_weight = None,
+                 water_content = None,
+                 temperature = None,
+                 events = None,
+                 incubation = None,
+                 last_day = None):
         self.sample = None
         self.replica_number = replica_number
         
-        self.dry_weight = None # directly from Knoblauch, unit is g
-        self.water_content = None # directly from Knoblauch, ml 
-        self.temperature = CONSTANTS.SPECIMEN_TEMPERATURE
+        self.dry_weight = dry_weight # directly from Knoblauch, unit is g
+        self.water_content = water_content # directly from Knoblauch, ml 
+        if temperature is None:
+            temperature = CONSTANTS.SPECIMEN_TEMPERATURE
+        self.temperature = temperature
         
-        self.events = {}
-        self.incubation = {} # incubation data is from Knoblauch per g_dw
+        if events is None:
+            events = {}
+        self.events = events
+        if incubation is None:
+            incubation = {}
+        self.incubation = {k:np.reshape(v, (-1,)) for k, v in incubation.items()} # incubation data is from Knoblauch per g_dw
         
-        self.last_day = None
+        self.last_day = last_day
         
     def initial_TOC(self): # reines C (schwerverfügbar, nur Hydrolyse)
         # micro-mol per g dw
@@ -343,15 +388,26 @@ class Replica():
         days_before = [d for d in self.incubation['days'] if d < last_day]
         co2_before = self.incubation['CO2'][:len(days_before)]
         ch4_before = self.incubation['CH4'][:len(days_before)]
-        self.incubation = {'days': days_before,
-                           'CO2': co2_before,
-                           'CH4': ch4_before}
+        self.incubation = {'days': np.reshape(days_before, (-1,)),
+                           'CO2': np.reshape(co2_before,(-1,)),
+                           'CH4': np.reshape(ch4_before, (-1,))}
         self.events = {event:day for event,day in self.events.items() 
                        if day < last_day}
             
     def __str__(self):
         return self.sample.sample_name + self.replica_number
+    
+    def get_config(self):
+        cfg = {'replica_number': self.replica_number,
+               'dry_weight': self.dry_weight,
+               'water_content': self.water_content,
+               'temperature': self.temperature,
+               'events': self.events,
+               'incubation': {k:v.tolist() for k, v in self.incubation.items()},
+               'last_day': self.last_day
+               }
 
+        return cfg
 
 def check_sample(sample):
     assert not sample.sample_name is None
@@ -391,9 +447,9 @@ def check_replica(replica):
         co2_values.append(co2)
         ch4_values.append(ch4)
         prevous_day = d
-    replica.incubation['days'] = np.array(days)
-    replica.incubation['CO2'] = np.array(co2_values)
-    replica.incubation['CH4'] = np.array(ch4_values)
+    replica.incubation['days'] = np.reshape(days, (-1,))
+    replica.incubation['CO2'] = np.reshape(co2_values, (-1,))
+    replica.incubation['CH4'] = np.reshape(ch4_values, (-1,))
 
     assert len(replica.incubation['CO2']) == len(replica.incubation['days'])
     assert len(replica.incubation['CH4']) == len(replica.incubation['days'])
@@ -420,12 +476,16 @@ def check_replica(replica):
     
     assert replica.temperature == 277.15
 
+def save_data(d):
+    d_file = os.path.join(ROOT_DIRECTORY, 'KnoblauchData.json')
+    with open(d_file, 'w') as df:
+        json.dump(d.get_config(), df, indent = 4) 
+
 if __name__ == '__main__':
     d = get_data_before_day()
     print('====')
     print(d)
     
-    d.plot_samples()
-    plt.show()
-
+    #d.plot_samples()
+    #plt.show()
 
