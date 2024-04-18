@@ -176,6 +176,9 @@ class ModelRun():
             plt.plot(x, y, '-', label = label)
             plt.title(n)
             plt.legend()
+
+            if 'MM' in n:
+                plt.ylim([0,1])
         
     def __str__(self):
         run_string = 'Model run:'
@@ -215,11 +218,11 @@ if __name__ == '__main__':
     #run.plot(['DOC'])
     #1/0
 
+    results_folder = 'fit_13544_2024-04-18--09-14-54'
     results_folder = 'fit_13526_2024-04-16--13-53-49'
     results_folder = 'fit_13535_2024-04-17--09-09-04'
     results_folder = 'fit_13546_2024-04-17--20-38-32'
     results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
-    results_folder = 'fit_13544_2024-04-18--09-14-54'
 
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     best_loss, p = get_best_loss_parameters(parameter_source)
@@ -234,8 +237,16 @@ if __name__ == '__main__':
     replica_name = results_folder.split('_2024')[0].replace(' ', '_').split('_')[-1]
     replica = d[replica_name]
     model_run = model.predict(replica)
-    #replica.plot(log = True)
+
+    replica.plot(log = True)
+    model_run.plot(['CO2', 'CH4'], newfigure = False)
+    
     replica.plot()
     model_run.plot(['CO2', 'CH4'], newfigure = False)
-    #model_run.plot(['DOC'])
+
+    model_run.plot(['Fermentation_MM'])
+    model_run.plot(['Hydrolysis_MM'])
+    model_run.plot(['Hydro_MM'])
+    model_run.plot(['Aceto_MM'])
+
     plt.show()
