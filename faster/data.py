@@ -311,7 +311,7 @@ class Replica():
         elif key == 'days':
             return self.incubation['days']
     
-    def plot(self, events = True, marker = 'x'):
+    def plot(self, events = True, marker = 'x', log = False):
         plt.figure()
         plt.plot(*self.CO2(),'r' + marker, label = 'CO2')
         plt.plot(*self.CH4(),'b' + marker, label = 'CH4')
@@ -324,6 +324,8 @@ class Replica():
             return
         
         ax = plt.gca()
+        if log:
+            ax.set_yscale('log')
         max_ = max([np.max(self.CO2()[1]), np.max(self.CH4()[1])])
         ax.set_ylim([0, max_])
         ylim = ax.get_ylim()

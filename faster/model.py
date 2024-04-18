@@ -65,13 +65,13 @@ class Model():
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
         return dS_dt
     
-    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM):
+    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log = False):
         if not isinstance(replicas, list):
             replicas = [replicas]
             
         algo = optimizer.Algorithm(algorithm, 
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
-        return algo.minimize(self, replicas)
+        return algo.minimize(self, replicas, log = log)
         
     def predict(self, replica, t = None, quiet = False):
         if t is None:
@@ -217,9 +217,7 @@ if __name__ == '__main__':
 
     results_folder = 'fit_13526_2024-04-16--13-53-49'
     results_folder = 'fit_13535_2024-04-17--09-09-04'
-    results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
     results_folder = 'fit_13546_2024-04-17--20-38-32'
-    results_folder = 'fit_13585_2024-04-17--21-17-27'
 
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     best_loss, p = get_best_loss_parameters(parameter_source)
@@ -234,6 +232,7 @@ if __name__ == '__main__':
     replica_name = results_folder.split('_2024')[0].replace(' ', '_').split('_')[-1]
     replica = d[replica_name]
     model_run = model.predict(replica)
+    #replica.plot(log = True)
     replica.plot()
     model_run.plot(['CO2', 'CH4'], newfigure = False)
     #model_run.plot(['DOC'])

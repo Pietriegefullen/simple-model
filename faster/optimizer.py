@@ -34,14 +34,15 @@ class Algorithm():
         self.algorithm = algorithm
         self.kwargs = kwargs
     
-    def minimize(self, model, replicas):
+    def minimize(self, model, replicas, log = False):
         variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
         print()
         rep = '_'.join([str(r) for r in replicas])
-        print(f'minimizing with {self.algorithm} for {rep}')
+        str_log = '' if not log else 'log transformed '
+        print(f'minimizing {str_log}with {self.algorithm} for {rep}')
         print('model:')
         print(str(model))
         print()
@@ -53,10 +54,12 @@ class Algorithm():
         if not variables:
             raise Exception('Model has no variable parameters.')
               
-        replica_obj = [ReplicaObjective(replica, model) for replica in replicas]
+        replica_obj = [ReplicaObjective(replica, model, log = log) for replica in replicas]
         
         if self.algorithm == 'PSO':
             import pyswarms as ps
+            if log:
+                raise NotImplementedError()
             objective = ParticleObjective(replica_obj, variables, model)
             bounds = (np.array(lower_bounds), np.array(upper_bounds))
             
@@ -75,7 +78,7 @@ class Algorithm():
                                     n_processes = None)
         
         elif self.algorithm == 'gradient':
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, log = log)
 
             method = self.kwargs['method']
             iterations = self.kwargs['iterations']
@@ -88,12 +91,12 @@ class Algorithm():
                                         options = {'maxiter': iterations})
         
         elif self.algorithm == 'direct':
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, log = log)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.direct(objective, bounds = bounds)
                 
         elif self.algorithm == 'dual_annealing':
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, log = log)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.dual_annealing(objective, bounds = bounds)
             
@@ -101,7 +104,7 @@ class Algorithm():
             strategy = self.kwargs['strategy']
             updating = self.kwargs['updating']
             
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, log = log)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = bounds,
@@ -116,15 +119,17 @@ class Algorithm():
         return objective.best_call()
 
 class Objective():
-    def __init__(self, replica_objectives, variables, model):
+    def __init__(self, replica_objectives, variables, model, log = False):
         self.model = model
         self.replica_objectives = replica_objectives
         self._calls = []
         self.variables = variables
         self._call_count = 0
+        self.log = log
+        str_log = '' if not self.log else '_log_'
         timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
         name = 'fit_' + '_'.join([str(r.replica)
-                                  for r in replica_objectives]) + '_' + timestamp
+                                  for r in replica_objectives]) + '_' + str_log + timestamp
         self.cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
@@ -194,10 +199,11 @@ class Loss():
 
 
 class ReplicaObjective():
-    def __init__(self, replica, model):
+    def __init__(self, replica, model, log = False):
         self.model = model
         self.replica = replica
         self.last_call = None
+        self.log = log
         
     def __call__(self):        
         days = self.replica.incubation['days']
@@ -205,12 +211,20 @@ class ReplicaObjective():
         
         _, predicted_CO2 = zip(*results['CO2'])
         measured_CO2 = self.replica.incubation['CO2']
-        
+       
+        if self.log:
+            measured_CO2 = np.log(measured_CO2)
+            predicted_CO2 = np.log(predicted_CO2)
+
         CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
         
         _, predicted_CH4 = zip(*results['CH4'])
         measured_CH4 = self.replica.incubation['CH4']
-        
+       
+        if self.log:
+            measured_CH4 = np.log(measured_CH4)
+            predicted_CH4 = np.log(predicted_CH4)
+  
         CH4_loss = Loss(predicted_CH4, measured_CH4).RMSE()
         
         loss = CO2_loss + CH4_loss

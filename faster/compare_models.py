@@ -101,6 +101,30 @@ def fit(include_samples = None, exclude_samples = None):
                     print('while trying to fit ', str(sample))
                     print(traceback.format_exc())
                     print()
+   
+def fit_sample(sample_name, split_number, model_type, log = False):
+    target_directory = USER_VARIABLES.LOG_DIRECTORY
+    d = data.get_data_before_day()
+    sample = d[sample_name]
+    
+    try:
+        splits = sample.leave_one_out_split()
+        fit_replicas = splits[split_number]['fit']
+        
+    except Exception as ex:
+        print('skipping', str(sample), str(ex))
+        return
+    
+    chosen_pathways = model.get_pathways(model_type)
+    pathway_model = model.Model(chosen_pathways)
+    pathway_model.parameters().set('default')
+    
+    if not 'Fe3' in chosen_pathways:
+        pathway_model.parameters()['Fe3'].constant(0)
+    if not 'Homo' in chosen_pathways:
+        pathway_model.parameters()['M_Homo'].constant(0)
+
+    best_loss, _ = pathway_model.fit(fit_replicas, log = log)
     
 if __name__ == '__main__':
-    fit(['1358'])
+    fit_sample('1354', 1, 'simple', log = True)
