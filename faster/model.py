@@ -219,6 +219,7 @@ if __name__ == '__main__':
     results_folder = 'fit_13535_2024-04-17--09-09-04'
     results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
     results_folder = 'fit_13546_2024-04-17--20-38-32'
+    results_folder = 'fit_13585_2024-04-17--21-17-27'
 
     parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
     best_loss, p = get_best_loss_parameters(parameter_source)

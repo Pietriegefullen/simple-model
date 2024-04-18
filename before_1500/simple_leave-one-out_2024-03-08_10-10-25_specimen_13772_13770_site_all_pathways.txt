@@ -1,4 +1,0 @@
-Ferm
-Ferm_help
-Hydro
-Ac
