@@ -215,6 +215,9 @@ class ReplicaObjective():
         if self.log:
             measured_CO2 = np.log(measured_CO2)
             predicted_CO2 = np.log(predicted_CO2)
+            
+            measured_CO2 = np.where(np.isfinite(measured_CO2), measured_CO2, -12)
+            predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
 
         CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
         
@@ -224,7 +227,11 @@ class ReplicaObjective():
         if self.log:
             measured_CH4 = np.log(measured_CH4)
             predicted_CH4 = np.log(predicted_CH4)
-  
+            
+            measured_CH4 = np.where(np.isfinite(measured_CH4), measured_CH4, -12)
+            predicted_CH4 = np.where(np.isfinite(predicted_CH4), predicted_CH4, -12)
+
+ 
         CH4_loss = Loss(predicted_CH4, measured_CH4).RMSE()
         
         loss = CO2_loss + CH4_loss

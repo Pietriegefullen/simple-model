@@ -218,36 +218,49 @@ if __name__ == '__main__':
     #run.plot(['DOC'])
     #1/0
 
-    results_folder = 'fit_13544_2024-04-18--09-14-54'
-    results_folder = 'fit_13526_2024-04-16--13-53-49'
-    results_folder = 'fit_13535_2024-04-17--09-09-04'
-    results_folder = 'fit_13546_2024-04-17--20-38-32'
-    results_folder = 'fit_13515_13516_2024-04-16--13-52-38'
-    results_folder = 'fit_13555_2024-04-17--20-56-12'
-
-    parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
-    best_loss, p = get_best_loss_parameters(parameter_source)
-    print('best loss', best_loss)
+    result_sample = '1377'
+    folders = []
+    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
+        if result_sample in _d:
+            folders.append(_d)
+    #results_folder = 'fit_13544_2024-04-18--09-14-54'
     
-    #model.parameters().set('default')
+    for results_folder in folders:
+        parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
+        best_loss, p = get_best_loss_parameters(parameter_source)
+        print('best loss', best_loss)
+        
+        #model.parameters().set('default')
 
-    #del p['M_Homo']
-    model.parameters().set(p)
-    print(model)
+        #del p['M_Homo']
+        model.parameters().set(p)
+        print(model)
 
-    replica_name = results_folder.split('_2024')[0].replace(' ', '_').split('_')[-1]
-    replica = d[replica_name]
-    model_run = model.predict(replica)
+        fit_replicas = [s for s in results_folder.replace('fit_', '').replace('log', '').split('_2024')[0].replace(' ', '_').split('_') if not s == '']
 
-    replica.plot(log = True)
-    model_run.plot(['CO2', 'CH4'], newfigure = False)
-    
-    replica.plot()
-    model_run.plot(['CO2', 'CH4'], newfigure = False)
+        for repl in fit_replicas:
+            replica = d[repl]
 
-    model_run.plot(['Fermentation_MM'])
-    model_run.plot(['Hydrolysis_MM'])
-    model_run.plot(['Hydro_MM'])
-    model_run.plot(['Aceto_MM'])
+            model_run = model.predict(replica)
+
+            plt.figure()
+            model_run.plot(['CO2', 'CH4'], newfigure = False)
+            replica.plot(log = True, newfigure = False)
+            ax = plt.gca()
+            t = ax.get_title()
+            plt.title(t + results_folder)
+            
+            #plt.figure()
+            #model_run.plot(['CO2', 'CH4'], newfigure = False)
+            #replica.plot(newfigure = False)
+            #ax = plt.gca()
+            #t = ax.get_title()
+            #plt.title(t + results_folder)
+            
+
+        #model_run.plot(['Fermentation_MM'])
+        #model_run.plot(['Hydrolysis_MM'])
+        #model_run.plot(['Hydro_MM'])
+        #model_run.plot(['Aceto_MM'])
 
     plt.show()
