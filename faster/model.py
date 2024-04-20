@@ -124,7 +124,24 @@ class Model():
             os.makedirs(target_directory)
         with open(os.path.join(target_directory, file_name + '.json'), 'w') as df:
             json.dump(cfg, df, indent = 4)
-            
+
+    def model_type(self):
+        simple = sorted(get_pathways('simple'))
+        complex = sorted(get_pathways('complex'))
+        pwys = sorted([p.__class__.__name__
+                      for p in self.contributing_pathways])
+        if len(simple) == len(pwys):
+            for s,p in zip(simple, pwys):
+                if not s == p:
+                    raise Exception('Unknown model type')
+            return 'simple'
+        elif len(complex) == len(pwys):
+            for c, p in zip(complex, pwys):
+                if not c == p:
+                    raise Exception('Unknown model type')
+            return 'complex'
+        raise Exception('Unknown model type')
+
     def load(self, file):
         with open(file, 'r') as df:
             cfg = json.load(df)
@@ -217,8 +234,9 @@ if __name__ == '__main__':
     #plt.figure()
     #run.plot(['DOC'])
     #1/0
-
-    result_sample = '1377'
+    
+    plot_log = False
+    result_sample = '1378'
     folders = []
     for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
         if result_sample in _d:
@@ -245,7 +263,7 @@ if __name__ == '__main__':
 
             plt.figure()
             model_run.plot(['CO2', 'CH4'], newfigure = False)
-            replica.plot(log = True, newfigure = False)
+            replica.plot(log = plot_log, newfigure = False)
             ax = plt.gca()
             t = ax.get_title()
             plt.title(t + results_folder)

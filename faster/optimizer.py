@@ -126,10 +126,11 @@ class Objective():
         self.variables = variables
         self._call_count = 0
         self.log = log
-        str_log = '' if not self.log else '_log_'
+        str_log = '' if not self.log else '_log'
+        str_model_type = '_' + self.model.model_type() + '_'
         timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
         name = 'fit_' + '_'.join([str(r.replica)
-                                  for r in replica_objectives]) + '_' + str_log + timestamp
+                                  for r in replica_objectives]) + str_log + str_model_type + timestamp
         self.cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
