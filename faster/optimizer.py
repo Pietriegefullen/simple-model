@@ -1,4 +1,4 @@
-#import gc
+import gc
 import os
 import json
 import numpy as np
@@ -169,7 +169,7 @@ class Objective():
                 json.dump(parameter_dict, cf, indent = 4)
             self._best_call = (total_loss, parameter_dict)
 
-        #gc.collect()
+        gc.collect()
         return total_loss
     
     def best_call(self):

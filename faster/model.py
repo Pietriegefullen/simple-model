@@ -236,7 +236,7 @@ if __name__ == '__main__':
     #1/0
     
     plot_log = False
-    result_sample = '1378'
+    result_sample = '1375'
     folders = []
     for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
         if result_sample in _d:
@@ -254,7 +254,7 @@ if __name__ == '__main__':
         model.parameters().set(p)
         print(model)
 
-        fit_replicas = [s for s in results_folder.replace('fit_', '').replace('log', '').split('_2024')[0].replace(' ', '_').split('_') if not s == '']
+        fit_replicas = [s for s in results_folder.replace('simple', '').replace('complex','').replace('fit_', '').replace('log', '').split('_2024')[0].replace(' ', '_').split('_') if not s == '']
 
         for repl in fit_replicas:
             replica = d[repl]

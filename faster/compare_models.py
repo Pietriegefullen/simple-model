@@ -1,3 +1,4 @@
+import sys
 import os
 import traceback
 import matplotlib.pyplot as plt
@@ -127,4 +128,20 @@ def fit_sample(sample_name, split_number, model_type, log = False):
     best_loss, _ = pathway_model.fit(fit_replicas, log = log)
     
 if __name__ == '__main__':
-    fit_sample('1375', 1, 'simple', log = False)
+    sample = sys.argv[1]
+    split = 1
+    if '1' in sys.argv:
+        split = 1
+    elif '2' in sys.argv:
+        split = 2
+    elif '3' in sys.argv:
+        split = 3
+    log = False
+    if 'log' in sys.argv:
+        log = True
+    model_type = 'simple'
+    if 'complex' in sys.argv:
+        model_type = 'complex'
+    elif 'simple' in sys.argv:
+        model_type = 'simple'
+    fit_sample(sample, split, model_type, log = log)

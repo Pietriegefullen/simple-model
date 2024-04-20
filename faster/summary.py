@@ -3,6 +3,7 @@ import os
 import USER_VARIABLES
 import model
 import data
+from datetime import datetime
 
 def summary():
     d = data.get_data_before_day()
@@ -38,12 +39,16 @@ def summary():
 
 if __name__ == '__main__':
     res = summary()
+    only_today = True
     for k in sorted(res.keys()):
         v = res[k]
-        print()
         best_loss = v['loss']
-        date = v['date']
+        
+        date = datetime.strptime('2024' + v['date'], '%Y-%m-%d--%H-%M-%S')
+        if date < datetime.today().replace(hour = 0, minute = 0, second = 0):
+            continue
         st = f'{k[:55]:<55s}  {best_loss:8.4f}'
+        print()
         print(st)
         for r_name, r2 in v['R2'].items():
             r2_str = f'   R2 (CO2) = {r2["CO2"]:5.2f} ({r_name})\n   R2 (CH4) = {r2["CH4"]:5.2f} ({r_name})'
