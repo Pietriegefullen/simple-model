@@ -239,8 +239,6 @@ class ReplicaObjective():
         
         self.last_call = predicted_CO2, predicted_CH4
 
-        del results
-
         return loss
     
     def plot(self):
