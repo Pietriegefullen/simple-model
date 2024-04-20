@@ -1,5 +1,5 @@
 import os
-
+import sys
 import USER_VARIABLES
 import model
 import data
@@ -39,13 +39,13 @@ def summary():
 
 if __name__ == '__main__':
     res = summary()
-    only_today = True
+    only_today = not 'all' in sys.argv
     for k in sorted(res.keys()):
         v = res[k]
         best_loss = v['loss']
         
         date = datetime.strptime('2024' + v['date'], '%Y-%m-%d--%H-%M-%S')
-        if date < datetime.today().replace(hour = 0, minute = 0, second = 0):
+        if only_today and date < datetime.today().replace(hour = 0, minute = 0, second = 0):
             continue
         st = f'{k[:55]:<55s}  {best_loss:8.4f}'
         print()
