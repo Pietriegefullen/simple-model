@@ -356,8 +356,9 @@ class Replica():
         elif key == 'days':
             return self.incubation['days']
     
-    def plot(self, events = True, marker = 'x', log = False):
-        plt.figure()
+    def plot(self, events = True, marker = 'x', log = False, newfigure = True):
+        if newfigure:
+            plt.figure()
         plt.plot(*self.CO2(),'r' + marker, label = 'CO2')
         plt.plot(*self.CH4(),'b' + marker, label = 'CH4')
         plt.title(f'{str(self)} {self.sample.site} ({self.sample.origin})')

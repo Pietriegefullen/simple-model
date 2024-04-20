@@ -33,7 +33,8 @@ def summary():
 
 if __name__ == '__main__':
     res = summary()
-    for k, v in res.items():
+    for k in sorted(res.keys()):
+        v = res[k]
         print()
         best_loss = v['loss']
         st = f'{k[:25]:<25s}  {best_loss:8.4f}'
