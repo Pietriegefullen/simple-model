@@ -238,13 +238,13 @@ class Sample():
         super().__init__()
         
         self.sample_name = sample_name
-        replicas = []
+        loaded_replicas = []
         if not replicas is None:
             for r in replicas:
                 repl = Replica(**r)
                 repl.sample = self
-                replica.append(repl)
-        self.replicas = replicas
+                loaded_replicas.append(repl)
+        self.replicas = loaded_replicas
         
         self.site = site
         self.origin = origin
@@ -395,7 +395,7 @@ class Replica():
                        if day < last_day}
             
     def __str__(self):
-        return self.sample.sample_name + self.replica_number
+        return str(self.sample.sample_name) + str(self.replica_number)
     
     def get_config(self):
         cfg = {'replica_number': self.replica_number,
