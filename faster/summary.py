@@ -17,8 +17,12 @@ def summary():
         model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
         loaded_model = model.Model(model.get_pathways(model_type))
         loaded_model.parameters().set(best_parameters)
-  
-        replicas = [s for s in f.replace('fit_','').replace('log', '').split('2024')[0].split('_') if not s == '']
+ 
+        clean_name = f.replace('fit_','')
+        clean_name = clean_name.replace('simple','').replace('complex','')
+        clean_name = clean_name.replace('log', '')
+        clean_name, date = clean_name.split('2024')
+        replicas = [s for s in clean_name.split('_') if not s == '']
         runs = {replica_name: None for replica_name in replicas}
         for replica_name in replicas:
             replica = d[replica_name]
@@ -27,6 +31,7 @@ def summary():
         
         results[f] = {'loss': best_loss,
                       'parameters': best_parameters,
+                      'date': date,
                       'R2': {r_name: r['R2'] for r_name,r in runs.items()}}
         
     return results
@@ -37,7 +42,8 @@ if __name__ == '__main__':
         v = res[k]
         print()
         best_loss = v['loss']
-        st = f'{k[:25]:<25s}  {best_loss:8.4f}'
+        date = v['date']
+        st = f'{k[:55]:<55s}  {best_loss:8.4f}'
         print(st)
         for r_name, r2 in v['R2'].items():
             r2_str = f'   R2 (CO2) = {r2["CO2"]:5.2f} ({r_name})\n   R2 (CH4) = {r2["CH4"]:5.2f} ({r_name})'

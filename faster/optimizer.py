@@ -1,3 +1,4 @@
+#import gc
 import os
 import json
 import numpy as np
@@ -122,9 +123,9 @@ class Objective():
     def __init__(self, replica_objectives, variables, model, log = False):
         self.model = model
         self.replica_objectives = replica_objectives
-        self._calls = []
         self.variables = variables
         self._call_count = 0
+        self._best_call = None
         self.log = log
         str_log = '' if not self.log else '_log'
         str_model_type = '_' + self.model.model_type() + '_'
@@ -154,7 +155,7 @@ class Objective():
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
 
-        if not self._calls or total_loss < self.best_call()[0]:
+        if not self._best_call or total_loss < self.best_call()[0]:
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
             parameter_dict = self.model.parameters().get_config()
             #parameter_dict = {var.name:p
@@ -166,13 +167,13 @@ class Objective():
             checkpoint_file = os.path.join(self.cp_path, file_name)
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
-            self._calls.append((total_loss, parameter_dict))
+            self._best_call = (total_loss, parameter_dict)
 
+        #gc.collect()
         return total_loss
     
     def best_call(self):
-        sorted_by_loss = sorted(self._calls, key = lambda x: x[0])
-        return sorted_by_loss[0]
+        return self._best_call
     
     def __str__(self):
         return 'Objective function: sum of loss from\n' + '\n'.join([str(s) 
@@ -187,7 +188,6 @@ class ParticleObjective(Objective):
             losses = [obj() for obj in self.replica_objectives]
             total_loss = np.sum(losses)
             particle_fitnesses.append(total_loss)
-            self._calls.append((total_loss, parameter_values))
         return np.array(particle_fitnesses)
 
 class Loss():
@@ -238,7 +238,9 @@ class ReplicaObjective():
         loss = CO2_loss + CH4_loss
         
         self.last_call = predicted_CO2, predicted_CH4
-        
+
+        del results
+
         return loss
     
     def plot(self):
