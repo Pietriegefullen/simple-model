@@ -8,6 +8,9 @@ from datetime import datetime
 
 import USER_VARIABLES
 
+import linecache
+import os
+
 def algo_kwargs(method):
     if method == 'PSO':
         return {'c1': .5,
@@ -22,7 +25,9 @@ def algo_kwargs(method):
     
     elif method == 'differential_evolution':
         return {'strategy': 'best1bin',
-                'updating': 'immediate'}
+                'updating': 'immediate',
+                'workers': -1
+                }
     
     elif method == 'direct' or method == 'dual_annealing':
         return {}
@@ -210,7 +215,7 @@ class ReplicaObjective():
         days = self.replica.incubation['days']
         results = self.model.predict(self.replica, days, quiet = True)
         
-        _, predicted_CO2 = zip(*results['CO2'])
+        _, predicted_CO2 = results['CO2']
         measured_CO2 = self.replica.incubation['CO2']
        
         if self.log:
@@ -222,7 +227,7 @@ class ReplicaObjective():
 
         CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
         
-        _, predicted_CH4 = zip(*results['CH4'])
+        _, predicted_CH4 = results['CH4']
         measured_CH4 = self.replica.incubation['CH4']
        
         if self.log:

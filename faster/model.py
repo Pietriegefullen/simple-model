@@ -92,11 +92,11 @@ class Model():
             for Si, pool_name in zip(S, system.SYSTEM):
                 self.system_state_log.log(pool_name, t, Si)
 
-        _, predicted_CO2 = zip(*self.system_state_log['CO2'])
+        _, predicted_CO2 = self.system_state_log['CO2']
         measured_CO2 = replica['CO2']
         co2_r2 = r2(predicted_CO2, measured_CO2)
 
-        _, predicted_CH4 = zip(*self.system_state_log['CH4'])
+        _, predicted_CH4 = self.system_state_log['CH4']
         measured_CH4 = replica['CH4']
         ch4_r2 = r2(predicted_CH4, measured_CH4)
          
@@ -163,13 +163,12 @@ class ModelRun():
         return self._log[key]
         
     def log(self, name, t, value):
-        if not name in self._log:
-            self._log[name] = []
-        
-        self._log[name].append((t,value))
+        #if not name in self._log:
+        #    self._log[name] = []
+        self._log[name] = (t,value)
         
     def reset(self):
-        self._log = {}
+        self._log.clear()
         
     def plot(self, name = None, newfigure = True):
         if name is None:

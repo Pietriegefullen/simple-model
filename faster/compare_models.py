@@ -17,7 +17,6 @@ import USER_VARIABLES
 # TODO: remove unused pools/variables, e.g. initial Fe3 in simple model.
 # TODO: 1354-6 has no carex but usable only up to day 1309?
 # TODO: timeout for solve_ivp in case parameter combination causes too small time steps?
-
 def fit(include_samples = None, exclude_samples = None):
     dataset = data.get_data_before_carex()
     target_directory = USER_VARIABLES.LOG_DIRECTORY
