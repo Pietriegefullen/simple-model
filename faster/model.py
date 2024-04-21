@@ -88,9 +88,8 @@ class Model():
                                                   max_step = 10,
                                                   first_step = 1e-6)
 
-        for t, S in zip(t, np.transpose(solver_result.y)):
-            for Si, pool_name in zip(S, system.SYSTEM):
-                self.system_state_log.log(pool_name, t, Si)
+        for Si, pool_name in zip(solver_result.y, system.SYSTEM):
+            self.system_state_log.log(pool_name, t, Si)
 
         _, predicted_CO2 = self.system_state_log['CO2']
         measured_CO2 = replica['CO2']
@@ -180,11 +179,9 @@ class ModelRun():
         for n in name:
             if not n in self._log:
                 print(n + ' not logged')
-            if not isinstance(self._log[n], list):
-                continue
             if newfigure:
                 plt.figure()
-            x, y = zip(*self._log[n])
+            x, y = self._log[n]
             label = n
             if 'R2' in self._log and n in self._log['R2']:
                 value = self._log['R2'][n]
