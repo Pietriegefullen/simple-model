@@ -13,7 +13,8 @@ def summary():
         parameter_source = os.path.join(result_source, f)
         if not os.path.isdir(parameter_source) or not f.startswith('fit'):
             continue
-
+        if len(os.listdir(parameter_source)) == 0:
+            continue
         best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
         model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
         loaded_model = model.Model(model.get_pathways(model_type))

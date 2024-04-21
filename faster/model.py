@@ -26,6 +26,7 @@ def get_pathways(model_type):
     elif model_type == 'simple':
         return basic
     else:
+        print('model type:', model_type)
         raise NotImplementedError()
 
 def r2(predicted, measured):
@@ -160,11 +161,23 @@ class ModelRun():
     
     def __getitem__(self, key):
         return self._log[key]
+       
+    def log_snap(self, name, t, value):
+        if not name in self._log:
+            ts = np.empty((0,))
+            vs = np.empty((0,))
+            self._log[name] = (ts, vs)
+        ts, vs = self._log[name]
+        ts = np.concatenate([ts, np.reshape(t,(1,))],
+                            axis = 0)
+        vs = np.concatenate([vs, np.reshape(value,(1,))],
+                            axis = 0)
+        self.log(name, ts, vs)
         
-    def log(self, name, t, value):
+    def log(self, name, ts, values):
         #if not name in self._log:
         #    self._log[name] = []
-        self._log[name] = (t,value)
+        self._log[name] = (ts ,values)
         
     def reset(self):
         self._log.clear()
