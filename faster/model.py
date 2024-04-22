@@ -101,6 +101,7 @@ class Model():
                                     args = (self, t, S0, solver_result))
         p.start()
         p.join(timeout = 10.)
+        p.close()
         if not len(solver_result) == 1:
             print()
             print('TIMEOUT')
