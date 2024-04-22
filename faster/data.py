@@ -244,7 +244,8 @@ class Sample():
                 repl = Replica(**r)
                 repl.sample = self
                 loaded_replicas.append(repl)
-        self.replicas = loaded_replicas
+        self.replicas = list(sorted(loaded_replicas,
+                                     key = lambda r: r.replica_number))
         
         self.site = site
         self.origin = origin
