@@ -1,6 +1,7 @@
 import gc
 import os
 import json
+import traceback
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -26,7 +27,9 @@ def algo_kwargs(method):
     elif method == 'differential_evolution':
         return {'strategy': 'best1bin',
                 'updating': 'immediate',
-                'workers': -1
+                'workers': -1,
+                'recombination': .3, # CR
+                'mutation': (.3,.8)  # F
                 }
     
     elif method == 'direct' or method == 'dual_annealing':
@@ -115,7 +118,9 @@ class Algorithm():
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = bounds,
                                                       strategy = strategy,
-                                                      updating = updating)
+                                                      updating = updating, 
+                                                      callback = objective.get_callback())
+
         else:
             raise NotImplementedError()
             
@@ -123,6 +128,15 @@ class Algorithm():
         _ = [variable.set(value) for variable, value in zip(variables, optimal_parameters)]
         
         return objective.best_call()
+
+def target_directory_path(replica_objectives, log, model_type):
+    str_log = '' if not log else '_log'
+    str_model_type = '_' + model_type + '_'
+    timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
+    name = 'fit_' + '_'.join([str(r.replica)
+                              for r in replica_objectives]) + str_log + str_model_type + timestamp
+    cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name) 
+    return cp_path
 
 class Objective():
     def __init__(self, replica_objectives, variables, model, log = False):
@@ -132,12 +146,8 @@ class Objective():
         self._call_count = 0
         self._best_call = None
         self.log = log
-        str_log = '' if not self.log else '_log'
-        str_model_type = '_' + self.model.model_type() + '_'
-        timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
-        name = 'fit_' + '_'.join([str(r.replica)
-                                  for r in replica_objectives]) + str_log + str_model_type + timestamp
-        self.cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name)
+        model_type = model.model_type()
+        self.cp_path = target_directory_path(replica_objectives, log, model_type)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
 
@@ -156,11 +166,15 @@ class Objective():
     
     def __call__(self, transformed_parameter_values):
         self._call_count += 1
+        print('.', end = '', flush = True)
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
+        if np.isnan(total_loss):
+            return 999.
 
         if not self._best_call or total_loss < self.best_call()[0]:
+            print()
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
             parameter_dict = self.model.parameters().get_config()
             #parameter_dict = {var.name:p
@@ -168,15 +182,31 @@ class Objective():
             replica_objectives = self.replica_objectives
             if not isinstance(replica_objectives, list):
                 replica_objectives = [replica_objectives]
-            file_name = f'call_{self._call_count:03d}_loss_{total_loss:.2f}'
-            checkpoint_file = os.path.join(self.cp_path, file_name)
+            checkpoint_file = os.path.join(self.cp_path, self.file_name(total_loss))
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
             self._best_call = (total_loss, parameter_dict)
 
         gc.collect()
         return total_loss
-    
+  
+    def file_name(self, total_loss):
+        return f'call_{self._call_count:03d}_loss_{total_loss:.2f}'
+
+    def get_callback(self):
+        def callback(intermediate_result):
+            print('callback')
+            if not self._best_call is None:
+                best_parameters = intermediate_result.x
+                objective = intermediate_result.fun
+                current_loss = objective(best_parameters)
+                if current_loss < self._best_call[0]:
+                    pop = intermediate_result.population
+                    pop_file = os.path.join(self.cp_path, self.file_name(current_loss) + '.npy')
+                    print('saving', pop_file)
+                    with open(pop_file, 'w') as pf:
+                        np.save(pop, pf)
+
     def best_call(self):
         return self._best_call
     
@@ -213,7 +243,18 @@ class ReplicaObjective():
         
     def __call__(self):        
         days = self.replica.incubation['days']
-        results = self.model.predict(self.replica, days, quiet = True)
+        try:
+            results = self.model.predict(self.replica, days, quiet = True)
+        except KeyboardInterrupt:
+            while True:
+                inp = input('continue ? [Y/n]> ')
+                if inp == '' or inp == 'y':
+                    return np.nan # continue
+                elif inp == 'n':
+                    raise Exception()
+        except:
+            # This also catches timeout Exception or KeyboardInterrupt, should LSODA get stuck
+            return np.nan
         
         _, predicted_CO2 = results['CO2']
         measured_CO2 = self.replica.incubation['CO2']

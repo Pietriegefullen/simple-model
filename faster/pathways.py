@@ -83,15 +83,15 @@ class Pathway():
             log_Q = system.vector(0)
             
             contributes = np.logical_and(self.stoichiometry != 0, S > 0)
-            log_Q[contributes] = np.log_snap(1e-6*S[contributes])
+            log_Q[contributes] = np.log(1e-6*S[contributes])
     
             deltaG_r = self.deltaG_s + R*T*np.sum(self.stoichiometry*log_Q)
             deltaG_rmin = chemistry.GIBBS_MINIMUM
             
             thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
-            self.log_snap('deltaG_r', t, deltaG_r)
+            self.log('deltaG_r', t, deltaG_r)
             
-        self.log_snap('thermodynamic_factor', t, thermodynamic_factor)
+        self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
     
     def __call__(self, t, S):
@@ -124,9 +124,9 @@ class Pathway():
         dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
         dS_dt = np.clip(dS_dt, -S, np.inf)
         
-        self.log_snap('MM', t, MM_factor)
-        self.log_snap('inhib', t, inhib_factor)
-        self.log_snap('v', t, v)
+        self.log('MM', t, MM_factor)
+        self.log('inhib', t, inhib_factor)
+        self.log('v', t, v)
         
         return np.reshape(dS_dt, (-1,))
 

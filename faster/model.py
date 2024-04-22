@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 
 import numpy as np
 import scipy.integrate
@@ -13,6 +14,17 @@ import parameters
 import USER_VARIABLES
 
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
+
+
+def integrate(f, t, S0, solver_result):
+    result = scipy.integrate.solve_ivp(f, (0, max(t)),
+                                                  S0, 
+                                                  t_eval = t,
+                                                  method = 'LSODA',
+                                                  max_step = 10,
+                                                  first_step = 1e-6, 
+                                                  min_step = 1e-4)
+    solver_result.append(result)
 
 
 def get_pathways(model_type):
@@ -55,7 +67,7 @@ class Model():
         
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
-        
+       
     def __call__(self, t, S):
         S = np.where(S < 1e-40, 0, S)
         
@@ -81,13 +93,21 @@ class Model():
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
         self.system_state_log.reset()
-        
-        solver_result = scipy.integrate.solve_ivp(self, (0, max(t)),
-                                                  S0, 
-                                                  t_eval = t,
-                                                  method = 'LSODA',
-                                                  max_step = 10,
-                                                  first_step = 1e-6)
+       
+        manager = multiprocessing.Manager()
+        solver_result = manager.list()
+        p = multiprocessing.Process(target = integrate,
+                                    args = (self, t, S0, solver_result))
+        p.start()
+        p.join(timeout = 10.)
+        if not len(solver_result) == 1:
+            print()
+            print('TIMEOUT')
+            raise Exception('timeout')
+            
+        solver_result = solver_result[0]
+        if not solver_result.y.shape == (len(system.SYSTEM), len(t)):
+            raise Exception('stopped integration')
 
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, t, Si)
