@@ -128,13 +128,13 @@ def fit_sample(sample_name, split_number, model_type, log = False):
     
 if __name__ == '__main__':
     sample = sys.argv[1]
-    split = 1
-    if '1' in sys.argv:
+    split = 0
+    if '0' in sys.argv:
+        split = 0
+    elif '1' in sys.argv:
         split = 1
     elif '2' in sys.argv:
         split = 2
-    elif '3' in sys.argv:
-        split = 3
     log = False
     if 'log' in sys.argv:
         log = True
@@ -143,4 +143,5 @@ if __name__ == '__main__':
         model_type = 'complex'
     elif 'simple' in sys.argv:
         model_type = 'simple'
+    print(split)
     fit_sample(sample, split, model_type, log = log)

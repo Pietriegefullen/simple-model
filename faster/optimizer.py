@@ -63,7 +63,8 @@ class Algorithm():
         if not variables:
             raise Exception('Model has no variable parameters.')
               
-        replica_obj = [ReplicaObjective(replica, model, log = log) for replica in replicas]
+        replica_obj = [ReplicaObjective(replica, model, log = log)
+                       for replica in replicas]
         
         if self.algorithm == 'PSO':
             import pyswarms as ps

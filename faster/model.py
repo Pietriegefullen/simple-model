@@ -99,9 +99,13 @@ class Model():
         solver_result = manager.list()
         p = multiprocessing.Process(target = integrate,
                                     args = (self, t, S0, solver_result))
+        p.daemon = True
         p.start()
         p.join(timeout = 10.)
-        p.close()
+        if p.is_alive():
+            p.terminate()
+            p.join()
+
         if not len(solver_result) == 1:
             print()
             print('TIMEOUT')
