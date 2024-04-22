@@ -23,7 +23,8 @@ def integrate(f, t, S0, solver_result):
                                                   method = 'LSODA',
                                                   max_step = 10,
                                                   first_step = 1e-6, 
-                                                  min_step = 1e-4)
+                                                  #min_step = 1e-4
+                                                  )
     solver_result.append(result)
 
 
