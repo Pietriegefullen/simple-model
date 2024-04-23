@@ -167,7 +167,8 @@ class Objective():
     
     def __call__(self, transformed_parameter_values):
         self._call_count += 1
-        print('.', end = '', flush = True)
+        if self._call_count % 5 == 0:
+            print('.', end = '', flush = True)
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
         total_loss = sum([obj() for obj in self.replica_objectives])   
