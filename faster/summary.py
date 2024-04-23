@@ -5,7 +5,7 @@ import model
 import data
 from datetime import datetime
 
-def summary():
+def summary(args):
     d = data.get_data_before_day()
     results = {}
     result_source = USER_VARIABLES.LOG_DIRECTORY
@@ -14,6 +14,8 @@ def summary():
         if not os.path.isdir(parameter_source) or not f.startswith('fit'):
             continue
         if len(os.listdir(parameter_source)) == 0:
+            continue
+        if not all([a in f for a in args]):
             continue
         best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
         model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
@@ -39,8 +41,11 @@ def summary():
     return results
 
 if __name__ == '__main__':
-    res = summary()
-    only_today = not 'all' in sys.argv
+    args = sys.argv[1:]
+    if 'all' in sys.argv:
+        args.remove('all')
+    res = summary(args)
+    only_today = not args or not 'all' in sys.argv
     for k in sorted(res.keys()):
         v = res[k]
         best_loss = v['loss']
