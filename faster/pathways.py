@@ -73,7 +73,7 @@ class Pathway():
     
     def log(self, name, t, value):
         if not self.state_logger is None:
-            self.state_logger.log(self.__class__.__name__ + '_' + name, t, value)
+             self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
         
     def thermodynamics(self, t, S):
         thermodynamic_factor = 1.
@@ -100,7 +100,10 @@ class Pathway():
             
         dissolved_S = HENRYS_LAW*S
 
-        eps = np.where(dissolved_S == 0, 1e-8, 0) # no effect, only to suppress warning of invalid value
+        # setting eps > 0 where dissolved_S == 0 has no effect
+        # because MM will be 0 anyway.
+        # only to suppress warnings 
+        eps = np.where(dissolved_S == 0, 1e-8, 0) 
 
         MM = np.where((self.Km + dissolved_S) == 0, 
                       1,

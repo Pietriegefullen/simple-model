@@ -1,4 +1,5 @@
 import os
+import multiprocessing
 
 import numpy as np
 import scipy.integrate
@@ -15,6 +16,18 @@ import USER_VARIABLES
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
+def integrate(f, t, S0, solver_result):
+    result = scipy.integrate.solve_ivp(f, (0, max(t)),
+                                                  S0, 
+                                                  t_eval = t,
+                                                  method = 'LSODA',
+                                                  max_step = 10,
+                                                  first_step = 1e-6, 
+                                                  #min_step = 1e-4
+                                                  )
+    solver_result.append(result)
+
+
 def get_pathways(model_type):
     basic = ['Hydrolysis',
              'Fermentation',
@@ -26,6 +39,7 @@ def get_pathways(model_type):
     elif model_type == 'simple':
         return basic
     else:
+        print('model type:', model_type)
         raise NotImplementedError()
 
 def r2(predicted, measured):
@@ -54,7 +68,7 @@ class Model():
         
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
-        
+       
     def __call__(self, t, S):
         S = np.where(S < 1e-40, 0, S)
         
@@ -80,23 +94,35 @@ class Model():
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
         self.system_state_log.reset()
-        
-        solver_result = scipy.integrate.solve_ivp(self, (0, max(t)),
-                                                  S0, 
-                                                  t_eval = t,
-                                                  method = 'LSODA',
-                                                  max_step = 10,
-                                                  first_step = 1e-6)
+       
+        manager = multiprocessing.Manager()
+        solver_result = manager.list()
+        p = multiprocessing.Process(target = integrate,
+                                    args = (self, t, S0, solver_result))
+        p.daemon = True
+        p.start()
+        p.join(timeout = 10.)
+        if p.is_alive():
+            p.terminate()
+            p.join()
 
-        for t, S in zip(t, np.transpose(solver_result.y)):
-            for Si, pool_name in zip(S, system.SYSTEM):
-                self.system_state_log.log(pool_name, t, Si)
+        if not len(solver_result) == 1:
+            print()
+            print('TIMEOUT')
+            raise Exception('timeout')
+            
+        solver_result = solver_result[0]
+        if not solver_result.y.shape == (len(system.SYSTEM), len(t)):
+            raise Exception('stopped integration')
 
-        _, predicted_CO2 = zip(*self.system_state_log['CO2'])
+        for Si, pool_name in zip(solver_result.y, system.SYSTEM):
+            self.system_state_log.log(pool_name, t, Si)
+
+        _, predicted_CO2 = self.system_state_log['CO2']
         measured_CO2 = replica['CO2']
         co2_r2 = r2(predicted_CO2, measured_CO2)
 
-        _, predicted_CH4 = zip(*self.system_state_log['CH4'])
+        _, predicted_CH4 = self.system_state_log['CH4']
         measured_CH4 = replica['CH4']
         ch4_r2 = r2(predicted_CH4, measured_CH4)
          
@@ -124,7 +150,24 @@ class Model():
             os.makedirs(target_directory)
         with open(os.path.join(target_directory, file_name + '.json'), 'w') as df:
             json.dump(cfg, df, indent = 4)
-            
+
+    def model_type(self):
+        simple = sorted(get_pathways('simple'))
+        complex = sorted(get_pathways('complex'))
+        pwys = sorted([p.__class__.__name__
+                      for p in self.contributing_pathways])
+        if len(simple) == len(pwys):
+            for s,p in zip(simple, pwys):
+                if not s == p:
+                    raise Exception('Unknown model type')
+            return 'simple'
+        elif len(complex) == len(pwys):
+            for c, p in zip(complex, pwys):
+                if not c == p:
+                    raise Exception('Unknown model type')
+            return 'complex'
+        raise Exception('Unknown model type')
+
     def load(self, file):
         with open(file, 'r') as df:
             cfg = json.load(df)
@@ -144,15 +187,26 @@ class ModelRun():
     
     def __getitem__(self, key):
         return self._log[key]
-        
-    def log(self, name, t, value):
+       
+    def log_snap(self, name, t, value):
         if not name in self._log:
-            self._log[name] = []
+            ts = np.empty((0,))
+            vs = np.empty((0,))
+            self._log[name] = (ts, vs)
+        ts, vs = self._log[name]
+        ts = np.concatenate([ts, np.reshape(t,(1,))],
+                            axis = 0)
+        vs = np.concatenate([vs, np.reshape(value,(1,))],
+                            axis = 0)
+        self.log(name, ts, vs)
         
-        self._log[name].append((t,value))
+    def log(self, name, ts, values):
+        #if not name in self._log:
+        #    self._log[name] = []
+        self._log[name] = (ts ,values)
         
     def reset(self):
-        self._log = {}
+        self._log.clear()
         
     def plot(self, name = None, newfigure = True):
         if name is None:
@@ -164,11 +218,9 @@ class ModelRun():
         for n in name:
             if not n in self._log:
                 print(n + ' not logged')
-            if not isinstance(self._log[n], list):
-                continue
             if newfigure:
                 plt.figure()
-            x, y = zip(*self._log[n])
+            x, y = self._log[n]
             label = n
             if 'R2' in self._log and n in self._log['R2']:
                 value = self._log['R2'][n]
@@ -202,65 +254,4 @@ def get_best_loss_parameters(parameter_source):
         best_parameters = json.load(pf)
     return best_loss, best_parameters
 
-if __name__ == '__main__':
-    import data
-    d = data.get_data_before_day()
-    #
-    model = Model(get_pathways('simple'))
-    #print(model)
-    #model.parameters().set('default')
-    #print(model)
-    #replica = d['13546']
-    #run = model.predict(replica)
-    #run.plot(['CO2', 'CH4'], newfigure = False)
-    #replica.plot()
-    #plt.figure()
-    #run.plot(['DOC'])
-    #1/0
 
-    result_sample = '1377'
-    folders = []
-    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
-        if result_sample in _d:
-            folders.append(_d)
-    #results_folder = 'fit_13544_2024-04-18--09-14-54'
-    
-    for results_folder in folders:
-        parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
-        best_loss, p = get_best_loss_parameters(parameter_source)
-        print('best loss', best_loss)
-        
-        #model.parameters().set('default')
-
-        #del p['M_Homo']
-        model.parameters().set(p)
-        print(model)
-
-        fit_replicas = [s for s in results_folder.replace('fit_', '').replace('log', '').split('_2024')[0].replace(' ', '_').split('_') if not s == '']
-
-        for repl in fit_replicas:
-            replica = d[repl]
-
-            model_run = model.predict(replica)
-
-            plt.figure()
-            model_run.plot(['CO2', 'CH4'], newfigure = False)
-            replica.plot(log = True, newfigure = False)
-            ax = plt.gca()
-            t = ax.get_title()
-            plt.title(t + results_folder)
-            
-            #plt.figure()
-            #model_run.plot(['CO2', 'CH4'], newfigure = False)
-            #replica.plot(newfigure = False)
-            #ax = plt.gca()
-            #t = ax.get_title()
-            #plt.title(t + results_folder)
-            
-
-        #model_run.plot(['Fermentation_MM'])
-        #model_run.plot(['Hydrolysis_MM'])
-        #model_run.plot(['Hydro_MM'])
-        #model_run.plot(['Aceto_MM'])
-
-    plt.show()

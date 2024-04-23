@@ -244,7 +244,8 @@ class Sample():
                 repl = Replica(**r)
                 repl.sample = self
                 loaded_replicas.append(repl)
-        self.replicas = loaded_replicas
+        self.replicas = list(sorted(loaded_replicas,
+                                     key = lambda r: r.replica_number))
         
         self.site = site
         self.origin = origin
@@ -273,7 +274,8 @@ class Sample():
         plt.title(f'{self.sample_name} {self.site} ({self.origin})')
     
     def __str__(self):
-        return f'{self.sample_name} {self.site} ({self.origin}) {len(self.replicas)} replicas'
+        rep_names = ','.join([r.replica_number for r in self.replicas])
+        return f'{self.sample_name} {self.site} ({self.origin}) {len(self.replicas)} replicas ({rep_names})'
     
     def leave_one_out_split(self):
         if len(self.replicas) <= 1:
@@ -484,6 +486,12 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+    for s in d.samples:
+        print(s)
+        try:
+            for r in s.leave_one_out_split():
+                print('   '+', '.join([str(_t) for _t in r['fit']]))
+        except:continue
     print('====')
     print(d)
     
