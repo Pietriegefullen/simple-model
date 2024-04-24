@@ -193,7 +193,7 @@ class Objective():
         return total_loss
   
     def file_name(self, total_loss):
-        return f'call_{self._call_count:03d}_loss_{total_loss:.2f}'
+        return f'call_{self._call_count:03d}_loss_{total_loss:7.4f}'
 
     def get_callback(self):
         def callback(intermediate_result):
