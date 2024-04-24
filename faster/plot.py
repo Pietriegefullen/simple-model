@@ -7,13 +7,6 @@ import model
 
 if __name__ == '__main__':
     d = data.get_data_before_day()
-   
-    model_type = None
-    if 'complex' in sys.argv:
-        model_type = 'complex'
-    elif 'simple' in sys.argv:
-        model_type = 'simple'
-
     plot_log = False
     if 'log' in sys.argv:
         plot_log = True
@@ -26,6 +19,12 @@ if __name__ == '__main__':
     #results_folder = 'fit_13544_2024-04-18--09-14-54'
     
     for results_folder in folders:
+        model_type = None
+        if 'complex' in sys.argv:
+            model_type = 'complex'
+        elif 'simple' in sys.argv:
+            model_type = 'simple'
+
         parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
         best_loss, p = model.get_best_loss_parameters(parameter_source)
         print('best loss', best_loss)
@@ -33,9 +32,11 @@ if __name__ == '__main__':
         loaded_model_type = 'simple'
         if 'complex' in results_folder:
             loaded_model_type = 'complex'
+            
         if model_type is None:
             model_type = loaded_model_type
-        elif not loaded_model_type == model_type:
+
+        if model_type and not loaded_model_type == model_type:
             continue
         loaded_model = model.Model(model.get_pathways(model_type))
         loaded_model.parameters().set(p)
