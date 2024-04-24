@@ -107,8 +107,7 @@ class Model():
             p.join()
 
         if not len(solver_result) == 1:
-            print()
-            print('TIMEOUT')
+            print('o', end = '', flush = True)
             raise Exception('timeout')
             
         solver_result = solver_result[0]
