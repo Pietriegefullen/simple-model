@@ -28,6 +28,7 @@ def algo_kwargs(method):
         return {'strategy': 'best1bin',
                 'updating': 'immediate',
                 'workers': -1,
+                'tol': 1e-4,
                 'recombination': .3, # CR
                 'mutation': (.3,.8)  # F
                 }
