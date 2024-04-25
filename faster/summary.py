@@ -18,7 +18,7 @@ def summary(args):
         if args and not all([a in f for a in args]):
             continue
         best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
-        model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
+        model_type = 'complex' if 'Fe3_v_max' in best_parameters else 'simple'
         loaded_model = model.Model(model.get_pathways(model_type))
         loaded_model.parameters().set(best_parameters)
  
@@ -28,6 +28,7 @@ def summary(args):
         clean_name, date = clean_name.split('2024')
         replicas = [s for s in clean_name.split('_') if not s == '']
         runs = {replica_name: None for replica_name in replicas}
+
         for replica_name in replicas:
             replica = d[replica_name]
             run = loaded_model.predict(replica)
@@ -36,7 +37,7 @@ def summary(args):
         results[f] = {'loss': best_loss,
                       'parameters': best_parameters,
                       'date': date,
-                      'R2': {r_name: r['R2'] for r_name,r in runs.items()}}
+                      'R2': {r_name: r['R2'] for r_name, r in runs.items()}}
         
     return results
 
