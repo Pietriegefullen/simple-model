@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
 def default_model_parameters():
     p = [
@@ -274,16 +275,14 @@ def boxplots(loaded_parameters):
             x_tick_labels.append(parameter_name)
             x_tick_pos.append(tick_pos)
             
-            simple_data = np.nan
+            simple_data = [np.nan]
             if par_name in loaded_parameters['simple']:
-                simple_data = [v for v in loaded_parameters['simple'][par_name]]
-            complex_data = [v if par_name in loaded_parameters['complex'] else np.nan
-                                 for v in loaded_parameters['complex']]
+                simple_data = loaded_parameters['simple'][par_name]
+            complex_data = loaded_parameters['complex'][par_name]
 
             print(f'found {len(simple_data):2d} parameter values for {par_name} (simple)')
             print(f'found {len(complex_data):2d} parameter values for {par_name} (complex)')
-            box_data = [simple_data, 
-                        complex_data]
+            box_data = [simple_data, complex_data]
             plt.boxplot(box_data, 
                         positions = [pos_simple, pos_complex],
                         widths = 2*d)
@@ -294,26 +293,121 @@ def boxplots(loaded_parameters):
             plt.yscale('log')
 
     plt.show()    
- 
-if __name__ == '__main__':
+
+def sort_dict(d):
+    s =  {}
+    for k in sorted(d.keys()):
+        ss = d[k]
+        if isinstance(ss, dict):
+            ss = sort_dict(ss)
+        s[k] = ss
+    return s
+
+
+def R2plot():
+    import model
+    import data
+    
+    r2_values = {}
+
+    kd = data.get_data_before_day()
+    _, found = load_best()
+    total = len([r for s in found.values() for r in s.values()])
+    counter = 0
+    for sample_name, repl_dict in found.items():
+        for repl, (best_loss, best_parameters) in repl_dict.items():
+            counter += 1
+            print(f'{counter/total*100:.2f}%')
+            model_type = 'simple' if 'simple' in repl else 'complex'
+            loaded_model = model.Model(model.get_pathways(model_type))
+            loaded_model.parameters().set(best_parameters)
+  
+            sample = kd[sample_name]
+            val_replica = None
+            for s in sample.leave_one_out_split():
+                fit_repl = '/'.join(sorted([r.replica_number for r in s['fit']]))
+                if fit_repl in repl:
+                    val_replica = s['val']
+                    break
+            if val_replica is None:
+                print('could not identify validation replica for', sample_name, repl)
+                continue
+
+            model_run = loaded_model.predict(val_replica)
+
+            co2_r2 = model_run['R2']['CO2']
+            ch4_r2 = model_run['R2']['CH4']
+            r2_values[sample_name + '/' + val_replica.replica_number] = (co2_r2, ch4_r2)
+
+            #plt.figure()
+            #model_run.plot(['CO2', 'CH4'], newfigure = False)
+            #val_replica.plot(log = False, newfigure = False)
+            #ax = plt.gca()
+            #t = ax.get_title()
+            #plt.title(str(val_replica) + ' validation' )
+            #plt.show()
+
+    plt.figure()
+    all_r2 = np.array([v for v in r2_values.values()])
+    plt.plot(all_r2[:,0], all_r2[:,1], 'k.')
+    plt.xlabel('R2 CO2')
+    plt.ylabel('R2 CH4')
+    plt.ylim([0,1])
+    plt.xlim([0,1])
+    plt.show()
+    
+def load_best():
     import os
     import model
     import USER_VARIABLES
     all_parameters = {  'simple': {},
                         'complex': {}}
+    found = {}
     result_source = USER_VARIABLES.LOG_DIRECTORY
     for f in os.listdir(result_source):
         parameter_source = os.path.join(result_source, f)
         if not os.path.isdir(parameter_source) or not f.startswith('fit'):
             continue
 
-        best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
-        print(f'found parameters with loss {best_loss} for {f}')
-        model_type = 'complex' if 'M_Fe3' in best_parameters else 'simple'
+        if not 'log' in f:
+            continue
+
+        try:
+            best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
+            model_type = 'complex' if 'complex' in f else 'simple'
+        
+            replicas = [s for s in f.split('log')[0].replace('fit_','').split('_') if not s == '']
+            sample = replicas[0][:4]
+            repl = '/'.join([r[-1] for r in sorted(replicas)]) + ' ' + model_type
+            if not sample in found:
+                found[sample] = {}
+            if not repl in found[sample]:
+                found[sample][repl] = None
+
+    
+            if found[sample][repl] is None or best_loss < found[sample][repl][0]:
+                found[sample][repl] = (best_loss, best_parameters)
+            
+            else:
+                continue
+                
+        except:
+            print('no parameters found in', parameter_source)
+            continue
 
         for k, p in best_parameters.items():
             if not k in all_parameters[model_type]:
                 all_parameters[model_type][k] = []
             all_parameters[model_type][k].append(p)
-   
+
+    found = sort_dict(found)
+
+    return all_parameters, found
+
+if __name__ == '__main__':
+    R2plot()
+    1/0
+    all_parameters, found = load_best()
+
     boxplots(all_parameters)
+
