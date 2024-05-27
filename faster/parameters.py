@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import json
@@ -232,7 +233,7 @@ class Parameter():
     def __rdiv__(self, other):
         return float(other)/self.value
     
-def boxplots(loaded_parameters):
+def boxplots(loaded_parameters, save_target = None):
     parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
     parameter_names = list(set(parameter_names)) # unique names
 
@@ -292,7 +293,12 @@ def boxplots(loaded_parameters):
         if not group_name == 'CUE':# and not group_name == 'pools':
             plt.yscale('log')
 
-    plt.show()    
+        if not save_target is None:
+            figure_name = group_name
+            plt.savefig(os.path.join(save_target, figure_name) + '.svg')
+
+    if save_target is None:
+        plt.show()
 
 def sort_dict(d):
     s =  {}

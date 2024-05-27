@@ -88,8 +88,11 @@ class Model():
         return algo.minimize(self, replicas, log = log)
         
     def predict(self, replica, t = None, quiet = False):
+        measured_days = replica['days']
         if t is None:
-            t = replica['days']
+            t = measured_days
+        else:
+            t = np.array(sorted(set(np.array(t).tolist() + measured_days.tolist())))
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
@@ -116,14 +119,20 @@ class Model():
 
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, t, Si)
+       
+        measured_indices = [int(np.nonzero(t == mt)[0]) for mt in measured_days]
 
         _, predicted_CO2 = self.system_state_log['CO2']
+        predicted_CO2_on_measured = predicted_CO2[measured_indices]
+        self.system_state_log._log['CO2_on_measured'] = measured_days, predicted_CO2_on_measured
         measured_CO2 = replica['CO2']
-        co2_r2 = r2(predicted_CO2, measured_CO2)
+        co2_r2 = r2(predicted_CO2_on_measured, measured_CO2)
 
         _, predicted_CH4 = self.system_state_log['CH4']
+        predicted_CH4_on_measured = predicted_CH4[measured_indices]
+        self.system_state_log._log['CH4_on_measured'] = measured_days, predicted_CH4_on_measured
         measured_CH4 = replica['CH4']
-        ch4_r2 = r2(predicted_CH4, measured_CH4)
+        ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4)
          
         self.system_state_log._log['R2'] = {'CO2': co2_r2,
                                             'CH4': ch4_r2}
