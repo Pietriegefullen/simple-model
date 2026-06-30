@@ -21,14 +21,15 @@ import numpy as np
 import json
 import model
 import parameters
+from optimizer import r2
 
 d = data.get_data_before_day()
 
 class FasterModel(Model):
 
-    def __init__(self):
+    def __init__(self, replica):
         
-        self.replica = d['13546']
+        self.replica = d[replica]
         self.model = model.Model(model.get_pathways('simple'))
         self.model_parameters = parameters.default_model_parameters()
         self.model.parameters().set(self.model_parameters)
@@ -92,7 +93,8 @@ class FasterModel(Model):
         for k, slider in self.controls.items():
             if k in parnames:
                 i = parnames.index(k)
-                self.model_parameters[i].set(self.controls[k].get())
+                val = self.controls[k].get()
+                self.model_parameters[i].set(val)
                 
         self.model.parameters().set({p.name: float(p) for p in self.model_parameters})
 
@@ -107,21 +109,34 @@ class PlotView(View):
         super().__init__(model)
 
     def refresh(self):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        #fig = plt.figure()
+        fig, (ax0,ax1) = plt.subplots(2,1)
 
         if self.key_list is None:
-            plt.sca(ax)
-            self.model.replica.plot()
-            all_days, values = zip(*self.model.pool_value_dict['CO2'])
-            ax.plot(all_days, values)
-            all_days, values = zip(*self.model.pool_value_dict['CH4'])
-            ax.plot(all_days, values)
+            plt.sca(ax0)
+            self.model.replica.plot(newfigure = ax0, measurements = 'CO2')
+            all_days, values = self.model.pool_value_dict['CO2']
+            _,measured_co2 = self.model.replica.CO2()
+            r2_co2 = r2(values, measured_co2, log = True)
+            ax0.plot(all_days, values, label = f'CO2 (R² = {r2_co2:.3f})', color = 'b')
+            ax0.legend()
+
+            self.model.replica.plot(newfigure = ax1, measurements = 'CH4')
+            all_days, values = self.model.pool_value_dict['CH4']
+            _,measured_ch4 = self.model.replica.CH4()
+            r2_ch4 = r2(values, measured_ch4, log = True)
+            ax1.plot(all_days, values, label = f'CH4 (R² = {r2_ch4:.3f})', color = 'orange')
+            ax1.legend()
+            
+            ax1.set_yscale('log')
+            #ax1.set_ylim([1e-4, 1e0])
+            fig.tight_layout()
+
             return fig
 
         title = self.key_list[0].split('_')[-1] if len(self.key_list) > 1 else self.key_list[0]
         for k in self.key_list:
-            all_days, values = zip(*self.model.pool_value_dict[k])
+            all_days, values = self.model.pool_value_dict[k]
             ax.plot(all_days,
                      values,
                      label = k.replace('_'+title, '') if len(self.key_list) > 1 else None)
@@ -141,5 +156,5 @@ class PlotView(View):
 
 if __name__ == '__main__':
     # model = MockModel()
-    model = FasterModel()
+    model = FasterModel('13544')
     run_demo(model)

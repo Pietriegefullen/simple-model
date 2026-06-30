@@ -358,28 +358,45 @@ class Replica():
         elif key == 'days':
             return self.incubation['days']
     
-    def plot(self, events = True, marker = 'x', log = False, newfigure = True):
-        if newfigure:
-            plt.figure()
-        plt.plot(*self.CO2(),'r' + marker, label = 'CO2')
-        plt.plot(*self.CH4(),'b' + marker, label = 'CH4')
-        plt.title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
-        plt.legend()
-        plt.xlabel('day')
-        plt.ylabel('gas')
+    def plot(self, events = True, marker = 'x', log = False, newfigure = True, measurements = None):
+        if measurements is None:
+            measurements = ['CO2', 'CH4']
+        elif not isinstance(measurements, list):
+            measurements = [measurements]
+            
+        if isinstance(newfigure, bool):
+            if newfigure:
+                fig, ax = plt.subplots()
+            else:
+                ax = plt.gca()
+                fig = plt.gcf()
+        else:
+            ax = newfigure
+        
+        if 'CO2' in measurements:
+            ax.plot(*self.CO2(),'r' + marker, label = 'CO2', color = 'b')
+        
+        if 'CH4' in measurements:
+            ax.plot(*self.CH4(),'b' + marker, label = 'CH4', color = 'orange')
+        
+        ax.set_title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
+        ax.legend()
+        ax.set_xlabel('day')
+        ax.set_ylabel('gas')
         
         if not events:
             return
         
-        ax = plt.gca()
         if log:
             ax.set_yscale('log')
-        max_ = max([np.max(self.CO2()[1]), np.max(self.CH4()[1])])
-        ax.set_ylim([0, max_])
+        else:
+            pass
+            #max_ = max([np.max(self.CO2()[1]), np.max(self.CH4()[1])])
+            #ax.set_ylim([0, max_])
         ylim = ax.get_ylim()
         for event, day in self.events.items():
-            plt.plot([day, day], ylim, 'r-')
-            plt.text(day-100, 0, event, rotation = 'vertical')
+            ax.plot([day, day], ylim, 'r-')
+            ax.text(day-100, 0, event, rotation = 'vertical')
         
     def before_day(self, last_day):
         if last_day is None:

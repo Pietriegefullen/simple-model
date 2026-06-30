@@ -8,6 +8,7 @@ import json
 
 import system
 import optimizer
+from optimizer import r2
 import pathways
 import parameters
 
@@ -16,16 +17,56 @@ import USER_VARIABLES
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
-def integrate(f, t, S0, solver_result):
-    result = scipy.integrate.solve_ivp(f, (0, max(t)),
+def integrate(f, t, S0, solver_result, reset_Fe3):
+    print('solving IVP')
+    
+    t_after = None
+    if isinstance(reset_Fe3, int):
+        if reset_Fe3 >= max(t):
+            raise Exception('Trying to reset iron after run end.')
+        t = np.sort(np.unique(np.concatenate([t, (reset_Fe3,)])))
+        t_before = t[t <= reset_Fe3]
+        t_after = t[t >= reset_Fe3]
+        if not reset_Fe3 in t:
+            t_before = np.concatenate([t_before, [reset_Fe3]])
+            t_after = np.concatenate([[reset_Fe3], t_after], axis = 0)
+    else:
+        t_before = t
+
+    result = scipy.integrate.solve_ivp(f, (0, max(t_before)),
                                                   S0, 
-                                                  t_eval = t,
+                                                  t_eval = t_before,#np.arange(0, max(t_before)+1),
                                                   method = 'LSODA',
                                                   max_step = 10,
                                                   first_step = 1e-6, 
                                                   #min_step = 1e-4
                                                   )
+
     solver_result.append(result)
+
+    if not t_after is None:
+        S1 = result.y[:,-1] # system state on last day before resetting
+        fe3_index = system.index('Fe3')
+        print('resetting Fe3 on day', min(t_after), 'from', S1[fe3_index], 'to', S0[fe3_index])
+        S1[fe3_index] = S0[fe3_index]
+        print('solving IVP after reset')
+        t_eval = np.sort(np.unique(np.concatenate([t_after,
+                                                   np.arange(min(t_after), max(t_after), 10) ])))
+        result_after = scipy.integrate.solve_ivp(f, (min(t_after), max(t_after)),
+                                                 S1,
+                                                 t_eval = t_eval,
+                                                 method = 'LSODA',
+                                                 max_step = 10,
+                                                 first_step = 1e-6)
+
+        solver_result[0].y = np.concatenate([solver_result[0].y,
+                                             result_after.y], axis = -1)
+        
+        solver_result[0].t = np.concatenate([solver_result[0].t,
+                                             result_after.t])
+    
+    return solver_result
+        
 
 
 def get_pathways(model_type):
@@ -42,12 +83,6 @@ def get_pathways(model_type):
         print('model type:', model_type)
         raise NotImplementedError()
 
-def r2(predicted, measured):
-    measured_mean = np.mean(measured)
-    SS_res = np.sum((predicted - measured)**2)
-    SS_total = np.sum((measured - measured_mean)**2)
-    r2_value = 1 - SS_res/SS_total
-    return r2_value
 
 class Model():
     def __init__(self, pwys):
@@ -79,7 +114,7 @@ class Model():
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
         return dS_dt
     
-    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log = False):
+    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log = True):
         if not isinstance(replicas, list):
             replicas = [replicas]
             
@@ -87,55 +122,75 @@ class Model():
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
         return algo.minimize(self, replicas, log = log)
         
-    def predict(self, replica, t = None, quiet = False):
+    def predict(self, replica, t = None, quiet = False, parallel = False, reset_Fe3 = None, days_beyond_reset = 1000):
         measured_days = replica['days']
         if t is None:
             t = measured_days
         else:
             t = np.array(sorted(set(np.array(t).tolist() + measured_days.tolist())))
+        
+        if not reset_Fe3 is None:
+            last_day = reset_Fe3 + days_beyond_reset
+            t = np.concatenate([t, [last_day]], axis = 0)
+            
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
         self.system_state_log.reset()
-       
-        manager = multiprocessing.Manager()
-        solver_result = manager.list()
-        p = multiprocessing.Process(target = integrate,
-                                    args = (self, t, S0, solver_result))
-        p.daemon = True
-        p.start()
-        p.join(timeout = 10.)
-        if p.is_alive():
-            p.terminate()
-            p.join()
+      
+        if parallel:
+            manager = multiprocessing.Manager()
+            solver_result = manager.list()
+            p = multiprocessing.Process(target = integrate,
+                                        args = (self, t, S0, solver_result, reset_Fe3))
+            p.daemon = True
+            p.start()
+            p.join(timeout = 10.)
+            if p.is_alive():
+                p.terminate()
+                p.join()
+        else:
+            solver_result = []
+            integrate(self, t, S0, solver_result, reset_Fe3)
 
         if not len(solver_result) == 1:
             print('o', end = '', flush = True)
             raise Exception('timeout')
             
         solver_result = solver_result[0]
-        if not solver_result.y.shape == (len(system.SYSTEM), len(t)):
-            raise Exception('stopped integration')
 
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
-            self.system_state_log.log(pool_name, t, Si)
+            self.system_state_log.log(pool_name, solver_result.t, Si)
        
-        measured_indices = [int(np.nonzero(t == mt)[0]) for mt in measured_days]
+        measured_indices = [int(np.nonzero(solver_result.t == mt)[0]) 
+                            for mt in measured_days]
 
         _, predicted_CO2 = self.system_state_log['CO2']
         predicted_CO2_on_measured = predicted_CO2[measured_indices]
         self.system_state_log._log['CO2_on_measured'] = measured_days, predicted_CO2_on_measured
         measured_CO2 = replica['CO2']
-        co2_r2 = r2(predicted_CO2_on_measured, measured_CO2)
+        co2_r2 = r2(predicted_CO2_on_measured, measured_CO2, log = True)
 
         _, predicted_CH4 = self.system_state_log['CH4']
         predicted_CH4_on_measured = predicted_CH4[measured_indices]
         self.system_state_log._log['CH4_on_measured'] = measured_days, predicted_CH4_on_measured
         measured_CH4 = replica['CH4']
-        ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4)
+        ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4, log = True)
          
         self.system_state_log._log['R2'] = {'CO2': co2_r2,
                                             'CH4': ch4_r2}
+        
+        add_to_log = []
+        for k, val in self.system_state_log._log.items():
+            if 'CH4 from' in k:
+                t, v = val
+                delta_t = np.diff(t)
+                integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
+                n = k + ' (integrated)'
+                add_to_log.append((n, t[1:], np.cumsum(integral)))
+        for name, ts, vs in add_to_log:
+            self.system_state_log.log(name, ts, vs)
+            
         return self.system_state_log
     
     def parameters(self):
@@ -208,15 +263,21 @@ class ModelRun():
                             axis = 0)
         self.log(name, ts, vs)
         
+    def log_snap_2(self, name, t, value):
+        if not name in self._log:
+            self._log[name] = [[],[]]
+        self._log[name][0].append(t)
+        self._log[name][1].append(value)
+
     def log(self, name, ts, values):
         #if not name in self._log:
         #    self._log[name] = []
         self._log[name] = (ts ,values)
-        
+
     def reset(self):
         self._log.clear()
         
-    def plot(self, name = None, newfigure = True):
+    def plot(self, name = None, newfigure = True, log = False):
         if name is None:
             name = list(self._log.keys())
             
@@ -230,15 +291,26 @@ class ModelRun():
                 plt.figure()
             x, y = self._log[n]
             label = n
-            if 'R2' in self._log and n in self._log['R2']:
-                value = self._log['R2'][n]
-                label += ' ' + f'R² = {value:4.2f}'
-            plt.plot(x, y, '-', label = label)
+            mark = '-'
+            #if 'R2' in self._log and n in self._log['R2']:
+             #   value = self._log['R2'][n]
+              #  label += ' ' + f'R² = {value:4.2f}'
+               # mark = 'x'
+            plt.plot(x, y, mark, label = label)
             plt.title(n)
             plt.legend()
-
-            if 'MM' in n:
+            
+            if log:
+                plt.yscale('log')
+                plt.title(n + ' (log)')
+                
+            elif n in system.SYSTEM:
+                #plt.yscale('log')
+                pass
+        
+            elif 'MM' in n:
                 plt.ylim([0,1])
+
         
     def __str__(self):
         run_string = 'Model run:'

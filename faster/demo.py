@@ -270,7 +270,11 @@ def run_demo(model):
     #root.tk.call('tk', 'scaling', 0.7)
     root.bind('<Escape>', lambda _: root.quit())
     d = Window(root, model)
-    root.mainloop()
+    try:
+        root.mainloop() 
+        
+    except:
+        root.destroy()
 
     # pick polygon from canvas
     # using sliders:
@@ -289,5 +293,5 @@ def run_demo(model):
 
 if __name__ == '__main__':
     import model
-    pathway_model = model.Model(model.get_pathways('simple'))
+    pathway_model = model.Model(model.get_pathways('complex'))
     run_demo(pathway_model)

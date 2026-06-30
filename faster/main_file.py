@@ -1,0 +1,68 @@
+import matplotlib.pyplot as plt
+import os
+import data
+import model
+import USER_VARIABLES
+
+def load_fitted_parameters(sample_name, replica_name, after = None):
+    fit_replicas = str(456).replace(str(replica_name),'')
+    
+    folders = []
+    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
+        if ((sample_name + str(fit_replicas[0])) in _d or \
+        (sample_name + str(fit_replicas[1])) in _d) and \
+         not (sample_name + str(replica_name)) in _d and model_type in _d:
+            folders.append(_d)
+    if len(folders) == 0:
+        raise Exception('Found no fit results directory')
+        
+    elif len(folders) > 0:
+        best_loss = None
+        best_parameters = None
+        par_source = None
+        for f in folders:
+            parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
+            loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)
+            date = f.split('_')[-1]
+            if not after is None and date <= after:
+                continue
+            if best_parameters is None or loaded_loss < best_loss: 
+                best_loss = loaded_loss
+                best_parameters = loaded_parameters
+                par_source = parameter_source
+        
+        print('loading parameters from', par_source)
+        print('loss', best_loss)
+        return best_parameters
+
+if __name__ == '__main__':
+    #model_type = 'simple' # or 'complex'
+    model_type= 'complex'
+    sample_name = '1351'
+    replica_name = 4
+    reset_Fe3 = 2000 # set the day on which to reset Fe3 to initial value, None to omit reset
+    
+    
+    loaded_parameters = load_fitted_parameters(sample_name, replica_name, after = '2026')
+    
+    dataset = data.get_data_before_carex()
+    replica = dataset[sample_name + str(replica_name)]
+
+    selected_pathways = model.get_pathways(model_type)
+    pathway_model = model.Model(selected_pathways)
+    pathway_model.parameters().set(loaded_parameters)
+    print(pathway_model)
+
+    log = pathway_model.predict(replica, reset_Fe3 = reset_Fe3)
+
+    log.plot()
+
+    replica.plot()
+    log.plot(['CO2', 'CH4'], newfigure = False)
+    
+    log.plot('DOC', log = True)
+    
+    print('DOC on day', log['DOC'][0][-1], log['DOC'][1][-1])
+    
+    plt.show()
+

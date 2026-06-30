@@ -127,13 +127,7 @@ def fit_sample(sample_name, split_number, model_type, log = False):
     best_loss, _ = pathway_model.fit(fit_replicas, log = log)
     
 if __name__ == '__main__':
-    default_sample = 1351
-    default_model_type = 'complex'
-    
-    if len(sys.argv) == 1:
-        sample = default_sample
-    else:
-        sample = sys.argv[1]
+    sample = sys.argv[1]
     split = 0
     if '0' in sys.argv:
         split = 0
@@ -141,7 +135,7 @@ if __name__ == '__main__':
         split = 1
     elif '2' in sys.argv:
         split = 2
-    log = True
+    log = False
     if 'log' in sys.argv:
         log = True
     model_type = 'simple'
@@ -149,7 +143,5 @@ if __name__ == '__main__':
         model_type = 'complex'
     elif 'simple' in sys.argv:
         model_type = 'simple'
-    else:
-        model_type = default_model_type
     print(split)
     fit_sample(sample, split, model_type, log = log)

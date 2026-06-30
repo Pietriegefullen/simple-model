@@ -12,6 +12,17 @@ import USER_VARIABLES
 import linecache
 import os
 
+
+def r2(predicted, measured, log = False):
+    if log:
+        predicted = np.log(predicted)
+        measured = np.log(measured)
+    measured_mean = np.mean(measured)
+    SS_res = np.sum((predicted - measured)**2)
+    SS_total = np.sum((measured - measured_mean)**2)
+    r2_value = 1 - SS_res/SS_total
+    return r2_value
+
 def algo_kwargs(method):
     if method == 'PSO':
         return {'c1': .5,
@@ -27,10 +38,11 @@ def algo_kwargs(method):
     elif method == 'differential_evolution':
         return {'strategy': 'best1bin',
                 'updating': 'immediate',
+                'popsize': 25,
                 'workers': -1,
                 'tol': 1e-4,
-                'recombination': .3, # CR
-                'mutation': (.3,.8)  # F
+                'recombination': .4, # CR
+                'mutation': (.5,1.)  # F
                 }
     
     elif method == 'direct' or method == 'dual_annealing':
@@ -44,7 +56,7 @@ class Algorithm():
         self.algorithm = algorithm
         self.kwargs = kwargs
     
-    def minimize(self, model, replicas, log = False):
+    def minimize(self, model, replicas, log = True):
         variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
@@ -189,6 +201,14 @@ class Objective():
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
             self._best_call = (total_loss, parameter_dict)
+            
+            for ro in self.replica_objectives:
+                predicted_CO2_on_measured, predicted_CH4_on_measured = ro.last_call
+                _, measured_CO2 = ro.replica.CO2()
+                _, measured_CH4 = ro.replica.CH4()
+                co2_r2 = r2(predicted_CO2_on_measured, measured_CO2)
+                ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4)
+                print('replica ', ro.replica, 'R2:', 'CO2', f'{co2_r2:.3f}', 'CH4', f'{ch4_r2:.3f}')
 
         gc.collect()
         return total_loss

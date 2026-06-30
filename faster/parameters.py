@@ -10,7 +10,7 @@ def default_model_parameters():
          
          Parameter('Ferm_v_max',     .525, [0.0001, 5]),
          #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        833, [0.0001, 100]),
+         Parameter('Ferm_Km',        83, [0.0001, 100]), #833
          Parameter('Ferm_inhibition', 16, [0.001, 200]),
          Parameter('Ferm_CUE',        .5, [0, 1], 'linear'),
          
@@ -26,11 +26,11 @@ def default_model_parameters():
          Parameter('Homo_v_max',      .5, [0.005, 1.]),
          Parameter('Homo_CUE',        .5, [0, 1], 'linear'),
          
-         Parameter('Aceto_Km_Ac',    166, [0.0005, 1000]),
+         Parameter('Aceto_Km_Ac',    25, [0.5, 500]), #166
          Parameter('Ac_v_max',       .0083, [0.005, 1.]),
          Parameter('Ac_CUE',          .5, [0, 1], 'linear'), 
          
-         Parameter('Fe3_Km_Ac',      500, [0.0005, 1000]),
+         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000]),#500
          Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000]),
          Parameter('Fe3_v_max',      1.5, [0.002, 3.]), 
          Parameter('Fe3_CUE',        0.5, [0, 1], 'linear'),
@@ -203,8 +203,8 @@ class Parameter():
     def __str__(self):
         var = ''
         if self.is_variable():
-            var = f'  ({self.low:.3g}, {self.high:.3g})   {self.scale}'
-        return f'{self.name} = {self.value:.3g}' + var
+            var = f'  ({self.low:8.3g}, {self.high:8.3g})   {self.scale}'
+        return f'{self.name[:15]:15} = {self.value:8.3g}' + var
     
     def __float__(self):
         return float(self.value)

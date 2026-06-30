@@ -1,0 +1,21 @@
+import matplotlib.pyplot as plt
+import data
+import model
+
+model_type = 'simple' # or 'complex'
+sample_name = '1351'
+
+dataset = data.get_data_before_carex()
+
+sample = dataset[sample_name]
+replicas = sample.replicas()
+
+selected_pathways = model.get_pathways(model_type)
+model = model.Model(selected_pathways)
+
+log = model.predict(replicas[replica_index])
+
+log.plot('C')
+
+plt.show()
+

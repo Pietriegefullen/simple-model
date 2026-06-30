@@ -55,12 +55,11 @@ class Pathway():
         self.use_thermodynamics = microbe['use_thermodynamics']
         
         if self.use_thermodynamics:
-            self.deltaG_f = np.sum(np.stack([system.vector(0, str(subst), 
-                                        chemistry.GIBBS_FORMATION[str(subst)])
-                                        for subst in (educts + products)],
+            self.deltaG_f = np.sum(np.stack(
+                    [system.vector(0, str(subst), chemistry.GIBBS_FORMATION[str(subst)])
+                     for subst in (educts + products)],
                                              axis = -1), axis = -1)
             self.deltaG_s = np.sum(self.stoichiometry*self.deltaG_f)
-
         
         self.state_logger = None
        
@@ -73,28 +72,50 @@ class Pathway():
     
     def log(self, name, t, value):
         if not self.state_logger is None:
-             self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
-        
-    def thermodynamics(self, t, S):
+            self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
+ 
+     
+ 
+    def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
+        dissolved_S = HENRYS_LAW*S
         thermodynamic_factor = 1.
         if self.use_thermodynamics:
             R = CONSTANTS.GAS_CONSTANT
             T = 4. + CONSTANTS.KELVIN
-            log_Q = system.vector(0)
+            log_Q = system.vector(0) # generates a zero-filled vector of system shape
             
-            contributes = np.logical_and(self.stoichiometry != 0, S > 0)
-            log_Q[contributes] = np.log(1e-6*S[contributes])
-    
-            deltaG_r = self.deltaG_s + R*T*np.sum(self.stoichiometry*log_Q)
-            deltaG_rmin = chemistry.GIBBS_MINIMUM
+            concentrations = system.vector(0)
+            contributes = self.stoichiometry != 0     
+            denom = np.sum(dissolved_S[contributes])
+        
+
+            if denom <= 0:
+                concentrations[contributes] = 0
+            else:
+                concentrations[contributes] = dissolved_S[contributes]/denom
             
-            thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
+            educt_concentrations = concentrations[self.stoichiometry <0]
+            prod_concentrations = concentrations[self.stoichiometry >0]
+            
+            if np.any(educt_concentrations == 0):
+                deltaG_r = np.inf
+                thermodynamic_factor = 0.
+                
+            elif np.any(prod_concentrations == 0):
+                deltaG_r = -np.inf
+                thermodynamic_factor = 1.
+                
+            else:
+                log_Q = np.sum(self.stoichiometry[contributes]*np.log(concentrations[contributes]))
+                deltaG_r = self.deltaG_s + R*T*log_Q
+                deltaG_rmin = chemistry.GIBBS_MINIMUM
+                thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
+            
             self.log('deltaG_r', t, deltaG_r)
-            
         self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
     
-    def __call__(self, t, S):
+    def __call__(self, t, S): # hier rechnen wir die MM Faktoren
         biomass = S[self.microbe_index]
         biomass = np.clip(biomass, 1e-8, np.inf)
             
@@ -119,18 +140,23 @@ class Pathway():
         
         MM_factor = np.prod(MM)
         inhib_factor = np.prod(inhib)
-        v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor
+        v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor # hier rechnen wir die rate aus
 
         dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
         dS_dt = np.clip(dS_dt, -S, np.inf)
-        
+       
         self.log('MM', t, MM_factor)
         self.log('inhib', t, inhib_factor)
         self.log('v', t, v)
         
+        if 'CH4' in self.products:
+            ch4_prod = dS_dt[system.index('CH4')]
+            self.log('CH4 from ' + self.microbe.name,t,ch4_prod)
+            
+        
         return np.reshape(dS_dt, (-1,))
 
-    def __str__(self):
+    def __str__(self): # schreibt nur den pathway auf, tut aber nix
         educts = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.educts])
         products = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.products])
         pwy_string = f'{self.__class__.__name__: <12s}: {educts} -> {products}'    
@@ -188,6 +214,11 @@ class Substance():
     
     def __str__(self):
         return self.name
+    
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        raise NotImplementedError()
 
     def get_config(self):
         return {'name': self.name,
