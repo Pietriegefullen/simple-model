@@ -375,14 +375,18 @@ class Replica():
         
         if 'CO2' in measurements:
             ax.plot(*self.CO2(),'r' + marker, label = 'CO2', color = 'b')
+            ax.set_ylabel('gas (CO2)')
         
         if 'CH4' in measurements:
-            ax.plot(*self.CH4(),'b' + marker, label = 'CH4', color = 'orange')
-        
+            secax = ax.twinx()
+            secax.plot(*self.CH4(),'b' + marker, label = 'CH4', color = 'orange')
+            secax.set_yscale('log')
+            secax.set_ylabel('gas (CH4)')
+
         ax.set_title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
         ax.legend()
         ax.set_xlabel('day')
-        ax.set_ylabel('gas')
+        #ax.set_ylabel('gas')
         
         if not events:
             return
@@ -503,6 +507,11 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+    
+    d.plot_samples()
+    plt.show()
+    quit()
+    
     for s in d.samples:
         print(s)
         try:
@@ -512,6 +521,3 @@ if __name__ == '__main__':
     print('====')
     print(d)
     
-    #d.plot_samples()
-    #plt.show()
-

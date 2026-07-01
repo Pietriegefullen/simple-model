@@ -114,35 +114,40 @@ class Model():
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
         return dS_dt
     
-    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log = True):
+    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log_co2 = True, log_ch4 = True,
+            fit_from = 0, fit_to = None):
         if not isinstance(replicas, list):
             replicas = [replicas]
             
         algo = optimizer.Algorithm(algorithm, 
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
-        return algo.minimize(self, replicas, log = log)
+        return algo.minimize(self, replicas, log_co2 = log_co2, log_ch4 = log_ch4,
+                             fit_from = fit_from, fit_to = fit_to)
         
-    def predict(self, replica, t = None, quiet = False, parallel = False, reset_Fe3 = None, days_beyond_reset = 1000):
+    def predict(self, replica, t = None, quiet = False, parallel = False, 
+                reset_Fe3 = None, days_beyond_reset = 1000):
         measured_days = replica['days']
-        if t is None:
-            t = measured_days
-        else:
-            t = np.array(sorted(set(np.array(t).tolist() + measured_days.tolist())))
-        
+
+        t_eval = measured_days
+        if not t is None:
+            t_eval = np.array(t)
+            
         if not reset_Fe3 is None:
             last_day = reset_Fe3 + days_beyond_reset
             t = np.concatenate([t, [last_day]], axis = 0)
             
+        # prepare for solving
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
         self.system_state_log.reset()
       
+        # solve initial value problem
         if parallel:
             manager = multiprocessing.Manager()
             solver_result = manager.list()
             p = multiprocessing.Process(target = integrate,
-                                        args = (self, t, S0, solver_result, reset_Fe3))
+                                        args = (self, t_eval, S0, solver_result, reset_Fe3))
             p.daemon = True
             p.start()
             p.join(timeout = 10.)
@@ -151,7 +156,7 @@ class Model():
                 p.join()
         else:
             solver_result = []
-            integrate(self, t, S0, solver_result, reset_Fe3)
+            integrate(self, t_eval, S0, solver_result, reset_Fe3)
 
         if not len(solver_result) == 1:
             print('o', end = '', flush = True)
@@ -159,24 +164,28 @@ class Model():
             
         solver_result = solver_result[0]
 
+        # add pool values to log
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
    
-        measured_indices = [int(np.nonzero(solver_result.t == mt)[0].item()) 
-                            for mt in measured_days]
-
+    
+        # compute R2 values
+        used_measured_indices = np.array([np.nonzero(measured_days == t)[0] for t in t_eval])
+        used_predicted_indices = np.array([np.nonzero(measured_days == t)[0] for t in solver_result.t])
+        
         _, predicted_CO2 = self.system_state_log['CO2']
-        predicted_CO2_on_measured = predicted_CO2[measured_indices]
-        self.system_state_log._log['CO2_on_measured'] = measured_days, predicted_CO2_on_measured
-        measured_CO2 = replica['CO2']
+        predicted_CO2_on_measured = predicted_CO2[used_predicted_indices]
+        measured_CO2 = replica['CO2'][used_measured_indices]
         co2_r2 = r2(predicted_CO2_on_measured, measured_CO2, log = True)
-
+        
         _, predicted_CH4 = self.system_state_log['CH4']
-        predicted_CH4_on_measured = predicted_CH4[measured_indices]
-        self.system_state_log._log['CH4_on_measured'] = measured_days, predicted_CH4_on_measured
-        measured_CH4 = replica['CH4']
+        predicted_CH4_on_measured = predicted_CH4[used_predicted_indices]
+        measured_CH4 = replica['CH4'][used_measured_indices]
         ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4, log = True)
-         
+        
+        
+        self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
+        self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
         self.system_state_log._log['R2'] = {'CO2': co2_r2,
                                             'CH4': ch4_r2}
         
@@ -288,7 +297,10 @@ class ModelRun():
             if not n in self._log:
                 print(n + ' not logged')
             if newfigure:
-                plt.figure()
+                fig, ax = plt.subplots()
+            else:
+                fig = plt.gcf()
+                
             x, y = self._log[n]
             label = n
             mark = '-'
@@ -296,7 +308,18 @@ class ModelRun():
              #   value = self._log['R2'][n]
               #  label += ' ' + f'R² = {value:4.2f}'
                # mark = 'x'
-            plt.plot(x, y, mark, label = label)
+            if n == 'CH4':
+                ax = fig.axes
+                if isinstance(ax, list):
+                    ax = ax[0] 
+                    ch4_ax = ax.twinx()
+                else:
+                    ch4_ax = ax
+                ch4_ax.plot(x, y, mark, label = label, color = 'orange')
+            else:
+                ax = plt.gca()
+                ax.plot(x, y, mark, label = label)
+                
             plt.title(n)
             plt.legend()
             
@@ -327,6 +350,7 @@ def get_best_loss_parameters(parameter_source):
             loss = float(f.split('loss_')[-1])
             file = os.path.join(parameter_source, f)
             all_files.append((loss, file))
+
     if len(all_files) == 0:
         raise Exception('loading parameters failed')
     best_loss, best_loss_file = list(sorted(all_files))[0]

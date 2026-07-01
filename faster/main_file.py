@@ -22,7 +22,12 @@ def load_fitted_parameters(sample_name, replica_name, after = None):
         par_source = None
         for f in folders:
             parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
-            loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)
+            try:
+                loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)#
+            except:
+                print('empty folder')
+                continue
+            
             date = f.split('_')[-1]
             if not after is None and date <= after:
                 continue
@@ -38,9 +43,9 @@ def load_fitted_parameters(sample_name, replica_name, after = None):
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
-    sample_name = '1351'
+    sample_name = '1372'
     replica_name = 4
-    reset_Fe3 = 2000 # set the day on which to reset Fe3 to initial value, None to omit reset
+    reset_Fe3 = None#2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     
     
     loaded_parameters = load_fitted_parameters(sample_name, replica_name, after = '2026')

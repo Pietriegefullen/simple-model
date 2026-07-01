@@ -38,7 +38,7 @@ def algo_kwargs(method):
     elif method == 'differential_evolution':
         return {'strategy': 'best1bin',
                 'updating': 'immediate',
-                'popsize': 100,
+                'popsize': 25,
                 'workers': -1,
                 'tol': 1e-4,
                 'recombination': .8, # CR
@@ -56,14 +56,17 @@ class Algorithm():
         self.algorithm = algorithm
         self.kwargs = kwargs
     
-    def minimize(self, model, replicas, log = True):
+    def minimize(self, model, replicas, log_co2 = True, log_ch4 = True,
+                 fit_from = 0, fit_to = None):
         variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
         print()
         rep = '_'.join([str(r) for r in replicas])
-        str_log = '' if not log else 'log transformed '
+        co2_log = 'lin' if not log_co2 else 'log'
+        ch4_log = 'lin' if not log_ch4 else 'log'
+        str_log = f'CO2 ({co2_log}), CH4 ({ch4_log}) '
         print(f'minimizing {str_log}with {self.algorithm} for {rep}')
         print('model:')
         print(str(model))
@@ -76,7 +79,8 @@ class Algorithm():
         if not variables:
             raise Exception('Model has no variable parameters.')
               
-        replica_obj = [ReplicaObjective(replica, model, log = log)
+        replica_obj = [ReplicaObjective(replica, model, log_co2 = log_co2, log_ch4 = log_ch4,
+                                        fit_from = fit_from, fit_to = fit_to)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -127,7 +131,7 @@ class Algorithm():
             strategy = self.kwargs['strategy']
             updating = self.kwargs['updating']
             
-            objective = Objective(replica_obj, variables, model, log = log)
+            objective = Objective(replica_obj, variables, model)
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = bounds,
@@ -143,25 +147,23 @@ class Algorithm():
         
         return objective.best_call()
 
-def target_directory_path(replica_objectives, log, model_type):
-    str_log = '' if not log else '_log'
+def target_directory_path(replica_objectives, model_type):
     str_model_type = '_' + model_type + '_'
     timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
     name = 'fit_' + '_'.join([str(r.replica)
-                              for r in replica_objectives]) + str_log + str_model_type + timestamp
+                              for r in replica_objectives]) + str_model_type + timestamp
     cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name) 
     return cp_path
 
 class Objective():
-    def __init__(self, replica_objectives, variables, model, log = False):
+    def __init__(self, replica_objectives, variables, model):
         self.model = model
         self.replica_objectives = replica_objectives
         self.variables = variables
         self._call_count = 0
         self._best_call = None
-        self.log = log
         model_type = model.model_type()
-        self.cp_path = target_directory_path(replica_objectives, log, model_type)
+        self.cp_path = target_directory_path(replica_objectives, model_type)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
 
@@ -205,10 +207,16 @@ class Objective():
             
             for ro in self.replica_objectives:
                 predicted_CO2_on_measured, predicted_CH4_on_measured = ro.last_call
-                _, measured_CO2 = ro.replica.CO2()
-                _, measured_CH4 = ro.replica.CH4()
-                co2_r2 = r2(predicted_CO2_on_measured, measured_CO2)
-                ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4)
+                
+                used_days = ro.days[ro.used_indices]
+                replica_days, replica_CO2 = ro.replica.CO2()
+                _, replica_CH4 = ro.replica.CH4()
+                used_indices = np.squeeze([np.nonzero(replica_days == t)[0] for t in used_days])
+                used_CO2 = replica_CO2[used_indices]
+                used_CH4 = replica_CH4[used_indices]
+                
+                co2_r2 = r2(predicted_CO2_on_measured, used_CO2, log = ro.log_co2)
+                ch4_r2 = r2(predicted_CH4_on_measured, used_CH4, log = ro.log_ch4)
                 print('replica ', ro.replica, 'R2:', 'CO2', f'{co2_r2:.3f}', 'CH4', f'{ch4_r2:.3f}')
         best, _ = self._best_call
         print('total loss', f'{total_loss:15.2f}', 'current best', f'{best:15.2f}')
@@ -261,16 +269,32 @@ class Loss():
 
 
 class ReplicaObjective():
-    def __init__(self, replica, model, log = False):
+    def __init__(self, replica, model, log_co2 = False, log_ch4 = False, fit_from = 0, fit_to = None):
         self.model = model
         self.replica = replica
         self.last_call = None
-        self.log = log
+        self.log_co2 = log_co2
+        self.log_ch4 = log_ch4
+        
+        if not fit_to is None and fit_from >= fit_to:
+            raise ValueError('"from" value >= "to" value')
+        self._fit_from = fit_from
+        
+        if fit_to <= 0:
+            raise Exception('"to" value must be > 0')
+        self._fit_to = fit_to
+        
+        self.days = self.replica.incubation['days']
+        
+        self.used_indices = np.nonzero(self.days >= self._fit_from)[0]
+        if not self._fit_to is None:
+            self.used_indices = np.intersect1d(self.used_indices, np.nonzero(self.days <= self._fit_to)[0])
+        
         
     def __call__(self):        
-        days = self.replica.incubation['days']
+        
         try:
-            results = self.model.predict(self.replica, days, quiet = True)
+            results = self.model.predict(self.replica, self.days[self.used_indices], quiet = True)
         except KeyboardInterrupt:
             while True:
                 inp = input('continue ? [Y/n]> ')
@@ -285,9 +309,9 @@ class ReplicaObjective():
             return np.nan
         
         _, predicted_CO2 = results['CO2']
-        measured_CO2 = self.replica.incubation['CO2']
+        measured_CO2 = self.replica.incubation['CO2'][self.used_indices]
        
-        if self.log:
+        if self.log_co2:
             measured_CO2 = np.log(measured_CO2)
             predicted_CO2 = np.log(predicted_CO2)
             
@@ -297,9 +321,9 @@ class ReplicaObjective():
         CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
         
         _, predicted_CH4 = results['CH4']
-        measured_CH4 = self.replica.incubation['CH4']
+        measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
        
-        if self.log:
+        if self.log_ch4:
             measured_CH4 = np.log(measured_CH4)
             predicted_CH4 = np.log(predicted_CH4)
             
@@ -312,7 +336,6 @@ class ReplicaObjective():
         loss = CO2_loss + CH4_loss
         
         self.last_call = predicted_CO2, predicted_CH4
-
 
         return loss
     

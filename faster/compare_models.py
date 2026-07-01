@@ -64,7 +64,7 @@ def fit(include_samples = None, exclude_samples = None):
                     fit_repl = '_'.join([str(r) for r in fit_replicas])
                     now = datetime.now()
                     timestamp = '_' + now.strftime('%Y-%m-%d_%H-%M-%S')
-                    file_name = f'fit_{fit_repl}_{model_type}_{best_loss:.3g}' + timestamp
+                    file_name = f'fit_{fit_repl}_{model_type}_{best_loss:.3g}_from_{fit_from:d}_to_{str(fit_to)}' + timestamp
                     pathway_model.save(target_directory, file_name)
                     
                     # plot fit over each fit replica
@@ -102,7 +102,8 @@ def fit(include_samples = None, exclude_samples = None):
                     print(traceback.format_exc())
                     print()
    
-def fit_sample(sample_name, split_number, model_type, log = False, confirm = False):
+def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
+               fit_from = 0, fit_to = None):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -124,13 +125,16 @@ def fit_sample(sample_name, split_number, model_type, log = False, confirm = Fal
     if not 'Homo' in chosen_pathways:
         pathway_model.parameters()['M_Homo'].constant(0)
 
-    if confirm:
-        input('FIT: ' + sample_name + ' '+ str(splits) + ' ' + str(pathway_model) + ' ' + str(log))
-    best_loss, _ = pathway_model.fit(fit_replicas, log = log)
+    best_loss, _ = pathway_model.fit(fit_replicas, log_co2 = log_co2, log_ch4 = log_ch4, 
+                                     fit_from = fit_from, fit_to = fit_to)
     
 if __name__ == '__main__':
-    default_sample = 1351
+    default_sample = 1372
     default_model_type = 'complex'
+    fit_from = 0
+    fit_to = 400
+    log_co2 = False
+    log_ch4 = True
    
     hasargs = False
     if len(sys.argv) == 1:
@@ -138,6 +142,7 @@ if __name__ == '__main__':
     else:
         hasargs = True
         sample = sys.argv[1]
+        
     split = 0
     if '0' in sys.argv:
         split = 0
@@ -145,9 +150,14 @@ if __name__ == '__main__':
         split = 1
     elif '2' in sys.argv:
         split = 2
-    log = True
-    if 'log' in sys.argv:
-        log = True
+        
+    #log = True
+    #if 'log' in sys.argv:
+    #    log = True
+    #elif 'lin' in sys.argv:
+    #    log = False
+    #    raise Exception('Non-log fitting. Check what you are doing.')
+        
     model_type = 'simple'
     if 'complex' in sys.argv:
         model_type = 'complex'
@@ -155,5 +165,15 @@ if __name__ == '__main__':
         model_type = 'simple'
     else:
         model_type = default_model_type
-    print(split)
-    fit_sample(sample, split, model_type, log = log, confirm = hasargs)
+    
+    if 'from' in sys.argv:
+        idx = sys.argv.index('from')
+        fit_from = int(sys.argv[idx+1])
+
+    if 'to' in sys.argv:
+        idx = sys.argv.index('to')
+        fit_to = int(sys.argv[idx+1])
+    
+    fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
+               fit_from = fit_from,
+               fit_to = fit_to)
