@@ -38,11 +38,11 @@ def algo_kwargs(method):
     elif method == 'differential_evolution':
         return {'strategy': 'best1bin',
                 'updating': 'immediate',
-                'popsize': 25,
+                'popsize': 100,
                 'workers': -1,
                 'tol': 1e-4,
-                'recombination': .4, # CR
-                'mutation': (.5,1.)  # F
+                'recombination': .8, # CR
+                'mutation': (.5,.9)  # F
                 }
     
     elif method == 'direct' or method == 'dual_annealing':
@@ -166,7 +166,7 @@ class Objective():
             os.makedirs(self.cp_path)
 
     def transform(self, parameter_values):
-        transformed_parameter_values = [v.transform(p)
+        transformed_parameter_values = [var.transform(p)
                                         for var, p in zip(self.variables, parameter_values)]
         return np.squeeze(transformed_parameter_values)
     
@@ -184,11 +184,12 @@ class Objective():
             print('.', end = '', flush = True)
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
+        print()
         total_loss = sum([obj() for obj in self.replica_objectives])   
         if np.isnan(total_loss):
             return 999.
 
-        if not self._best_call or total_loss < self.best_call()[0]:
+        if self._best_call is None or total_loss < self.best_call()[0]:
             print()
             print('calls', f'{self._call_count:6d}', 'best total loss', total_loss)
             parameter_dict = self.model.parameters().get_config()
@@ -209,6 +210,8 @@ class Objective():
                 co2_r2 = r2(predicted_CO2_on_measured, measured_CO2)
                 ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4)
                 print('replica ', ro.replica, 'R2:', 'CO2', f'{co2_r2:.3f}', 'CH4', f'{ch4_r2:.3f}')
+        best, _ = self._best_call
+        print('total loss', f'{total_loss:15.2f}', 'current best', f'{best:15.2f}')
 
         gc.collect()
         return total_loss
@@ -275,7 +278,9 @@ class ReplicaObjective():
                     return np.nan # continue
                 elif inp == 'n':
                     raise Exception()
-        except:
+        except Exception as ex:
+            print(traceback.format_exc())
+            input()
             # This also catches timeout Exception or KeyboardInterrupt, should LSODA get stuck
             return np.nan
         
@@ -303,10 +308,11 @@ class ReplicaObjective():
 
  
         CH4_loss = Loss(predicted_CH4, measured_CH4).RMSE()
-        
+
         loss = CO2_loss + CH4_loss
         
         self.last_call = predicted_CO2, predicted_CH4
+
 
         return loss
     

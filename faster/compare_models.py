@@ -102,7 +102,7 @@ def fit(include_samples = None, exclude_samples = None):
                     print(traceback.format_exc())
                     print()
    
-def fit_sample(sample_name, split_number, model_type, log = False):
+def fit_sample(sample_name, split_number, model_type, log = False, confirm = False):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -124,15 +124,19 @@ def fit_sample(sample_name, split_number, model_type, log = False):
     if not 'Homo' in chosen_pathways:
         pathway_model.parameters()['M_Homo'].constant(0)
 
+    if confirm:
+        input('FIT: ' + sample_name + ' '+ str(splits) + ' ' + str(pathway_model) + ' ' + str(log))
     best_loss, _ = pathway_model.fit(fit_replicas, log = log)
     
 if __name__ == '__main__':
     default_sample = 1351
     default_model_type = 'complex'
-    
+   
+    hasargs = False
     if len(sys.argv) == 1:
         sample = default_sample
     else:
+        hasargs = True
         sample = sys.argv[1]
     split = 0
     if '0' in sys.argv:
@@ -152,4 +156,4 @@ if __name__ == '__main__':
     else:
         model_type = default_model_type
     print(split)
-    fit_sample(sample, split, model_type, log = log)
+    fit_sample(sample, split, model_type, log = log, confirm = hasargs)

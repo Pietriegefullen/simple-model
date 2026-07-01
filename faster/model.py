@@ -18,7 +18,7 @@ OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differenti
 
 
 def integrate(f, t, S0, solver_result, reset_Fe3):
-    print('solving IVP')
+    #print('solving IVP')
     
     t_after = None
     if isinstance(reset_Fe3, int):
@@ -161,8 +161,8 @@ class Model():
 
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
-       
-        measured_indices = [int(np.nonzero(solver_result.t == mt)[0]) 
+   
+        measured_indices = [int(np.nonzero(solver_result.t == mt)[0].item()) 
                             for mt in measured_days]
 
         _, predicted_CO2 = self.system_state_log['CO2']
