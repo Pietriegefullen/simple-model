@@ -18,8 +18,8 @@ def r2(predicted, measured, log = False):
         predicted = np.log(predicted)
         measured = np.log(measured)
     measured_mean = np.mean(measured)
-    SS_res = np.sum((predicted - measured)**2)
-    SS_total = np.sum((measured - measured_mean)**2)
+    SS_res = np.nansum((predicted - measured)**2)
+    SS_total = np.nansum((measured - measured_mean)**2)
     r2_value = 1 - SS_res/SS_total
     return r2_value
 
@@ -36,13 +36,15 @@ def algo_kwargs(method):
                 'iterations': 200}
     
     elif method == 'differential_evolution':
-        return {'strategy': 'best1bin',
-                'updating': 'immediate',
-                'popsize': 25,
+        return {'strategy': 'rand1bin',
+                'updating': 'deferred',#'immediate',
+                'popsize': 10,
                 'workers': -1,
                 'tol': 1e-4,
-                'recombination': .8, # CR
-                'mutation': (.5,.9)  # F
+                'init': 'sobol',
+                'polish': False,
+                'recombination': .7, # CR
+                'mutation': (.5,1.)  # F
                 }
     
     elif method == 'direct' or method == 'dual_annealing':
@@ -160,6 +162,7 @@ class Objective():
         self.model = model
         self.replica_objectives = replica_objectives
         self.variables = variables
+        self.generation = 1
         self._call_count = 0
         self._best_call = None
         model_type = model.model_type()
@@ -182,11 +185,8 @@ class Objective():
     
     def __call__(self, transformed_parameter_values):
         self._call_count += 1
-        if self._call_count % 5 == 0:
-            print('.', end = '', flush = True)
         parameter_values = self.inverse_transform(transformed_parameter_values)
         _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
-        print()
         total_loss = sum([obj() for obj in self.replica_objectives])   
         if np.isnan(total_loss):
             return 999.
@@ -219,7 +219,7 @@ class Objective():
                 ch4_r2 = r2(predicted_CH4_on_measured, used_CH4, log = ro.log_ch4)
                 print('replica ', ro.replica, 'R2:', 'CO2', f'{co2_r2:.3f}', 'CH4', f'{ch4_r2:.3f}')
         best, _ = self._best_call
-        print('total loss', f'{total_loss:15.2f}', 'current best', f'{best:15.2f}')
+        print('generation', self.generation, 'calls', f'{self._call_count:6d}','total loss', f'{total_loss:7.2f}', 'current best', f'{best:7.2f}')
 
         gc.collect()
         return total_loss
@@ -227,19 +227,12 @@ class Objective():
     def file_name(self, total_loss):
         return f'call_{self._call_count:03d}_loss_{total_loss:7.4f}'
 
-    def get_callback(self):
-        def callback(intermediate_result):
+    def get_callback(self):        
+        def callback(intermediate_result, **kwargs):
+            self.generation += 1
             print('callback')
-            if not self._best_call is None:
-                best_parameters = intermediate_result.x
-                objective = intermediate_result.fun
-                current_loss = objective(best_parameters)
-                if current_loss < self._best_call[0]:
-                    pop = intermediate_result.population
-                    pop_file = os.path.join(self.cp_path, self.file_name(current_loss) + '.npy')
-                    print('saving', pop_file)
-                    with open(pop_file, 'w') as pf:
-                        np.save(pop, pf)
+            return False
+        return callback
 
     def best_call(self):
         return self._best_call
@@ -264,8 +257,11 @@ class Loss():
         self.predicted = predicted
         self.measured = measured
     
+    def MSE(self):
+        return np.mean((self.predicted - self.measured)**2)
+    
     def RMSE(self):
-        return np.sqrt(np.mean((self.predicted - self.measured)**2))
+        return np.sqrt(self.MSE())
 
 
 class ReplicaObjective():
@@ -280,7 +276,7 @@ class ReplicaObjective():
             raise ValueError('"from" value >= "to" value')
         self._fit_from = fit_from
         
-        if fit_to <= 0:
+        if not fit_to is None and fit_to <= 0:
             raise Exception('"to" value must be > 0')
         self._fit_to = fit_to
         
@@ -292,9 +288,10 @@ class ReplicaObjective():
         
         
     def __call__(self):        
-        
         try:
-            results = self.model.predict(self.replica, self.days[self.used_indices], quiet = True)
+            results = self.model.predict(self.replica, 
+                                         self.days[self.used_indices], 
+                                         quiet = True)
         except KeyboardInterrupt:
             while True:
                 inp = input('continue ? [Y/n]> ')
@@ -318,7 +315,10 @@ class ReplicaObjective():
             measured_CO2 = np.where(np.isfinite(measured_CO2), measured_CO2, -12)
             predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
 
-        CO2_loss = Loss(predicted_CO2, measured_CO2).RMSE()
+        if self.log_co2 is None:
+            CO2_loss = 0
+        else:
+            CO2_loss = Loss(predicted_CO2, measured_CO2).MSE()
         
         _, predicted_CH4 = results['CH4']
         measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
@@ -330,8 +330,10 @@ class ReplicaObjective():
             measured_CH4 = np.where(np.isfinite(measured_CH4), measured_CH4, -12)
             predicted_CH4 = np.where(np.isfinite(predicted_CH4), predicted_CH4, -12)
 
- 
-        CH4_loss = Loss(predicted_CH4, measured_CH4).RMSE()
+        if self.log_ch4 is None:#
+            CH4_loss = 0
+        else:
+            CH4_loss = Loss(predicted_CH4, measured_CH4).MSE()
 
         loss = CO2_loss + CH4_loss
         

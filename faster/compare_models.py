@@ -103,7 +103,7 @@ def fit(include_samples = None, exclude_samples = None):
                     print()
    
 def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
-               fit_from = 0, fit_to = None):
+               fit_from = 0, fit_to = None, normalized_parameters = False):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -118,7 +118,7 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
     
     chosen_pathways = model.get_pathways(model_type)
     pathway_model = model.Model(chosen_pathways)
-    pathway_model.parameters().set('default')
+    pathway_model.parameters().set('default', normalized = normalized_parameters)
     
     if not 'Fe3' in chosen_pathways:
         pathway_model.parameters()['Fe3'].constant(0)
@@ -129,12 +129,15 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
                                      fit_from = fit_from, fit_to = fit_to)
     
 if __name__ == '__main__':
-    default_sample = 1372
+    default_sample = 1361
     default_model_type = 'complex'
     fit_from = 0
-    fit_to = 400
+    fit_to = None
+    normalized_parameters = True
+    
     log_co2 = False
     log_ch4 = True
+    # None means no fit at all!
    
     hasargs = False
     if len(sys.argv) == 1:
@@ -176,4 +179,5 @@ if __name__ == '__main__':
     
     fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
                fit_from = fit_from,
-               fit_to = fit_to)
+               fit_to = fit_to,
+               normalized_parameters = normalized_parameters)

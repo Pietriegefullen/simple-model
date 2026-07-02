@@ -2,59 +2,93 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import json
+from abc import ABC, abstractmethod
 
-def default_model_parameters():
+def default_model_parameters(normalize_parameters = False):
     p = [
-         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1]),
-         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200]),
+         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], normalize = normalize_parameters),
+         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], normalize = normalize_parameters),
          
-         Parameter('Ferm_v_max',     .525, [0.0001, 5]),
+         Parameter('Ferm_v_max',     .525, [0.0001, 5], normalize = normalize_parameters),
          #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        83, [0.0001, 100]), #833
-         Parameter('Ferm_inhibition', 16, [0.001, 200]),
-         Parameter('Ferm_CUE',        .5, [0, 1], 'linear'),
+         Parameter('Ferm_Km',        83, [0.0001, 100], normalize = normalize_parameters), #833
+         Parameter('Ferm_inhibition', 16, [0.001, 200], normalize = normalize_parameters),
+         Parameter('Ferm_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
          
-         Parameter('death_rate',  8.3e-5),
+         Parameter('death_rate',  8.3e-5, normalize = normalize_parameters),
          
-         Parameter('Hydro_Km_CO2',   500, [.0005, 1000]),
-         Parameter('Hydro_v_max',    .17, [0.003, 1.]),
-         Parameter('Hydro_CUE',       .5, [0, 1], 'linear'),
-         Parameter('Hydro_Km_H2',    500, [.0005, 1000]),
+         Parameter('Hydro_Km_CO2',   500, [.0005, 1000], normalize = normalize_parameters),
+         Parameter('Hydro_v_max',    .17, [0.003, 1.], normalize = normalize_parameters),
+         Parameter('Hydro_CUE',       .5, [0, 1], 'linear', normalize = normalize_parameters),
+         Parameter('Hydro_Km_H2',    500, [.0005, 1000], normalize = normalize_parameters),
          
-         Parameter('Homo_Km_H2',     500, [0.0005, 1000]),
-         Parameter('Homo_Km_CO2',    500, [0.0005, 1000]),
-         Parameter('Homo_v_max',      .5, [0.005, 1.]),
-         Parameter('Homo_CUE',        .5, [0, 1], 'linear'),
+         Parameter('Homo_Km_H2',     500, [0.0005, 1000], normalize = normalize_parameters),
+         Parameter('Homo_Km_CO2',    500, [0.0005, 1000], normalize = normalize_parameters),
+         Parameter('Homo_v_max',      .5, [0.005, 1.], normalize = normalize_parameters),
+         Parameter('Homo_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
          
-         Parameter('Aceto_Km_Ac',    25, [0.5, 500]), #166
-         Parameter('Ac_v_max',       .0083, [0.005, 1.]),
-         Parameter('Ac_CUE',          .5, [0, 1], 'linear'), 
+         Parameter('Aceto_Km_Ac',    25, [0.5, 500], normalize = normalize_parameters), #166
+         Parameter('Ac_v_max',       .0083, [0.005, 1.], normalize = normalize_parameters),
+         Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize_parameters), 
          
-         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000]),#500
-         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000]),
-         Parameter('Fe3_v_max',      1.5, [0.002, 3.]), 
-         Parameter('Fe3_CUE',        0.5, [0, 1], 'linear'),
+         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], normalize = normalize_parameters),#500
+         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], normalize = normalize_parameters),
+         Parameter('Fe3_v_max',      1.5, [0.002, 3.], normalize = normalize_parameters), 
+         Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize_parameters),
          
-         Parameter('Acetate',         20, [0, 100], 'linear'),
-         Parameter('Fe3',            150, [0, 300], 'linear'),
+         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
+         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
          
-         Parameter('M_Ferm',         .42, [1e-8, 5]),
-         Parameter('M_Hydro',       .083, [1e-8, 5]),
-         Parameter('M_Fe3',          .25, [1e-8, 5]),
-         Parameter('M_Homo',         .25, [1e-8, 5]),
-         Parameter('M_Ac',         .0033, [1e-8, 5]),
+         Parameter('M_Ferm',         .42, [1e-8, 5], normalize = normalize_parameters),
+         Parameter('M_Hydro',       .083, [1e-8, 5], normalize = normalize_parameters),
+         Parameter('M_Fe3',          .25, [1e-8, 5], normalize = normalize_parameters),
+         Parameter('M_Homo',         .25, [1e-8, 5], normalize = normalize_parameters),
+         Parameter('M_Ac',         .0033, [1e-8, 5], normalize = normalize_parameters),
         ]
         
     return p
 
-class LogTransform():
-    def transform(self, value): return np.log(value)
-    def inverse(self, value): return np.exp(value)
+class Transform(ABC):
+    def __init__(self, transform = None):
+        self._transf = IdentityTransform() if transform is None else transform
+        
+    def transform(self, value):
+        value = self._transf.transform(value)
+        return self._transform(value)
+        
+    @abstractmethod
+    def _transform(self, value):
+        raise NotImplementedError()
     
+    def inverse(self, value):
+        inv = self._inverse(value)
+        return self._transf.inverse(inv)
+    
+    @abstractmethod
+    def _inverse(self, value):
+        raise NotImplementedError()
+        
 class IdentityTransform():
     def transform(self, value): return value
     def inverse(self, value): return value
 
+class LogTransform(Transform):
+    def _transform(self, value): return np.log(value)
+    def _inverse(self, value): return np.exp(value)
+    
+class Normalization(Transform):
+    def __init__(self, transform, low, high, target = (0,1)):
+        super().__init__(transform)
+        self.low = low
+        self.high = high
+        self.target_low = target[0]
+        self.target_high = target[1]
+
+    def _transform(self, value):
+        return self.target_low + (value - self.low)/(self.high - self.low)*self.target_high
+    
+    def _inverse(self, value):
+        return (value - self.target_low)/self.target_high*(self.high - self.low) + self.low
 
 class ModelParameters():
     def __init__(self):
@@ -71,9 +105,9 @@ class ModelParameters():
             self._parameters[key] = Parameter(key)
         return self._parameters[key]
             
-    def set(self, parameters):
+    def set(self, parameters, normalized = False):
         if isinstance(parameters, str) and parameters == 'default':
-            self.set(default_model_parameters())
+            self.set(default_model_parameters(normalize_parameters = normalized))
             
         elif isinstance(parameters, dict):
             for p, value in parameters.items():
@@ -127,13 +161,14 @@ class ModelParameters():
 
 
 class Parameter():
-    def __init__(self, name, value = np.nan, range = None, scale = 'log'):
+    def __init__(self, name, value = np.nan, range = None, scale = 'log', normalize = False):
         self.name = name
         self.value = value
         
         self.low = None
         self.high = None
         self.scale = scale
+        self.normalize = normalize
         self.transformer = None
         if not range is None:
             self.low = range[0]
@@ -167,6 +202,7 @@ class Parameter():
             self.low = p.low
             self.high = p.high
             self.scale = p.scale
+            self.normalize = p.normalize
         elif isinstance(p, (int, float)):
             if self.is_variable() and (not p <= self.high or not p >= self.low):
                 print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
@@ -183,10 +219,17 @@ class Parameter():
     def get_transform(self):
         if self.transformer is None:
             if self.scale == 'linear':
-                self.transformer = IdentityTransform()
+                if self.is_variable() and self.normalize:
+                    tf = Normalization(None, self.lower(), self.upper())
+                else:
+                    tf = IdentityTransform()
+                self.transformer = tf
             
             elif self.is_variable() and self.scale == 'log':
-                self.transformer = LogTransform()
+                tf = LogTransform()
+                if self.is_variable() and self.normalize:
+                    tf = Normalization(tf, tf.transform(self.lower()), tf.transform(self.upper()))
+                self.transformer = tf 
             
             else:
                 raise NotImplementedError()
@@ -203,7 +246,7 @@ class Parameter():
     def __str__(self):
         var = ''
         if self.is_variable():
-            var = f'  ({self.low:8.3g}, {self.high:8.3g})   {self.scale}'
+            var = f'  ({self.low:8.3g}, {self.high:8.3g})   {self.scale}   norm.: {self.normalize}'
         return f'{self.name[:15]:15} = {self.value:8.3g}' + var
     
     def __float__(self):
@@ -411,6 +454,7 @@ def load_best():
     return all_parameters, found
 
 if __name__ == '__main__':
+
     R2plot()
     1/0
     all_parameters, found = load_best()

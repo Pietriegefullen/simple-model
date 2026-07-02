@@ -358,7 +358,7 @@ class Replica():
         elif key == 'days':
             return self.incubation['days']
     
-    def plot(self, events = True, marker = 'x', log = False, newfigure = True, measurements = None):
+    def plot(self, events = True, marker = 'x', log = False, newfigure = True, measurements = None, label = ''):
         if measurements is None:
             measurements = ['CO2', 'CH4']
         elif not isinstance(measurements, list):
@@ -373,18 +373,30 @@ class Replica():
         else:
             ax = newfigure
         
+        if not label == '':
+            label = f' ({label})'
+        
         if 'CO2' in measurements:
-            ax.plot(*self.CO2(),'r' + marker, label = 'CO2', color = 'b')
+            ax.plot(*self.CO2(),'r' + marker, label = 'CO2' + label, color = 'b')
             ax.set_ylabel('gas (CO2)')
         
         if 'CH4' in measurements:
-            secax = ax.twinx()
-            secax.plot(*self.CH4(),'b' + marker, label = 'CH4', color = 'orange')
+            if len(measurements) == 1:
+                secax = ax
+            else:
+                secax = ax.twinx()
+            secax.plot(*self.CH4(),'b' + marker, label = 'CH4' + label, color = 'orange')
             secax.set_yscale('log')
             secax.set_ylabel('gas (CH4)')
 
         ax.set_title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
-        ax.legend()
+        
+        handles, labels = [], []
+        for axs in fig.axes:
+            handles += axs.get_legend_handles_labels()[0]
+            labels += axs.get_legend_handles_labels()[1]
+        
+        fig.legend(handles, labels)
         ax.set_xlabel('day')
         #ax.set_ylabel('gas')
         
@@ -508,9 +520,11 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
-    d.plot_samples()
+    d['13724'].plot()
+    
+    #d.plot_samples()
     plt.show()
-    quit()
+    1/0
     
     for s in d.samples:
         print(s)

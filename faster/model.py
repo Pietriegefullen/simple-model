@@ -168,21 +168,18 @@ class Model():
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
    
-    
         # compute R2 values
         used_measured_indices = np.array([np.nonzero(measured_days == t)[0] for t in t_eval])
-        used_predicted_indices = np.array([np.nonzero(measured_days == t)[0] for t in solver_result.t])
         
         _, predicted_CO2 = self.system_state_log['CO2']
-        predicted_CO2_on_measured = predicted_CO2[used_predicted_indices]
+        predicted_CO2_on_measured = predicted_CO2
         measured_CO2 = replica['CO2'][used_measured_indices]
         co2_r2 = r2(predicted_CO2_on_measured, measured_CO2, log = True)
         
         _, predicted_CH4 = self.system_state_log['CH4']
-        predicted_CH4_on_measured = predicted_CH4[used_predicted_indices]
+        predicted_CH4_on_measured = predicted_CH4
         measured_CH4 = replica['CH4'][used_measured_indices]
         ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4, log = True)
-        
         
         self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
         self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
@@ -197,6 +194,7 @@ class Model():
                 integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
                 n = k + ' (integrated)'
                 add_to_log.append((n, t[1:], np.cumsum(integral)))
+                
         for name, ts, vs in add_to_log:
             self.system_state_log.log(name, ts, vs)
             
@@ -281,7 +279,7 @@ class ModelRun():
     def log(self, name, ts, values):
         #if not name in self._log:
         #    self._log[name] = []
-        self._log[name] = (ts ,values)
+        self._log[name] = (ts, values)
 
     def reset(self):
         self._log.clear()

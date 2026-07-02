@@ -43,12 +43,13 @@ def load_fitted_parameters(sample_name, replica_name, after = None):
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
-    sample_name = '1372'
+    sample_name = '1361'
     replica_name = 4
     reset_Fe3 = None#2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     
     
-    loaded_parameters = load_fitted_parameters(sample_name, replica_name, after = '2026')
+    loaded_parameters = load_fitted_parameters(sample_name, replica_name, 
+                                               after = '2026-07-02--09-47')
     
     dataset = data.get_data_before_carex()
     replica = dataset[sample_name + str(replica_name)]
@@ -60,12 +61,32 @@ if __name__ == '__main__':
 
     log = pathway_model.predict(replica, reset_Fe3 = reset_Fe3)
 
-    log.plot()
+    replicas = '456'.replace(str(replica_name), '')
 
-    replica.plot()
-    log.plot(['CO2', 'CH4'], newfigure = False)
-    
-    log.plot('DOC', log = True)
+    #log.plot()
+
+    replica.plot(measurements = ['CO2'])
+    log.plot(['CO2'], newfigure = False)
+    for repl in replicas:
+        if sample_name + str(repl) in dataset:
+            dataset[sample_name + str(repl)].plot(measurements = ['CO2'], 
+                                                  label = 'fit', 
+                                                  marker = '.',
+                                                  newfigure = False)
+    sample = dataset[sample_name]
+    plt.gca().set_title(f'{str(sample)} {sample.site} ({sample.origin})')
+
+    replica.plot(measurements = ['CH4'])
+    log.plot(['CH4'], newfigure = False)
+    for repl in replicas:
+        if sample_name + str(repl) in dataset:
+            dataset[sample_name + str(repl)].plot(measurements = ['CH4'], 
+                                              label = 'fit', 
+                                              marker = '.',
+                                              newfigure = False)
+    plt.gca().set_title(f'{str(sample)} {sample.site} ({sample.origin})')
+
+    #log.plot('DOC', log = True)
     
     print('DOC on day', log['DOC'][0][-1], log['DOC'][1][-1])
     
