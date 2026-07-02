@@ -129,7 +129,7 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
                                      fit_from = fit_from, fit_to = fit_to)
     
 if __name__ == '__main__':
-    default_sample = 1361
+    default_sample = 1351
     default_model_type = 'complex'
     fit_from = 0
     fit_to = None

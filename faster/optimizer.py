@@ -17,7 +17,7 @@ def r2(predicted, measured, log = False):
     if log:
         predicted = np.log(predicted)
         measured = np.log(measured)
-    measured_mean = np.mean(measured)
+    measured_mean = np.nanmean(measured)
     SS_res = np.nansum((predicted - measured)**2)
     SS_total = np.nansum((measured - measured_mean)**2)
     r2_value = 1 - SS_res/SS_total
@@ -228,7 +228,7 @@ class Objective():
         return f'call_{self._call_count:03d}_loss_{total_loss:7.4f}'
 
     def get_callback(self):        
-        def callback(intermediate_result, **kwargs):
+        def callback(*args, **kwargs):
             self.generation += 1
             print('callback')
             return False

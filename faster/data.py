@@ -200,6 +200,13 @@ class KnoblauchData():
             return [r for r in self.replicas() if str(r) == key][0]
         raise Exception('Invalid sample or replica name.')
 
+    def __contains__(self, key):
+        try:
+            self.__getitem__(key)
+            return True
+        except Exception:
+            return False
+        
     def add_sample(self, sample):
         try:
             check_sample(sample)        
@@ -252,7 +259,10 @@ class Sample():
         self.depth = depth
         self.pH = pH
         self.TOC = TOC # as decimal, e.g. 3% is 0.03
-        
+    
+    def __contains__(self, replica_number):
+        return any([str(r.replica_number) == str(replica_number) for r in self.replicas])
+    
     def add_replica(self, replica):
         replica.sample = self
         try:
@@ -519,6 +529,8 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+    print(d)
+    1/0
     
     d['13724'].plot()
     
