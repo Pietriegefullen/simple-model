@@ -57,7 +57,7 @@ def initial_state(replica, model_parameters):
     model_parameters['M_Hydro']
     model_parameters['M_Homo']
     model_parameters['M_Ac']
-    #model_parameters['M_Fe3']
+    model_parameters['M_Fe3']
     model_parameters['Acetate']
     
     for pool in SYSTEM:

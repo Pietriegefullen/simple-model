@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     replicas = '456'.replace(str(replica_name), '')
 
-    log.plot()
+    #log.plot()
 
     replica.plot(measurements = ['CO2'])
     log.plot(['CO2'], newfigure = False)
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     plt.gca().set_title(f'{str(sample)} {sample.site} ({sample.origin})')
 
     replica.plot(measurements = ['CH4'])
-    log.plot(['CH4'], newfigure = False)
+    log.plot(['CH4'], newfigure = False, log = True)
     for repl in replicas:
         if sample_name in dataset and str(repl) in dataset[sample_name]:
             dataset[sample_name + str(repl)].plot(measurements = ['CH4'], 
@@ -85,8 +85,6 @@ if __name__ == '__main__':
                                               marker = '.',
                                               newfigure = False)
     plt.gca().set_title(f'{str(sample)} {sample.site} ({sample.origin})')
-
-    #log.plot('DOC', log = True)
     
     print('DOC on day', log['DOC'][0][-1], log['DOC'][1][-1])
     

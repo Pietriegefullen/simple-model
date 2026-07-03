@@ -33,7 +33,7 @@ def default_model_parameters(normalize_parameters = False):
          
          Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], normalize = normalize_parameters),#500
          Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], normalize = normalize_parameters),
-         Parameter('Fe3_v_max',      1.5, [0.002, 3.], normalize = normalize_parameters), 
+         Parameter('Fe3_v_max',      1.5, [0.2, 3.], normalize = normalize_parameters), 
          Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize_parameters),
          
          Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),

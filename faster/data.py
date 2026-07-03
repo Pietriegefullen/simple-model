@@ -403,13 +403,9 @@ class Replica():
             ax.set_ylabel('gas (CO2)')
         
         if 'CH4' in measurements:
-            if len(measurements) == 1:
-                secax = ax
-            else:
-                secax = ax.twinx()
-            secax.plot(*self.CH4(),'b' + marker, label = 'CH4' + label, color = 'orange')
-            secax.set_yscale('log')
-            secax.set_ylabel('gas (CH4)')
+            ax.plot(*self.CH4(),'b' + marker, label = 'CH4' + label, color = 'orange')
+            ax.set_yscale('log')
+            ax.set_ylabel('gas (CH4)')
 
         ax.set_title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
         
@@ -425,7 +421,7 @@ class Replica():
         if not events:
             return
         
-        if log:
+        if log and newfigure:
             ax.set_yscale('log')
         else:
             pass
@@ -434,7 +430,7 @@ class Replica():
         ylim = ax.get_ylim()
         for event, day in self.events.items():
             ax.plot([day, day], ylim, 'r-')
-            ax.text(day-100, 0, event, rotation = 'vertical')
+            ax.text(day-100, np.min(ylim), event, rotation = 'vertical')
         
     def before_day(self, last_day):
         if last_day is None:
