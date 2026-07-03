@@ -115,14 +115,17 @@ class Model():
         return dS_dt
     
     def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log_co2 = True, log_ch4 = True,
-            fit_from = 0, fit_to = None):
+            fit_from = 0, fit_to = None,
+            loss_weight_CO2 = 1, loss_weight_CH4 = 1):
         if not isinstance(replicas, list):
             replicas = [replicas]
             
         algo = optimizer.Algorithm(algorithm, 
                                    **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
         return algo.minimize(self, replicas, log_co2 = log_co2, log_ch4 = log_ch4,
-                             fit_from = fit_from, fit_to = fit_to)
+                             fit_from = fit_from, fit_to = fit_to,
+                             loss_weight_CO2 = loss_weight_CO2, 
+                             loss_weight_CH4 = loss_weight_CH4)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000):

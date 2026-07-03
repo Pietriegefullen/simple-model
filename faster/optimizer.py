@@ -12,15 +12,19 @@ import USER_VARIABLES
 import linecache
 import os
 
-
 def r2(predicted, measured, log = False):
+    predicted = np.squeeze(predicted)
+    measured = np.squeeze(measured)
     if log:
         predicted = np.log(predicted)
         measured = np.log(measured)
-    measured_mean = np.nanmean(measured)
-    SS_res = np.nansum((predicted - measured)**2)
-    SS_total = np.nansum((measured - measured_mean)**2)
+    usable = np.logical_and(np.isfinite(predicted), np.isfinite(measured))
+    measured_mean = np.nanmean(measured[usable])
+    SS_res = np.nansum((predicted[usable] - measured[usable])**2)
+    SS_total = np.nansum((measured[usable] - measured_mean)**2)
+
     r2_value = 1 - SS_res/SS_total
+    
     return r2_value
 
 def algo_kwargs(method):
@@ -59,7 +63,8 @@ class Algorithm():
         self.kwargs = kwargs
     
     def minimize(self, model, replicas, log_co2 = True, log_ch4 = True,
-                 fit_from = 0, fit_to = None):
+                 fit_from = 0, fit_to = None,
+                 loss_weight_CO2 = 1, loss_weight_CH4 = 1):
         variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
@@ -82,7 +87,9 @@ class Algorithm():
             raise Exception('Model has no variable parameters.')
               
         replica_obj = [ReplicaObjective(replica, model, log_co2 = log_co2, log_ch4 = log_ch4,
-                                        fit_from = fit_from, fit_to = fit_to)
+                                        fit_from = fit_from, fit_to = fit_to,
+                                        loss_weight_CO2 = loss_weight_CO2,
+                                        loss_weight_CH4 = loss_weight_CH4)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -265,12 +272,16 @@ class Loss():
 
 
 class ReplicaObjective():
-    def __init__(self, replica, model, log_co2 = False, log_ch4 = False, fit_from = 0, fit_to = None):
+    def __init__(self, replica, model, log_co2 = False, log_ch4 = False, 
+                 fit_from = 0, fit_to = None,
+                 loss_weight_CO2 = 1, loss_weight_CH4 = 1):
         self.model = model
         self.replica = replica
         self.last_call = None
         self.log_co2 = log_co2
         self.log_ch4 = log_ch4
+        self.w_CO2 = loss_weight_CO2
+        self.w_CH4 = loss_weight_CH4
         
         if not fit_to is None and fit_from >= fit_to:
             raise ValueError('"from" value >= "to" value')
@@ -306,38 +317,28 @@ class ReplicaObjective():
             return np.nan
         
         _, predicted_CO2 = results['CO2']
+        _, predicted_CH4 = results['CH4']
+        self.last_call = predicted_CO2, predicted_CH4
+        
+        
         measured_CO2 = self.replica.incubation['CO2'][self.used_indices]
-       
         if self.log_co2:
             measured_CO2 = np.log(measured_CO2)
             predicted_CO2 = np.log(predicted_CO2)
-            
             measured_CO2 = np.where(np.isfinite(measured_CO2), measured_CO2, -12)
             predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
-
-        if self.log_co2 is None:
-            CO2_loss = 0
-        else:
-            CO2_loss = Loss(predicted_CO2, measured_CO2).MSE()
+        CO2_loss = Loss(predicted_CO2, measured_CO2).MSE()
         
-        _, predicted_CH4 = results['CH4']
         measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
-       
         if self.log_ch4:
             measured_CH4 = np.log(measured_CH4)
             predicted_CH4 = np.log(predicted_CH4)
-            
             measured_CH4 = np.where(np.isfinite(measured_CH4), measured_CH4, -12)
             predicted_CH4 = np.where(np.isfinite(predicted_CH4), predicted_CH4, -12)
+        CH4_loss = Loss(predicted_CH4, measured_CH4).MSE()
 
-        if self.log_ch4 is None:#
-            CH4_loss = 0
-        else:
-            CH4_loss = Loss(predicted_CH4, measured_CH4).MSE()
 
-        loss = CO2_loss + CH4_loss
-        
-        self.last_call = predicted_CO2, predicted_CH4
+        loss = self.w_CO2*CO2_loss + self.w_CH4*CH4_loss
 
         return loss
     

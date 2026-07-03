@@ -103,7 +103,8 @@ def fit(include_samples = None, exclude_samples = None):
                     print()
    
 def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
-               fit_from = 0, fit_to = None, normalized_parameters = False):
+               fit_from = 0, fit_to = None, normalized_parameters = False,
+               loss_weight_CO2 = 1, loss_weight_CH4 = 1):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -126,14 +127,18 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
         pathway_model.parameters()['M_Homo'].constant(0)
 
     best_loss, _ = pathway_model.fit(fit_replicas, log_co2 = log_co2, log_ch4 = log_ch4, 
-                                     fit_from = fit_from, fit_to = fit_to)
+                                     fit_from = fit_from, fit_to = fit_to,
+                                     loss_weight_CO2 = loss_weight_CO2, 
+                                     loss_weight_CH4 = loss_weight_CH4)
     
 if __name__ == '__main__':
-    default_sample = 1370
+    default_sample = 1367
     default_model_type = 'complex'
     fit_from = 0
     fit_to = None
     normalized_parameters = True
+    loss_weight_CO2 = 0.1
+    loss_weight_CH4 = 1.0
     
     log_co2 = False
     log_ch4 = True
@@ -180,4 +185,6 @@ if __name__ == '__main__':
     fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
                fit_from = fit_from,
                fit_to = fit_to,
-               normalized_parameters = normalized_parameters)
+               normalized_parameters = normalized_parameters,
+               loss_weight_CO2 = loss_weight_CO2,
+               loss_weight_CH4 = loss_weight_CH4)
