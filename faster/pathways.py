@@ -85,17 +85,19 @@ class Pathway():
             log_Q = system.vector(0) # generates a zero-filled vector of system shape
             
             concentrations = system.vector(0)
-            contributes = self.stoichiometry != 0     
+            contributes = self.stoichiometry != 0
+            contributes[system.index('H2O')] = False # water never contributes in thermodynamics
             denom = np.sum(dissolved_S[contributes])
         
-
             if denom <= 0:
                 concentrations[contributes] = 0
             else:
                 concentrations[contributes] = dissolved_S[contributes]/denom
             
-            educt_concentrations = concentrations[self.stoichiometry <0]
-            prod_concentrations = concentrations[self.stoichiometry >0]
+            contributing_educts = np.logical_and(self.stoichiometry < 0, contributes)
+            contributing_products = np.logical_and(self.stoichiometry > 0, contributes)
+            educt_concentrations = concentrations[contributing_educts]
+            prod_concentrations = concentrations[contributing_products]
             
             if np.any(educt_concentrations == 0):
                 deltaG_r = np.inf

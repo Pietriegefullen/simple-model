@@ -290,14 +290,16 @@ class ModelRun():
             
         if not isinstance(name, list):
             name = [name]
-        
+            
         for n in name:
             if not n in self._log:
                 print(n + ' not logged')
+                
             if newfigure:
                 fig, ax = plt.subplots()
             else:
                 fig = plt.gcf()
+                ax = plt.gca()
                 
             x, y = self._log[n]
             label = n
@@ -315,22 +317,21 @@ class ModelRun():
                     ch4_ax = ax
                 ch4_ax.plot(x, y, mark, label = label, color = 'orange')
             else:
-                ax = plt.gca()
                 ax.plot(x, y, mark, label = label)
                 
-            plt.title(n)
+            ax.set_title(n)
             plt.legend()
             
             if log:
-                plt.yscale('log')
-                plt.title(n + ' (log)')
+                ax.set_yscale('log')
+                ax.set_title(n + ' (log)')
                 
             elif n in system.SYSTEM:
                 #plt.yscale('log')
                 pass
         
             elif 'MM' in n:
-                plt.ylim([0,1])
+                ax.set_ylim([0,1])
 
         
     def __str__(self):

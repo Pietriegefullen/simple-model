@@ -16,27 +16,39 @@ DOC_per_TOC = 0.02
 
 knoblauch_data = None
 
+def save_to_json(d, target):
+    cfg = d.get_config()
+    target_file = os.path.join(target, 'KnoblauchData.json')
+    if not os.path.isdir(target):
+        os.makedirs(target)
+    with open(target_file, 'w') as tf:
+        json.dump(cfg, tf, indent = 4)
+
 def get_data_before_carex():
     global knoblauch_data
     if knoblauch_data is None:
-        print('Loading Knoblauch data...')
-        knoblauch_data = KnoblauchData()
-        _ = [r.before_day(r.carex()) for r in knoblauch_data.replicas()]
+        knoblauch_data = load_knoblauch()
+    _ = [r.before_day(r.carex()) for r in knoblauch_data.replicas()]
+    return knoblauch_data
+
+def load_knoblauch():
+    print('Loading Knoblauch data...')
+    d_file = os.path.join(ROOT_DIRECTORY, 'KnoblauchData.json')
+    if os.path.isfile(d_file):
+        with open(d_file, 'r') as df:
+            d_dict = json.load(df)
+        knoblauch_data = KnoblauchData(d_dict) # load from json file
+        
+    else:
+        knoblauch_data = KnoblauchData() # load from Excel files
+        save_to_json(knoblauch_data, ROOT_DIRECTORY)
     return knoblauch_data
 
 def get_data_before_day():
     global knoblauch_data
     if knoblauch_data is None:
-        print('Loading Knoblauch data...')
-
-        d_file = os.path.join(ROOT_DIRECTORY, 'KnoblauchData.json')
-        if os.path.isfile(d_file):
-            with open(d_file, 'r') as df:
-                d_dict = json.load(df)
-            knoblauch_data = KnoblauchData(d_dict) # load from json file
-        else:
-            knoblauch_data = KnoblauchData() # load from Excel files
-        _ = [r.before_day(r.last_day) for r in knoblauch_data.replicas()]
+        knoblauch_data = load_knoblauch()
+    _ = [r.before_day(r.last_day) for r in knoblauch_data.replicas()]
     return knoblauch_data
     
 
