@@ -294,6 +294,9 @@ class Loss():
     
     def RMSE(self):
         return np.sqrt(self.MSE())
+    
+    def R2(self):
+        raise NotImplementedError()
 
 class ReplicaObjective():
     def __init__(self, replica, model, log_co2 = False, log_ch4 = False, 
