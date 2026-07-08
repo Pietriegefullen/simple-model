@@ -57,17 +57,28 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                     
     return largest_range
 
-def load_fitted_parameters(sample_name, replica_name, model_type, after = None):
+def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False):
     fit_replicas = str(456).replace(str(replica_name),'')
     
     sample_name = str(sample_name)
     
     folders = []
-    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
-        if ((sample_name + str(fit_replicas[0])) in _d or \
-        (sample_name + str(fit_replicas[1])) in _d) and \
-         not (sample_name + str(replica_name)) in _d and model_type in _d:
-            folders.append(_d)
+    if not best:
+        for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
+            if ((sample_name + str(fit_replicas[0])) in _d or \
+            (sample_name + str(fit_replicas[1])) in _d) and \
+             not (sample_name + str(replica_name)) in _d and model_type in _d:
+                folders.append(_d)
+        
+    if best:
+        source = os.listdir(os.path.join(USER_VARIABLES.simple_model_dir, 'best'))
+        sample_source = os.path.join(source, str(sample_name))
+        replica_source = os.path.join(sample_source,'456'.replace(str(replica_name), ''))
+        if not os.path.isdir(replica_source):
+            raise Exception('No best result for this replica')
+        folders.append(replica_source)
+            
+            
     if len(folders) == 0:
         raise Exception('Found no fit results directory')
         
@@ -98,11 +109,13 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None):
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
-    sample_name = '1351' # 1351, 1367, 1369, 1370, 
-    replica_name = 4 # 4?, 5?, 6?
+    sample_name = '1367' # 1351, 1367, 1369, 1370, 
+    replica_name = 5 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
+    
+    best = True
         
 
     dataset = data.get_data_before_carex()
