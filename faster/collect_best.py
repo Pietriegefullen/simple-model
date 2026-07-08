@@ -24,6 +24,8 @@ for f in os.listdir(source):
     fit_replicas = ''.join(sorted([fr.replace(sample_name, '') for fr in fit_replicas]))
     
     date = f.split('_')[-1]
+    if date < after:
+        continue
     
     replica_target = os.path.join(target, sample_name, fit_replicas)
     
@@ -53,7 +55,11 @@ for f in os.listdir(source):
             if len(best_files) > 0:
                 os.remove(os.path.join(replica_target, best_files[0]))
         
-    
-    # check after
-    
-    # check better loss in target?
+for sample in os.listdir(target):
+    print(sample)
+    for replica in os.listdir(os.path.join(target, sample)):
+        results = os.listdir(os.path.join(target, sample, replica))
+        if len(results) == 1:
+            loss = float(results[0].split('loss_')[-1])
+            print('   '+ replica, f'{loss:.2f}')
+    print()
