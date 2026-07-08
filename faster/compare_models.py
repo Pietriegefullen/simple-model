@@ -144,10 +144,13 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 1351
+    default_sample = 1367
+    default_split = 1
     default_model_type = 'complex'
+    
     fit_from = 0
     fit_to = None
+    
     normalized_parameters = True
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
@@ -167,7 +170,7 @@ if __name__ == '__main__':
         hasargs = True
         sample = sys.argv[1]
         
-    split = 0
+    split = default_split
     if '0' in sys.argv:
         split = 0
     elif '1' in sys.argv:
@@ -178,6 +181,8 @@ if __name__ == '__main__':
     if 'narrow' in sys.argv:
         narrower_range = True
         best_N = int(sys.argv[sys.argv.index('narrow')+1])
+    else:
+        narrower_range = False
     
     loaded_range = None
     if narrower_range:
@@ -213,6 +218,8 @@ if __name__ == '__main__':
     
     if 'local' in sys.argv:
         local_search = True
+    else:
+        local_search = False
     
     best_parameters = None
     if local_search:
