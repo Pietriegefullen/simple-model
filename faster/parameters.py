@@ -91,8 +91,16 @@ class Normalization(Transform):
         return (value - self.target_low)/self.target_high*(self.high - self.low) + self.low
 
 class ModelParameters():
-    def __init__(self):
-        self._parameters = {}
+    def __init__(self, d = None):
+        if isinstance(d, dict):
+            d =  {k:(v if isinstance(v, Parameter) else Parameter(k,v))
+                for k,v in d.items()}
+        
+        elif d is None:
+            d = {}
+        else:
+            raise NotImplementedError()
+        self._parameters = d
     
     def as_dict(self):
         return self._parameters

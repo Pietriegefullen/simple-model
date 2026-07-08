@@ -104,7 +104,11 @@ def fit(include_samples = None, exclude_samples = None):
    
 def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
                fit_from = 0, fit_to = None, normalized_parameters = False,
-               loss_weight_CO2 = 1, loss_weight_CH4 = 1):
+               loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
+               parameter_range = None,
+               local_search = False, 
+               initial_parameters = None,
+               weighted_measurements = False):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -121,6 +125,10 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
     pathway_model = model.Model(chosen_pathways)
     pathway_model.parameters().set('default', normalized = normalized_parameters)
     
+    if not initial_parameters is None:
+        for k,v in initial_parameters.items():
+            pathway_model.parameters()[k].set(v)
+    
     if not 'Fe3' in chosen_pathways:
         pathway_model.parameters()['Fe3'].constant(0)
     if not 'Homo' in chosen_pathways:
@@ -129,16 +137,23 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
     best_loss, _ = pathway_model.fit(fit_replicas, log_co2 = log_co2, log_ch4 = log_ch4, 
                                      fit_from = fit_from, fit_to = fit_to,
                                      loss_weight_CO2 = loss_weight_CO2, 
-                                     loss_weight_CH4 = loss_weight_CH4)
+                                     loss_weight_CH4 = loss_weight_CH4,
+                                     parameter_range = parameter_range,
+                                     algorithm = None if not local_search else 'Powell',
+                                     weighted_measurements = weighted_measurements)
     
 if __name__ == '__main__':
-    default_sample = 1367
+    from main_file import load_parameter_range, load_fitted_parameters
+    default_sample = 1351
     default_model_type = 'complex'
     fit_from = 0
     fit_to = None
     normalized_parameters = True
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
+    narrower_range = True
+    local_search = False
+    weighted_measurements = False
     
     log_co2 = False
     log_ch4 = True
@@ -158,7 +173,18 @@ if __name__ == '__main__':
         split = 1
     elif '2' in sys.argv:
         split = 2
+    
+    if 'narrow' in sys.argv:
+        narrower_range = True
         
+    if narrower_range:
+        replica_name = '456'[split]
+        try:
+            loaded_range = load_parameter_range(default_sample, replica_name, default_model_type)
+        
+        except:
+            loaded_range = None
+
     #log = True
     #if 'log' in sys.argv:
     #    log = True
@@ -182,9 +208,20 @@ if __name__ == '__main__':
         idx = sys.argv.index('to')
         fit_to = int(sys.argv[idx+1])
     
+    if 'local' in sys.argv:
+        local_search = True
+    
+    best_parameters = None
+    if local_search:
+        best_parameters = load_fitted_parameters(default_sample, replica_name, default_model_type)
+    
     fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
                fit_from = fit_from,
                fit_to = fit_to,
                normalized_parameters = normalized_parameters,
                loss_weight_CO2 = loss_weight_CO2,
-               loss_weight_CH4 = loss_weight_CH4)
+               loss_weight_CH4 = loss_weight_CH4,
+               parameter_range = loaded_range,
+               local_search = local_search,
+               initial_parameters = best_parameters,
+               weighted_measurements = weighted_measurements)

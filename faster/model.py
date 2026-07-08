@@ -114,18 +114,25 @@ class Model():
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
         return dS_dt
     
-    def fit(self, replicas, algorithm = OPTIMIZATION_ALGORITHM, log_co2 = True, log_ch4 = True,
+    def fit(self, replicas, algorithm = None, log_co2 = True, log_ch4 = True,
             fit_from = 0, fit_to = None,
-            loss_weight_CO2 = 1, loss_weight_CH4 = 1):
+            loss_weight_CO2 = 1, loss_weight_CH4 = 1,
+            parameter_range = None,
+            weighted_measurements = False):
+        if algorithm is None:
+            algorithm = OPTIMIZATION_ALGORITHM
+            
         if not isinstance(replicas, list):
             replicas = [replicas]
             
         algo = optimizer.Algorithm(algorithm, 
-                                   **optimizer.algo_kwargs(OPTIMIZATION_ALGORITHM))
+                                   **optimizer.algo_kwargs(algorithm))
         return algo.minimize(self, replicas, log_co2 = log_co2, log_ch4 = log_ch4,
                              fit_from = fit_from, fit_to = fit_to,
                              loss_weight_CO2 = loss_weight_CO2, 
-                             loss_weight_CH4 = loss_weight_CH4)
+                             loss_weight_CH4 = loss_weight_CH4, 
+                             parameter_range = parameter_range,
+                             weighted_measurements = weighted_measurements)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000):
@@ -313,15 +320,18 @@ class ModelRun():
                # mark = 'x'
             if n == 'CH4':
                 ax = fig.axes
-                if isinstance(ax, list):
+                if len(name) > 1:
                     ax = ax[0] 
                     ch4_ax = ax.twinx()
                 else:
-                    ch4_ax = ax
+                    ch4_ax = ax[0]
                 ch4_ax.plot(x, y, mark, label = label, color = 'orange')
+
             else:
-                ax.plot(x, y, mark, label = label)
-                
+                ch4_ax = ax
+                ch4_ax.plot(x, y, mark, label = label)
+            
+            ax = ch4_ax
             ax.set_title(n)
             plt.legend()
             

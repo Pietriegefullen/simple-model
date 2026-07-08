@@ -53,7 +53,9 @@ def algo_kwargs(method):
     
     elif method == 'direct' or method == 'dual_annealing':
         return {}
-
+    elif method == 'COBYLA' or method == 'Powell':
+        return {}
+    
     else:
         raise NotImplementedError()
 
@@ -64,8 +66,18 @@ class Algorithm():
     
     def minimize(self, model, replicas, log_co2 = True, log_ch4 = True,
                  fit_from = 0, fit_to = None,
-                 loss_weight_CO2 = 1, loss_weight_CH4 = 1):
+                 loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
+                 parameter_range = None,
+                 weighted_measurements = False):
         variables = model.parameters().variables()
+        
+        if not parameter_range is None:
+            for p in parameter_range:
+                for v in variables:
+                    if v.name == p.name:
+                        v.high = p.high
+                        v.low = p.low
+                
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         
@@ -89,7 +101,8 @@ class Algorithm():
         replica_obj = [ReplicaObjective(replica, model, log_co2 = log_co2, log_ch4 = log_ch4,
                                         fit_from = fit_from, fit_to = fit_to,
                                         loss_weight_CO2 = loss_weight_CO2,
-                                        loss_weight_CH4 = loss_weight_CH4)
+                                        loss_weight_CH4 = loss_weight_CH4,
+                                        weighted_measurements = weighted_measurements)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -141,6 +154,7 @@ class Algorithm():
             updating = self.kwargs['updating']
             
             objective = Objective(replica_obj, variables, model)
+            objective.generation = 1
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = bounds,
@@ -148,6 +162,12 @@ class Algorithm():
                                                       updating = updating, 
                                                       callback = objective.get_callback())
 
+        elif self.algorithm == 'COBYLA' or self.algorithm == 'Powell':
+            objective = Objective(replica_obj, variables, model)
+            x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
+            bounds = list(zip(lower_bounds, upper_bounds))
+            _ = scipy.optimize.minimize(objective, x0, method = self.algorithm, bounds = bounds)
+            
         else:
             raise NotImplementedError()
             
@@ -169,7 +189,7 @@ class Objective():
         self.model = model
         self.replica_objectives = replica_objectives
         self.variables = variables
-        self.generation = 1
+        self.generation = None
         self._call_count = 0
         self._best_call = None
         model_type = model.model_type()
@@ -226,7 +246,10 @@ class Objective():
                 ch4_r2 = r2(predicted_CH4_on_measured, used_CH4, log = ro.log_ch4)
                 print('replica ', ro.replica, 'R2:', 'CO2', f'{co2_r2:.3f}', 'CH4', f'{ch4_r2:.3f}')
         best, _ = self._best_call
-        print('generation', self.generation, 'calls', f'{self._call_count:6d}','total loss', f'{total_loss:7.2f}', 'current best', f'{best:7.2f}')
+        genstr = 'None (local)'
+        if not self.generation is None:
+            genstr = str(self.generation)
+        print('generation', genstr, 'calls', f'{self._call_count:6d}','total loss', f'{total_loss:7.2f}', 'current best', f'{best:7.2f}')
 
         gc.collect()
         return total_loss
@@ -264,17 +287,19 @@ class Loss():
         self.predicted = predicted
         self.measured = measured
     
-    def MSE(self):
+    def MSE(self, weights = None):
+        if not weights is None:
+            return np.mean(weights*(self.predicted - self.measured)**2)
         return np.mean((self.predicted - self.measured)**2)
     
     def RMSE(self):
         return np.sqrt(self.MSE())
 
-
 class ReplicaObjective():
     def __init__(self, replica, model, log_co2 = False, log_ch4 = False, 
                  fit_from = 0, fit_to = None,
-                 loss_weight_CO2 = 1, loss_weight_CH4 = 1):
+                 loss_weight_CO2 = 1, loss_weight_CH4 = 1,
+                 weighted_measurements = False):
         self.model = model
         self.replica = replica
         self.last_call = None
@@ -282,6 +307,8 @@ class ReplicaObjective():
         self.log_ch4 = log_ch4
         self.w_CO2 = loss_weight_CO2
         self.w_CH4 = loss_weight_CH4
+        self.weighted_measurements = weighted_measurements
+        self._weights = None
         
         if not fit_to is None and fit_from >= fit_to:
             raise ValueError('"from" value >= "to" value')
@@ -316,26 +343,45 @@ class ReplicaObjective():
             # This also catches timeout Exception or KeyboardInterrupt, should LSODA get stuck
             return np.nan
         
+        
         _, predicted_CO2 = results['CO2']
-        _, predicted_CH4 = results['CH4']
+        t, predicted_CH4 = results['CH4']
         self.last_call = predicted_CO2, predicted_CH4
-        
-        
+    
+        if self._weights is None:
+            if not self.weighted_measurements:
+                self._weights = np.ones((predicted_CO2.size,))
+            delta_t = np.diff(t)
+            weights = np.concatenate([[delta_t[0]/2],
+                                            (delta_t[0:-1]+delta_t[1:])/2,
+                                            [delta_t[-1]/2]], axis = 0)
+            self._weights = weights/np.max(weights)
+        w = np.array(self._weights)
+
         measured_CO2 = self.replica.incubation['CO2'][self.used_indices]
+        if 0 in t:
+            measured_CO2 = measured_CO2[t != 0]
+            predicted_CO2 = predicted_CO2[t != 0]
+            w = w[t != 0]
+
         if self.log_co2:
             measured_CO2 = np.log(measured_CO2)
             predicted_CO2 = np.log(predicted_CO2)
             measured_CO2 = np.where(np.isfinite(measured_CO2), measured_CO2, -12)
             predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
-        CO2_loss = Loss(predicted_CO2, measured_CO2).MSE()
+        CO2_loss = Loss(predicted_CO2, measured_CO2).MSE(w)
         
         measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
+        if 0 in t:
+            measured_CH4 = measured_CH4[t != 0]
+            predicted_CH4 = predicted_CH4[t != 0]
+            
         if self.log_ch4:
             measured_CH4 = np.log(measured_CH4)
             predicted_CH4 = np.log(predicted_CH4)
             measured_CH4 = np.where(np.isfinite(measured_CH4), measured_CH4, -12)
             predicted_CH4 = np.where(np.isfinite(predicted_CH4), predicted_CH4, -12)
-        CH4_loss = Loss(predicted_CH4, measured_CH4).MSE()
+        CH4_loss = Loss(predicted_CH4, measured_CH4).MSE(w)
 
 
         loss = self.w_CO2*CO2_loss + self.w_CH4*CH4_loss
