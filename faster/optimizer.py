@@ -70,14 +70,14 @@ class Algorithm():
                  parameter_range = None,
                  weighted_measurements = False):
         variables = model.parameters().variables()
-        
+        print(len(variables), 'variables before setting bounds') 
         if not parameter_range is None:
             for p in parameter_range:
                 for v in variables:
-                    if v.name == p.name:
+                    if v.name == p.name and not p.high == p.low:
                         v.high = p.high
                         v.low = p.low
-                
+        variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         

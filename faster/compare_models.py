@@ -153,7 +153,7 @@ if __name__ == '__main__':
     loss_weight_CH4 = 1.0
     narrower_range = True
     best_N = 5
-    local_search = True
+    local_search = False
     weighted_measurements = False
     
     log_co2 = False
