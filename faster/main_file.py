@@ -26,7 +26,6 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
     elif len(folders) > 1:
         print('loading')
         best = []
-        largest_range = None
         for f in folders:
             parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
             try:
@@ -40,7 +39,8 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 continue
             
             best.append((loaded_loss, loaded_parameters))
-
+            
+        largest_range = None
         best = sorted(best, key = lambda tpl: tpl[0])
         best = best[:best_N]
         for loss, loaded_parameters in best:

@@ -152,8 +152,8 @@ if __name__ == '__main__':
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
     narrower_range = True
-    best_N = 10
-    local_search = False
+    best_N = 5
+    local_search = True
     weighted_measurements = False
     
     log_co2 = False
@@ -178,17 +178,15 @@ if __name__ == '__main__':
     if 'narrow' in sys.argv:
         narrower_range = True
         best_N = int(sys.argv[sys.argv.index('narrow')+1])
-        
+    
+    loaded_range = None
     if narrower_range:
         replica_name = '456'[split]
-        try:
-            loaded_range = load_parameter_range(default_sample, 
-                                                replica_name, 
-                                                default_model_type,
-                                                best_N = best_N)
-        
-        except:
-            loaded_range = None
+        loaded_range = load_parameter_range(default_sample, 
+                                            replica_name, 
+                                            default_model_type,
+                                            best_N = best_N)
+            
 
     #log = True
     #if 'log' in sys.argv:

@@ -222,6 +222,8 @@ class Parameter():
         return np.isnan(self.value)
                         
     def is_variable(self):
+        if self.low == self.high:
+            return False
         return not self.is_unset() and not self.low is None and not self.high is None
     
     def get_transform(self):
