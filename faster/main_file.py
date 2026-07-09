@@ -39,22 +39,20 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 continue
             
             best.append((loaded_loss, loaded_parameters))
+        
             
-        largest_range = None
         best = sorted(best, key = lambda tpl: tpl[0])
         best = best[:best_N]
+        largest_range = parameters.ModelParameters(best[0][1])
+        print('Parameter range:', 'best loss', best[0][0], 'worst loss', best[-1][0])
         for loss, loaded_parameters in best:
-            if largest_range is None:
-                largest_range = parameters.ModelParameters(loaded_parameters)
+            for p, par in loaded_parameters.items():
+                largest_p = largest_range[p]
+                if largest_p.high is None or par > largest_p.high:
+                    largest_p.high = par
+                if largest_p.low is None or par < largest_p.low:
+                    largest_p.low = par
                 
-            else:
-                for p, par in loaded_parameters.items():
-                    largest_p = largest_range[p]
-                    if largest_p.high is None or par > largest_p.high:
-                        largest_p.high = par
-                    if largest_p.low is None or par < largest_p.low:
-                        largest_p.low = par
-                    
     return largest_range
 
 def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False):
