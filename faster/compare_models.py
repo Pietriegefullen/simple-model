@@ -185,13 +185,12 @@ if __name__ == '__main__':
         narrower_range = False
     
     loaded_range = None
+    replica_name = '456'[split]
     if narrower_range:
-        replica_name = '456'[split]
         loaded_range = load_parameter_range(default_sample, 
                                             replica_name, 
                                             default_model_type,
                                             best_N = best_N)
-            
 
     #log = True
     #if 'log' in sys.argv:
