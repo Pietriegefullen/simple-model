@@ -202,7 +202,7 @@ if __name__ == '__main__':
                 raise ex
 
     model_type = 'complex'
-    if hasargs and 'simple' in sys.argsv:
+    if hasargs and 'simple' in sys.argv:
         raise Exception('Using simple model? Why?')
     
     if hasargs and 'from' in sys.argv:
