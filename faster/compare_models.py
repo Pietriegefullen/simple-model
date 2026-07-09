@@ -145,7 +145,7 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
     default_sample = 1370
-    default_split = 0
+    default_split = 2
     default_model_type = 'complex'
     
     fit_from = 0
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     loss_weight_CH4 = 1.0
     narrower_range = True
     best_N = 5
-    local_search = False
+    local_search = True
     weighted_measurements = False
     
     log_co2 = False
@@ -190,11 +190,16 @@ if __name__ == '__main__':
     loaded_range = None
     replica_name = '456'[split]
     if narrower_range:
-        loaded_range = load_parameter_range(default_sample, 
-                                            replica_name, 
-                                            default_model_type,
-                                            best_N = best_N)
-
+        try:
+            loaded_range = load_parameter_range(default_sample, 
+                                                replica_name, 
+                                                default_model_type,
+                                                best_N = best_N)
+        except Exception as ex:
+            if 'single result file' in str(ex):
+                pass
+            else:
+                raise ex
 
     model_type = 'complex'
     if hasargs and 'simple' in sys.argsv:
@@ -223,7 +228,7 @@ if __name__ == '__main__':
                                                  replica_name, 
                                                  default_model_type)
     if best_parameters is None and not loaded_range is None:
-        best_parameters = loaded_range
+        best_parameters = loaded_range.as_dict()
         
     
     fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
@@ -234,6 +239,6 @@ if __name__ == '__main__':
                loss_weight_CH4 = loss_weight_CH4,
                parameter_range = loaded_range,
                local_search = local_search,
-               initial_parameters = best_parameters.as_dict(),
+               initial_parameters = best_parameters,
                weighted_measurements = weighted_measurements)
 
