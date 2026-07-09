@@ -102,7 +102,7 @@ def fit(include_samples = None, exclude_samples = None):
                     print(traceback.format_exc())
                     print()
    
-def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
+def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
                fit_from = 0, fit_to = None, normalized_parameters = False,
                loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
                parameter_range = None,
@@ -113,10 +113,16 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
     d = data.get_data_before_day()
     sample = d[sample_name]
     
+    fit_replicas = None
     try:
         splits = sample.leave_one_out_split()
-        fit_replicas = splits[split_number]['fit']
-        
+        for s in splits:
+            if int(s['val'].replica_number) == int(val_replica_number):
+                fit_replicas = s['fit']
+                break
+        if fit_replicas is None:
+            raise Exception('Split could not be determined')
+            
     except Exception as ex:
         print('skipping', str(sample), str(ex))
         return
@@ -145,7 +151,7 @@ def fit_sample(sample_name, split_number, model_type, log_co2 = False, log_ch4 =
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
     default_sample = 1370
-    default_split = 2
+    default_val_replica_number = 4
     default_model_type = 'complex'
     
     fit_from = 0
@@ -168,14 +174,14 @@ if __name__ == '__main__':
     sample = sys.argv[1] if hasargs else default_sample
     
     if not hasargs:
-        split = default_split
+        val_replica_number = default_val_replica_number
     
-    elif '0' in sys.argv:
-        split = 0
-    elif '1' in sys.argv:
-        split = 1
-    elif '2' in sys.argv:
-        split = 2
+    elif '4' in sys.argv:
+        val_replica_number = 4
+    elif '5' in sys.argv:
+        val_replica_number = 5
+    elif '6' in sys.argv:
+        val_replica_number = 6
     
     if not hasargs:
         pass
@@ -188,7 +194,7 @@ if __name__ == '__main__':
         narrower_range = False
     
     loaded_range = None
-    replica_name = '456'[split]
+    replica_name = str(val_replica_number)
     if narrower_range:
         try:
             loaded_range = load_parameter_range(default_sample, 
@@ -231,7 +237,7 @@ if __name__ == '__main__':
         best_parameters = loaded_range.as_dict()
         
     
-    fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
+    fit_sample(sample, val_replica_number, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
                fit_from = fit_from,
                fit_to = fit_to,
                normalized_parameters = normalized_parameters,

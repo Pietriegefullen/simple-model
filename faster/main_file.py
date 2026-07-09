@@ -107,8 +107,8 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
-    sample_name = '1351' # 1351, 1367, 1369, 1370, 
-    replica_name = 4 # 4?, 5?, 6?
+    sample_name = '1369' # 1351, 1367, 1369, 1370, 
+    replica_name = 6 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
@@ -117,7 +117,7 @@ if __name__ == '__main__':
         
 
     dataset = data.get_data_before_carex()
-    replica = dataset[sample_name + str(replica_name)]
+    val_replica = dataset[sample_name + str(replica_name)]
 
     loaded_parameters = load_fitted_parameters(sample_name, replica_name, model_type,
                                                after = '2026-07-02--09-47')
@@ -130,18 +130,23 @@ if __name__ == '__main__':
     
     print()
 
-    log = pathway_model.predict(replica, reset_Fe3 = reset_Fe3)
+    log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
 
-    replicas = '456'.replace(str(replica_name), '')
+    fit_replicas = '456'.replace(str(replica_name), '')
 
-    log.plot('TOC', log = True)
+    #log.plot('TOC', log = True)
 
-    replica.plot(measurements = ['CO2'])
-    log.plot(['CO2'], newfigure = False)
-    for repl in replicas:
+    val_replica.plot(measurements = ['CO2'])
+    t_pred, pred_co2 = log['CO2']
+    t_meas, meas_co2 = val_replica.CO2()
+    t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
+    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
+    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
+    r2_co2_val = r2(pred_co2[idx_pred], meas_co2[idx_meas], log = log_co2)
+    log.plot(['CO2'], newfigure = False, label = f'val R² = {r2_co2_val:4.2f}')
+    for repl in fit_replicas:
         if sample_name in dataset and str(repl) in dataset[sample_name]:
             
-            t_pred, pred_co2 = log['CO2']
             t_meas, meas_co2 = dataset[sample_name + str(repl)].CO2()
             t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
             idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
@@ -154,16 +159,21 @@ if __name__ == '__main__':
                                                   newfigure = False)
     sample = dataset[sample_name]
     plt.gca().set_title(f'{str(sample_name)} validation: {replica_name}')
-
-    replica.plot(measurements = ['CH4'])
-    log.plot(['CH4'], newfigure = False, log = True)
-    for repl in replicas:
+    
+    t_pred, pred_ch4 = log['CH4']
+    t_meas, meas_ch4 = val_replica.CH4()
+    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == _t)[0] for _t in t])
+    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == _t)[0] for _t in t])
+    r2_ch4_val = r2(pred_ch4[idx_pred], meas_ch4[idx_meas], log = log_ch4)
+    
+    val_replica.plot(measurements = ['CH4'])
+    log.plot(['CH4'], newfigure = False, log = True, label = f'val R² = {r2_ch4_val:4.2f}')
+    for repl in fit_replicas:
         if sample_name in dataset and str(repl) in dataset[sample_name]:
             
-            t_pred, pred_ch4 = log['CH4']
             t_meas, meas_ch4 = dataset[sample_name + str(repl)].CH4()
             t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-            idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == _t)[0] for _t in t])
+            idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
             idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == _t)[0] for _t in t])
             r2_ch4 = r2(pred_ch4[idx_pred], meas_ch4[idx_meas], log = log_ch4)
             

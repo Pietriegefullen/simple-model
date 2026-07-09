@@ -294,7 +294,7 @@ class ModelRun():
     def reset(self):
         self._log.clear()
         
-    def plot(self, name = None, newfigure = True, log = False):
+    def plot(self, name = None, newfigure = True, log = False, label = None):
         if name is None:
             name = list(self._log.keys())
             
@@ -312,7 +312,10 @@ class ModelRun():
                 ax = plt.gca()
                 
             x, y = self._log[n]
-            label = n
+            slabel = n
+            if not label is None and not label == '':
+                slabel += ' ' + label
+                
             mark = '-'
             #if 'R2' in self._log and n in self._log['R2']:
              #   value = self._log['R2'][n]
@@ -325,11 +328,11 @@ class ModelRun():
                     ch4_ax = ax.twinx()
                 else:
                     ch4_ax = ax[0]
-                ch4_ax.plot(x, y, mark, label = label, color = 'orange')
+                ch4_ax.plot(x, y, mark, label = slabel, color = 'orange')
 
             else:
                 ch4_ax = ax
-                ch4_ax.plot(x, y, mark, label = label)
+                ch4_ax.plot(x, y, mark, label = slabel)
             
             ax = ch4_ax
             ax.set_title(n)

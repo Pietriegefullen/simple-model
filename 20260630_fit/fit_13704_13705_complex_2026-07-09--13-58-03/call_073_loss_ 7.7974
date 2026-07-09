@@ -1,8 +1,8 @@
 {
-    "Hydrolysis_v_max": 4.49237335282036e-07,
-    "Hydrolysis_Kmb": 5.330357283482788e-09,
-    "Ferm_Km": 31.779699151530952,
-    "Ferm_inhibition": 0.5966689682400375,
+    "Hydrolysis_v_max": 1.000748537558319e-08,
+    "Hydrolysis_Kmb": 196.50570990602526,
+    "Ferm_Km": 99.90871155102941,
+    "Ferm_inhibition": 0.4246145995928685,
     "Ferm_v_max": 0.30662049293773014,
     "Ferm_CUE": 0.14501566003637323,
     "death_rate": 8.3e-05,
