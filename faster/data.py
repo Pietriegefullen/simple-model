@@ -304,11 +304,12 @@ class Sample():
             raise Exception('Cannot verify a fit to a sample with only one replica.')
             
         all_splits = []
+        self.replicas = sorted(self.replicas, key = lambda r: int(r.replica_number))
         for i in range(len(self.replicas)):
             validation_replica = self.replicas[i]
             fit_replicas = [self.replicas[(i+k+1)%len(self.replicas)]
                             for k in range(len(self.replicas)-1)]
-            all_splits.append({'fit': fit_replicas, 
+            all_splits.append({'fit': sorted(fit_replicas, key = lambda r: int(r.replica_number)), 
                                'val': validation_replica})
         return all_splits
         
@@ -537,13 +538,11 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
-    print(d)
-    1/0
     
-    d['13724'].plot()
-    
-    #d.plot_samples()
-    plt.show()
+    for sample in d.samples:
+        for replica in sample.replicas:
+            t, ch4 = replica.CH4()
+            print(replica, np.min(t), ch4[np.argmin(t)])
     1/0
     
     for s in d.samples:

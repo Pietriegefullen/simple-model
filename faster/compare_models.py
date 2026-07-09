@@ -156,31 +156,34 @@ if __name__ == '__main__':
     loss_weight_CH4 = 1.0
     narrower_range = True
     best_N = 5
-    local_search = False
+    local_search = True
     weighted_measurements = False
     
     log_co2 = False
     log_ch4 = True
     # None means no fit at all!
    
-    hasargs = False
-    if len(sys.argv) == 1:
-        sample = default_sample
-    else:
-        hasargs = True
-        sample = sys.argv[1]
-        
-    split = default_split
-    if '0' in sys.argv:
+    hasargs = len(sys.argv) > 1
+    
+    sample = sys.argv[1] if hasargs else default_sample
+    
+    if not hasargs:
+        split = default_split
+    
+    elif '0' in sys.argv:
         split = 0
     elif '1' in sys.argv:
         split = 1
     elif '2' in sys.argv:
         split = 2
     
-    if 'narrow' in sys.argv:
+    if not hasargs:
+        pass
+        
+    elif 'narrow' in sys.argv:
         narrower_range = True
         best_N = int(sys.argv[sys.argv.index('narrow')+1])
+        
     else:
         narrower_range = False
     
@@ -191,39 +194,37 @@ if __name__ == '__main__':
                                             replica_name, 
                                             default_model_type,
                                             best_N = best_N)
-            
 
-    #log = True
-    #if 'log' in sys.argv:
-    #    log = True
-    #elif 'lin' in sys.argv:
-    #    log = False
-    #    raise Exception('Non-log fitting. Check what you are doing.')
-        
-    model_type = 'simple'
-    if 'complex' in sys.argv:
-        model_type = 'complex'
-    elif 'simple' in sys.argv:
-        model_type = 'simple'
-    else:
-        model_type = default_model_type
+
+    model_type = 'complex'
+    if hasargs and 'simple' in sys.argsv:
+        raise Exception('Using simple model? Why?')
     
-    if 'from' in sys.argv:
+    if hasargs and 'from' in sys.argv:
         idx = sys.argv.index('from')
         fit_from = int(sys.argv[idx+1])
 
-    if 'to' in sys.argv:
+    if hasargs and 'to' in sys.argv:
         idx = sys.argv.index('to')
         fit_to = int(sys.argv[idx+1])
     
-    if 'local' in sys.argv:
+    if not hasargs:
+        pass
+        
+    elif 'local' in sys.argv:
         local_search = True
+    
     else:
         local_search = False
-    
+        
     best_parameters = None
     if local_search:
-        best_parameters = load_fitted_parameters(default_sample, replica_name, default_model_type)
+        best_parameters = load_fitted_parameters(default_sample, 
+                                                 replica_name, 
+                                                 default_model_type)
+    if best_parameters is None and not loaded_range is None:
+        best_parameters = loaded_range
+        
     
     fit_sample(sample, split, model_type, log_co2 = log_co2, log_ch4 = log_ch4, confirm = hasargs,
                fit_from = fit_from,
@@ -235,3 +236,4 @@ if __name__ == '__main__':
                local_search = local_search,
                initial_parameters = best_parameters,
                weighted_measurements = weighted_measurements)
+

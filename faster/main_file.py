@@ -109,7 +109,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
-    sample_name = '1372' # 1351, 1367, 1369, 1370, 
+    sample_name = '1351' # 1351, 1367, 1369, 1370, 
     replica_name = 4 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
@@ -136,7 +136,7 @@ if __name__ == '__main__':
 
     replicas = '456'.replace(str(replica_name), '')
 
-    #log.plot()
+    log.plot('TOC', log = True)
 
     replica.plot(measurements = ['CO2'])
     log.plot(['CO2'], newfigure = False)
