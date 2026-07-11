@@ -69,7 +69,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
                 folders.append(_d)
         
     if best:
-        source = os.listdir(os.path.join(USER_VARIABLES.simple_model_dir, 'best'))
+        source = os.path.join(USER_VARIABLES.simple_model_dir, 'best')
         sample_source = os.path.join(source, str(sample_name))
         replica_source = os.path.join(sample_source,'456'.replace(str(replica_name), ''))
         if not os.path.isdir(replica_source):
@@ -104,6 +104,47 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         print('loss', best_loss)
         return best_parameters
 
+def plot_fit(val_replica, run_log, measurement, log_fit):
+    val_replica.plot(measurements = [measurement])
+    
+    sample = val_replica.sample
+    sample_name = sample.sample_name
+    
+    fit_replicas = ''.join([str(r.replica_number) 
+                            for r in sample.replicas]).replace(str(val_replica.replica_number), '')
+
+    t_pred, pred_val = run_log[measurement]
+    if measurement == 'CO2':
+        t_meas, meas_val = val_replica.CO2()
+    elif measurement == 'CH4':
+        t_meas, meas_val = val_replica.CH4()
+    else:
+        raise Exception()
+        
+    t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
+    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
+    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
+    r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+    run_log.plot([measurement], newfigure = False, label = f'val R² = {r2_val:4.2f}')
+    for repl in fit_replicas:
+        if str(repl) in sample:
+            fit_replica = sample[str(repl)]
+            if measurement == 'CO2':
+                t_meas, meas_val = fit_replica.CO2()
+            else:
+                t_meas, meas_val = sample[str(repl)].CH4()
+            t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
+            idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
+            idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
+            r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+            
+            fit_replica.plot(measurements = [measurement], 
+                                                  label = f'fit R² = {r2_val:.2f}', 
+                                                  marker = '.',
+                                                  newfigure = False)
+    plt.gca().set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
+    
+
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     model_type= 'complex'
@@ -132,56 +173,10 @@ if __name__ == '__main__':
 
     log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
 
-    fit_replicas = '456'.replace(str(replica_name), '')
-
     #log.plot('TOC', log = True)
 
-    val_replica.plot(measurements = ['CO2'])
-    t_pred, pred_co2 = log['CO2']
-    t_meas, meas_co2 = val_replica.CO2()
-    t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
-    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
-    r2_co2_val = r2(pred_co2[idx_pred], meas_co2[idx_meas], log = log_co2)
-    log.plot(['CO2'], newfigure = False, label = f'val R² = {r2_co2_val:4.2f}')
-    for repl in fit_replicas:
-        if sample_name in dataset and str(repl) in dataset[sample_name]:
-            
-            t_meas, meas_co2 = dataset[sample_name + str(repl)].CO2()
-            t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-            idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
-            idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
-            r2_co2 = r2(pred_co2[idx_pred], meas_co2[idx_meas], log = log_co2)
-            
-            dataset[sample_name + str(repl)].plot(measurements = ['CO2'], 
-                                                  label = f'fit R² = {r2_co2:.2f}', 
-                                                  marker = '.',
-                                                  newfigure = False)
-    sample = dataset[sample_name]
-    plt.gca().set_title(f'{str(sample_name)} validation: {replica_name}')
-    
-    t_pred, pred_ch4 = log['CH4']
-    t_meas, meas_ch4 = val_replica.CH4()
-    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == _t)[0] for _t in t])
-    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == _t)[0] for _t in t])
-    r2_ch4_val = r2(pred_ch4[idx_pred], meas_ch4[idx_meas], log = log_ch4)
-    
-    val_replica.plot(measurements = ['CH4'])
-    log.plot(['CH4'], newfigure = False, log = True, label = f'val R² = {r2_ch4_val:4.2f}')
-    for repl in fit_replicas:
-        if sample_name in dataset and str(repl) in dataset[sample_name]:
-            
-            t_meas, meas_ch4 = dataset[sample_name + str(repl)].CH4()
-            t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-            idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
-            idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == _t)[0] for _t in t])
-            r2_ch4 = r2(pred_ch4[idx_pred], meas_ch4[idx_meas], log = log_ch4)
-            
-            dataset[sample_name + str(repl)].plot(measurements = ['CH4'], 
-                                              label = f'fit R² = {r2_ch4:.2f}', 
-                                              marker = '.',
-                                              newfigure = False)
-    plt.gca().set_title(f'{str(sample_name)} validation: {replica_name}')
+    plot_fit(val_replica, log, 'CO2', log_co2)
+    plot_fit(val_replica, log, 'CH4', log_ch4)
 
     plt.show()
 

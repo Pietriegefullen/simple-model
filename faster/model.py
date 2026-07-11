@@ -294,14 +294,19 @@ class ModelRun():
     def reset(self):
         self._log.clear()
         
-    def plot(self, name = None, newfigure = True, log = False, label = None):
+    def plot(self, name = None, 
+             newfigure = True, 
+             log = False, 
+             label = None, 
+             save_target = None):
         if name is None:
             name = list(self._log.keys())
             
         if not isinstance(name, list):
             name = [name]
-            
-        for n in name:
+        
+        
+        for i,n in enumerate(name):
             if not n in self._log:
                 print(n + ' not logged')
                 
@@ -346,9 +351,13 @@ class ModelRun():
                 #plt.yscale('log')
                 pass
         
-            elif 'MM' in n:
-                ax.set_ylim([0,1])
+            elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
+                ax.set_ylim([-0.01,1.01])
+            
 
+            if not save_target is None:
+                file_name = '_'.join([f'{i+1:02d}', n])
+                plt.savefig(os.path.join(save_target, file_name + '.png'), dpi = 300)
         
     def __str__(self):
         run_string = 'Model run:'

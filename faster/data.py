@@ -272,6 +272,14 @@ class Sample():
         self.pH = pH
         self.TOC = TOC # as decimal, e.g. 3% is 0.03
     
+    def __getitem__(self, key):
+        replica_number = str(key)
+        for r in self.replicas:
+            if str(r.replica_number) == replica_number:
+                return r
+        raise Exception('No such replica in sample.')
+        
+        
     def __contains__(self, replica_number):
         return any([str(r.replica_number) == str(replica_number) for r in self.replicas])
     
