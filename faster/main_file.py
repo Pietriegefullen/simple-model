@@ -4,6 +4,7 @@ import data
 import model
 import USER_VARIABLES
 from optimizer import r2
+from data import all_sample_numbers
 import numpy as np
 import parameters
 
@@ -143,40 +144,76 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
                                                   marker = '.',
                                                   newfigure = False)
     plt.gca().set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
+
+
+def plot_ratio(pathway_model, val_replica):
+    # plot ratio of change in CO2 to change in CH4
+    derivative_log = pathway_model.system_change_log
     
+    tmeas,CO2meas = val_replica.CO2()
+    #derivative_log.plot('CO2', log = True, label = '(d/dt)')
+    #plt.plot(tmeas[1:], np.diff(CO2meas), 'x', color = 'blue')
+    
+    _,CH4meas = val_replica.CH4()
+    #derivative_log.plot('CH4', log = True, label = '(d/dt)')
+    #plt.plot(tmeas[1:], np.diff(CH4meas), 'x', color = 'orange')
+
+    # compute ratio, predicted and measured
+    t, dCO2_dt = derivative_log['CO2']
+    t, dCH4_dt = derivative_log['CH4']
+    ratio = dCO2_dt/dCH4_dt
+    ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
+    
+    # plot ratio
+    
+    
+    plt.figure()
+    plt.plot(t,ratio)
+    plt.plot(tmeas[1:],ratio_meas, 'x', color = 'purple')
+    plt.plot([0,np.max(t)],[1,1], 'k--', linewidth = 1.)
+    plt.yscale('log')
+    plt.title('dCO2_dt/dCH4_dt')
+    plt.ylabel('[-]', rotation = 0)
+
 
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
+  
     model_type= 'complex'
-    sample_name = '1353' # 1351, 1367, 1369, 1370, 
+    #sample_name =  #1353 1351, 1367, 1369, 1370, 
     replica_name = 4 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
     
     best = True
-        
-
     dataset = data.get_data_before_carex()
-    val_replica = dataset[sample_name + str(replica_name)]
+        
+    for sample_name in all_sample_numbers:
+        sample_name = sample_name[:-1] 
+        print('itsa me mario',sample_name)
+        
+        val_replica = dataset[sample_name + str(replica_name)]
 
-    loaded_parameters = load_fitted_parameters(sample_name, replica_name, model_type,
+        loaded_parameters = load_fitted_parameters(sample_name, replica_name, model_type,
                                                after = '2026-07-02--09-47')
     
     
-    selected_pathways = model.get_pathways(model_type)
-    pathway_model = model.Model(selected_pathways)
-    pathway_model.parameters().set(loaded_parameters)
-    print(pathway_model)
+        selected_pathways = model.get_pathways(model_type)
+        pathway_model = model.Model(selected_pathways)
+        pathway_model.parameters().set(loaded_parameters)
+        print(pathway_model)
     
-    print()
+        print()
 
-    log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
+        log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
+    
+        plot_ratio(pathway_model, val_replica)
 
     #log.plot('TOC', log = True)
 
-    plot_fit(val_replica, log, 'CO2', log_co2)
-    plot_fit(val_replica, log, 'CH4', log_ch4)
+    #plot_fit(val_replica, log, 'CO2', log_co2)
+    #plot_fit(val_replica, log, 'CH4', log_ch4)
 
-    plt.show()
+        plt.show()
 

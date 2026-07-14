@@ -87,6 +87,7 @@ def get_pathways(model_type):
 class Model():
     def __init__(self, pwys):
         self.system_state_log = ModelRun()
+        self.system_change_log = ModelRun()
         self.model_parameters = parameters.ModelParameters()
         
         pathway_classes = [pathways.pathway_by_name(p) if isinstance(p, str) else p 
@@ -112,6 +113,9 @@ class Model():
         
         dS_dt = np.sum(dSj_dt, axis = -1)
         dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
+        
+        for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
+            self.system_change_log.log_snap(pool_name, t, dSi_dt)
         return dS_dt
     
     def fit(self, replicas, algorithm = None, log_co2 = True, log_ch4 = True,
