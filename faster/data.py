@@ -14,14 +14,14 @@ import loading
 
 
 all_sample_numbers = {
-                     '13534',
+                     '13514',
                      '13515',
                      '13516',
                      
                      '13525',
                      '13526',
                      
-                     '13514',
+                     '13534',
                      '13535',
                      
                      '13544',
@@ -402,6 +402,14 @@ class Sample():
             
         plt.title(f'{self.sample_name} {self.site} ({self.origin})')
     
+    def plot_ratio(self):
+        fig, ax = plt.subplots()
+        for r in self.replicas:
+            r.plot_ratio(ax)
+            ax.set_title(str(self))
+            plt.legend()
+        return ax
+            
     def __str__(self):
         rep_names = ','.join([r.replica_number for r in self.replicas])
         return f'{self.sample_name} {self.site} ({self.origin}) {len(self.replicas)} replicas ({rep_names})'
@@ -539,6 +547,29 @@ class Replica():
         for event, day in self.events.items():
             ax.plot([day, day], ylim, 'r-')
             ax.text(day-100, np.min(ylim), event, rotation = 'vertical')
+    
+    def plot_ratio(self, ax = None):
+        tmeas,CO2meas = self.CO2()
+        _,CH4meas = self.CH4()
+        ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
+        
+        col = None
+        plot_title = False
+        if ax is None:
+            fig, ax = plt.subplots()
+            col = 'purple'
+            plot_title = True
+        
+        ax.plot(tmeas[1:],ratio_meas, 'x', color = col, label = str(self))
+        if plot_title:
+            ax.set_title(str(self))
+        else:
+            ax.set_title('')
+            
+        ax.set_ylabel('dCO2_dt/dCH4_dt [-]')
+        ax.plot([0,np.max(tmeas)],[1,1], 'k--', linewidth = 1.)
+        ax.set_yscale('log')
+        return ax
         
     def before_day(self, last_day):
         if last_day is None:
@@ -646,10 +677,15 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
+    ax = None
     for sample in d.samples:
+        sample.plot_ratio() # plot all samples' replicas
         for replica in sample.replicas:
-            t, ch4 = replica.CH4()
-            print(replica, np.min(t), ch4[np.argmin(t)])
+            ax = replica.plot_ratio(ax) # plot all on same axes
+            #replica.plot_ratio() # plot individually
+    plt.figure()
+    
+    plt.show()
     1/0
     
     for s in d.samples:

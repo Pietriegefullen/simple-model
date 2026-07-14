@@ -146,35 +146,15 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
     plt.gca().set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
 
 
-def plot_ratio(pathway_model, val_replica):
+def plot_fitted_ratio(pathway_model, val_replica):
     # plot ratio of change in CO2 to change in CH4
     derivative_log = pathway_model.system_change_log
     
-    tmeas,CO2meas = val_replica.CO2()
-    #derivative_log.plot('CO2', log = True, label = '(d/dt)')
-    #plt.plot(tmeas[1:], np.diff(CO2meas), 'x', color = 'blue')
-    
-    _,CH4meas = val_replica.CH4()
-    #derivative_log.plot('CH4', log = True, label = '(d/dt)')
-    #plt.plot(tmeas[1:], np.diff(CH4meas), 'x', color = 'orange')
+    ax = val_replica.plot_ratio()
 
-    # compute ratio, predicted and measured
     t, dCO2_dt = derivative_log['CO2']
     t, dCH4_dt = derivative_log['CH4']
-    ratio = dCO2_dt/dCH4_dt
-    ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
-    
-    # plot ratio
-    
-    
-    plt.figure()
-    plt.plot(t,ratio)
-    plt.plot(tmeas[1:],ratio_meas, 'x', color = 'purple')
-    plt.plot([0,np.max(t)],[1,1], 'k--', linewidth = 1.)
-    plt.yscale('log')
-    plt.title('dCO2_dt/dCH4_dt')
-    plt.ylabel('[-]', rotation = 0)
-
+    ax.plot(t,dCO2_dt/dCH4_dt)
 
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
@@ -208,7 +188,7 @@ if __name__ == '__main__':
 
         log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
     
-        plot_ratio(pathway_model, val_replica)
+        #plot_fitted_ratio(pathway_model, val_replica)
 
     #log.plot('TOC', log = True)
 

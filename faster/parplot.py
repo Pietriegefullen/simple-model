@@ -9,6 +9,8 @@ from parallel_coordinates import pcp as parallel_coordinates
 
 from main_file import load_fitted_parameters
 import parameters
+import model
+import pathways
 
 if __name__ == '__main__':
     
@@ -36,7 +38,25 @@ if __name__ == '__main__':
         all_parameters[str(rep)] = loaded_parameters
     
     parameter_ordering = sorted(loaded_parameters.keys())
-    results = [([str(r)] + [all_parameters[str(r)][p] for p in parameter_ordering]) for r in replicas]
-    ytype = ['log' if par.log else 'linear' for par in parameters.default_model_parameters()]
-    parallel_coordinates(results, ['replica']+ parameter_ordering, ytype = None)
+    
+    groups = []
+    for pathway_name in model.get_pathways('complex'):
+        pathway = pathways.pathway_by_name(pathway_name)
+        parameter_registry = parameters.ModelParameters()
+        pathway(parameter_registry)
+        pathway_parameters = parameter_registry.as_dict()
+        groups.append(list(pathway_parameters.keys()))
+    
+    dp = parameters.ModelParameters({p.name:p for p in parameters.default_model_parameters()})
+    for parameter_group in groups:
+        results = [([str(r)] + [all_parameters[str(r)][p] 
+                                for p in parameter_group])
+                   for r in replicas]
+        ytype = [par.scale for par in dp]
+        ylims = [[]] + [[dp[par].low, dp[par].high] if dp[par].is_variable() else [] 
+                        for par in parameter_group]
+        parallel_coordinates(results, ['replica'] + parameter_group, 
+                             ytype = None,
+                             ylim = ylims,
+                             curves = False)
     
