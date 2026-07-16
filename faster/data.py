@@ -568,7 +568,11 @@ class Replica():
             
         ax.set_ylabel('dCO2_dt/dCH4_dt [-]')
         ax.plot([0,np.max(tmeas)],[1,1], 'k--', linewidth = 1.)
-        ax.set_yscale('log')
+        # Show only the last 300 days
+        ax.set_xlim(np.max(tmeas) - 300, np.max(tmeas))
+        ax.set_ylim(-2, 5)
+        ax.axhline(0, color='k', linestyle='--', linewidth=1)
+       # ax.set_yscale('log') # makes it log scale, comment for normal scale
         return ax
         
     def before_day(self, last_day):
