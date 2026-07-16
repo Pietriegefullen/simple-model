@@ -12,6 +12,105 @@ import CONSTANTS
 
 import loading
 
+
+all_sample_numbers = {
+                     '13514',
+                     '13515',
+                     '13516',
+                     
+                     '13525',
+                     '13526',
+                     
+                     '13534',
+                     '13535',
+                     
+                     '13544',
+                     '13546',
+                     
+                     '13554',
+                     '13555',
+                     
+                     '13575',
+                     '13576',
+                     
+                     '13584',
+                     '13585',
+                     
+                     '13594',
+                     '13595',
+                     
+                     '13604',
+                     '13606',
+                     
+                     '13614',
+                     '13616',
+                     
+                     '13624',
+                     '13626',
+                     
+                     '13634',
+                     '13635',
+                     
+                     '13654',
+                     '13655',
+                     '13656',
+                     
+                     '13665',
+                     '13666',
+                     
+                     '13674',
+                     '13675',
+                     '13676',
+                     
+                     '13684',
+                     '13685',
+                     '13686',
+                     
+                     '13694',
+                     '13695',
+                     '13696',
+                     
+                     '13704',
+                     '13706',
+                     
+                     '13724',
+                     '13725',
+                     '13726',
+                     
+                     '13734',
+                     '13735',
+                     '13736',
+                     
+                     '13744',
+                     '13745',
+                     '13746',
+                     
+                     '13754',
+                     '13755',
+                     '13756',
+                     
+                     '13764',
+                     '13765',
+                     '13766',
+                     
+                     '13774',
+                     '13775',
+                     '13776',
+                     
+                     '13784',
+                     '13785',
+                     '13786',
+                     
+                     '13794',
+                     '13795',
+                     '13796',
+                     
+                     '13804',
+                     '13805',
+                     '13806',
+                         }
+
+
 DOC_per_TOC = 0.02
 
 knoblauch_data = None
@@ -303,6 +402,14 @@ class Sample():
             
         plt.title(f'{self.sample_name} {self.site} ({self.origin})')
     
+    def plot_ratio(self):
+        fig, ax = plt.subplots()
+        for r in self.replicas:
+            r.plot_ratio(ax)
+            ax.set_title(str(self))
+            plt.legend()
+        return ax
+            
     def __str__(self):
         rep_names = ','.join([r.replica_number for r in self.replicas])
         return f'{self.sample_name} {self.site} ({self.origin}) {len(self.replicas)} replicas ({rep_names})'
@@ -440,6 +547,29 @@ class Replica():
         for event, day in self.events.items():
             ax.plot([day, day], ylim, 'r-')
             ax.text(day-100, np.min(ylim), event, rotation = 'vertical')
+    
+    def plot_ratio(self, ax = None):
+        tmeas,CO2meas = self.CO2()
+        _,CH4meas = self.CH4()
+        ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
+        
+        col = None
+        plot_title = False
+        if ax is None:
+            fig, ax = plt.subplots()
+            col = 'purple'
+            plot_title = True
+        
+        ax.plot(tmeas[1:],ratio_meas, 'x', color = col, label = str(self))
+        if plot_title:
+            ax.set_title(str(self))
+        else:
+            ax.set_title('')
+            
+        ax.set_ylabel('dCO2_dt/dCH4_dt [-]')
+        ax.plot([0,np.max(tmeas)],[1,1], 'k--', linewidth = 1.)
+        ax.set_yscale('log')
+        return ax
         
     def before_day(self, last_day):
         if last_day is None:
@@ -547,10 +677,15 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
+    ax = None
     for sample in d.samples:
+        sample.plot_ratio() # plot all samples' replicas
         for replica in sample.replicas:
-            t, ch4 = replica.CH4()
-            print(replica, np.min(t), ch4[np.argmin(t)])
+            ax = replica.plot_ratio(ax) # plot all on same axes
+            #replica.plot_ratio() # plot individually
+    plt.figure()
+    
+    plt.show()
     1/0
     
     for s in d.samples:
