@@ -6,11 +6,12 @@ Created on Wed Jul  8 14:41:30 2026
 """
 import os
 import shutil
+import stat
 import USER_VARIABLES
 
 after = '2026-07-08--08-30'
 
-plot = True #['1351']
+plot = False #['1351']
 plot_only_missing = True
 
 log_co2 = False
@@ -48,6 +49,7 @@ for f in os.listdir(source):
         if len(best_files) == 1:
             current_best = float(best_files[0].split('loss_')[-1])
         elif len(best_files) > 1:
+            print(best_files)
             raise Exception()
         
         file = os.path.join(folder, pf)
@@ -58,13 +60,15 @@ for f in os.listdir(source):
         best_file_name = f'{sample_name}_{fit_replicas}_' + pf
         
         if current_best is None or (len(best_files) > 0 and loss < current_best):
-            shutil.copy2(file, os.path.join(replica_target, best_file_name))
             current_best = loss
             
             plot_target = os.path.join(replica_target, 'plot')
             if os.path.isdir(plot_target):
+                os.chmod(plot_target, stat.S_IWRITE)
                 shutil.rmtree(plot_target)
-        
+                
+            shutil.copy2(file, os.path.join(replica_target, best_file_name))
+    
             if len(best_files) > 0:
                 os.remove(os.path.join(replica_target, best_files[0]))
     
@@ -78,15 +82,20 @@ if not plot is None:
 for sample_name in os.listdir(target):
     print(sample_name)
     for replica in os.listdir(os.path.join(target, sample_name)):
-        results = os.listdir(os.path.join(target, sample_name, replica))
-        if len(results) == 1:
-            loss = float(results[0].split('loss_')[-1])
+        results = [f for f in os.listdir(os.path.join(target, sample_name, replica))
+                   if os.path.isfile(os.path.join(target, sample_name, replica, f))]
+        if len(results) == 0:
+            print('   '+replica, 'no results')
+        elif len(results) > 1:
+            print('   '+ replica, 'more than 1 result!')
+        elif len(results) == 1:
+            loss = float(results[   0].split('loss_')[-1])
             print('   '+ replica, f'{loss:.2f}')
             
             if isinstance(plot, list) and sample_name in plot or isinstance(plot, bool) and plot:
                 sample = dataset[sample_name]
                 fit_replicas = ''.join([str(r.replica_number) 
-                                        for r in sample.replicas]).replace(val_replica, '')
+                                        for r in sample.replicas]).replace(str(replica), '')
                 plot_target = os.path.join(USER_VARIABLES.simple_model_dir, 'best', 
                                            sample_name, fit_replicas, 'plot')
                 if plot_only_missing and os.path.isdir(plot_target):
@@ -94,9 +103,7 @@ for sample_name in os.listdir(target):
                 
                 plt.close('all')
 
-                val_replica = ''.join([str(r.replica_number) for r in sample.replicas])
-                for r in replica:
-                    val_replica = val_replica.replace(str(r), '')
+                val_replica = str(replica)
                     
                 print(sample_name, val_replica)
                 try:
