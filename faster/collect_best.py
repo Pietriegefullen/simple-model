@@ -6,6 +6,7 @@ Created on Wed Jul  8 14:41:30 2026
 """
 import os
 import shutil
+import stat
 import USER_VARIABLES
 
 after = '2026-07-08--08-30'
@@ -27,10 +28,12 @@ for f in os.listdir(source):
     if model_type == 'simple':
         raise NotImplementedError()
     fit = f.split()[0].replace('fit_','')
-    fit_replicas = fit.split('_')[:2]
+    fit_replicas = [k for k in fit.split('complex')[0].replace('fit_','').split('_')
+                    if not k == '']
     sample_name = fit_replicas[0][:-1]
-    fit_replicas = ''.join(sorted([fr.replace(sample_name, '') for fr in fit_replicas]))
     
+    fit_replicas = ''.join(sorted([fr.replace(sample_name, '') for fr in fit_replicas]))
+  
     date = f.split('_')[-1]
     if date < after:
         continue
@@ -48,6 +51,7 @@ for f in os.listdir(source):
         if len(best_files) == 1:
             current_best = float(best_files[0].split('loss_')[-1])
         elif len(best_files) > 1:
+            print(best_files)
             raise Exception()
         
         file = os.path.join(folder, pf)
@@ -58,13 +62,15 @@ for f in os.listdir(source):
         best_file_name = f'{sample_name}_{fit_replicas}_' + pf
         
         if current_best is None or (len(best_files) > 0 and loss < current_best):
-            shutil.copy2(file, os.path.join(replica_target, best_file_name))
             current_best = loss
             
             plot_target = os.path.join(replica_target, 'plot')
             if os.path.isdir(plot_target):
+                os.chmod(plot_target, stat.S_IWRITE)
                 shutil.rmtree(plot_target)
-        
+                
+            shutil.copy2(file, os.path.join(replica_target, best_file_name))
+    
             if len(best_files) > 0:
                 os.remove(os.path.join(replica_target, best_files[0]))
     
@@ -76,29 +82,33 @@ if not plot is None:
     import matplotlib.pyplot as plt
     
 for sample_name in os.listdir(target):
-    print(sample_name)
-    for replica in os.listdir(os.path.join(target, sample_name)):
-        results = os.listdir(os.path.join(target, sample_name, replica))
-        if len(results) == 1:
-            loss = float(results[0].split('loss_')[-1])
-            print('   '+ replica, f'{loss:.2f}')
-            
-            if isinstance(plot, list) and sample_name in plot or isinstance(plot, bool) and plot:
+    print(sample_name)        
+    for fit_replicas in os.listdir(os.path.join(target, sample_name)):
+        results = [f for f in os.listdir(os.path.join(target, sample_name, fit_replicas))
+                   if os.path.isfile(os.path.join(target, sample_name, fit_replicas, f))]
+        if len(results) == 0:
+            print('   '+fit_replicas, 'no results')
+        elif len(results) > 1:
+            print('   '+ fit_replicas, 'more than 1 result!')
+        elif len(results) == 1:
+            loss = float(results[   0].split('loss_')[-1])
+            print('   '+ fit_replicas, f'{loss:.2f}')
+
+            if (isinstance(plot, list) and sample_name in plot) or isinstance(plot, bool) and plot:
                 sample = dataset[sample_name]
-                fit_replicas = ''.join([str(r.replica_number) 
-                                        for r in sample.replicas]).replace(val_replica, '')
                 plot_target = os.path.join(USER_VARIABLES.simple_model_dir, 'best', 
                                            sample_name, fit_replicas, 'plot')
-                if plot_only_missing and os.path.isdir(plot_target):
+                
+                if plot_only_missing and (os.path.isdir(plot_target) and len(os.listdir(plot_target)) > 0):
                     continue
                 
                 plt.close('all')
 
-                val_replica = ''.join([str(r.replica_number) for r in sample.replicas])
-                for r in replica:
+                val_replica = ''.join([str(r.replica_number) 
+                                        for r in sample.replicas])
+                for r in str(fit_replicas):
                     val_replica = val_replica.replace(str(r), '')
-                    
-                print(sample_name, val_replica)
+                
                 try:
                     loaded_parameters = load_fitted_parameters(sample_name, 
                                                                val_replica,
@@ -107,6 +117,7 @@ for sample_name in os.listdir(target):
                 except Exception as ex:
                     if 'No best result' in str(ex):
                         continue
+                    print(ex)
                     raise ex
     
                 selected_pathways = model.get_pathways(model_type)

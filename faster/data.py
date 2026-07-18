@@ -551,6 +551,8 @@ class Replica():
     def plot_ratio(self, ax = None):
         tmeas,CO2meas = self.CO2()
         _,CH4meas = self.CH4()
+        difft = np.diff(t_meas)
+
         ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
         
         col = None
@@ -568,7 +570,11 @@ class Replica():
             
         ax.set_ylabel('dCO2_dt/dCH4_dt [-]')
         ax.plot([0,np.max(tmeas)],[1,1], 'k--', linewidth = 1.)
-        ax.set_yscale('log')
+        # Show only the last 300 days
+        ax.set_xlim(np.max(tmeas) - 300, np.max(tmeas))
+        ax.set_ylim(-2, 5)
+        ax.axhline(0, color='k', linestyle='--', linewidth=1)
+       # ax.set_yscale('log') # makes it log scale, comment for normal scale
         return ax
         
     def before_day(self, last_day):
@@ -676,6 +682,10 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+    
+    for sample in d.samples:
+        print(sample)
+    1/0
     
     ax = None
     for sample in d.samples:
