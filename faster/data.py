@@ -573,10 +573,10 @@ class Replica():
         # Show only the last 300 days
        # ax.set_xlim(np.max(tmeas) - 500, np.max(tmeas))
         ax.set_xlim(0,1700)
-       # ax.set_ylim(-55, 100)
+        ax.set_ylim(-5, 5)
         ax.axhline(0, color='k', linestyle='--', linewidth=1)
         ax.axhline(1.4, color='red', linestyle='--', linewidth=1)
-        ax.set_yscale('log') # makes it log scale, comment for normal scale
+        #ax.set_yscale('log') # makes it log scale, comment for normal scale
         return ax
         
     def before_day(self, last_day):
