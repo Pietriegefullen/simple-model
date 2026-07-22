@@ -154,7 +154,7 @@ class Model():
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
-        self.system_state_log.reset()
+        self.system_state_log.reset(replica)
       
         # solve initial value problem
         if parallel:
@@ -295,9 +295,26 @@ class ModelRun():
         #    self._log[name] = []
         self._log[name] = (ts, values)
 
-    def reset(self):
+    def reset(self, replica):
         self._log.clear()
+        self.replica = replica
         
+    def R2(self, gas_name, log_fit):
+        t_pred, pred_val = self.__getitem__(gas_name)
+        if gas_name == 'CO2':
+            t_meas, meas_val = self.replica.CO2()
+        elif gas_name == 'CH4':
+            t_meas, meas_val = self.replica.CH4()
+        else:
+            raise Exception()
+            
+        t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
+        idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
+        idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
+        r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+        
+        return r2_val
+    
     def plot(self, name = None, 
              newfigure = True, 
              log = False, 

@@ -56,7 +56,7 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 
     return largest_range
 
-def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False):
+def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False, return_loss = False):
     fit_replicas = str(456).replace(str(replica_name),'')
     
     sample_name = str(sample_name)
@@ -103,8 +103,10 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         
         print('loading parameters from', par_source)
         print('loss', best_loss)
-        return best_parameters
-
+        if not return_loss:
+            return best_parameters
+        return best_parameters, best_loss
+    
 def plot_fit(val_replica, run_log, measurement, log_fit):
     val_replica.plot(measurements = [measurement])
     
@@ -114,24 +116,15 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
     fit_replicas = ''.join([str(r.replica_number) 
                             for r in sample.replicas]).replace(str(val_replica.replica_number), '')
 
-    t_pred, pred_val = run_log[measurement]
-    if measurement == 'CO2':
-        t_meas, meas_val = val_replica.CO2()
-    elif measurement == 'CH4':
-        t_meas, meas_val = val_replica.CH4()
-    else:
-        raise Exception()
-        
-    t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
-    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
-    r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+    r2_val = run_log.R2(measurement, log_fit = log_fit)
     run_log.plot([measurement], newfigure = False, label = f'val R² = {r2_val:4.2f}')
+    t_pred, pred_val = run_log[measurement]
     for repl in fit_replicas:
         if str(repl) in sample:
             fit_replica = sample[str(repl)]
             if measurement == 'CO2':
                 t_meas, meas_val = fit_replica.CO2()
+
             else:
                 t_meas, meas_val = sample[str(repl)].CH4()
             t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
