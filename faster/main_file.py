@@ -153,8 +153,8 @@ if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
   
     model_type= 'complex'
-    #sample_name =  #1353 1351, 1367, 1369, 1370, 
-    replica_name = 4 # 4?, 5?, 6?
+    sample_name =  '1364' #1353 1351, 1367, 1369, 1370, 
+    replica_name = 5 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
@@ -162,9 +162,8 @@ if __name__ == '__main__':
     best = True
     dataset = data.get_data_before_carex()
         
-    for sample_name in all_sample_numbers:
-        sample_name = sample_name[:-1] 
-        print('itsa me mario',sample_name)
+    #for sample_name in all_sample_numbers:
+    for _ in range(1):
         
         val_replica = dataset[sample_name + str(replica_name)]
 
@@ -185,8 +184,8 @@ if __name__ == '__main__':
 
     #log.plot('TOC', log = True)
 
-    #plot_fit(val_replica, log, 'CO2', log_co2)
-    #plot_fit(val_replica, log, 'CH4', log_ch4)
+        plot_fit(val_replica, log, 'CO2', log_co2)
+        plot_fit(val_replica, log, 'CH4', log_ch4)
 
         plt.show()
 
