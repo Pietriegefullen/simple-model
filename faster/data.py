@@ -148,13 +148,14 @@ def get_data_before_day():
     global knoblauch_data
     if knoblauch_data is None:
         knoblauch_data = load_knoblauch()
-    _ = [r.before_day(knoblauch_data.last_days[str(r)]) 
-         if str(r) in knoblauch_data.last_days else r
-         for r in knoblauch_data.replicas()]
-    
-    for r in knoblauch_data.replicas():
-        print(r, r.events)
-        input()
+        
+        for r in knoblauch_data.replicas():
+            if not str(r) in knoblauch_data.last_days:
+                continue
+        
+            last_day = knoblauch_data.last_days[str(r)]
+            last_day = float(last_day)
+            r.before_day(last_day)
     
     return knoblauch_data
     
@@ -407,10 +408,10 @@ class Sample():
     def has_replicas(self):
         return len(self.replicas)
     
-    def plot(self):
+    def plot(self, **kwargs):
         marker = iter(['x','v','+', 's', 'o', '^'])
         for r in self.replicas:
-            r.plot(marker = next(marker), newfigure = False)
+            r.plot(marker = next(marker), newfigure = False, **kwargs)
             
         plt.title(f'{self.sample_name} {self.site} ({self.origin})')
     

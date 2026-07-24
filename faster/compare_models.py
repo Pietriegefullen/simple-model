@@ -109,12 +109,6 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                local_search = False, 
                initial_parameters = None,
                weighted_measurements = False):
-    target_directory = USER_VARIABLES.LOG_DIRECTORY
-    
-    suffix = ''
-    if not fit_from == 0 or not fit_to is None:
-        suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
-        target_directory += suffix
     
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -156,7 +150,7 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 1370
+    default_sample = 1351
     default_val_replica_number = 4
     default_model_type = 'complex'
     
@@ -199,6 +193,19 @@ if __name__ == '__main__':
     else:
         narrower_range = False
     
+    
+    if hasargs and 'from' in sys.argv:
+        idx = sys.argv.index('from')
+        fit_from = int(sys.argv[idx+1])
+
+    if hasargs and 'to' in sys.argv:
+        idx = sys.argv.index('to')
+        fit_to = int(sys.argv[idx+1])
+    
+    suffix = ''
+    if not fit_from == 0 or not fit_from is None:
+        suffix = '_' + str(int(fit_from)) + '-' + str(int(fit_to))
+    
     loaded_range = None
     replica_name = str(val_replica_number)
     if narrower_range:
@@ -206,7 +213,8 @@ if __name__ == '__main__':
             loaded_range = load_parameter_range(default_sample, 
                                                 replica_name, 
                                                 default_model_type,
-                                                best_N = best_N)
+                                                best_N = best_N,
+                                                best = suffix)
         except Exception as ex:
             if 'single result file' in str(ex):
                 pass
@@ -217,14 +225,6 @@ if __name__ == '__main__':
     if hasargs and 'simple' in sys.argv:
         raise Exception('Using simple model? Why?')
     
-    if hasargs and 'from' in sys.argv:
-        idx = sys.argv.index('from')
-        fit_from = int(sys.argv[idx+1])
-
-    if hasargs and 'to' in sys.argv:
-        idx = sys.argv.index('to')
-        fit_to = int(sys.argv[idx+1])
-    
     if not hasargs:
         pass
         
@@ -234,11 +234,13 @@ if __name__ == '__main__':
     else:
         local_search = False
         
+   
     best_parameters = None
     if local_search:
         best_parameters = load_fitted_parameters(default_sample, 
                                                  replica_name, 
-                                                 default_model_type)
+                                                 default_model_type,
+                                                 best = suffix)
     if best_parameters is None and not loaded_range is None:
         best_parameters = loaded_range.as_dict()
         

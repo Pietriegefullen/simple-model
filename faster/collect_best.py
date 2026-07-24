@@ -18,7 +18,13 @@ log_co2 = False
 log_ch4 = True
 
 source = USER_VARIABLES.LOG_DIRECTORY
-target = os.path.join(USER_VARIABLES.simple_model_dir, 'best')
+source_suffix = '0-400' # '0-200'
+
+if not source_suffix == '' and not source_suffix[0] =='_':
+        source_suffix = '_' + source_suffix
+    
+source = source + source_suffix
+target = os.path.join(USER_VARIABLES.simple_model_dir, 'best' + source_suffix)
 
 for f in os.listdir(source):
     folder = os.path.join(source,f)
@@ -83,6 +89,10 @@ if not plot is None:
     import model
     import matplotlib.pyplot as plt
     
+    day_limits = None
+    if not source_suffix == '':
+        day_limits = [int(i) for i in source_suffix.replace('_','').split('-')]
+    
 for sample_name in os.listdir(target):
     print(sample_name)        
     for fit_replicas in os.listdir(os.path.join(target, sample_name)):
@@ -103,8 +113,7 @@ for sample_name in os.listdir(target):
                 continue
 
             sample = dataset[sample_name]
-            plot_target = os.path.join(USER_VARIABLES.simple_model_dir, 'best', 
-                                       sample_name, fit_replicas, 'plot')
+            plot_target = os.path.join(target, sample_name, fit_replicas, 'plot')
             
             print(sample_name, plot_target)
             if plot_only_missing and os.path.isdir(plot_target) and len(os.listdir(plot_target)) > 0:
@@ -140,10 +149,13 @@ for sample_name in os.listdir(target):
                 
             for m in ['CO2', 'CH4']:
                 plot_fit(sample[val_replica], log, m, log_co2)
+                
+                if not day_limits is None:
+                    plt.gca().set_xlim(day_limits)
+                
                 file_name = '_'.join(['00', sample_name, val_replica, m, 'fit'])
                 plt.savefig(os.path.join(plot_target,file_name + '.png') , dpi = 300)
             
-            log.plot(save_target = plot_target)
-                
-                
+            log.plot(save_target = plot_target, xlim = day_limits)
+            
     print()
