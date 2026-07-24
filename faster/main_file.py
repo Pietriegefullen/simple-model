@@ -8,12 +8,18 @@ from data import all_sample_numbers
 import numpy as np
 import parameters
 
-def load_parameter_range(sample_name, replica_name, model_type, best_N, after = None):
-    fit_replicas = str(456).replace(str(replica_name),'')
+def load_parameter_range(sample_name, replica_name, model_type, best_N, after = None, best = 'best'):
+    import data
+    d = data.get_data_before_carex()
+    sample = d[sample_name]
+    repls = ''.join([str(r.replica_number) for r in sample.replicas])
+    fit_replicas = repls.replace(str(replica_name),'')
     
+    
+    suffix = best.replace('_', '').replace('best', '')
     sample_name = str(sample_name)
     folders = []
-    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
+    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY + suffix):
         if ((sample_name + str(fit_replicas[0])) in _d or \
         (sample_name + str(fit_replicas[1])) in _d) and \
          not (sample_name + str(replica_name)) in _d and model_type in _d:
@@ -56,7 +62,7 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 
     return largest_range
 
-def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False, return_loss = False):
+def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = 'best', return_loss = False):
     import data
     d = data.get_data_before_carex()
     sample = d[sample_name]
@@ -66,15 +72,15 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
     sample_name = str(sample_name)
     
     folders = []
-    if not best:
+    if best is None:
         for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
             if ((sample_name + str(fit_replicas[0])) in _d or \
             (sample_name + str(fit_replicas[1])) in _d) and \
              not (sample_name + str(replica_name)) in _d and model_type in _d:
                 folders.append(_d)
         
-    if best:
-        source = os.path.join(USER_VARIABLES.simple_model_dir, 'best')
+    else:
+        source = os.path.join(USER_VARIABLES.simple_model_dir, best)
         sample_source = os.path.join(source, str(sample_name))
         replica_source = os.path.join(sample_source, fit_replicas)
         if not os.path.isdir(replica_source):
@@ -163,8 +169,8 @@ if __name__ == '__main__':
     log_co2 = False
     log_ch4 = True
     
-    best = True
-    dataset = data.get_data_before_carex()
+    best = 'best' # 'best' or 'best_0-400 or ...
+    dataset = data.get_data_before_day()
         
     #for sample_name in all_sample_numbers:
     for _ in range(1):
@@ -172,7 +178,8 @@ if __name__ == '__main__':
         val_replica = dataset[sample_name + str(replica_name)]
 
         loaded_parameters = load_fitted_parameters(sample_name, replica_name, model_type,
-                                               after = '2026-07-02--09-47')
+                                               after = '2026-07-02--09-47',
+                                               best = best)
     
     
         selected_pathways = model.get_pathways(model_type)
@@ -190,6 +197,8 @@ if __name__ == '__main__':
 
         plot_fit(val_replica, log, 'CO2', log_co2)
         plot_fit(val_replica, log, 'CH4', log_ch4)
+        
+        # NOTE: xlim not adjusted to fitting range (e.g. before day 400)
 
         plt.show()
 

@@ -319,7 +319,8 @@ class ModelRun():
              newfigure = True, 
              log = False, 
              label = None, 
-             save_target = None):
+             save_target = None,
+             xlim = None):
         if name is None:
             name = list(self._log.keys())
             
@@ -374,7 +375,9 @@ class ModelRun():
         
             elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
                 ax.set_ylim([-0.01,1.01])
-            
+
+            if not xlim is None:
+                ax.set_xlim(xlim)
 
             if not save_target is None:
                 file_name = '_'.join([f'{i+1:02d}', n])

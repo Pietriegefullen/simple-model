@@ -80,6 +80,10 @@ class Algorithm():
         variables = model.parameters().variables()
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
+            
+        suffix = ''
+        if not fit_from == 0 or not fit_to is None:
+            suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
         
         print()
         rep = '_'.join([str(r) for r in replicas])
@@ -153,7 +157,7 @@ class Algorithm():
             strategy = self.kwargs['strategy']
             updating = self.kwargs['updating']
             
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, suffix)
             objective.generation = 1
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.differential_evolution(objective,
@@ -163,7 +167,7 @@ class Algorithm():
                                                       callback = objective.get_callback())
 
         elif self.algorithm == 'COBYLA' or self.algorithm == 'Powell':
-            objective = Objective(replica_obj, variables, model)
+            objective = Objective(replica_obj, variables, model, suffix)
             x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.minimize(objective, x0, method = self.algorithm, bounds = bounds)
@@ -176,16 +180,16 @@ class Algorithm():
         
         return objective.best_call()
 
-def target_directory_path(replica_objectives, model_type):
+def target_directory_path(replica_objectives, model_type, suffix = ''):
     str_model_type = '_' + model_type + '_'
     timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
     name = 'fit_' + '_'.join([str(r.replica)
                               for r in replica_objectives]) + str_model_type + timestamp
-    cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY, name) 
+    cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY + suffix, name) 
     return cp_path
 
 class Objective():
-    def __init__(self, replica_objectives, variables, model):
+    def __init__(self, replica_objectives, variables, model, suffix = ''):
         self.model = model
         self.replica_objectives = replica_objectives
         self.variables = variables
@@ -193,7 +197,7 @@ class Objective():
         self._call_count = 0
         self._best_call = None
         model_type = model.model_type()
-        self.cp_path = target_directory_path(replica_objectives, model_type)
+        self.cp_path = target_directory_path(replica_objectives, model_type, suffix)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
 
