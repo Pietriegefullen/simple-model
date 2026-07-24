@@ -141,6 +141,7 @@ class Pathway():
         thermodynamic_factor = self.thermodynamics(t, S)
         
         MM_factor = np.prod(MM)
+        print(self.microbe.name, 'inhib', inhib)
         inhib_factor = np.prod(inhib)
         v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor # hier rechnen wir die rate aus
 

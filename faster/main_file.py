@@ -57,7 +57,11 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
     return largest_range
 
 def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False, return_loss = False):
-    fit_replicas = str(456).replace(str(replica_name),'')
+    import data
+    d = data.get_data_before_carex()
+    sample = d[sample_name]
+    repls = ''.join([str(r.replica_number) for r in sample.replicas])
+    fit_replicas = repls.replace(str(replica_name),'')
     
     sample_name = str(sample_name)
     
@@ -72,7 +76,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
     if best:
         source = os.path.join(USER_VARIABLES.simple_model_dir, 'best')
         sample_source = os.path.join(source, str(sample_name))
-        replica_source = os.path.join(sample_source,'456'.replace(str(replica_name), ''))
+        replica_source = os.path.join(sample_source, fit_replicas)
         if not os.path.isdir(replica_source):
             raise Exception('No best result for this replica')
         folders.append(replica_source)

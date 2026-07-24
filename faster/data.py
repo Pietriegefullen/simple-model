@@ -264,6 +264,10 @@ class KnoblauchData():
     
         self.samples = []
         for s in samples:
+            for r in s.replicas:
+                replica_name = s.sample_name + str(r.replica_number)
+                if replica_name in self.last_days:
+                    r.last_day = float(self.last_days[replica_name])
             self.add_sample(s)
 
         if not self.samples:
@@ -301,6 +305,7 @@ class KnoblauchData():
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
                 new_replica.last_day = None
+                print(replica_name, replica_name in self.last_days)
                 if replica_name in self.last_days:
                     new_replica.last_day = float(self.last_days[replica_name])
                 new_sample.add_replica(new_replica)
@@ -467,7 +472,9 @@ class Replica():
             incubation = {}
         self.incubation = {k:np.reshape(v, (-1,)) for k, v in incubation.items()} # incubation data is from Knoblauch per g_dw
         
-        self.last_day = last_day
+        self.last_day = None
+        if not last_day is None:
+            self.last_day = float(last_day)
         
     def initial_TOC(self): # reines C (schwerverfügbar, nur Hydrolyse)
         # micro-mol per g dw
@@ -482,15 +489,25 @@ class Replica():
         return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
     
     def CO2(self):
-        return self.incubation['days'], self.incubation['CO2']
+        d, val = self.incubation['days'], self.incubation['CO2']
+        if not self.last_day is None:
+            idx = d <= self.last_day
+            d = d[idx]
+            val = val[idx]
+        return d, val
     
     def CH4(self):
-        return self.incubation['days'], self.incubation['CH4']
+        d, val = self.incubation['days'], self.incubation['CH4']
+        if not self.last_day is None:
+            idx = d <= self.last_day
+            d = d[idx]
+            val = val[idx]
+        return d, val
     
     def carex(self):
         if 'carex' in self.events.keys():
             return self.events['carex']
-        print('Found no carex event in ', str(self))
+        #print('Found no carex event in ', str(self))
 
     def __getitem__(self, key):
         if key == 'CO2':
@@ -585,10 +602,11 @@ class Replica():
     def before_day(self, last_day):
         if last_day is None:
             last_day = self.last_day
-            if last_day is None:
-                last_day = self.carex()
-                if last_day is None:    
-                    last_day = max(self.incubation['days'])
+        if last_day is None:
+            last_day = self.carex()
+        if last_day is None:    
+            last_day = max(self.incubation['days'])
+        last_day = float(last_day)
         days_before = [d for d in self.incubation['days'] if d < last_day]
         co2_before = self.incubation['CO2'][:len(days_before)]
         ch4_before = self.incubation['CH4'][:len(days_before)]
