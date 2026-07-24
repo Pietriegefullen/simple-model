@@ -56,8 +56,12 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 
     return largest_range
 
-def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False):
-    fit_replicas = str(456).replace(str(replica_name),'')
+def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = False, return_loss = False):
+    import data
+    d = data.get_data_before_carex()
+    sample = d[sample_name]
+    repls = ''.join([str(r.replica_number) for r in sample.replicas])
+    fit_replicas = repls.replace(str(replica_name),'')
     
     sample_name = str(sample_name)
     
@@ -72,7 +76,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
     if best:
         source = os.path.join(USER_VARIABLES.simple_model_dir, 'best')
         sample_source = os.path.join(source, str(sample_name))
-        replica_source = os.path.join(sample_source,'456'.replace(str(replica_name), ''))
+        replica_source = os.path.join(sample_source, fit_replicas)
         if not os.path.isdir(replica_source):
             raise Exception('No best result for this replica')
         folders.append(replica_source)
@@ -103,8 +107,10 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         
         print('loading parameters from', par_source)
         print('loss', best_loss)
-        return best_parameters
-
+        if not return_loss:
+            return best_parameters
+        return best_parameters, best_loss
+    
 def plot_fit(val_replica, run_log, measurement, log_fit):
     val_replica.plot(measurements = [measurement])
     
@@ -114,24 +120,15 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
     fit_replicas = ''.join([str(r.replica_number) 
                             for r in sample.replicas]).replace(str(val_replica.replica_number), '')
 
-    t_pred, pred_val = run_log[measurement]
-    if measurement == 'CO2':
-        t_meas, meas_val = val_replica.CO2()
-    elif measurement == 'CH4':
-        t_meas, meas_val = val_replica.CH4()
-    else:
-        raise Exception()
-        
-    t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
-    idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
-    idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
-    r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+    r2_val = run_log.R2(measurement, log_fit = log_fit)
     run_log.plot([measurement], newfigure = False, label = f'val R² = {r2_val:4.2f}')
+    t_pred, pred_val = run_log[measurement]
     for repl in fit_replicas:
         if str(repl) in sample:
             fit_replica = sample[str(repl)]
             if measurement == 'CO2':
                 t_meas, meas_val = fit_replica.CO2()
+
             else:
                 t_meas, meas_val = sample[str(repl)].CH4()
             t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
@@ -160,8 +157,8 @@ if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
   
     model_type= 'complex'
-    #sample_name =  #1353 1351, 1367, 1369, 1370, 
-    replica_name = 4 # 4?, 5?, 6?
+    sample_name =  '1364' #1353 1351, 1367, 1369, 1370, 
+    replica_name = 5 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
@@ -169,9 +166,8 @@ if __name__ == '__main__':
     best = True
     dataset = data.get_data_before_carex()
         
-    for sample_name in all_sample_numbers:
-        sample_name = sample_name[:-1] 
-        print('itsa me mario',sample_name)
+    #for sample_name in all_sample_numbers:
+    for _ in range(1):
         
         val_replica = dataset[sample_name + str(replica_name)]
 
@@ -192,8 +188,8 @@ if __name__ == '__main__':
 
     #log.plot('TOC', log = True)
 
-    #plot_fit(val_replica, log, 'CO2', log_co2)
-    #plot_fit(val_replica, log, 'CH4', log_ch4)
+        plot_fit(val_replica, log, 'CO2', log_co2)
+        plot_fit(val_replica, log, 'CH4', log_ch4)
 
         plt.show()
 

@@ -111,7 +111,8 @@ all_sample_numbers = {
                          }
 
 
-DOC_per_TOC = 0.02
+DOC_per_TOC = 0.02 #Until the end of the incubations, 0.27–1.16% (average 0.55 0.23%)
+                        #of initial carbon was mineralized under anaerobic conditions.knoblauch2013predicting
 
 knoblauch_data = None
 
@@ -199,6 +200,9 @@ class KnoblauchData():
                      '13634': '1308',
                      '13635': '1308',
                      
+                     '13644': '1500',
+                     '13645': '1500',
+                     
                      '13654': '1274',
                      '13655': '1274',
                      '13656': '1274',
@@ -260,6 +264,10 @@ class KnoblauchData():
     
         self.samples = []
         for s in samples:
+            for r in s.replicas:
+                replica_name = s.sample_name + str(r.replica_number)
+                if replica_name in self.last_days:
+                    r.last_day = float(self.last_days[replica_name])
             self.add_sample(s)
 
         if not self.samples:
@@ -297,6 +305,7 @@ class KnoblauchData():
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
                 new_replica.last_day = None
+                print(replica_name, replica_name in self.last_days)
                 if replica_name in self.last_days:
                     new_replica.last_day = float(self.last_days[replica_name])
                 new_sample.add_replica(new_replica)
@@ -463,7 +472,9 @@ class Replica():
             incubation = {}
         self.incubation = {k:np.reshape(v, (-1,)) for k, v in incubation.items()} # incubation data is from Knoblauch per g_dw
         
-        self.last_day = last_day
+        self.last_day = None
+        if not last_day is None:
+            self.last_day = float(last_day)
         
     def initial_TOC(self): # reines C (schwerverfügbar, nur Hydrolyse)
         # micro-mol per g dw
@@ -478,15 +489,25 @@ class Replica():
         return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
     
     def CO2(self):
-        return self.incubation['days'], self.incubation['CO2']
+        d, val = self.incubation['days'], self.incubation['CO2']
+        if not self.last_day is None:
+            idx = d <= self.last_day
+            d = d[idx]
+            val = val[idx]
+        return d, val
     
     def CH4(self):
-        return self.incubation['days'], self.incubation['CH4']
+        d, val = self.incubation['days'], self.incubation['CH4']
+        if not self.last_day is None:
+            idx = d <= self.last_day
+            d = d[idx]
+            val = val[idx]
+        return d, val
     
     def carex(self):
         if 'carex' in self.events.keys():
             return self.events['carex']
-        print('Found no carex event in ', str(self))
+        #print('Found no carex event in ', str(self))
 
     def __getitem__(self, key):
         if key == 'CO2':
@@ -551,7 +572,6 @@ class Replica():
     def plot_ratio(self, ax = None):
         tmeas,CO2meas = self.CO2()
         _,CH4meas = self.CH4()
-        difft = np.diff(t_meas)
 
         ratio_meas = np.diff(CO2meas)/np.diff(CH4meas)
         
@@ -571,19 +591,22 @@ class Replica():
         ax.set_ylabel('dCO2_dt/dCH4_dt [-]')
         ax.plot([0,np.max(tmeas)],[1,1], 'k--', linewidth = 1.)
         # Show only the last 300 days
-        ax.set_xlim(np.max(tmeas) - 300, np.max(tmeas))
-        ax.set_ylim(-2, 5)
+       # ax.set_xlim(np.max(tmeas) - 500, np.max(tmeas))
+        ax.set_xlim(0,1700)
+        ax.set_ylim(-5, 5)
         ax.axhline(0, color='k', linestyle='--', linewidth=1)
-       # ax.set_yscale('log') # makes it log scale, comment for normal scale
+        ax.axhline(1.4, color='red', linestyle='--', linewidth=1)
+        #ax.set_yscale('log') # makes it log scale, comment for normal scale
         return ax
         
     def before_day(self, last_day):
         if last_day is None:
             last_day = self.last_day
-            if last_day is None:
-                last_day = self.carex()
-                if last_day is None:    
-                    last_day = max(self.incubation['days'])
+        if last_day is None:
+            last_day = self.carex()
+        if last_day is None:    
+            last_day = max(self.incubation['days'])
+        last_day = float(last_day)
         days_before = [d for d in self.incubation['days'] if d < last_day]
         co2_before = self.incubation['CO2'][:len(days_before)]
         ch4_before = self.incubation['CH4'][:len(days_before)]
@@ -682,10 +705,6 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
-    
-    for sample in d.samples:
-        print(sample)
-    1/0
     
     ax = None
     for sample in d.samples:

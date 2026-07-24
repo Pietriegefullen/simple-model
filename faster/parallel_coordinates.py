@@ -211,6 +211,11 @@ def pcp(data,
 
     # Plot curves
     for i in range(data.shape[1]):
+        #if isinstance(alpha, float) or alpha is None:
+        #    _alpha = alpha
+        #else:
+        #    _alpha = alpha[i]
+            
         if colorbar:
             color = cmap(score[i])
         else:
@@ -222,7 +227,7 @@ def pcp(data,
                     edgecolor=color, clip_on=False)
             ax0.add_patch(patch)
         else:
-            ax0.plot(data[:, i], color=color, alpha=alpha, clip_on=False)
+            ax0.plot(data[:, i], color=color, alpha=alpha, clip_on=True)
 
     # Format x-axis
     ax0.xaxis.tick_top()
