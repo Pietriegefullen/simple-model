@@ -148,7 +148,14 @@ def get_data_before_day():
     global knoblauch_data
     if knoblauch_data is None:
         knoblauch_data = load_knoblauch()
-    _ = [r.before_day(r.last_day) for r in knoblauch_data.replicas()]
+    _ = [r.before_day(knoblauch_data.last_days[str(r)]) 
+         if str(r) in knoblauch_data.last_days else r
+         for r in knoblauch_data.replicas()]
+    
+    for r in knoblauch_data.replicas():
+        print(r, r.events)
+        input()
+    
     return knoblauch_data
     
 
@@ -221,7 +228,7 @@ class KnoblauchData():
                      '13694': '1273',
                      '13695': '1273',
                      '13696': '1274',
-                     
+                         
                      '13704': '1273',
                      '13706': '1274',
                      
@@ -264,10 +271,6 @@ class KnoblauchData():
     
         self.samples = []
         for s in samples:
-            for r in s.replicas:
-                replica_name = s.sample_name + str(r.replica_number)
-                if replica_name in self.last_days:
-                    r.last_day = float(self.last_days[replica_name])
             self.add_sample(s)
 
         if not self.samples:
@@ -407,7 +410,7 @@ class Sample():
     def plot(self):
         marker = iter(['x','v','+', 's', 'o', '^'])
         for r in self.replicas:
-            r.plot(marker = next(marker))
+            r.plot(marker = next(marker), newfigure = False)
             
         plt.title(f'{self.sample_name} {self.site} ({self.origin})')
     
@@ -536,11 +539,11 @@ class Replica():
             label = f' ({label})'
         
         if 'CO2' in measurements:
-            ax.plot(*self.CO2(),'r' + marker, label = 'CO2' + label, color = 'b')
+            ax.plot(*self.CO2(),'r' + marker, label = f'CO2 ({str(self.replica_number)})' + label, color = 'b')
             ax.set_ylabel('gas (CO2)')
         
         if 'CH4' in measurements:
-            ax.plot(*self.CH4(),'b' + marker, label = 'CH4' + label, color = 'orange')
+            ax.plot(*self.CH4(),'b' + marker, label = f'CH4 ({str(self.replica_number)})' + label, color = 'orange')
             ax.set_yscale('log')
             ax.set_ylabel('gas (CH4)')
 

@@ -110,6 +110,12 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                initial_parameters = None,
                weighted_measurements = False):
     target_directory = USER_VARIABLES.LOG_DIRECTORY
+    
+    suffix = ''
+    if not fit_from == 0 or not fit_to is None:
+        suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
+        target_directory += suffix
+    
     d = data.get_data_before_day()
     sample = d[sample_name]
     
