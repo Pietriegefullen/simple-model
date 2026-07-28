@@ -170,6 +170,24 @@ class KnoblauchData():
             
         self.source_directory = ROOT_DIRECTORY
         
+        self.inocculation_days = {
+                        '13564': '2501', # {'day': 2501, 'source': '13634', ...}
+                        '13566': '2501',
+                        
+                        '13584': '2501',
+                        '13585': '2501',
+                        
+                        '13594': '2501',
+                        '13595': '2501',
+                        
+                        '13604': '2501',
+                        '13606': '2501',
+                        
+                        #'13626': '',
+                        #'13645'': '
+                        
+            }
+        
         self.last_days = {
                      '13514': '1274',
                      '13515': '1274',
@@ -297,10 +315,13 @@ class KnoblauchData():
             new_sample.depth = sample_metadata['depth']
             new_sample.origin = sample_metadata['origin']
             
+            
+            subsample = None
+            
             for replica_name, replica_data in incubation_data.items():
                 if not replica_name.startswith(sample_name):
                     continue
-
+                
                 new_replica = Replica(replica_name[-1])
                 new_replica.events = {event:day for (day, event) in replica_data['events']}
                 new_replica.dry_weight = replica_data['dry weight']
@@ -308,6 +329,31 @@ class KnoblauchData():
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
+                
+                if replica_name in self.inocculation_days:
+                    if subsample is None:
+                        subsample = Sample('2'+sample_name[1:])
+                        subsample.site = new_sample.site
+                        subsample.TOC = new_sample.TOC
+                        subsample.pH = new_sample.pH
+                        subsample.depth = new_sample.depth
+                        subsample.origin = new_sample.origin
+
+                    subreplica = Replica(replica_name[-1])
+                    subreplica.water_content = new_replica.water_content
+                    subreplica.dry_weight = new_replica.dry_weight
+                    inoc_day = int(self.inocculation_days[str(replica_name)])
+                    inoc_index = np.nonzero(new_replica.incubation['days'] >= inoc_day)[0][0]
+                    inoc_days = new_replica.incubation['days'][inoc_index:] - inoc_day
+                    inoc_co2 = new_replica.incubation['CO2'][inoc_index:]
+                    inoc_ch4 = new_replica.incubation['CH4'][inoc_index:]
+                    subreplica.incubation = {'days': inoc_days,
+                                             'CO2': inoc_co2,
+                                             'CH4': inoc_ch4}
+                    subreplica.events = {event:day-inoc_day for (day, event) in replica_data['events']
+                                         if day >= inoc_day}
+                    subsample.add_replica(subreplica)
+
                 new_replica.last_day = None
                 print(replica_name, replica_name in self.last_days)
                 if replica_name in self.last_days:
@@ -315,6 +361,8 @@ class KnoblauchData():
                 new_sample.add_replica(new_replica)
 
             self.add_sample(new_sample)
+            if not subsample is None:
+                self.add_sample(subsample)
 
     def __getitem__(self, key):
         key = str(key).replace('/','')
@@ -709,6 +757,7 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+    
     
     ax = None
     for sample in d.samples:
