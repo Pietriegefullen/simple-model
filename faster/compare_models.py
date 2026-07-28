@@ -204,7 +204,8 @@ if __name__ == '__main__':
     
     suffix = ''
     if not fit_from == 0 or not fit_from is None:
-        suffix = '_' + str(int(fit_from)) + '-' + str(int(fit_to))
+        s_fit_to = str(None) if fit_to is None else str(int(fit_to))
+        suffix = '_' + str(int(fit_from)) + '-' + s_fit_to
     
     loaded_range = None
     replica_name = str(val_replica_number)

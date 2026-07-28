@@ -18,10 +18,10 @@ log_co2 = False
 log_ch4 = True
 
 source = USER_VARIABLES.LOG_DIRECTORY
-source_suffix = '0-400' # '0-200'
+source_suffix = ''#'0-400' # '0-200'
 
 if not source_suffix == '' and not source_suffix[0] =='_':
-        source_suffix = '_' + source_suffix
+    source_suffix = '_' + source_suffix
     
 source = source + source_suffix
 target = os.path.join(USER_VARIABLES.simple_model_dir, 'best' + source_suffix)
@@ -131,7 +131,7 @@ for sample_name in os.listdir(target):
                 loaded_parameters = load_fitted_parameters(sample_name, 
                                                            val_replica,
                                                            model_type = 'complex',
-                                                           best = True)
+                                                           best = 'best' + source_suffix)
             except Exception as ex:
                 if 'No best result' in str(ex):
                     continue
