@@ -16,12 +16,15 @@ import numpy as np
 
 if __name__ == '__main__':
     
-    d = data.get_data_before_carex()
+    d = data.get_data_before_day()
     
     log_CO2 = False
     log_CH4 = True
     
     model_type = 'complex'
+    
+    best = 'best' # 'best_0-400', ...
+    
     
     replicas = [str(r) for r in d.replicas()]
     
@@ -64,7 +67,7 @@ if __name__ == '__main__':
             loaded_parameters, loaded_loss = load_fitted_parameters(sample_name, 
                                                        val_replica,
                                                        model_type = model_type,
-                                                       best = True, 
+                                                       best = best, 
                                                        return_loss = True)
         except Exception as ex:
             if 'No best result' in str(ex):
@@ -99,21 +102,25 @@ if __name__ == '__main__':
     for parameter_group in groups:
         results = [([int(r), 
                      all_parameters[str(r)]['loss'],
-                     all_parameters[str(r)]['R2_CO2'], all_parameters[str(r)]['R2_CH4']] + [all_parameters[str(r)][p] 
+                     all_parameters[str(r)]['R2_CO2'], 
+                     all_parameters[str(r)]['R2_CH4']] + [all_parameters[str(r)][p] 
                                 for p in parameter_group])
                    for r in all_replicas]
-        ytype = ['linear', 'log', 'linear', 'linear'] + [dp[p].scale for p in parameter_group]
+        ytype = ['categorical', 'log', 'linear', 'linear'] + [dp[p].scale for p in parameter_group]
         ylims = [[13510, 13806], [], [0,1], [0,1]] + [[dp[par].low, dp[par].high] if dp[par].is_variable() else [] 
                         for par in parameter_group] 
         
         labels =  ['replica', 'loss', 'R2 CO2', 'R2 CH4'] + parameter_group
     
+        
         fig = parallel_coordinates(results, labels, 
                              ytype = ytype,
                              ylim = ylims,
                              curves = False,
                              colorbar = False,
-                             #alpha = np.maximum(0,results[2])
+                             alpha = np.squeeze([np.maximum(0.05,res[2])
+                                      for res in results]),
+                             color_by = 3
                              )
     plt.show()
     

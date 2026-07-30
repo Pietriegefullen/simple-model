@@ -30,6 +30,7 @@ class Pathway():
         stoich_vector += np.sum(np.stack([system.vector(0, subst, subst['stoichiometry'])
                                          for subst in products], axis = -1), axis = -1)
         self.stoichiometry = stoich_vector
+        
         self.inhibition = system.vector(np.inf)
         for product in products:
             self.inhibition[system.index(product)] = product['inhibition']
@@ -134,11 +135,10 @@ class Pathway():
                                0,
                                dissolved_S/(self.Km + dissolved_S + eps)))
         
-        inhib = np.where(np.logical_or(dissolved_S == 0, (self.inhibition + dissolved_S) == 0),
-                         1,
-                         1 - dissolved_S/(self.inhibition + dissolved_S))
-        inhib = np.where(self.inhibition == np.inf, 1, inhib)
+        inhib = 1 - np.where(self.inhibition + dissolved_S == 0, 0, 
+                             dissolved_S/(self.inhibition + dissolved_S))
         thermodynamic_factor = self.thermodynamics(t, S)
+        
         
         MM_factor = np.prod(MM)
         inhib_factor = np.prod(inhib)

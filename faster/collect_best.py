@@ -11,7 +11,7 @@ import USER_VARIABLES
 
 after = '2026-07-08--08-30'
 
-plot = True #['1351']
+plot = False #['1351']
 plot_only_missing = True
 
 log_co2 = False
@@ -156,6 +156,7 @@ for sample_name in os.listdir(target):
                 file_name = '_'.join(['00', sample_name, val_replica, m, 'fit'])
                 plt.savefig(os.path.join(plot_target,file_name + '.png') , dpi = 300)
             
-            log.plot(save_target = plot_target, xlim = day_limits)
+            log.plot(save_target = plot_target, 
+                     xlim = day_limits)
             
     print()

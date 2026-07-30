@@ -171,20 +171,50 @@ class KnoblauchData():
         self.source_directory = ROOT_DIRECTORY
         
         self.inocculation_days = {
-                        '13564': '2501', # {'day': 2501, 'source': '13634', ...}
-                        '13566': '2501',
+                        '13564': {'day':2502,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
+                        '13566': {'day': 2502,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
                         
-                        '13584': '2501',
-                        '13585': '2501',
+                        '13584': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
+                        '13585': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
                         
-                        '13594': '2501',
-                        '13595': '2501',
+                        '13594': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
+                        '13595': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
                         
-                        '13604': '2501',
-                        '13606': '2501',
+                        '13604': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
+                        '13606': {'day': 2501,
+                                  'inocculum': '13634', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
                         
-                        #'13626': '',
-                        #'13645'': '
+                        '13626': {'day': 2501,
+                                  'inocculum': '13624', 
+                                  'source_day': 2501,
+                                  'amount': 1.5},
+                        '13645': {'day': 2501,
+                                  'source_day': 2501,
+                                  'inocculum': '13644', 
+                                  'amount': 1.5},
                         
             }
         
@@ -204,6 +234,9 @@ class KnoblauchData():
                      
                      '13554': '1309',
                      '13555': '1309',
+                     
+                     '13564': self.inocculation_days['13564']['day']-1,
+                     '13566': self.inocculation_days['13566']['day']-1,
                      
                      '13575': '1275',
                      '13576': '1275',
@@ -342,7 +375,8 @@ class KnoblauchData():
                     subreplica = Replica(replica_name[-1])
                     subreplica.water_content = new_replica.water_content
                     subreplica.dry_weight = new_replica.dry_weight
-                    inoc_day = int(self.inocculation_days[str(replica_name)])
+                    inoc_data = self.inocculation_days[str(replica_name)]
+                    inoc_day = inoc_data['day']
                     inoc_index = np.nonzero(new_replica.incubation['days'] >= inoc_day)[0][0]
                     inoc_days = new_replica.incubation['days'][inoc_index:] - inoc_day
                     inoc_co2 = new_replica.incubation['CO2'][inoc_index:]
@@ -758,6 +792,11 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
+    for s in d.samples:
+        for r in s.replicas:
+            plt.figure()
+            r.plot(measurements='CH4')
+    1/0
     
     ax = None
     for sample in d.samples:

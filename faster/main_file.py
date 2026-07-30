@@ -64,7 +64,7 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
 
 def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = 'best', return_loss = False):
     import data
-    d = data.get_data_before_carex()
+    d = data.get_data_before_day()
     sample = d[sample_name]
     repls = ''.join([str(r.replica_number) for r in sample.replicas])
     fit_replicas = repls.replace(str(replica_name),'')
@@ -163,7 +163,7 @@ if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
   
     model_type= 'complex'
-    sample_name =  '1364' #1353 1351, 1367, 1369, 1370, 
+    sample_name =  '1355' #1353 1351, 1367, 1369, 1370, 
     replica_name = 5 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
@@ -193,10 +193,10 @@ if __name__ == '__main__':
     
         #plot_fitted_ratio(pathway_model, val_replica)
 
-    #log.plot('TOC', log = True)
+        log.plot()
 
-        plot_fit(val_replica, log, 'CO2', log_co2)
-        plot_fit(val_replica, log, 'CH4', log_ch4)
+        #plot_fit(val_replica, log, 'CO2', log_co2)
+        #plot_fit(val_replica, log, 'CH4', log_ch4)
         
         # NOTE: xlim not adjusted to fitting range (e.g. before day 400)
 

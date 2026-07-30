@@ -102,6 +102,7 @@ class ModelParameters():
             raise NotImplementedError()
         self._parameters = d
     
+    
     def as_dict(self):
         return self._parameters
     

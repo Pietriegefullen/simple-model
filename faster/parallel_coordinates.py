@@ -99,10 +99,12 @@ def set_ylim(ylim, data):
     return ylim
 
 
-def get_score(data, ylim):
-    ymin = ylim[len(ylim) - 1][0]
-    ymax = ylim[len(ylim) - 1][1]
-    score = (np.copy(data[len(ylim) - 1, :]) - ymin) / (ymax - ymin)
+def get_score(data, ylim, color_by = None):
+    if color_by is None:
+        color_by = len(ylim) - 1
+    ymin = ylim[color_by][0]
+    ymax = ylim[color_by][1]
+    score = (np.copy(data[color_by, :]) - ymin) / (ymax - ymin)
     return score
 
 
@@ -144,7 +146,8 @@ def pcp(data,
         alpha=1.0,
         colorbar=True, 
         colorbar_width=0.02,
-        cmap=plt.get_cmap("inferno")
+        cmap=plt.get_cmap("inferno"),
+        color_by = None,
         ):
     """
     Parallel Coordinates Plot 
@@ -201,7 +204,7 @@ def pcp(data,
     ylabels = set_ylabels(ylabels, data, ytype)
     data = replace_str_values(data, ytype, ylabels)
     ylim = set_ylim(ylim, data)
-    score = get_score(data, ylim)
+    score = get_score(data, ylim, color_by)
     data = rescale_data(data, ytype, ylim)
 
     # Create figure
@@ -211,12 +214,13 @@ def pcp(data,
 
     # Plot curves
     for i in range(data.shape[1]):
-        #if isinstance(alpha, float) or alpha is None:
-        #    _alpha = alpha
-        #else:
-        #    _alpha = alpha[i]
+        _alpha = 1.
+        if isinstance(alpha, float) or alpha is None:
+            _alpha = alpha
+        else:
+            _alpha = alpha[i]
             
-        if colorbar:
+        if colorbar or not color_by is None:
             color = cmap(score[i])
         else:
             color = "blue"
@@ -227,7 +231,7 @@ def pcp(data,
                     edgecolor=color, clip_on=False)
             ax0.add_patch(patch)
         else:
-            ax0.plot(data[:, i], color=color, alpha=alpha, clip_on=True)
+            ax0.plot(data[:, i], color=color, alpha=_alpha, clip_on=True)
 
     # Format x-axis
     ax0.xaxis.tick_top()

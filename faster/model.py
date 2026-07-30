@@ -104,7 +104,7 @@ class Model():
         
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
-       
+               
     def __call__(self, t, S):
         S = np.where(S < 1e-40, 0, S)
         
@@ -211,7 +211,9 @@ class Model():
                 
         for name, ts, vs in add_to_log:
             self.system_state_log.log(name, ts, vs)
-            
+        
+        self.system_state_log._parameters = self.parameters()
+        
         return self.system_state_log
     
     def parameters(self):
@@ -259,9 +261,14 @@ class Model():
         self.__init__(cfg['pathways'])
         self.model_parameters.set(cfg['parameters'])
 
+def plot_order(names):
+    
+    return names
+
 class ModelRun():
     def __init__(self):
         self._log = {}
+        self._parameters = None
         
     def keys(self):
         return self._log.keys()
@@ -315,6 +322,49 @@ class ModelRun():
         
         return r2_val
     
+    def plot_factors(self, pathway):
+        
+        v_name = pathway + '_v'
+        if not v_name in self._log:
+            return
+        
+        fig, ax = plt.subplots()
+
+        t, v = self._log[v_name]
+        
+        ax.plot(t,v, 'k-', linewidth = 1.)
+        
+        _pwy = pathway
+        _pwy = _pwy.replace('Aceto', 'Ac')
+        _pwy = _pwy.replace('Fermentation', 'Ferm')
+        v_max = float(self._parameters[_pwy + '_v_max'])
+        ax.plot(ax.get_xlim(), [v_max, v_max], 'k--', label = 'v_max', linewidth = 1.)
+        
+        ax.set_ylim([ax.get_ylim()[0],v_max*1.05])
+        
+        #ax.legend()
+        
+        ax2 = ax.twinx()
+        
+        all_factors = ['MM', 'inhib', 'thermodynamic_factor']
+        factor_colors = ['r', 'b', 'g']
+
+        for factor, col in zip(all_factors, factor_colors):
+            name = pathway + '_' + factor
+            if not name in self.keys():
+                continue
+
+            t, f = self._log[name]
+            ax2.plot(t,f, col + '-', linewidth = .5, label = factor)
+        ax2.set_ylim([-0.01,1.01])
+        #ax2.legend()
+        
+        handles, labels = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        
+        fig.legend(handles + handles2, labels + labels2)
+        plt.title(v_name)
+    
     def plot(self, name = None, 
              newfigure = True, 
              log = False, 
@@ -327,8 +377,17 @@ class ModelRun():
         if not isinstance(name, list):
             name = [name]
         
+        ordered_names = plot_order(name)
         
-        for i,n in enumerate(name):
+        for i, n in enumerate(ordered_names):
+            if 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
+                pass #continue
+            
+            if n.endswith('_v'):
+                pathway_name = n.replace('_v','')
+                self.plot_factors(pathway_name)
+                continue
+            
             if not n in self._log:
                 print(n + ' not logged')
                 
