@@ -150,8 +150,8 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 1351
-    default_val_replica_number = 4
+    default_sample = 1378
+    default_val_replica_number = 5
     default_model_type = 'complex'
     
     fit_from = 0
@@ -208,6 +208,9 @@ if __name__ == '__main__':
         suffix = '_' + str(int(fit_from)) + '-' + s_fit_to
     if suffix == '_0-None':
         suffix = ''
+    
+    
+    narrower_range = True
     
     loaded_range = None
     replica_name = str(val_replica_number)
