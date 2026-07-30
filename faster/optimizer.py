@@ -242,6 +242,12 @@ class Objective():
                 used_days = ro.days[ro.used_indices]
                 replica_days, replica_CO2 = ro.replica.CO2()
                 _, replica_CH4 = ro.replica.CH4()
+                print(used_days)
+                print(replica_days)
+                input()
+                for t in used_days:
+                    print('used', t)
+                    print(np.nonzero(replica_days == t)[0])
                 used_indices = np.squeeze([np.nonzero(replica_days == t)[0] for t in used_days])
                 used_CO2 = replica_CO2[used_indices]
                 used_CH4 = replica_CH4[used_indices]

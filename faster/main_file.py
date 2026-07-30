@@ -84,7 +84,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         sample_source = os.path.join(source, str(sample_name))
         replica_source = os.path.join(sample_source, fit_replicas)
         if not os.path.isdir(replica_source):
-            raise Exception('No best result for this replica')
+            raise Exception('No best result for this replica: ' + replica_source)
         folders.append(replica_source)
             
             

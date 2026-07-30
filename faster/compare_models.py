@@ -206,12 +206,14 @@ if __name__ == '__main__':
     if not fit_from == 0 or not fit_from is None:
         s_fit_to = str(None) if fit_to is None else str(int(fit_to))
         suffix = '_' + str(int(fit_from)) + '-' + s_fit_to
+    if suffix == '_0-None':
+        suffix = ''
     
     loaded_range = None
     replica_name = str(val_replica_number)
     if narrower_range:
         try:
-            loaded_range = load_parameter_range(default_sample, 
+            loaded_range = load_parameter_range(sample, 
                                                 replica_name, 
                                                 default_model_type,
                                                 best_N = best_N,
@@ -240,8 +242,8 @@ if __name__ == '__main__':
     if local_search:
         best_parameters = load_fitted_parameters(default_sample, 
                                                  replica_name, 
-                                                 default_model_type,
-                                                 best = suffix)
+                                                 model_type,
+                                                 best = 'best')
     if best_parameters is None and not loaded_range is None:
         best_parameters = loaded_range.as_dict()
         
