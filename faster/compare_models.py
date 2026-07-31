@@ -113,6 +113,13 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     d = data.get_data_before_day()
     sample = d[sample_name]
     
+    print('fitting')
+    print(str(sample))
+    print(val_replica_number)
+    print(model_type)
+    print('from', fit_from, 'to', fit_to)
+    print('local', local_search)
+    
     fit_replicas = None
     try:
         splits = sample.leave_one_out_split()

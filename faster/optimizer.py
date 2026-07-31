@@ -244,8 +244,8 @@ class Objective():
                 _, replica_CH4 = ro.replica.CH4()
                 
                # used_indices = np.squeeze([np.nonzero(replica_days == t)[0] for t in used_days])
-                used_CO2 = replica_CO2[used_indices]
-                used_CH4 = replica_CH4[used_indices]
+                used_CO2 = replica_CO2[ro.used_indices]
+                used_CH4 = replica_CH4[ro.used_indices]
                 
                 co2_r2 = r2(predicted_CO2_on_measured, used_CO2, log = ro.log_co2)
                 ch4_r2 = r2(predicted_CH4_on_measured, used_CH4, log = ro.log_ch4)
@@ -326,7 +326,10 @@ class ReplicaObjective():
             raise Exception('"to" value must be > 0')
         self._fit_to = fit_to
         
-        self.days = self.replica.incubation['days']
+        days = self.replica.incubation['days']
+        if not self.replica.last_day is None:
+            days = days[days <= self.replica.last_day]
+        self.days = days
         
         self.used_indices = np.nonzero(self.days >= self._fit_from)[0]
         if not self._fit_to is None:
