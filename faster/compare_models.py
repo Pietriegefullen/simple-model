@@ -250,10 +250,10 @@ if __name__ == '__main__':
    
     best_parameters = None
     if local_search:
-        best_parameters = load_fitted_parameters(default_sample, 
+        best_parameters = load_fitted_parameters(sample, 
                                                  replica_name, 
                                                  model_type,
-                                                 best = 'best')
+                                                 best =None)
     if best_parameters is None and not loaded_range is None:
         best_parameters = loaded_range.as_dict()
         

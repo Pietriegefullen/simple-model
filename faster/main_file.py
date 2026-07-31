@@ -20,10 +20,10 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
     sample_name = str(sample_name)
     folders = []
     for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY + suffix):
-        if ((sample_name + str(fit_replicas[0])) in _d or \
-        (sample_name + str(fit_replicas[1])) in _d) and \
+        if any([sample_name + str(fr) in _d for fr in fit_replicas]) and \
          not (sample_name + str(replica_name)) in _d and model_type in _d:
             folders.append(_d)
+
     if len(folders) == 0:
         raise Exception('Found no fit results directory in ' + str(USER_VARIABLES.LOG_DIRECTORY + suffix))
         
@@ -74,8 +74,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
     folders = []
     if best is None:
         for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
-            if ((sample_name + str(fit_replicas[0])) in _d or \
-            (sample_name + str(fit_replicas[1])) in _d) and \
+            if any([sample_name + str(fr) in _d for fr in fit_replicas]) and \
              not (sample_name + str(replica_name)) in _d and model_type in _d:
                 folders.append(_d)
         
