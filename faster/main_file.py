@@ -25,7 +25,7 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
          not (sample_name + str(replica_name)) in _d and model_type in _d:
             folders.append(_d)
     if len(folders) == 0:
-        raise Exception('Found no fit results directory')
+        raise Exception('Found no fit results directory in ' + str(USER_VARIABLES.LOG_DIRECTORY + suffix))
         
     elif len(folders) == 1:
         raise Exception('Found only a single result file')
