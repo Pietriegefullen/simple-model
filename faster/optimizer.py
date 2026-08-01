@@ -94,15 +94,16 @@ class Algorithm():
         print('model:')
         print(str(model))
         print()
-        title = 'Variable Parameters:'
-        title += '\n' + '='*len(title) + '\n'
-        sorted_params = sorted(variables, key = lambda x: x.name)
-        print(title + '\n'.join([f'{i+1:3d}) ' + str(p) for i, p in enumerate(sorted_params)]))
+        #title = 'Variable Parameters:'
+        #title += '\n' + '='*len(title) + '\n'
+        #sorted_params = sorted(variables, key = lambda x: x.name)
+        #print(title + '\n'.join([f'{i+1:3d}) ' + str(p) for i, p in enumerate(sorted_params)]))
     
         print('search space:')
-        dim, vol = model.model_parameters.search_space()
+        dim, vol, red = model.model_parameters.search_space()
         print(f'   {dim:d} dimensions')
         print(f'   {vol:.2e} volume')
+        print(f'   {red:.3f} average reduction')
     
         if not variables:
             raise Exception('Model has no variable parameters.')

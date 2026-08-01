@@ -11,8 +11,8 @@ import USER_VARIABLES
 
 after = '2026-07-08--08-30'
 
-plot = False #['1351']
-plot_only_missing = False
+plot = True #['1351']
+plot_only_missing = True
 
 log_co2 = False
 log_ch4 = True
@@ -61,6 +61,7 @@ for f in os.listdir(source):
         elif len(best_files) > 1:
             print(best_files)
             raise Exception()
+
         
         file = os.path.join(folder, pf)
         if not os.path.isfile(file): continue
