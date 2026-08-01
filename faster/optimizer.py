@@ -167,7 +167,8 @@ class Algorithm():
                                                       callback = objective.get_callback())
 
         elif self.algorithm == 'COBYLA' or self.algorithm == 'Powell':
-            objective = Objective(replica_obj, variables, model, suffix)
+            objective = Objective(replica_obj, variables, model, suffix,
+                                  keep_only_best = True)
             x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
             bounds = list(zip(lower_bounds, upper_bounds))
             _ = scipy.optimize.minimize(objective, x0, method = self.algorithm, bounds = bounds)
@@ -189,7 +190,7 @@ def target_directory_path(replica_objectives, model_type, suffix = ''):
     return cp_path
 
 class Objective():
-    def __init__(self, replica_objectives, variables, model, suffix = ''):
+    def __init__(self, replica_objectives, variables, model, suffix = '', keep_only_best = False):
         self.model = model
         self.replica_objectives = replica_objectives
         self.variables = variables
@@ -200,6 +201,7 @@ class Objective():
         self.cp_path = target_directory_path(replica_objectives, model_type, suffix)
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
+        self._keep_only_best = keep_only_best
 
     def transform(self, parameter_values):
         transformed_parameter_values = [var.transform(p)
@@ -234,6 +236,13 @@ class Objective():
             checkpoint_file = os.path.join(self.cp_path, self.file_name(total_loss))
             with open(checkpoint_file, 'w') as cf:
                 json.dump(parameter_dict, cf, indent = 4)
+                
+            if self._keep_only_best:
+                for file in os.listdir(self.cp_path):
+                    path = os.path.join(self.cp_path, file)
+                    if path == checkpoint_file: continue
+                    os.remove(path)
+                
             self._best_call = (total_loss, parameter_dict)
             
             for ro in self.replica_objectives:
