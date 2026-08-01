@@ -102,6 +102,16 @@ class ModelParameters():
             raise NotImplementedError()
         self._parameters = d
     
+    def search_space(self):
+        volume = 1
+        dimension = 0
+        for p in self.variables():
+            tf = p.get_transform()
+            p_range = tf.transform(p.high) - tf.transform(p.low)
+            volume *= p_range
+            dimension += 1
+            
+        return dimension, volume
     
     def as_dict(self):
         return self._parameters

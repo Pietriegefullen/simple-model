@@ -340,7 +340,7 @@ class ModelRun():
         v_max = float(self._parameters[_pwy + '_v_max'])
         ax.plot(ax.get_xlim(), [v_max, v_max], 'k--', label = 'v_max', linewidth = 1.)
         
-        ax.set_ylim([ax.get_ylim()[0],v_max*1.05])
+        ax.set_ylim([ax.get_ylim()[0],v_max])
         
         #ax.legend()
         
@@ -356,14 +356,17 @@ class ModelRun():
 
             t, f = self._log[name]
             ax2.plot(t,f, col + '-', linewidth = .5, label = factor)
-        ax2.set_ylim([-0.01,1.01])
+        ax2.set_ylim([-0.01,1.0])
         #ax2.legend()
-        
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
         
         fig.legend(handles + handles2, labels + labels2)
         plt.title(v_name)
+        
+        return ax
     
     def plot(self, name = None, 
              newfigure = True, 
@@ -385,58 +388,63 @@ class ModelRun():
             
             if n.endswith('_v'):
                 pathway_name = n.replace('_v','')
-                self.plot_factors(pathway_name)
-                continue
-            
-            if not n in self._log:
+                ax = self.plot_factors(pathway_name)
+                n += '_factors'
+
+            elif not n in self._log:
                 print(n + ' not logged')
+                continue
                 
-            if newfigure:
-                fig, ax = plt.subplots()
             else:
-                fig = plt.gcf()
-                ax = plt.gca()
-                
-            x, y = self._log[n]
-            slabel = n
-            if not label is None and not label == '':
-                slabel += ' ' + label
-                
-            mark = '-'
-            #if 'R2' in self._log and n in self._log['R2']:
-             #   value = self._log['R2'][n]
-              #  label += ' ' + f'R² = {value:4.2f}'
-               # mark = 'x'
-            if n == 'CH4':
-                ax = fig.axes
-                if len(name) > 1:
-                    ax = ax[0] 
-                    ch4_ax = ax.twinx()
+                if newfigure:
+                    fig, ax = plt.subplots()
                 else:
-                    ch4_ax = ax[0]
-                ch4_ax.plot(x, y, mark, label = slabel, color = 'orange')
-
-            else:
-                ch4_ax = ax
-                ch4_ax.plot(x, y, mark, label = slabel)
-            
-            ax = ch4_ax
-            ax.set_title(n)
-            plt.legend()
-            
-            if log:
-                ax.set_yscale('log')
-                ax.set_title(n + ' (log)')
+                    fig = plt.gcf()
+                    ax = plt.gca()
+                    
+                x, y = self._log[n]
+                slabel = n
+                if not label is None and not label == '':
+                    slabel += ' ' + label
+                    
+                mark = '-'
+                #if 'R2' in self._log and n in self._log['R2']:
+                 #   value = self._log['R2'][n]
+                  #  label += ' ' + f'R² = {value:4.2f}'
+                   # mark = 'x'
+                if n == 'CH4':
+                    ax = fig.axes
+                    if len(name) > 1:
+                        ax = ax[0] 
+                        ch4_ax = ax.twinx()
+                    else:
+                        ch4_ax = ax[0]
+                    ch4_ax.plot(x, y, mark, label = slabel, color = 'orange')
+    
+                else:
+                    ch4_ax = ax
+                    ch4_ax.plot(x, y, mark, label = slabel)
                 
-            elif n in system.SYSTEM:
-                #plt.yscale('log')
-                pass
-        
-            elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
-                ax.set_ylim([-0.01,1.01])
+                ax = ch4_ax
+                ax.set_title(n)
+                plt.legend()
+                
+                if log:
+                    ax.set_yscale('log')
+                    ax.set_title(n + ' (log)')
+                    
+                elif n in system.SYSTEM:
+                    #plt.yscale('log')
+                    pass
+            
+                elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
+                    ax.set_ylim([-0.01,1.01])
+    
+                if not xlim is None:
+                    ax.set_xlim(xlim)
 
-            if not xlim is None:
-                ax.set_xlim(xlim)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
 
             if not save_target is None:
                 file_name = '_'.join([f'{i+1:02d}', n])

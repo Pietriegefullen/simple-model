@@ -12,7 +12,7 @@ import USER_VARIABLES
 after = '2026-07-08--08-30'
 
 plot = False #['1351']
-plot_only_missing = True
+plot_only_missing = False
 
 log_co2 = False
 log_ch4 = True

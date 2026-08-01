@@ -99,6 +99,11 @@ class Algorithm():
         sorted_params = sorted(variables, key = lambda x: x.name)
         print(title + '\n'.join([f'{i+1:3d}) ' + str(p) for i, p in enumerate(sorted_params)]))
     
+        print('search space:')
+        dim, vol = model.model_parameters.search_space()
+        print(f'   {dim:d} dimensions')
+        print(f'   {vol:.2e} volume')
+    
         if not variables:
             raise Exception('Model has no variable parameters.')
               
