@@ -36,4 +36,4 @@ for _, f in all_folders:
             path = os.path.join(f,file)
             if path == best_file: 
                 continue
-            #os.remove(path)
+            os.remove(path)
