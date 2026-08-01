@@ -226,6 +226,9 @@ class Model():
         model_string += '\n'*2
         model_string += str(self.model_parameters)
         model_string += '\n'
+        var_cnt = sum([int(p.is_variable()) for p in self.model_parameters])
+        model_string += '\n'
+        model_string += f'{var_cnt:d} variables'
         return model_string
 
     def save(self, target_directory, file_name):

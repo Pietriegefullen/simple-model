@@ -103,15 +103,22 @@ class ModelParameters():
         self._parameters = d
     
     def search_space(self):
-        volume = 1
-        dimension = 0
+        default_ranges = default_model_parameters()
+        reductions = []
         for p in self.variables():
-            tf = p.get_transform()
-            p_range = tf.transform(p.high) - tf.transform(p.low)
-            volume *= p_range
-            dimension += 1
-            
-        return dimension, volume
+            ind = next((i for i, dp in enumerate(default_ranges) if dp.name == p.name), None)
+            p_def = default_ranges[ind]
+            p_range = p.transform(p.high) - p.transform(p.low)
+            p_default_range = p.transform(p_def.high) - p.transform(p_def.low)
+            w_i = p_range/p_default_range
+            if w_i == 0:
+                print(p.name, p.scale, p.transformer, p_range, p_default_range, w_i)
+            reductions.append(w_i)
+
+        volume = np.prod(reductions)
+        dimension = len(reductions)
+        average_reduction = np.power(volume, 1/dimension)            
+        return dimension, volume, average_reduction
     
     def as_dict(self):
         return self._parameters

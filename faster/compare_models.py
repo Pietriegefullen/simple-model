@@ -137,10 +137,10 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     chosen_pathways = model.get_pathways(model_type)
     pathway_model = model.Model(chosen_pathways)
     pathway_model.parameters().set('default', normalized = normalized_parameters)
-    
+
     if not initial_parameters is None:
         for k,v in initial_parameters.items():
-            pathway_model.parameters()[k].set(v)
+            pathway_model.parameters()[k].set(float(v))
     
     if not 'Fe3' in chosen_pathways:
         pathway_model.parameters()['Fe3'].constant(0)
