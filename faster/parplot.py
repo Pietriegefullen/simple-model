@@ -120,7 +120,7 @@ if __name__ == '__main__':
                              colorbar = False,
                              alpha = np.squeeze([np.maximum(0.05,res[2])
                                       for res in results]),
-                             color_by = 3
+                             color_by = lambda row: [2,3][np.argmin(row[2], row[3])]
                              )
     plt.show()
     

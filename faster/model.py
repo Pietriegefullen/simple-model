@@ -343,7 +343,7 @@ class ModelRun():
         v_max = float(self._parameters[_pwy + '_v_max'])
         ax.plot(ax.get_xlim(), [v_max, v_max], 'k--', label = 'v_max', linewidth = 1.)
         
-        ax.set_ylim([ax.get_ylim()[0],v_max])
+        ax.set_ylim([0,v_max])
         
         #ax.legend()
         
@@ -359,10 +359,11 @@ class ModelRun():
 
             t, f = self._log[name]
             ax2.plot(t,f, col + '-', linewidth = .5, label = factor)
-        ax2.set_ylim([-0.01,1.0])
+        ax2.set_ylim([0,1.0])
         #ax2.legend()
         ax2.spines['top'].set_visible(False)
         ax2.spines['right'].set_visible(False)
+        ax2.spines['bottom'].set_visible(False)
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
         
@@ -437,18 +438,20 @@ class ModelRun():
                     ax.set_title(n + ' (log)')
                     
                 elif n in system.SYSTEM:
-                    #plt.yscale('log')
+                    plt.yscale('log')
+                    ax.set_ylim([0,ax.get_ylim()[1]])
                     pass
             
                 elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
-                    ax.set_ylim([-0.01,1.01])
+                    ax.set_ylim([0.,1])
     
                 if not xlim is None:
                     ax.set_xlim(xlim)
 
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
-
+            ax.spines['bottom'].set_visible(False)
+            
             if not save_target is None:
                 file_name = '_'.join([f'{i+1:02d}', n])
                 plt.savefig(os.path.join(save_target, file_name + '.png'), dpi = 300)

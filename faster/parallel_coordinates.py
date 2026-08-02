@@ -102,6 +102,8 @@ def set_ylim(ylim, data):
 def get_score(data, ylim, color_by = None):
     if color_by is None:
         color_by = len(ylim) - 1
+    elif callable(color_by):
+        color_by = color_by(data)
     ymin = ylim[color_by][0]
     ymax = ylim[color_by][1]
     score = (np.copy(data[color_by, :]) - ymin) / (ymax - ymin)

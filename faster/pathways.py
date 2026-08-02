@@ -35,6 +35,8 @@ class Pathway():
         for product in products:
             self.inhibition[system.index(product)] = product['inhibition']
             
+        self.use_inhib = np.any(np.isfinite(self.inhibition))
+            
         self.v_max = microbe['v_max']
         self.death_rate = system.vector(0, microbe, microbe['death_rate'])
         
@@ -78,49 +80,38 @@ class Pathway():
      
  
     def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
+        eps = 1e-12    
+    
+    
+        R = CONSTANTS.GAS_CONSTANT
+        T = 4. + CONSTANTS.KELVIN
+                
+        contributes = self.stoichiometry != 0
+        contributes[system.index('H2O')] = False # water never contributes in thermodynamics
+    
         dissolved_S = HENRYS_LAW*S
-        thermodynamic_factor = 1.
-        if self.use_thermodynamics:
-            R = CONSTANTS.GAS_CONSTANT
-            T = 4. + CONSTANTS.KELVIN
-            log_Q = system.vector(0) # generates a zero-filled vector of system shape
-            
-            concentrations = system.vector(0)
-            contributes = self.stoichiometry != 0
-            contributes[system.index('H2O')] = False # water never contributes in thermodynamics
-            denom = np.sum(dissolved_S[contributes])
+
+        # substances are given in micromole per g dry weight of soil.
+        # this is not a concentration but a normalized amount.
+        # instead, use activities of dissolved species in mol/L
+        water_content = S[system.index('H2O')]/CONSTANTS.MOLAR_MASS_H2O*10**-3 # L/gdw
+        activities = dissolved_S/water_content*10**-6 # mol/L   
+        activities = np.clip(activities, eps, np.inf)
         
-            if denom <= 0:
-                concentrations[contributes] = 0
-            else:
-                concentrations[contributes] = dissolved_S[contributes]/denom
-            
-            contributing_educts = np.logical_and(self.stoichiometry < 0, contributes)
-            contributing_products = np.logical_and(self.stoichiometry > 0, contributes)
-            educt_concentrations = concentrations[contributing_educts]
-            prod_concentrations = concentrations[contributing_products]
-            
-            if np.any(educt_concentrations == 0):
-                deltaG_r = np.inf
-                thermodynamic_factor = 0.
-                
-            elif np.any(prod_concentrations == 0):
-                deltaG_r = -np.inf
-                thermodynamic_factor = 1.
-                
-            else:
-                log_Q = np.sum(self.stoichiometry[contributes]*np.log(concentrations[contributes]))
-                deltaG_r = self.deltaG_s + R*T*log_Q
-                deltaG_rmin = chemistry.GIBBS_MINIMUM
-                thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
-            
-            self.log('deltaG_r', t, deltaG_r)
+        log_Q = np.sum(self.stoichiometry[contributes]*np.log(activities[contributes]))
+        deltaG_r = self.deltaG_s + R*T*log_Q
+        deltaG_rmin = chemistry.GIBBS_MINIMUM
+        thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
+        
+        self.log('deltaG_r', t, deltaG_r)
         self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
     
     def __call__(self, t, S): # hier rechnen wir die MM Faktoren
+        S = np.maximum(S, 0)
+        
         biomass = S[self.microbe_index]
-        biomass = np.clip(biomass, 1e-8, np.inf)
+        biomass = np.maximum(biomass, 1e-8) # why not 0?
             
         dissolved_S = HENRYS_LAW*S
 
@@ -134,27 +125,31 @@ class Pathway():
                       np.where(dissolved_S == 0,
                                0,
                                dissolved_S/(self.Km + dissolved_S + eps)))
-        
-        inhib = 1 - np.where(self.inhibition + dissolved_S == 0, 0, 
-                             dissolved_S/(self.inhibition + dissolved_S))
-        thermodynamic_factor = self.thermodynamics(t, S)
-        
-        
         MM_factor = np.prod(MM)
-        inhib_factor = np.prod(inhib)
-        v = self.v_max * MM_factor * inhib_factor * thermodynamic_factor # hier rechnen wir die rate aus
+        
+        v = self.v_max * MM_factor
+
+        if self.use_inhib:
+            inhib = 1 - np.where(self.inhibition + dissolved_S == 0, 0, 
+                                 dissolved_S/(self.inhibition + dissolved_S))
+            inhib_factor = np.prod(inhib)
+            v *= inhib_factor
+            self.log('inhib', t, inhib_factor)
+
+        if self.use_thermodynamics:
+            thermodynamic_factor = self.thermodynamics(t, S)
+            v *= thermodynamic_factor
 
         dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
+        
         dS_dt = np.clip(dS_dt, -S, np.inf)
        
         self.log('MM', t, MM_factor)
-        self.log('inhib', t, inhib_factor)
         self.log('v', t, v)
         
         if 'CH4' in self.products:
             ch4_prod = dS_dt[system.index('CH4')]
             self.log('CH4 from ' + self.microbe.name,t,ch4_prod)
-            
         
         return np.reshape(dS_dt, (-1,))
 

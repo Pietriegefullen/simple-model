@@ -45,7 +45,7 @@ def initial_state(replica, model_parameters):
     if not replica is None:
         model_parameters['TOC'].constant(replica.initial_TOC())
         model_parameters['DOC'].constant(replica.initial_DOC())
-        model_parameters['H2O'].constant(replica.water_content)
+        model_parameters['H2O'].constant(replica.initial_H2O())
     
     else:
         model_parameters['TOC']

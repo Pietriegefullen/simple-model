@@ -572,7 +572,7 @@ class Replica():
     def initial_H2O(self):
         # micro mol per g dw
         relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw
-        return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6
+        return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6 
     
     def CO2(self):
         d, val = self.incubation['days'], self.incubation['CO2']
