@@ -157,7 +157,7 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 1378
+    default_sample = 1366
     default_val_replica_number = 5
     default_model_type = 'complex'
     
@@ -182,32 +182,27 @@ if __name__ == '__main__':
     
     if not hasargs:
         val_replica_number = default_val_replica_number
-    
-    elif '4' in sys.argv:
-        val_replica_number = 4
-    elif '5' in sys.argv:
-        val_replica_number = 5
-    elif '6' in sys.argv:
-        val_replica_number = 6
-    
-    if not hasargs:
-        pass
-        
-    elif 'narrow' in sys.argv:
-        narrower_range = True
-        best_N = int(sys.argv[sys.argv.index('narrow')+1])
-        
-    else:
-        narrower_range = False
-    
-    
-    if hasargs and 'from' in sys.argv:
-        idx = sys.argv.index('from')
-        fit_from = int(sys.argv[idx+1])
 
-    if hasargs and 'to' in sys.argv:
-        idx = sys.argv.index('to')
-        fit_to = int(sys.argv[idx+1])
+    else:        
+        val_replica_number = int(sys.argv[2])
+        
+        if val_replica_number < 4 or val_replica_number > 6:
+            raise Exception()
+            
+        if 'narrow' in sys.argv:
+            narrower_range = True
+            best_N = int(sys.argv[sys.argv.index('narrow')+1])
+            
+        else:
+            narrower_range = False
+    
+        if  'from' in sys.argv:
+            idx = sys.argv.index('from')
+            fit_from = int(sys.argv[idx+1])
+    
+        if  'to' in sys.argv:
+            idx = sys.argv.index('to')
+            fit_to = int(sys.argv[idx+1])
     
     suffix = ''
     if not fit_from == 0 or not fit_from is None:
@@ -215,10 +210,7 @@ if __name__ == '__main__':
         suffix = '_' + str(int(fit_from)) + '-' + s_fit_to
     if suffix == '_0-None':
         suffix = ''
-    
-    
-    narrower_range = True
-    
+        
     loaded_range = None
     replica_name = str(val_replica_number)
     if narrower_range:
