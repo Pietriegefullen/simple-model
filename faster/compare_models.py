@@ -157,8 +157,8 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 1366
-    default_val_replica_number = 5
+    default_sample = 1351
+    default_val_replica_number = 4
     default_model_type = 'complex'
     
     fit_from = 0
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     normalized_parameters = True
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
-    narrower_range = True
+    narrower_range = False
     best_N = 10
     local_search = False
     weighted_measurements = False
