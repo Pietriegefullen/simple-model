@@ -26,11 +26,8 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
 
     if len(folders) == 0:
         raise Exception('Found no fit results directory in ' + str(USER_VARIABLES.LOG_DIRECTORY + suffix))
-        
-    elif len(folders) == 1:
-        raise Exception('Found only a single result file')
-        
-    elif len(folders) > 1:
+       
+    elif len(folders) >= 1:
         print('loading')
         best = []
         for f in folders:
