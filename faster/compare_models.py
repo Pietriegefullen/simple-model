@@ -168,10 +168,11 @@ if __name__ == '__main__':
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
     narrower_range = False
-    best_N = 10
+    best_N = 4
     local_search = False
     weighted_measurements = False
-    
+    model_type = 'complex'
+   
     log_co2 = False
     log_ch4 = True
     # None means no fit at all!
@@ -217,16 +218,16 @@ if __name__ == '__main__':
         try:
             loaded_range = load_parameter_range(sample, 
                                                 replica_name, 
-                                                default_model_type,
+                                                model_type,
                                                 best_N = best_N,
                                                 best = suffix)
+
         except Exception as ex:
             if 'single result file' in str(ex):
                 pass
             else:
                 raise ex
 
-    model_type = 'complex'
     if hasargs and 'simple' in sys.argv:
         raise Exception('Using simple model? Why?')
     
