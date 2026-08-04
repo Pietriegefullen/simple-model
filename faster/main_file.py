@@ -29,24 +29,18 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
        
     elif len(folders) >= 1:
         print('loading')
-        best = []
+        all_files = []
         for f in folders:
             parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
-            try:
-                loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)#
-            except:
-                print('empty folder')
-                continue
+            
+            all_files += model.get_all_loss_parameters(parameter_source)
             
             date = f.split('_')[-1]
             if not after is None and date <= after:
                 continue
             
-            best.append((loaded_loss, loaded_parameters))
-        
-            
-        best = sorted(best, key = lambda tpl: tpl[0])
-        best = best[:best_N]
+        print(all_files)
+        best = sorted(all_files)[:best_N]
         largest_range = parameters.ModelParameters(best[0][1])
         print('Parameter range:', 'best loss', best[0][0], 'worst loss', best[-1][0])
         for loss, loaded_parameters in best:
@@ -93,19 +87,26 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         par_source = None
         for f in folders:
             parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
-            try:
-                loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)#
-            except:
-                print('empty folder')
-                continue
+            all_files = get_all_loss_parameters(parameter_source)
+
+            for lf in os.listdir(parameter_source):
+                pf = os.path.join(parameter_source, lf)
+                if os.path.isdir(pf): continue
             
-            date = f.split('_')[-1]
-            if not after is None and date <= after:
-                continue
-            if best_parameters is None or loaded_loss < best_loss: 
-                best_loss = loaded_loss
-                best_parameters = loaded_parameters
-                par_source = parameter_source
+    
+                try:
+                    loaded_loss, loaded_parameters = model.get_best_loss_parameters(parameter_source)#
+                except:
+                    print('empty folder')
+                    continue
+                
+                date = f.split('_')[-1]
+                if not after is None and date <= after:
+                    continue
+                if best_parameters is None or loaded_loss < best_loss: 
+                    best_loss = loaded_loss
+                    best_parameters = loaded_parameters
+                    par_source = parameter_source
         
         print('loading parameters from', par_source)
         print('loss', best_loss)

@@ -470,19 +470,23 @@ class ModelRun():
         return run_string
     
 
-def get_best_loss_parameters(parameter_source):
+def get_all_loss_parameters(parameter_source):
     all_files = []
     for f in os.listdir(parameter_source):
-        if 'loss_' in f:
-            loss = float(f.split('loss_')[-1])
-            file = os.path.join(parameter_source, f)
-            all_files.append((loss, file))
+        file = os.path.join(parameter_source, f)
 
+        if os.path.isfile(file) and 'loss_' in f:
+            loss = float(f.split('loss_')[-1])
+            with open(file, 'r') as pf:
+                loaded_parameters = json.load(pf)
+            all_files.append((loss, loaded_parameters))
+    return sorted(all_files)
+
+def get_best_loss_parameters(parameter_source):
+    all_files = get_all_loss_parameters(parameter_source)
     if len(all_files) == 0:
         raise Exception('loading parameters failed')
-    best_loss, best_loss_file = list(sorted(all_files))[0]
-    with open(best_loss_file, 'r') as pf:
-        best_parameters = json.load(pf)
+    best_loss, best_parameters = list(sorted(all_files))[0]
     return best_loss, best_parameters
 
 
