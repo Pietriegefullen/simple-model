@@ -39,7 +39,6 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
             if not after is None and date <= after:
                 continue
             
-        print(all_files)
         best = sorted(all_files)[:best_N]
         largest_range = parameters.ModelParameters(best[0][1])
         print('Parameter range:', 'best loss', best[0][0], 'worst loss', best[-1][0])
