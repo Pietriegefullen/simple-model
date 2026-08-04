@@ -112,7 +112,7 @@ class Model():
                             for pathway_j in self.contributing_pathways], axis = -1)
         
         dS_dt = np.sum(dSj_dt, axis = -1)
-        dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative
+        dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative (assuming dt == 1)
         
         for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
             self.system_change_log.log_snap(pool_name, t, dSi_dt)

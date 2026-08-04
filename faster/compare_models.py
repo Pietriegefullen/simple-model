@@ -176,7 +176,7 @@ if __name__ == '__main__':
     loss_function_co2 = 'mse'
     loss_function_ch4 = 'mse'
     normalized = False
-    narrower_range = True
+    narrower_range = False
     best_N = 2
     local_search = False
     weighted_measurements = False
@@ -203,8 +203,7 @@ if __name__ == '__main__':
             best_N = int(sys.argv[sys.argv.index('narrow')+1])
             
         else:
-            pass
-            #narrower_range = False
+            narrower_range = False
     
         if  'from' in sys.argv:
             idx = sys.argv.index('from')

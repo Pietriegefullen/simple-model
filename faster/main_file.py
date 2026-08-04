@@ -86,7 +86,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
         par_source = None
         for f in folders:
             parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
-            all_files = get_all_loss_parameters(parameter_source)
+            all_files = model.get_all_loss_parameters(parameter_source)
 
             for lf in os.listdir(parameter_source):
                 pf = os.path.join(parameter_source, lf)
@@ -142,8 +142,13 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
                                                   label = f'fit R² = {r2_val:.2f}', 
                                                   marker = '.',
                                                   newfigure = False)
-    plt.gca().set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
-    return plt.gca()
+    ax = plt.gca()
+    if log_fit:
+        ax.set_yscale('log')
+    else:
+        ax.set_yscale('linear')
+    ax.set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
+    return ax
 
 def plot_fitted_ratio(pathway_model, val_replica):
     # plot ratio of change in CO2 to change in CH4
