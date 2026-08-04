@@ -143,7 +143,7 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
                                                   marker = '.',
                                                   newfigure = False)
     plt.gca().set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
-
+    return plt.gca()
 
 def plot_fitted_ratio(pathway_model, val_replica):
     # plot ratio of change in CO2 to change in CH4
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     
         #plot_fitted_ratio(pathway_model, val_replica)
 
-        log.plot()
+        #log.plot()
 
         plot_fit(val_replica, log, 'CO2', log_co2)
         plot_fit(val_replica, log, 'CH4', log_ch4)

@@ -653,7 +653,7 @@ class Replica():
         ylim = ax.get_ylim()
         for event, day in self.events.items():
             ax.plot([day, day], ylim, 'r-')
-            ax.text(day-100, np.min(ylim), event, rotation = 'vertical')
+            #ax.text(day-100, np.min(ylim), event, rotation = 'vertical')
     
     def plot_ratio(self, ax = None):
         tmeas,CO2meas = self.CO2()

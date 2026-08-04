@@ -105,10 +105,13 @@ def fit(include_samples = None, exclude_samples = None):
 def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
                fit_from = 0, fit_to = None, normalized_parameters = False,
                loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
+               loss_function_co2 = 'mse', 
+               loss_function_ch4 = 'mse',
                parameter_range = None,
                local_search = False, 
                initial_parameters = None,
-               weighted_measurements = False):
+               weighted_measurements = False,
+               normalized = False):
     
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -151,22 +154,28 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                                      fit_from = fit_from, fit_to = fit_to,
                                      loss_weight_CO2 = loss_weight_CO2, 
                                      loss_weight_CH4 = loss_weight_CH4,
+                                     loss_function_co2 = loss_function_co2,
+                                     loss_function_ch4 = loss_function_ch4,
                                      parameter_range = parameter_range,
                                      algorithm = None if not local_search else 'Powell',
-                                     weighted_measurements = weighted_measurements)
+                                     weighted_measurements = weighted_measurements,
+                                     normalized = normalized)
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
     default_sample = 1351
     default_val_replica_number = 4
     default_model_type = 'complex'
-    
+        
     fit_from = 0
     fit_to = None
     
     normalized_parameters = True
     loss_weight_CO2 = 0.1
     loss_weight_CH4 = 1.0
+    loss_function_co2 = 'mse'
+    loss_function_ch4 = 'mse'
+    normalized = False
     narrower_range = False
     best_N = 4
     local_search = False
@@ -175,7 +184,6 @@ if __name__ == '__main__':
    
     log_co2 = False
     log_ch4 = True
-    # None means no fit at all!
    
     hasargs = len(sys.argv) > 1
     
@@ -257,8 +265,11 @@ if __name__ == '__main__':
                normalized_parameters = normalized_parameters,
                loss_weight_CO2 = loss_weight_CO2,
                loss_weight_CH4 = loss_weight_CH4,
+               loss_function_co2 = loss_function_co2,
+               loss_function_ch4 = loss_function_ch4,
                parameter_range = loaded_range,
                local_search = local_search,
                initial_parameters = best_parameters,
-               weighted_measurements = weighted_measurements)
+               weighted_measurements = weighted_measurements,
+               normalized = normalized)
 
