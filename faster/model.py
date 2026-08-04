@@ -121,8 +121,11 @@ class Model():
     def fit(self, replicas, algorithm = None, log_co2 = True, log_ch4 = True,
             fit_from = 0, fit_to = None,
             loss_weight_CO2 = 1, loss_weight_CH4 = 1,
+            loss_function_co2 = 'mse', 
+            loss_function_ch4 = 'mse',
             parameter_range = None,
-            weighted_measurements = False):
+            weighted_measurements = False,
+            normalized = False):
         if algorithm is None:
             algorithm = OPTIMIZATION_ALGORITHM
             
@@ -135,8 +138,11 @@ class Model():
                              fit_from = fit_from, fit_to = fit_to,
                              loss_weight_CO2 = loss_weight_CO2, 
                              loss_weight_CH4 = loss_weight_CH4, 
+                             loss_function_co2 = loss_function_co2,
+                             loss_function_ch4 = loss_function_ch4,
                              parameter_range = parameter_range,
-                             weighted_measurements = weighted_measurements)
+                             weighted_measurements = weighted_measurements,
+                             normalized = normalized)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000):

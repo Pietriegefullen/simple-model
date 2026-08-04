@@ -67,8 +67,11 @@ class Algorithm():
     def minimize(self, model, replicas, log_co2 = True, log_ch4 = True,
                  fit_from = 0, fit_to = None,
                  loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
+                 loss_function_co2 = 'mse', 
+                 loss_function_ch4 = 'mse',
                  parameter_range = None,
-                 weighted_measurements = False):
+                 weighted_measurements = False,
+                 normalized = False):
         variables = model.parameters().variables()
         print(len(variables), 'variables before setting bounds') 
         if not parameter_range is None:
@@ -112,7 +115,10 @@ class Algorithm():
                                         fit_from = fit_from, fit_to = fit_to,
                                         loss_weight_CO2 = loss_weight_CO2,
                                         loss_weight_CH4 = loss_weight_CH4,
-                                        weighted_measurements = weighted_measurements)
+                                        loss_function_co2 = loss_function_co2,
+                                        loss_function_ch4 = loss_function_ch4,
+                                        weighted_measurements = weighted_measurements,
+                                        normalized = normalized)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -308,30 +314,51 @@ class Loss():
         self.measured = measured
     
     def MSE(self, weights = None):
+        residuals = self.predicted - self.measured
         if not weights is None:
-            return np.mean(weights*(self.predicted - self.measured)**2)
-        return np.mean((self.predicted - self.measured)**2)
+            return np.mean(weights*residuals**2)
+        return np.mean(residuals**2)
     
     def RMSE(self):
         return np.sqrt(self.MSE())
     
     def R2(self):
         raise NotImplementedError()
+        
+    def NRMSE(self):
+        # normalizing RMSE by value range
+        rmse = self.RMSE()
+        rng = np.max(self.measured) - np.min(self.measured)
+        return rmse/rng
+    
+    def compute(self, name, **kwargs):
+        if name.lower() == 'mse':
+            return self.MSE(**kwargs)
+        elif name.lower() =='rmse':
+            return self.RMSE()
+        else:
+            raise NotImplementedError()
 
 class ReplicaObjective():
     def __init__(self, replica, model, log_co2 = False, log_ch4 = False, 
                  fit_from = 0, fit_to = None,
                  loss_weight_CO2 = 1, loss_weight_CH4 = 1,
-                 weighted_measurements = False):
+                 weighted_measurements = False,
+                 loss_function_co2 = 'mse', 
+                 loss_function_ch4 = 'mse',
+                 normalized = False):
         self.model = model
         self.replica = replica
         self.last_call = None
         self.log_co2 = log_co2
         self.log_ch4 = log_ch4
+        self.loss_function_co2 = loss_function_co2
+        self.loss_function_ch4 = loss_function_ch4
         self.w_CO2 = loss_weight_CO2
         self.w_CH4 = loss_weight_CH4
         self.weighted_measurements = weighted_measurements
         self._weights = None
+        self._normalized = normalized
         
         if not fit_to is None and fit_from >= fit_to:
             raise ValueError('"from" value >= "to" value')
@@ -395,7 +422,8 @@ class ReplicaObjective():
             predicted_CO2 = np.log(predicted_CO2)
             measured_CO2 = np.where(np.isfinite(measured_CO2), measured_CO2, -12)
             predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
-        CO2_loss = Loss(predicted_CO2, measured_CO2).MSE(w)
+        CO2_loss = Loss(predicted_CO2, measured_CO2)
+        CO2_loss_value = CO2_loss.compute(self.loss_function_co2)
         
         measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
         if 0 in t:
@@ -407,10 +435,17 @@ class ReplicaObjective():
             predicted_CH4 = np.log(predicted_CH4)
             measured_CH4 = np.where(np.isfinite(measured_CH4), measured_CH4, -12)
             predicted_CH4 = np.where(np.isfinite(predicted_CH4), predicted_CH4, -12)
-        CH4_loss = Loss(predicted_CH4, measured_CH4).MSE(w)
+        CH4_loss = Loss(predicted_CH4, measured_CH4)
+        CH4_loss_value = CH4_loss.compute(self.loss_function_ch4)
 
-
-        loss = self.w_CO2*CO2_loss + self.w_CH4*CH4_loss
+        w_CO2 = self.w_CO2
+        w_CH4 = self.w_CH4
+        if self._normalized:
+            w_CO2 *= 1/(np.max(measured_CO2) - np.min(measured_CO2))
+            w_CH4 *= 1/(np.max(measured_CH4) - np.min(measured_CH4))
+            w_CO2 /= w_CH4
+            w_CH4 = 1.
+        loss = w_CO2*CO2_loss_value + w_CH4*CH4_loss_value
 
         return loss
     
