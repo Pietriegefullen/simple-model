@@ -13,6 +13,15 @@ import CONSTANTS
 import loading
 
 
+def compute_rate(d, val):
+    
+    dt = np.diff(d)
+    dv = np.diff(val)
+    
+    rate = dv/dt
+    rate = np.concatenate([rate[0], rate], axis = 0)
+    return rate
+
 all_sample_numbers = {
                      '13514',
                      '13515',
@@ -574,20 +583,25 @@ class Replica():
         relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw
         return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6 
     
-    def CO2(self):
+    
+    def CO2(self, rate = False):
         d, val = self.incubation['days'], self.incubation['CO2']
         if not self.last_day is None:
             idx = d <= self.last_day
             d = d[idx]
             val = val[idx]
+        if rate:
+            val = compute_rate(d, val)
         return d, val
     
-    def CH4(self):
+    def CH4(self, rate = False):
         d, val = self.incubation['days'], self.incubation['CH4']
         if not self.last_day is None:
             idx = d <= self.last_day
             d = d[idx]
             val = val[idx]
+        if rate:
+            val = compute_rate(d, val)
         return d, val
     
     def carex(self):
@@ -603,7 +617,13 @@ class Replica():
         elif key == 'days':
             return self.incubation['days']
     
-    def plot(self, events = True, marker = 'x', log = False, newfigure = True, measurements = None, label = ''):
+    def plot(self, events = True, 
+             marker = 'x', 
+             log = False, 
+             newfigure = True, 
+             measurements = None,
+             rate = False,
+             label = ''):
         if measurements is None:
             measurements = ['CO2', 'CH4']
         elif not isinstance(measurements, list):
@@ -621,12 +641,14 @@ class Replica():
         if not label == '':
             label = f' ({label})'
         
+        rt = '' if not rate else 'rate '
+            
         if 'CO2' in measurements:
-            ax.plot(*self.CO2(),'r' + marker, label = f'CO2 ({str(self.replica_number)})' + label, color = 'b')
+            ax.plot(*self.CO2(rate = rate),'r' + marker, label = f'CO2 {rt}({str(self.replica_number)})' + label, color = 'b')
             ax.set_ylabel('gas (CO2)')
         
         if 'CH4' in measurements:
-            ax.plot(*self.CH4(),'b' + marker, label = f'CH4 ({str(self.replica_number)})' + label, color = 'orange')
+            ax.plot(*self.CH4(rate = rate),'b' + marker, label = f'CH4 {rt}({str(self.replica_number)})' + label, color = 'orange')
             ax.set_yscale('log')
             ax.set_ylabel('gas (CH4)')
 
@@ -795,7 +817,7 @@ if __name__ == '__main__':
     for s in d.samples:
         for r in s.replicas:
             plt.figure()
-            r.plot(measurements='CH4')
+            r.plot(measurements='CH4', rate = True)
     1/0
     
     ax = None

@@ -88,6 +88,7 @@ class Model():
     def __init__(self, pwys):
         self.system_state_log = ModelRun()
         self.system_change_log = ModelRun()
+        self.system_change_log.rate = True
         self.model_parameters = parameters.ModelParameters()
         
         pathway_classes = [pathways.pathway_by_name(p) if isinstance(p, str) else p 
@@ -125,6 +126,7 @@ class Model():
             loss_function_ch4 = 'mse',
             parameter_range = None,
             weighted_measurements = False,
+            rate_penalty = 0,
             normalized = False):
         if algorithm is None:
             algorithm = OPTIMIZATION_ALGORITHM
@@ -142,6 +144,7 @@ class Model():
                              loss_function_ch4 = loss_function_ch4,
                              parameter_range = parameter_range,
                              weighted_measurements = weighted_measurements,
+                             rate_penalty = rate_penalty,
                              normalized = normalized)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
@@ -161,6 +164,7 @@ class Model():
         S0 = system.initial_state(replica, self.parameters())
         self.parameters().check()
         self.system_state_log.reset(replica)
+        self.system_change_log.reset(replica)
       
         # solve initial value problem
         if parallel:
@@ -278,6 +282,7 @@ class ModelRun():
     def __init__(self):
         self._log = {}
         self._parameters = None
+        self.rate = False
         
     def keys(self):
         return self._log.keys()
@@ -318,9 +323,9 @@ class ModelRun():
     def R2(self, gas_name, log_fit):
         t_pred, pred_val = self.__getitem__(gas_name)
         if gas_name == 'CO2':
-            t_meas, meas_val = self.replica.CO2()
+            t_meas, meas_val = self.replica.CO2(rate = self.rate)
         elif gas_name == 'CH4':
-            t_meas, meas_val = self.replica.CH4()
+            t_meas, meas_val = self.replica.CH4(rate = self.rate)
         else:
             raise Exception()
             

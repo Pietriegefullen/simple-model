@@ -113,8 +113,8 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
             return best_parameters
         return best_parameters, best_loss
     
-def plot_fit(val_replica, run_log, measurement, log_fit):
-    val_replica.plot(measurements = [measurement])
+def plot_fit(val_replica, run_log, measurement, log_fit, rate = False):
+    val_replica.plot(measurements = [measurement], rate = rate)
     
     sample = val_replica.sample
     sample_name = sample.sample_name
@@ -122,26 +122,31 @@ def plot_fit(val_replica, run_log, measurement, log_fit):
     fit_replicas = ''.join([str(r.replica_number) 
                             for r in sample.replicas]).replace(str(val_replica.replica_number), '')
 
-    r2_val = run_log.R2(measurement, log_fit = log_fit)
+    r2_val = np.nan
+    if not rate:
+        run_log.R2(measurement, log_fit = log_fit)
     run_log.plot([measurement], newfigure = False, label = f'val R² = {r2_val:4.2f}')
     t_pred, pred_val = run_log[measurement]
     for repl in fit_replicas:
         if str(repl) in sample:
             fit_replica = sample[str(repl)]
             if measurement == 'CO2':
-                t_meas, meas_val = fit_replica.CO2()
+                t_meas, meas_val = fit_replica.CO2(rate = rate)
 
             else:
-                t_meas, meas_val = sample[str(repl)].CH4()
+                t_meas, meas_val = sample[str(repl)].CH4(rate = rate)
             t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
             idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
             idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
-            r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
+            r2_val = np.nan
+            if not rate:
+                r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
             
             fit_replica.plot(measurements = [measurement], 
                                                   label = f'fit R² = {r2_val:.2f}', 
                                                   marker = '.',
-                                                  newfigure = False)
+                                                  newfigure = False,
+                                                  rate = rate)
     ax = plt.gca()
     if log_fit:
         ax.set_yscale('log')
@@ -170,6 +175,8 @@ if __name__ == '__main__':
     log_co2 = False
     log_ch4 = True
     
+    rate = True
+    
     best = 'best' # 'best' or 'best_0-400 or ...
     dataset = data.get_data_before_day()
         
@@ -191,13 +198,15 @@ if __name__ == '__main__':
         print()
 
         log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
+        if rate:
+            log = pathway_model.system_change_log
     
         #plot_fitted_ratio(pathway_model, val_replica)
 
         #log.plot()
 
-        plot_fit(val_replica, log, 'CO2', log_co2)
-        plot_fit(val_replica, log, 'CH4', log_ch4)
+        plot_fit(val_replica, log, 'CO2', log_co2, rate = rate)
+        plot_fit(val_replica, log, 'CH4', log_ch4, rate = rate)
         
         # NOTE: xlim not adjusted to fitting range (e.g. before day 400)
 

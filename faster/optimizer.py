@@ -12,6 +12,15 @@ import USER_VARIABLES
 import linecache
 import os
 
+def compute_rate(d, val):
+    
+    dt = np.diff(d)
+    dv = np.diff(val)
+    
+    rate = dv/dt
+    rate = np.concatenate([rate[0], rate], axis = 0)
+    return rate
+
 def r2(predicted, measured, log = False):
     predicted = np.squeeze(predicted)
     measured = np.squeeze(measured)
@@ -71,6 +80,7 @@ class Algorithm():
                  loss_function_ch4 = 'mse',
                  parameter_range = None,
                  weighted_measurements = False,
+                 rate_penalty = 0,
                  normalized = False):
         variables = model.parameters().variables()
         print(len(variables), 'variables before setting bounds') 
@@ -118,7 +128,8 @@ class Algorithm():
                                         loss_function_co2 = loss_function_co2,
                                         loss_function_ch4 = loss_function_ch4,
                                         weighted_measurements = weighted_measurements,
-                                        normalized = normalized)
+                                        normalized = normalized,
+                                        rate_penalty = rate_penalty)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -346,6 +357,7 @@ class ReplicaObjective():
                  weighted_measurements = False,
                  loss_function_co2 = 'mse', 
                  loss_function_ch4 = 'mse',
+                 rate_penalty = 0,
                  normalized = False):
         self.model = model
         self.replica = replica
@@ -359,6 +371,7 @@ class ReplicaObjective():
         self.weighted_measurements = weighted_measurements
         self._weights = None
         self._normalized = normalized
+        self.rate_penalty = rate_penalty
         
         if not fit_to is None and fit_from >= fit_to:
             raise ValueError('"from" value >= "to" value')
@@ -447,6 +460,19 @@ class ReplicaObjective():
             w_CH4 = 1.
         loss = w_CO2*CO2_loss_value + w_CH4*CH4_loss_value
 
+        if self.rate_penalty > 0:
+            meas_CO2_rate = compute_rate(t, measured_CO2)
+            pred_CO2_rate = compute_rate(t, predicted_CO2)
+            meas_CH4_rate = compute_rate(t, measured_CH4)
+            pred_CH4_rate = compute_rate(t, predicted_CH4)
+            
+            rate_loss_co2 = Loss(pred_CO2_rate, meas_CO2_rate)
+            rate_loss_ch4 = Loss(pred_CH4_rate, meas_CH4_rate)
+            
+            rate_loss_value_co2 = rate_loss_co2.compute('mse')
+            rate_loss_value_ch4 = rate_loss_ch4.compute('mse')
+            
+            loss += rate_penalty*(w_CO2*rate_loss_value_co2 + w_CH4*rate_loss_value_ch4)
         return loss
     
     def plot(self):

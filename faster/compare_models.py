@@ -111,6 +111,7 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                local_search = False, 
                initial_parameters = None,
                weighted_measurements = False,
+               rate_penalty = 0,
                normalized = False):
     
     d = data.get_data_before_day()
@@ -159,6 +160,7 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                                      parameter_range = parameter_range,
                                      algorithm = None if not local_search else 'Powell',
                                      weighted_measurements = weighted_measurements,
+                                     rate_penalty = rate_penalty,
                                      normalized = normalized)
     
 if __name__ == '__main__':
@@ -181,6 +183,7 @@ if __name__ == '__main__':
     local_search = False
     weighted_measurements = False
     model_type = 'complex'
+    rate_penalty = 1.
    
     log_co2 = False
     log_ch4 = True
@@ -271,5 +274,6 @@ if __name__ == '__main__':
                local_search = local_search,
                initial_parameters = best_parameters,
                weighted_measurements = weighted_measurements,
+               rate_penalty = rate_penalty,
                normalized = normalized)
 
