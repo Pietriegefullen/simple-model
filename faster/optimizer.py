@@ -7,19 +7,13 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 
+from data import compute_rate
+
 import USER_VARIABLES
 
 import linecache
 import os
 
-def compute_rate(d, val):
-    
-    dt = np.diff(d)
-    dv = np.diff(val)
-    
-    rate = dv/dt
-    rate = np.concatenate([rate[0], rate], axis = 0)
-    return rate
 
 def r2(predicted, measured, log = False):
     predicted = np.squeeze(predicted)
@@ -425,10 +419,14 @@ class ReplicaObjective():
         w = np.array(self._weights)
 
         measured_CO2 = self.replica.incubation['CO2'][self.used_indices]
+        measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
         if 0 in t:
             measured_CO2 = measured_CO2[t != 0]
             predicted_CO2 = predicted_CO2[t != 0]
+            measured_CH4 = measured_CH4[t != 0]
+            predicted_CH4 = predicted_CH4[t != 0]
             w = w[t != 0]
+            t = t[t!=0]
 
         if self.log_co2:
             measured_CO2 = np.log(measured_CO2)
@@ -437,12 +435,7 @@ class ReplicaObjective():
             predicted_CO2 = np.where(np.isfinite(predicted_CO2), predicted_CO2, -12)
         CO2_loss = Loss(predicted_CO2, measured_CO2)
         CO2_loss_value = CO2_loss.compute(self.loss_function_co2)
-        
-        measured_CH4 = self.replica.incubation['CH4'][self.used_indices]
-        if 0 in t:
-            measured_CH4 = measured_CH4[t != 0]
-            predicted_CH4 = predicted_CH4[t != 0]
-            
+
         if self.log_ch4:
             measured_CH4 = np.log(measured_CH4)
             predicted_CH4 = np.log(predicted_CH4)
@@ -472,7 +465,9 @@ class ReplicaObjective():
             rate_loss_value_co2 = rate_loss_co2.compute('mse')
             rate_loss_value_ch4 = rate_loss_ch4.compute('mse')
             
-            loss += rate_penalty*(w_CO2*rate_loss_value_co2 + w_CH4*rate_loss_value_ch4)
+            pnlty = self.rate_penalty*(w_CO2*rate_loss_value_co2 + w_CH4*rate_loss_value_ch4)
+            print('Loss', loss, 'penalty', pnlty)
+            loss += pnlty
         return loss
     
     def plot(self):

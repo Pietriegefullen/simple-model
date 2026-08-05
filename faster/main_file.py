@@ -170,12 +170,12 @@ if __name__ == '__main__':
   
     model_type= 'complex'
     sample_name =  '1351' #1353 1351, 1367, 1369, 1370, 
-    replica_name = 6 # 4?, 5?, 6?
+    replica_name = 4 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
     
-    rate = True
+    rate = False
     
     best = 'best' # 'best' or 'best_0-400 or ...
     dataset = data.get_data_before_day()

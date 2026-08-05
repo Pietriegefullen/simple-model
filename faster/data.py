@@ -14,12 +14,12 @@ import loading
 
 
 def compute_rate(d, val):
-    
+    assert d.shape == val.shape
     dt = np.diff(d)
     dv = np.diff(val)
     
     rate = dv/dt
-    rate = np.concatenate([rate[0], rate], axis = 0)
+    rate = np.concatenate([[rate[0]], rate], axis = 0)
     return rate
 
 all_sample_numbers = {

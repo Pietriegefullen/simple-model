@@ -183,7 +183,8 @@ if __name__ == '__main__':
     local_search = False
     weighted_measurements = False
     model_type = 'complex'
-    rate_penalty = 1.
+    rate_penalty = 1000
+    
    
     log_co2 = False
     log_ch4 = True
