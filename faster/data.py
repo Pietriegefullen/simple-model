@@ -659,7 +659,7 @@ class Replica():
             handles += axs.get_legend_handles_labels()[0]
             labels += axs.get_legend_handles_labels()[1]
         
-        fig.legend(handles, labels, log = 'lower right')
+        fig.legend(handles, labels, loc = 'lower right')
         ax.set_xlabel('day')
         #ax.set_ylabel('gas')
         
