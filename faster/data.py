@@ -511,7 +511,7 @@ class Sample():
         for r in self.replicas:
             r.plot_ratio(ax)
             ax.set_title(str(self))
-            plt.legend()
+            plt.legend(loc = 'lower right')
         return ax
             
     def __str__(self):
@@ -659,7 +659,7 @@ class Replica():
             handles += axs.get_legend_handles_labels()[0]
             labels += axs.get_legend_handles_labels()[1]
         
-        fig.legend(handles, labels)
+        fig.legend(handles, labels, log = 'lower right')
         ax.set_xlabel('day')
         #ax.set_ylabel('gas')
         
