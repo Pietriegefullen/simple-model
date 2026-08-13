@@ -378,7 +378,7 @@ class ModelRun():
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
         
-        fig.legend(handles + handles2, labels + labels2)
+        fig.legend(handles + handles2, labels + labels2, loc = 'lower right')
         plt.title(v_name)
         
         return ax
@@ -442,7 +442,7 @@ class ModelRun():
                 
                 ax = ch4_ax
                 ax.set_title(n)
-                plt.legend()
+                plt.legend(loc = 'lower right')
                 
                 if log:
                     ax.set_yscale('log')
