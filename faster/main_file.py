@@ -17,21 +17,24 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
     
     
     suffix = best.replace('_', '').replace('best', '')
+    if not suffix == '' and not suffix.startswith('_'):
+        suffix = '_'+suffix
     sample_name = str(sample_name)
     folders = []
-    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY + suffix):
+    target = USER_VARIABLES.LOG_DIRECTORY + suffix
+    for _d in os.listdir(target):
         if any([sample_name + str(fr) in _d for fr in fit_replicas]) and \
          not (sample_name + str(replica_name)) in _d and model_type in _d:
             folders.append(_d)
 
     if len(folders) == 0:
-        raise Exception('Found no fit results directory in ' + str(USER_VARIABLES.LOG_DIRECTORY + suffix))
+        raise Exception('Found no fit results directory in ' + str(target))
        
     elif len(folders) >= 1:
         print('loading')
         all_files = []
         for f in folders:
-            parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, f)
+            parameter_source = os.path.join(target, f)
             
             all_files += model.get_all_loss_parameters(parameter_source)
             
@@ -177,7 +180,7 @@ if __name__ == '__main__':
     
     rate = False
     
-    best = 'best' # 'best' or 'best_0-400 or ...
+    best = None # 'best' or 'best_0-400 or ...
     dataset = data.get_data_before_day()
         
     #for sample_name in all_sample_numbers:

@@ -179,11 +179,11 @@ if __name__ == '__main__':
     loss_function_ch4 = 'mse'
     normalized = False
     narrower_range = False
-    best_N = 2
+    best_N = 3
     local_search = False
     weighted_measurements = False
     model_type = 'complex'
-    rate_penalty = 1000
+    rate_penalty = 0.#1000
     
    
     log_co2 = False
@@ -223,6 +223,7 @@ if __name__ == '__main__':
         suffix = '_' + str(int(fit_from)) + '-' + s_fit_to
     if suffix == '_0-None':
         suffix = ''
+        
         
     loaded_range = None
     replica_name = str(val_replica_number)
