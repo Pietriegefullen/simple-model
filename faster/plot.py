@@ -1,72 +1,159 @@
-import os
-import sys
+
 import matplotlib.pyplot as plt
-import data
-import USER_VARIABLES
-import model
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+#plt.rcParams['text.usetex'] = True
+import matplotlib.ticker as ticker
 
-if __name__ == '__main__':
-    d = data.get_data_before_day()
-    plot_log = False
-    if 'log' in sys.argv:
-        plot_log = True
+from chemistry import GIBBS_MINIMUM as DGmin
+
+
+CO2_COLOR = 'tab:blue'
+CH4_COLOR = 'tab:orange'
+
+def design(ax):
     
-    result_sample = sys.argv[1]
-    folders = []
-    for _d in os.listdir(USER_VARIABLES.LOG_DIRECTORY):
-        if result_sample in _d:
-            folders.append(_d)
-    #results_folder = 'fit_13544_2024-04-18--09-14-54'
+    is_right = ax.yaxis.get_ticks_position() == 'right'
+    if is_right:
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+
+    else:
+        ax.spines['right'].set_visible(False)
+
+    ax.spines['top'].set_visible(False)
     
-    for results_folder in folders:
-        model_type = None
-        if 'complex' in sys.argv:
-            model_type = 'complex'
-        elif 'simple' in sys.argv:
-            model_type = 'simple'
+    ax.spines['left'].set_position(('data', 0))
+    
+    ax.tick_params(axis="y", direction='out')
+    if ax.get_yscale() == 'linear':
+        ax.ticklabel_format(axis='y', style='plain')
+        ax.spines['bottom'].set_position(('data', 0))
+        ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.1f}'))
+        
+    return ax
 
-        parameter_source = os.path.join(USER_VARIABLES.LOG_DIRECTORY, results_folder)
-        best_loss, p = model.get_best_loss_parameters(parameter_source)
-        print('best loss', best_loss)
-       
-        loaded_model_type = 'simple'
-        if 'complex' in results_folder:
-            loaded_model_type = 'complex'
-            
-        if model_type is None:
-            model_type = loaded_model_type
+def xaxis_time(ax):
+    ax.set_xlabel('t [d]',  loc = 'right')
+    ax.xaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
+    
+    maxy = None
+    for line in ax.get_lines():
+        y = line.get_ydata()
+        if maxy is None or max(y) > maxy:
+            maxy = max(y)
+    if maxy <= 0:
+        ax.tick_params(axis="x", direction='in', labeltop = True, labelbottom = False)
+        ax.set_xlabel('t [d]',  loc = 'right', labelpad = -20)
+        ax.xaxis.set_label_coords(1.1, 1.06)
+        
+def title(ax, log, pathway = ''):
+    r = log.replica
+    sample = ' '.join([r.sample.sample_name, r.sample.site, f'({r.sample.origin})'])
+    pwy = ''
+    if not pathway == '':
+        pwy = f': {pathway} pathway'
+    ax.set_title(f'{sample}, replica {r.replica_number}{pwy}')
+    return ax
 
-        if model_type and not loaded_model_type == model_type:
-            continue
-        loaded_model = model.Model(model.get_pathways(model_type))
-        loaded_model.parameters().set(p)
-        print(loaded_model)
+def plot_Gibbs(log, pathway, ax = None):
+    if ax is None:
+       fig, ax = plt.subplots()
+    
+    t, DGr = log[f'{pathway}_deltaG_r']
+    
+    ax.plot(t, DGr)
+    
+    ax.plot([min(t), max(t)], [DGmin, DGmin], 'k--')
+    ax.annotate('Gibbs minimum', xy = (max(t), DGmin), ha = 'right', va = 'top',
+                xytext = (0, -6), textcoords = 'offset points')
+        
+    ax = design(ax)
+    xaxis_time(ax)
+    
+    ax.set_ylabel('ΔG [J/mol]', rotation = 0, loc = 'top', labelpad = -30)
+    
+    ax = title(ax, log, pathway)
 
-        fit_replicas = [s for s in results_folder.replace('simple', '').replace('complex','').replace('fit_', '').replace('log', '').split('_2024')[0].replace(' ', '_').split('_') if not s == '']
+    return ax
 
-        for repl in fit_replicas:
-            replica = d[repl]
+def legend(ax):
+    handles, labels = [], []
+    for axs in plt.gcf().axes:
+        handles += axs.get_legend_handles_labels()[0]
+        labels += axs.get_legend_handles_labels()[1]
+        
+    plt.gcf().axes[0].legend(handles, labels, 
+                             loc = 'best', 
+                             fancybox = False, 
+                             edgecolor = 'k')
 
-            model_run = loaded_model.predict(replica)
 
-            plt.figure()
-            model_run.plot(['CO2', 'CH4'], newfigure = False)
-            replica.plot(log = plot_log, newfigure = False)
-            ax = plt.gca()
-            t = ax.get_title()
-            plt.title(t + results_folder)
-            
-            #plt.figure()
-            #model_run.plot(['CO2', 'CH4'], newfigure = False)
-            #replica.plot(newfigure = False)
-            #ax = plt.gca()
-            #t = ax.get_title()
-            #plt.title(t + results_folder)
-            
+def plot_data(x, y, ax = None, **kwargs):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    ax.plot(x, y, 'x', **kwargs)
+    xaxis_time(ax)
+    return ax
 
-        #model_run.plot(['Fermentation_MM'])
-        #model_run.plot(['Hydrolysis_MM'])
-        #model_run.plot(['Hydro_MM'])
-        #model_run.plot(['Aceto_MM'])
+def plot_model(x,y, ax = None, **kwargs):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    ax.plot(x,y, '-', **kwargs)
+    xaxis_time(ax)
+    return ax
 
-    plt.show()
+def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, log_ch4 = True):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    axs = []
+    if plot_CO2:
+        t, data = log.replica.CO2()
+        plot_data(t, data, ax = ax, color = CO2_COLOR)
+        r2 = log.R2('CO2', log_fit = log_co2)
+        plot_model(*log['CO2'], ax = ax, color = CO2_COLOR, label = f'R² = {r2:.2f}')
+        design(ax)
+        axs.append(ax)
+        
+        ax.set_ylabel(f'CO2 [μmol]')
+
+    if plot_CH4:
+        if plot_CO2:
+            ax = ax.twinx()
+        t, data = log.replica.CH4()
+        ax = plot_data(t, data, ax = ax, color = CH4_COLOR)
+        r2 = log.R2('CH4', log_fit = log_ch4)
+        plot_model(*log['CH4'], ax = ax, color = CH4_COLOR, label = f'R² = {r2:.2f}')
+
+        ax.set_ylabel(f'CH4 [μmol]')
+
+        ax.set_yscale('log')
+        design(ax)
+        axs.append(ax)
+        
+        if plot_CO2:
+            axs[0].tick_params(axis='y', labelcolor=CO2_COLOR)
+            axs[0].yaxis.label.set_color(CO2_COLOR)
+            axs[1].tick_params(axis='y', labelcolor=CH4_COLOR)
+            axs[1].yaxis.label.set_color(CH4_COLOR)
+
+    design(ax)
+    title(ax, log)
+    legend(ax)
+    
+    
+def plot_thermodynamics(log, pathway, ax = None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    t, MM = log[f'{pathway}_MM']
+    t, f = log[f'{pathway}_thermodynamic_factor']
+    
+    plot_model(t,MM, ax = ax)
+    plot_model(t,f, ax = ax)
+    design(ax)
+    
+    return ax

@@ -116,7 +116,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
             return best_parameters
         return best_parameters, best_loss
     
-def plot_fit(val_replica, run_log, measurement, log_fit, rate = False):
+def plot_fit2(val_replica, run_log, measurement, log_fit, rate = False):
     val_replica.plot(measurements = [measurement], rate = rate)
     
     sample = val_replica.sample
@@ -170,10 +170,12 @@ def plot_fitted_ratio(pathway_model, val_replica):
 
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
+    
+    from plot import plot_Gibbs, plot_fit, plot_thermodynamics
   
     model_type= 'complex'
-    sample_name =  '1351' #1353 1351, 1367, 1369, 1370, 
-    replica_name = 4 # 4?, 5?, 6?
+    sample_name =  '1369' #1353 1351, 1367, 1369, 1370, 
+    replica_name = 5 # 4?, 5?, 6?
     reset_Fe3 = None #2000 # set the day on which to reset Fe3 to initial value, None to omit reset
     log_co2 = False
     log_ch4 = True
@@ -203,15 +205,11 @@ if __name__ == '__main__':
         log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
         if rate:
             log = pathway_model.system_change_log
-    
-        #plot_fitted_ratio(pathway_model, val_replica)
-
-        #log.plot()
-
-        plot_fit(val_replica, log, 'CO2', log_co2, rate = rate)
-        plot_fit(val_replica, log, 'CH4', log_ch4, rate = rate)
+            
+        plot_Gibbs(log, 'Fe3')
+        plot_fit(log)
         
-        # NOTE: xlim not adjusted to fitting range (e.g. before day 400)
+        plot_thermodynamics(log, 'Fe3')
 
         plt.show()
 
