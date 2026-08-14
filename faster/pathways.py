@@ -82,7 +82,6 @@ class Pathway():
     def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
         eps = 1e-12    
     
-    
         R = CONSTANTS.GAS_CONSTANT
         T = 4. + CONSTANTS.KELVIN
                 
@@ -91,13 +90,12 @@ class Pathway():
     
         dissolved_S = HENRYS_LAW*S # micromoles per g dry weight
 
-        # substances are given in micromole per g dry weight of soil.
+        # substances are in micromole per g dry weight of soil.
         # this is not a concentration but a normalized amount.
         # instead, use activities of dissolved species in mol/L
         
         rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
         m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
-        
         water_content = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
         
         activities = 10**-6 * dissolved_S/water_content # mol/L   
