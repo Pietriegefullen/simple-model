@@ -41,7 +41,7 @@ def henrys_law(substance):
     if not substance in HENRYS_DICT:
         return 1.0
 
-    T = CONSTANTS.SPECIMEN_TEMPERATURE + 273.15
+    T = CONSTANTS.SPECIMEN_TEMPERATURE# + 273.15
 
     H_cp_temp = HENRYS_DICT[substance]['H_cp_temp']
     H_cp_Standard = HENRYS_DICT[substance]['H_cp_Standard']
