@@ -1,4 +1,6 @@
 
+import numpy as np
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -147,7 +149,48 @@ def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, 
     design(ax)
     title(ax, log)
     legend(ax)
+
+
+def plot_pathways(log, ax = None):
+    if ax is None:
+        fig, ax = plt.subplots()
     
+    # TODO: 
+    # for each pathway get biomass, 
+    # get v (not v_max)
+    # compute pathway 'activity' as biomass * v
+    # plot as stacked?
+    stack = []
+    pathways = set([name.split('_')[0] for name in log._log.keys() if '_' in name])
+    pathways.remove('CO2')
+    pathways.remove('CH4')
+    pathways.remove('M')
+    labels = []
+    for pathway in pathways:
+        microbe = 'M_' + pathway
+        v = pathway + '_v'
+        
+        if microbe == 'M_Aceto':
+            microbe = 'M_Ac'
+        elif microbe == 'M_Fermentation' or  microbe == 'M_Hydrolysis':
+            microbe = 'M_Ferm'
+        
+        if not v in log._log:
+            continue
+    
+        t, biomass = log[microbe]
+        t_v, _v = log[v]
+        _v = np.interp(t, t_v, _v)
+        stack.append(biomass*_v)
+        labels.append(pathway)
+        
+    ax.stackplot(t, *stack, labels = labels)
+    #ax.set_yscale('log')
+    design(ax)
+    ax.legend()
+    
+    return ax
+
 
 def plot_thermodynamics(log, pathway, ax = None):
     if ax is None:
