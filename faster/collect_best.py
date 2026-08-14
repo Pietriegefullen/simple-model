@@ -86,7 +86,7 @@ for f in os.listdir(source):
 if not plot is None:
     import data
     dataset = data.get_data_before_carex()
-    from main_file import load_fitted_parameters, plot_fit
+    from main_file import load_fitted_parameters, plot_fit2 as plot_fit
     import model
     import matplotlib.pyplot as plt
     

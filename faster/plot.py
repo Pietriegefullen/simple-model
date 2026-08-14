@@ -113,8 +113,10 @@ def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, 
     if plot_CO2:
         t, data = log.replica.CO2()
         plot_data(t, data, ax = ax, color = CO2_COLOR)
+        ylim = ax.get_ylim()
         r2 = log.R2('CO2', log_fit = log_co2)
         plot_model(*log['CO2'], ax = ax, color = CO2_COLOR, label = f'R² = {r2:.2f}')
+        ax.set_ylim(ylim)
         design(ax)
         axs.append(ax)
         
@@ -125,8 +127,10 @@ def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, 
             ax = ax.twinx()
         t, data = log.replica.CH4()
         ax = plot_data(t, data, ax = ax, color = CH4_COLOR)
+        ylim = ax.get_ylim()
         r2 = log.R2('CH4', log_fit = log_ch4)
         plot_model(*log['CH4'], ax = ax, color = CH4_COLOR, label = f'R² = {r2:.2f}')
+        ax.set_ylim(ylim)
 
         ax.set_ylabel(f'CH4 [μmol]')
 
@@ -144,7 +148,7 @@ def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, 
     title(ax, log)
     legend(ax)
     
-    
+
 def plot_thermodynamics(log, pathway, ax = None):
     if ax is None:
         fig, ax = plt.subplots()
