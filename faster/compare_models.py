@@ -173,11 +173,11 @@ if __name__ == '__main__':
     fit_to = None
     
     normalized_parameters = True
-    loss_weight_CO2 = 0.1
+    loss_weight_CO2 = 1.0
     loss_weight_CH4 = 1.0
     loss_function_co2 = 'mse'
     loss_function_ch4 = 'mse'
-    normalized = False
+    normalized = True
     narrower_range = False
     best_N = 3
     local_search = False
@@ -185,7 +185,6 @@ if __name__ == '__main__':
     model_type = 'complex'
     rate_penalty = 0.#1000
     
-   
     log_co2 = False
     log_ch4 = True
    
