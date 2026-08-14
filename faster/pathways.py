@@ -90,12 +90,13 @@ class Pathway():
     
         dissolved_S = HENRYS_LAW*S # micromoles per g dry weight
 
-        # substances are in micromole per g dry weight of soil.
+        # substances are  in micromole per g dry weight of soil.
         # this is not a concentration but a normalized amount.
         # instead, use activities of dissolved species in mol/L
         
         rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
         m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
+        
         water_content = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
         
         activities = 10**-6 * dissolved_S/water_content # mol/L   
@@ -111,10 +112,11 @@ class Pathway():
         return thermodynamic_factor
     
     def __call__(self, t, S): # hier rechnen wir die MM Faktoren
-        S = np.maximum(S, 0)
+        eps = 1e-12
+        S = np.maximum(S, eps)
         
         biomass = S[self.microbe_index]
-        biomass = np.maximum(biomass, 1e-8) # why not 0?
+        biomass = np.maximum(biomass, eps) # why not 0?
             
         dissolved_S = HENRYS_LAW*S
 
@@ -125,16 +127,14 @@ class Pathway():
 
         MM = np.where((self.Km + dissolved_S) == 0, 
                       1,
-                      np.where(dissolved_S == 0,
-                               0,
-                               dissolved_S/(self.Km + dissolved_S + eps)))
+                      dissolved_S/(self.Km + dissolved_S + eps))
         MM_factor = np.prod(MM)
         
         v = self.v_max * MM_factor
 
         if self.use_inhib:
             inhib = 1 - np.where(self.inhibition + dissolved_S == 0, 0, 
-                                 dissolved_S/(self.inhibition + dissolved_S))
+                                 dissolved_S/(self.inhibition + dissolved_S + eps))
             inhib_factor = np.prod(inhib)
             v *= inhib_factor
             self.log('inhib', t, inhib_factor)
