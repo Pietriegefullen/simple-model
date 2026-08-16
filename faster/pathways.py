@@ -15,6 +15,15 @@ def pathway_by_name(name):
             'Fermentation': Fermentation}
     return pwys[name]
 
+def pathway_color(name):
+    pwys = {'Homo': 'tab:pink', 
+            'Fe3': 'tab:red',
+            'Fermentation': 'tab:brown', 
+            'Hydro': 'tab:cyan',
+            'Hydrolysis': 'tab:olive',
+            'Aceto': 'tab:purple'}
+    return pwys[name]
+
 class Pathway():
     def __init__(self, microbe, educts, products):        
         self.educts = educts
