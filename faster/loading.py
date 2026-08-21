@@ -3,6 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 
+import CONSTANTS
+
 
 def load_metadata(source_directory):
     raw_metadata = _load_raw_metadata(source_directory)
@@ -231,3 +233,74 @@ def _load_raw_ergaenzung(source_directory):
             samples[current_replica]['events'].append(event)
             
     return samples
+
+
+#schmiererreien ab hier
+
+def _load_bhz(source_directory):
+    excel_file = os.path.join(source_directory,'bhz_modified.xlsx')
+
+    raw_bhz = pd.read_excel(excel_file, engine = 'openpyxl',
+                                   sheet_name = 'Tabelle1',
+                                   header = 3)
+        
+    use_columns = [ 
+                    'Sample',
+                    'Soil_layer',
+                    'ID',    
+                    'replica',
+                    'day',
+                    'CO2',
+                    'CH4',
+                    'pH',
+                    'SOC',
+                    'Moisture',
+                    'Total soil (wet)'
+                    ]
+    raw_bhz = raw_bhz.loc[:,use_columns]        
+    raw_bhz = raw_bhz.drop(index = 0)
+    raw_bhz.loc[:,use_columns[2:]] = raw_bhz.loc[:,use_columns[2:]].astype(float)
+    raw_bhz.loc[:,'replica'] = raw_bhz.loc[:,'replica'].astype(int)
+    #raw_bhz['sample number'] = (raw_bhz['ID'].astype(int) + 3000).astype(str)
+    metadata_dict = {}
+    for i, row in raw_bhz.iterrows():
+        if i == 0 or row['ID'] == '':
+            continue
+        sample_name = str(int(str(row['Sample'])[-4:])+3000)
+        replica_name = sample_name + str((int(row['ID'])-1)*3 + int(row['replica']))
+        if replica_name in metadata_dict: 
+            continue
+        metadata_dict[sample_name] = {'depth': None,
+                                               'Corg': row['SOC'],
+                                               'pH': row['pH'],
+                                               'site': 'bhz',
+                                               'origin': row['Soil_layer'].lower()}
+    samples = {}
+    for i, row in raw_bhz.iterrows():
+        sample_name = str(int(str(row['Sample'])[-4:])+3000)
+
+        current_replica = sample_name + str(row['replica'])
+        
+        if not current_replica in samples:
+            # extract replica constants (weight wet sample)
+            dry_weight = row['Total soil (wet)']/(row['Moisture'] + 1)
+            water_content = row['Moisture']*dry_weight/CONSTANTS.DENSITY_WATER_4_DEGC*1000# ml
+            samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
+                                       'events': [], 
+                                       'dry weight': dry_weight,
+                                       'water content': water_content}
+
+        samples[current_replica]['days'].append(row['day'])
+        samples[current_replica]['CO2'].append(row['CO2'])
+        samples[current_replica]['CH4'].append(row['CH4'])
+    
+    for replica_name, v in samples.items():
+        sample_name = replica_name[:-1]
+        samples[replica_name].update(metadata_dict[sample_name])
+        
+    return samples
+
+if __name__ == '__main__':
+    from USER_VARIABLES import ROOT_DIRECTORY
+
+    print(_load_bhz(ROOT_DIRECTORY))

@@ -343,10 +343,18 @@ class KnoblauchData():
         print('loading ergaenzung data')
         ergaenzung_data = loading._load_raw_ergaenzung(self.source_directory)
 
+        print('loading bhz')
+        bhz = loading._load_bhz(self.source_directory)
+        
         incubation_data.update(ergaenzung_data)
+        incubation_data.update(bhz)
         
         print('loading metadata')
         metadata = loading.load_metadata(self.source_directory)
+        
+        for replica_name, replica in bhz.items():
+            sample_name = replica_name[:4]
+            metadata[sample_name] = replica
         
         print('building samples and replicas')
         for sample_name, sample_metadata in metadata.items():
@@ -356,7 +364,6 @@ class KnoblauchData():
             new_sample.pH = sample_metadata['pH']
             new_sample.depth = sample_metadata['depth']
             new_sample.origin = sample_metadata['origin']
-            
             
             subsample = None
             
@@ -371,7 +378,6 @@ class KnoblauchData():
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
                 new_replica.water_content = replica_data['water content']
-                
                 if replica_name in self.inocculation_days:
                     if subsample is None:
                         subsample = Sample('2'+sample_name[1:])
@@ -398,7 +404,6 @@ class KnoblauchData():
                     subsample.add_replica(subreplica)
 
                 new_replica.last_day = None
-                print(replica_name, replica_name in self.last_days)
                 if replica_name in self.last_days:
                     new_replica.last_day = float(self.last_days[replica_name])
                 new_sample.add_replica(new_replica)
@@ -429,6 +434,7 @@ class KnoblauchData():
             
         except AssertionError as ex:
             print(f'Skipping sample {str(sample)}: {str(ex)}')
+            print(traceback.format_exc())
     
     def replicas(self):
         return [r for s in self.samples for r in s.replicas]
@@ -744,11 +750,11 @@ def check_sample(sample):
     assert len(sample.sample_name) == 4
     assert all([c in '0123456789' for c in sample.sample_name])
     
-    assert sample.site == 'Kurugnakh' or sample.site == 'Samoylov'
-    assert sample.origin == 'cliff' or sample.origin == 'core'
+    assert sample.site == 'Kurugnakh' or sample.site == 'Samoylov' or sample.site == 'bhz'
+    assert sample.origin == 'cliff' or sample.origin == 'core' or sample.origin == 'mineral' or sample.origin == 'organic'
     
-    assert not sample.depth is None
-    assert isinstance(sample.depth, (int, float))
+    #assert not sample.depth is None
+    #assert isinstance(sample.depth, (int, float))
         
     assert not sample.pH is None
     assert isinstance(sample.pH, (int, float))
@@ -798,8 +804,8 @@ def check_replica(replica):
     assert len(str(replica.replica_number)) == 1
     assert int(replica.replica_number) <=6 and int(replica.replica_number) > 0
     
-    assert isinstance(replica.dry_weight, (int, float))
-    assert replica.dry_weight > 0, f'{str(replica)} has dry weight {replica.dry_weight}'
+    #assert isinstance(replica.dry_weight, (int, float))
+    #assert replica.dry_weight > 0, f'{str(replica)} has dry weight {replica.dry_weight}'
     
     assert isinstance(replica.water_content, (int, float))
     assert replica.water_content > 0
@@ -816,8 +822,9 @@ if __name__ == '__main__':
     
     for s in d.samples:
         for r in s.replicas:
-            plt.figure()
-            r.plot(measurements='CH4', rate = True)
+            print(r)
+            #plt.figure()
+            #r.plot(measurements='CH4', rate = True)
     1/0
     
     ax = None

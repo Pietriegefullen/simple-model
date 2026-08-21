@@ -485,7 +485,7 @@ def get_all_loss_parameters(parameter_source):
             with open(file, 'r') as pf:
                 loaded_parameters = json.load(pf)
             all_files.append((loss, loaded_parameters))
-    return sorted(all_files)
+    return sorted(all_files, key = lambda v: v[0])
 
 def get_best_loss_parameters(parameter_source):
     all_files = get_all_loss_parameters(parameter_source)

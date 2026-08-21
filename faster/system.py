@@ -66,4 +66,14 @@ def initial_state(replica, model_parameters):
             v = vector(0, pool, init)
             S0 += v
     
+    if not replica is None and str(replica.sample.sample_name).startswith('2'):
+        # inocculated sample
+        S0[index('Fe3')] = model_parameters['Fe3'].constant(0)
+        S0[index('Acetate')] = model_parameters['Acetate'].constant(0)
+        S0[index('DOC')] = model_parameters['DOC'].constant(0)
+
+        S0[index('CO2')] = replica.incubation['CO2'][0]
+        S0[index('CH4')] = replica.incubation['CH4'][0]
+
+    
     return S0
