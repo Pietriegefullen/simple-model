@@ -266,8 +266,8 @@ def _load_bhz(source_directory):
     for i, row in raw_bhz.iterrows():
         if i == 0 or row['ID'] == '':
             continue
-        sample_name = str(int(str(row['Sample'])[-4:])+3000)
-        replica_name = sample_name + str((int(row['ID'])-1)*3 + int(row['replica']))
+        sample_name = str(int(str(row['Sample'])[-4:]) +100*int(row['ID'])+3000)
+        replica_name = sample_name + str(row['replica'])
         if replica_name in metadata_dict: 
             continue
         metadata_dict[sample_name] = {'depth': None,
@@ -277,7 +277,7 @@ def _load_bhz(source_directory):
                                                'origin': row['Soil_layer'].lower()}
     samples = {}
     for i, row in raw_bhz.iterrows():
-        sample_name = str(int(str(row['Sample'])[-4:])+3000)
+        sample_name = str(int(str(row['Sample'])[-4:]) +100*int(row['ID'])+3000)
 
         current_replica = sample_name + str(row['replica'])
         
