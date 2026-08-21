@@ -231,3 +231,69 @@ def _load_raw_ergaenzung(source_directory):
             samples[current_replica]['events'].append(event)
             
     return samples
+
+
+#schmiererreien ab hier
+
+def _load_bhz(source_directory):
+    excel_file = os.path.join(source_directory,'bhz.xlsx')
+
+    raw_bhz = pd.read_excel(excel_file, engine = 'openpyxl',
+                                   sheet_name = 'Tabelle1',
+                                   header = 3)
+        
+    use_columns = [ 
+                    'ID',    
+                    'replica',
+                    'day',
+                    'CO2',
+                    'CH4',
+                    'pH',
+                    'SOC',
+                    ]
+    raw_bhz = raw_bhz.loc[:,use_columns]        
+    raw_bhz = raw_bhz.drop(index = 0)
+    raw_bhz.loc[:,use_columns[:5]] = raw_bhz.loc[:,use_columns[:5]].astype(float)
+    raw_bhz.loc[:,'replica'] = raw_bhz.loc[:,'replica'].astype(int)
+    raw_bhz['sample number'] = (raw_bhz['ID'].astype(int) + 3000).astype(str)
+    metadata_dict = {}
+    for i, row in raw_bhz.iterrows():
+        if i == 0 or row['ID'] == '':
+            continue
+        replica_name = str(row['sample number']) + str(row['replica'])
+        if replica_name in metadata_dict: 
+            continue
+        metadata_dict[replica_name] = {'depth': None,
+                                               'Corg': row['SOC'],
+                                               'pH': row['pH'],
+                                               'site': 'bhz',
+                                               'origin': 'bhz'}
+    samples = {}
+    for i, row in raw_bhz.iterrows():
+        current_replica = str(row['sample number']) + str(row['replica'])
+        previous_day = None
+        # extract replica constants (weight wet sample)
+        dry_weight = None # row['dry weight (g)']
+        water_content = None # row['Water content (ml)']
+        
+        if not current_replica in samples:
+            samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
+                                       'events': [], 
+                                       'dry weight': dry_weight,
+                                       'water content': water_content}
+        day = row['day']
+        co2_value = row['CO2']
+        ch4_value = row['CH4']
+        samples[current_replica]['days'].append(day)
+        samples[current_replica]['CO2'].append(co2_value)
+        samples[current_replica]['CH4'].append(ch4_value)
+    
+    for k, v in samples.items():
+        samples[k].update(metadata_dict[k])
+        
+    return samples
+
+if __name__ == '__main__':
+    from USER_VARIABLES import ROOT_DIRECTORY
+
+    print(_load_bhz(ROOT_DIRECTORY))

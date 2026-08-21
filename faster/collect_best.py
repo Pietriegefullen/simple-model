@@ -46,6 +46,7 @@ for f in os.listdir(source):
         continue
     
     replica_target = os.path.join(target, sample_name, fit_replicas)
+    print('replica target', replica_target)
     
     if not os.path.isdir(replica_target):
         os.makedirs(replica_target)
