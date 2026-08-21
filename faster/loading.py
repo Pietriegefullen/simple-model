@@ -3,6 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 
+import CONSTANTS
+
 
 def load_metadata(source_directory):
     raw_metadata = _load_raw_metadata(source_directory)
@@ -236,13 +238,15 @@ def _load_raw_ergaenzung(source_directory):
 #schmiererreien ab hier
 
 def _load_bhz(source_directory):
-    excel_file = os.path.join(source_directory,'bhz.xlsx')
+    excel_file = os.path.join(source_directory,'bhz_modified.xlsx')
 
     raw_bhz = pd.read_excel(excel_file, engine = 'openpyxl',
                                    sheet_name = 'Tabelle1',
                                    header = 3)
         
     use_columns = [ 
+                    'Sample',
+                    'Soil_layer',
                     'ID',    
                     'replica',
                     'day',
@@ -250,46 +254,49 @@ def _load_bhz(source_directory):
                     'CH4',
                     'pH',
                     'SOC',
+                    'Moisture',
+                    'Total soil (wet)'
                     ]
     raw_bhz = raw_bhz.loc[:,use_columns]        
     raw_bhz = raw_bhz.drop(index = 0)
-    raw_bhz.loc[:,use_columns[:5]] = raw_bhz.loc[:,use_columns[:5]].astype(float)
+    raw_bhz.loc[:,use_columns[2:]] = raw_bhz.loc[:,use_columns[2:]].astype(float)
     raw_bhz.loc[:,'replica'] = raw_bhz.loc[:,'replica'].astype(int)
-    raw_bhz['sample number'] = (raw_bhz['ID'].astype(int) + 3000).astype(str)
+    #raw_bhz['sample number'] = (raw_bhz['ID'].astype(int) + 3000).astype(str)
     metadata_dict = {}
     for i, row in raw_bhz.iterrows():
         if i == 0 or row['ID'] == '':
             continue
-        replica_name = str(row['sample number']) + str(row['replica'])
+        sample_name = str(int(str(row['Sample'])[-4:])+3000)
+        replica_name = sample_name + str((int(row['ID'])-1)*3 + int(row['replica']))
         if replica_name in metadata_dict: 
             continue
-        metadata_dict[replica_name] = {'depth': None,
+        metadata_dict[sample_name] = {'depth': None,
                                                'Corg': row['SOC'],
                                                'pH': row['pH'],
                                                'site': 'bhz',
-                                               'origin': 'bhz'}
+                                               'origin': row['Soil_layer'].lower()}
     samples = {}
     for i, row in raw_bhz.iterrows():
-        current_replica = str(row['sample number']) + str(row['replica'])
-        previous_day = None
-        # extract replica constants (weight wet sample)
-        dry_weight = None # row['dry weight (g)']
-        water_content = None # row['Water content (ml)']
+        sample_name = str(int(str(row['Sample'])[-4:])+3000)
+
+        current_replica = sample_name + str(row['replica'])
         
         if not current_replica in samples:
+            # extract replica constants (weight wet sample)
+            dry_weight = row['Total soil (wet)']/(row['Moisture'] + 1)
+            water_content = row['Moisture']*dry_weight/CONSTANTS.DENSITY_WATER_4_DEGC*1000# ml
             samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
                                        'water content': water_content}
-        day = row['day']
-        co2_value = row['CO2']
-        ch4_value = row['CH4']
-        samples[current_replica]['days'].append(day)
-        samples[current_replica]['CO2'].append(co2_value)
-        samples[current_replica]['CH4'].append(ch4_value)
+
+        samples[current_replica]['days'].append(row['day'])
+        samples[current_replica]['CO2'].append(row['CO2'])
+        samples[current_replica]['CH4'].append(row['CH4'])
     
-    for k, v in samples.items():
-        samples[k].update(metadata_dict[k])
+    for replica_name, v in samples.items():
+        sample_name = replica_name[:-1]
+        samples[replica_name].update(metadata_dict[sample_name])
         
     return samples
 

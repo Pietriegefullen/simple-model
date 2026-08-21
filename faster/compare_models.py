@@ -165,8 +165,8 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 2356
-    default_val_replica_number = 4
+    default_sample = 3001
+    default_val_replica_number = 1
     default_model_type = 'complex'
         
     fit_from = 0
