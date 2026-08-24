@@ -12,6 +12,7 @@ from main_file import load_fitted_parameters
 import parameters
 import model
 import pathways
+import system
 import numpy as np
 
 if __name__ == '__main__':
@@ -25,6 +26,7 @@ if __name__ == '__main__':
     
     best = 'best' # 'best_0-400', ...
     
+    r2thresh = .8
     
     replicas = [str(r) for r in d.replicas()]
     
@@ -74,7 +76,6 @@ if __name__ == '__main__':
                 continue
             raise ex
     
-        all_replicas.append(rep)
         all_parameters[str(rep)] = loaded_parameters
         all_parameters[str(rep)]['loss'] = float(loaded_loss)
         
@@ -85,18 +86,42 @@ if __name__ == '__main__':
         val_r2_CO2 = log.R2('CO2', log_fit = log_CO2)
         val_r2_CH4 = log.R2('CH4', log_fit = log_CO2)
         
+        
+        if not r2thresh is None and (val_r2_CO2 < r2thresh or val_r2_CH4 < r2thresh):      
+            continue
+        
         all_parameters[str(rep)]['R2_CO2'] = val_r2_CO2
         all_parameters[str(rep)]['R2_CH4'] = val_r2_CH4
+        
+        all_replicas.append(rep)
+
     
     parameter_ordering = sorted(loaded_parameters.keys())
         
     groups = []
+    initial_registry = parameters.ModelParameters()
+    system.initial_state(None, initial_registry)
+    initial_parameters = initial_registry.as_dict()
     for pathway_name in model.get_pathways('complex'):
         pathway = pathways.pathway_by_name(pathway_name)
         parameter_registry = parameters.ModelParameters()
         pathway(parameter_registry)
         pathway_parameters = parameter_registry.as_dict()
         groups.append(list(pathway_parameters.keys()))
+        
+        if pathway_name == 'Fe3':
+            groups[-1].append('Fe3')
+            groups[-1].append('M_Fe3')
+        
+        elif pathway_name == 'Aceto':
+            groups[-1].append('Acetate')
+            groups[-1].append('M_Ac')
+        
+        elif pathway_name == 'Fermentation' or pathway_name == 'Hydrolysis':
+            groups[-1].append('M_Ferm')
+        
+        else:
+            groups[-1].append('M_'+pathway_name)
     
     dp = parameters.ModelParameters({p.name:p for p in parameters.default_model_parameters()})
     for parameter_group in groups:

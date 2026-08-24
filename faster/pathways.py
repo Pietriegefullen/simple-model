@@ -129,20 +129,16 @@ class Pathway():
             
         dissolved_S = HENRYS_LAW*S
 
-        # setting eps > 0 where dissolved_S == 0 has no effect
-        # because MM will be 0 anyway.
-        # only to suppress warnings 
-        eps = np.where(dissolved_S == 0, 1e-8, 0) 
-
-        MM = np.where((self.Km + dissolved_S) == 0, 
-                      1,
+        MM = np.where(self.Km == 0,
+                       1.,
                       dissolved_S/(self.Km + dissolved_S + eps))
+
         MM_factor = np.prod(MM)
         
         v = self.v_max * MM_factor
 
         if self.use_inhib:
-            inhib = 1 - np.where(self.inhibition + dissolved_S == 0, 0, 
+            inhib = 1 - np.where(np.isinf(self.inhibition), 0, 
                                  dissolved_S/(self.inhibition + dissolved_S + eps))
             inhib_factor = np.prod(inhib)
             v *= inhib_factor
