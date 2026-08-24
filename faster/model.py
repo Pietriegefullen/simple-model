@@ -453,8 +453,12 @@ class ModelRun():
                     ax.set_ylim([0,ax.get_ylim()[1]])
                     pass
             
-                elif 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
+                elif 'inhib' in n or 'thermodynamic_factor' in n:
                     ax.set_ylim([0.,1])
+                    
+                elif 'MM' in n:
+                    ax.set_yscale('log')
+                    ax.set_ylim([1e-5, 1e0])
     
                 if not xlim is None:
                     ax.set_xlim(xlim)
