@@ -198,8 +198,8 @@ if __name__ == '__main__':
     else:        
         val_replica_number = int(sys.argv[2])
         
-        if val_replica_number < 4 or val_replica_number > 6:
-            raise Exception()
+        #if val_replica_number < 4 or val_replica_number > 6:
+        #    raise Exception()
             
         if 'narrow' in sys.argv:
             narrower_range = True
