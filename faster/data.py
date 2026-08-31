@@ -820,11 +820,8 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
-    for s in d.samples:
-        for r in s.replicas:
-            print(r)
-            #plt.figure()
-            #r.plot(measurements='CH4', rate = True)
+    for sample in d.samples:
+        print(sample)
     1/0
     
     ax = None
