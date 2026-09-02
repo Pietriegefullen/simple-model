@@ -12,7 +12,7 @@ import USER_VARIABLES
 after = '2026-08-04--08-30'
 
 plot = True #['1351']
-plot_only_missing = False
+plot_only_missing = True
 
 log_co2 = False
 log_ch4 = True
@@ -97,7 +97,10 @@ if not plot is None:
     
 for sample_name in os.listdir(target):
     print(sample_name)        
-    for fit_replicas in os.listdir(os.path.join(target, sample_name)):
+    sample_dir = os.path.join(target, sample_name)
+    if not os.path.isdir(sample_dir):
+        continue
+    for fit_replicas in os.listdir(sample_dir):
         results = [f for f in os.listdir(os.path.join(target, sample_name, fit_replicas))
                    if os.path.isfile(os.path.join(target, sample_name, fit_replicas, f))]
         if len(results) == 0:
