@@ -11,7 +11,7 @@ import USER_VARIABLES
 
 after = '2026-08-04--08-30'
 
-fit_mode = 'split' # 'single' OR 'split
+fit_mode = 'single' # 'single' OR 'split
 
 plot = True #['1351']
 plot_only_missing = True
@@ -164,7 +164,8 @@ for sample_name in os.listdir(target):
                 os.makedirs(plot_target)
                 
             for m, log_plot in zip(['CO2', 'CH4'], [log_co2, log_ch4]):
-                plot_fit(sample[val_replica], log, m, log_plot)
+                plot_fit(sample[val_replica], log, m, log_plot,
+                         single_fit = fit_mode == 'single')
                 
                 if not day_limits is None:
                     plt.gca().set_xlim(day_limits)
