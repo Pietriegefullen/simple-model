@@ -8,23 +8,30 @@ from data import all_sample_numbers
 import numpy as np
 import parameters
 
-def load_parameter_range(sample_name, replica_name, model_type, best_N, after = None, best = 'best'):
+def load_parameter_range(sample_name, replica_name, model_type, best_N, 
+                         after = None, suffix = 'best'):
     import data
     d = data.get_data_before_carex()
     sample = d[sample_name]
     repls = ''.join([str(r.replica_number) for r in sample.replicas])
     fit_replicas = repls.replace(str(replica_name),'')
     
-    
-    suffix = best.replace('_', '').replace('best', '')
+    if suffix == 'best':
+        suffix = ''
+
+    fit_mode = 'split'
+    if suffix == '_single':
+        fit_replicas = replica_name
+        fit_mode = 'single'
+
     if not suffix == '' and not suffix.startswith('_'):
         suffix = '_'+suffix
     sample_name = str(sample_name)
     folders = []
     target = USER_VARIABLES.LOG_DIRECTORY + suffix
     for _d in os.listdir(target):
-        if any([sample_name + str(fr) in _d for fr in fit_replicas]) and \
-         not (sample_name + str(replica_name)) in _d and model_type in _d:
+        if any([sample_name + str(fr) in _d for fr in fit_replicas]) and model_type in _d and\
+         not (fit_mode == 'split' and (sample_name + str(replica_name)) in _d) :
             folders.append(_d)
 
     if len(folders) == 0:
@@ -55,7 +62,8 @@ def load_parameter_range(sample_name, replica_name, model_type, best_N, after = 
                 
     return largest_range
 
-def load_fitted_parameters(sample_name, replica_name, model_type, after = None, best = 'best', return_loss = False):
+def load_fitted_parameters(sample_name, replica_name, model_type, after = None, 
+                           best = 'best', return_loss = False):
     import data
     d = data.get_data_before_day()
     sample = d[sample_name]

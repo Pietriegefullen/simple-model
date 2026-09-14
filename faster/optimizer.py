@@ -75,7 +75,8 @@ class Algorithm():
                  parameter_range = None,
                  weighted_measurements = False,
                  rate_penalty = 0,
-                 normalized = False):
+                 normalized = False,
+                 suffix = ''):
         variables = model.parameters().variables()
         print(len(variables), 'variables before setting bounds') 
         if not parameter_range is None:
@@ -88,9 +89,14 @@ class Algorithm():
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
             
-        suffix = ''
+        range_suffix = ''
         if not fit_from == 0 or not fit_to is None:
-            suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
+            range_suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
+        
+        if not suffix == '':
+            suffix = '_'.join([range_suffix, suffix])
+        else:
+            suffix = range_suffix
         
         print()
         rep = '_'.join([str(r) for r in replicas])
@@ -216,6 +222,8 @@ class Objective():
         self._best_call = None
         model_type = model.model_type()
         self.cp_path = target_directory_path(replica_objectives, model_type, suffix)
+        print(self.cp_path)
+        input()
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
         self._keep_only_best = keep_only_best

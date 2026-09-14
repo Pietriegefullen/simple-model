@@ -127,13 +127,14 @@ class Model():
             parameter_range = None,
             weighted_measurements = False,
             rate_penalty = 0,
-            normalized = False):
+            normalized = False,
+            suffix = ''):
         if algorithm is None:
             algorithm = OPTIMIZATION_ALGORITHM
             
         if not isinstance(replicas, list):
             replicas = [replicas]
-            
+        
         algo = optimizer.Algorithm(algorithm, 
                                    **optimizer.algo_kwargs(algorithm))
         return algo.minimize(self, replicas, log_co2 = log_co2, log_ch4 = log_ch4,
@@ -145,7 +146,8 @@ class Model():
                              parameter_range = parameter_range,
                              weighted_measurements = weighted_measurements,
                              rate_penalty = rate_penalty,
-                             normalized = normalized)
+                             normalized = normalized,
+                             suffix = suffix)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000):
