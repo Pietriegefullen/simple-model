@@ -13,6 +13,8 @@ after = '2026-08-04--08-30'
 
 fit_mode = 'single' # 'single' OR 'split
 
+initial_mean_days = 0
+
 plot = True #['1351']
 plot_only_missing = True
 
@@ -158,7 +160,8 @@ for sample_name in os.listdir(target):
             pathway_model = model.Model(selected_pathways)
             pathway_model.parameters().set(loaded_parameters)
             
-            log = pathway_model.predict(sample[val_replica])
+            log = pathway_model.predict(sample[val_replica],
+                                        initial_mean_days = initial_mean_days)
             
             if not os.path.isdir(plot_target):
                 os.makedirs(plot_target)

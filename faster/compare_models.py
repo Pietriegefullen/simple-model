@@ -114,6 +114,7 @@ def fit_sample(sample_name, val_replica_number, model_type,
                weighted_measurements = False,
                rate_penalty = 0,
                normalized = False,
+               initial_mean_days = 0,
                fit_mode = 'split'):
     
     d = data.get_data_before_day()
@@ -171,7 +172,8 @@ def fit_sample(sample_name, val_replica_number, model_type,
                                      weighted_measurements = weighted_measurements,
                                      rate_penalty = rate_penalty,
                                      normalized = normalized,
-                                     suffix = fit_mode)
+                                     suffix = fit_mode,
+                                     initial_mean_days = initial_mean_days)
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
@@ -179,8 +181,10 @@ if __name__ == '__main__':
     default_val_replica_number = 4
     default_model_type = 'complex'
     
-    default_fit_mode = 'single' #'split'
-        
+    default_fit_mode = 'split' #'split'
+    
+    default_initial_mean_days = 0
+            
     fit_from = 0
     fit_to = None
     
@@ -190,8 +194,8 @@ if __name__ == '__main__':
     loss_function_co2 = 'mse'
     loss_function_ch4 = 'mse'
     normalized = True
-    narrower_range = False
-    best_N = 3
+    narrower_range = True
+    best_N = 8
     local_search = False
     weighted_measurements = False
     model_type = default_model_type
@@ -235,6 +239,7 @@ if __name__ == '__main__':
     if suffix == '_0-None':
         suffix = ''
         
+        
     fit_mode = default_fit_mode
     if (hasargs and 'split' in sys.argv) or default_fit_mode == 'split':
         fit_mode = 'split'
@@ -242,6 +247,10 @@ if __name__ == '__main__':
         fit_mode = 'single'
         suffix = '_'.join([suffix, 'single'])
         
+    initial_mean_days = default_initial_mean_days
+    if hasargs and 'init' in sys.argv:
+        idx = sys.argv.index('init')
+        initial_mean_days = int(sys.argv[idx+1])
         
     loaded_range = None
     replica_name = str(val_replica_number)
@@ -277,7 +286,7 @@ if __name__ == '__main__':
         best_parameters = load_fitted_parameters(sample, 
                                                  replica_name, 
                                                  model_type,
-                                                 best =None)
+                                                 best = None)
     if best_parameters is None and not loaded_range is None:
         best_parameters = loaded_range.as_dict()
         
@@ -296,5 +305,6 @@ if __name__ == '__main__':
                weighted_measurements = weighted_measurements,
                rate_penalty = rate_penalty,
                normalized = normalized,
+               initial_mean_days = initial_mean_days,
                fit_mode = fit_mode)
 
