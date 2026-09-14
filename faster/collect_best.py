@@ -11,7 +11,7 @@ import USER_VARIABLES
 
 after = '2026-08-04--08-30'
 
-fit_mode = 'single' # single
+fit_mode = 'split' # 'single' OR 'split
 
 plot = True #['1351']
 plot_only_missing = True
