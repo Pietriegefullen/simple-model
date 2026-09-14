@@ -222,8 +222,7 @@ class Objective():
         self._best_call = None
         model_type = model.model_type()
         self.cp_path = target_directory_path(replica_objectives, model_type, suffix)
-        print(self.cp_path)
-        input()
+
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
         self._keep_only_best = keep_only_best

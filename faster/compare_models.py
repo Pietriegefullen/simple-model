@@ -190,7 +190,7 @@ if __name__ == '__main__':
     loss_function_co2 = 'mse'
     loss_function_ch4 = 'mse'
     normalized = True
-    narrower_range = True
+    narrower_range = False
     best_N = 3
     local_search = False
     weighted_measurements = False

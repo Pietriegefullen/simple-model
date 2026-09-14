@@ -70,6 +70,9 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None,
     repls = ''.join([str(r.replica_number) for r in sample.replicas])
     fit_replicas = repls.replace(str(replica_name),'')
     
+    if 'single' in best:
+        fit_replicas = replica_name
+    
     sample_name = str(sample_name)
     
     folders = []
@@ -83,6 +86,7 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None,
         source = os.path.join(USER_VARIABLES.simple_model_dir, best)
         sample_source = os.path.join(source, str(sample_name))
         replica_source = os.path.join(sample_source, fit_replicas)
+
         if not os.path.isdir(replica_source):
             raise Exception('No best result for this replica: ' + replica_source)
         folders.append(replica_source)
