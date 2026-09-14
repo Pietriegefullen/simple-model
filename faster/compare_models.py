@@ -102,7 +102,8 @@ def fit(include_samples = None, exclude_samples = None):
                     print(traceback.format_exc())
                     print()
    
-def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log_ch4 = False, confirm = False,
+def fit_sample(sample_name, val_replica_number, model_type, 
+               log_co2 = False, log_ch4 = False, confirm = False,
                fit_from = 0, fit_to = None, normalized_parameters = False,
                loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
                loss_function_co2 = 'mse', 
@@ -112,7 +113,8 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                initial_parameters = None,
                weighted_measurements = False,
                rate_penalty = 0,
-               normalized = False):
+               normalized = False,
+               fit_mode = 'split'):
     
     d = data.get_data_before_day()
     sample = d[sample_name]
@@ -126,7 +128,14 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
     
     fit_replicas = None
     try:
-        splits = sample.leave_one_out_split()
+        if fit_mode == 'split':
+            splits = sample.leave_one_out_split()
+        elif fit_mode == 'single':
+            splits = [{'fit':replica, 'val': replica}
+                      for replica in sample.replicas]
+        else:
+            raise NotImplementedError()
+        
         for s in splits:
             if int(s['val'].replica_number) == int(val_replica_number):
                 fit_replicas = s['fit']
@@ -161,13 +170,16 @@ def fit_sample(sample_name, val_replica_number, model_type, log_co2 = False, log
                                      algorithm = None if not local_search else 'Powell',
                                      weighted_measurements = weighted_measurements,
                                      rate_penalty = rate_penalty,
-                                     normalized = normalized)
+                                     normalized = normalized,
+                                     suffix = fit_mode)
     
 if __name__ == '__main__':
     from main_file import load_parameter_range, load_fitted_parameters
-    default_sample = 3001
-    default_val_replica_number = 1
+    default_sample = 1351
+    default_val_replica_number = 4
     default_model_type = 'complex'
+    
+    default_fit_mode = 'single' #'split'
         
     fit_from = 0
     fit_to = None
@@ -182,7 +194,7 @@ if __name__ == '__main__':
     best_N = 3
     local_search = False
     weighted_measurements = False
-    model_type = 'complex'
+    model_type = default_model_type
     rate_penalty = 0.#1000
     
     log_co2 = False
@@ -223,6 +235,13 @@ if __name__ == '__main__':
     if suffix == '_0-None':
         suffix = ''
         
+    fit_mode = default_fit_mode
+    if (hasargs and 'split' in sys.argv) or default_fit_mode == 'split':
+        fit_mode = 'split'
+    elif (hasargs and 'single' in sys.argv) or default_fit_mode == 'single':
+        fit_mode = 'single'
+        suffix = '_'.join([suffix, 'single'])
+        
         
     loaded_range = None
     replica_name = str(val_replica_number)
@@ -232,7 +251,7 @@ if __name__ == '__main__':
                                                 replica_name, 
                                                 model_type,
                                                 best_N = best_N,
-                                                best = suffix)
+                                                suffix = suffix)
 
         except Exception as ex:
             if 'single result file' in str(ex):
@@ -276,5 +295,6 @@ if __name__ == '__main__':
                initial_parameters = best_parameters,
                weighted_measurements = weighted_measurements,
                rate_penalty = rate_penalty,
-               normalized = normalized)
+               normalized = normalized,
+               fit_mode = fit_mode)
 

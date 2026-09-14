@@ -11,6 +11,8 @@ import USER_VARIABLES
 
 after = '2026-08-04--08-30'
 
+fit_mode = 'single' # single
+
 plot = True #['1351']
 plot_only_missing = True
 
@@ -22,6 +24,9 @@ source_suffix = ''#'0-400' # '0-200'
 
 if not source_suffix == '' and not source_suffix[0] =='_':
     source_suffix = '_' + source_suffix
+
+if not fit_mode == 'split':
+    source_suffix = '_'.join([source_suffix, fit_mode])
     
 source = source + source_suffix
 target = os.path.join(USER_VARIABLES.simple_model_dir, 'best' + source_suffix)
@@ -92,7 +97,7 @@ if not plot is None:
     import matplotlib.pyplot as plt
     
     day_limits = None
-    if not source_suffix == '':
+    if not source_suffix == '' and '-' in source_suffix:
         day_limits = [int(i) for i in source_suffix.replace('_','').split('-')]
     
 for sample_name in os.listdir(target):
@@ -128,8 +133,14 @@ for sample_name in os.listdir(target):
 
             val_replica = ''.join([str(r.replica_number) 
                                     for r in sample.replicas])
-            for r in str(fit_replicas):
-                val_replica = val_replica.replace(str(r), '')
+            if fit_mode == 'single':
+                val_replica = fit_replicas
+            
+            elif fit_mode == 'split':
+                for r in str(fit_replicas):
+                    val_replica = val_replica.replace(str(r), '')
+            else:
+                raise NotImplementedError()
             
             try:
                 print('loading', val_replica)
