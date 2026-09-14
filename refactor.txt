@@ -1,0 +1,34 @@
+improve optimisation
+    algorithm (static) class
+    apply to
+        model with parameters, replica -> fit model to replica(s) using <algo>
+
+store all (hyper)parameters
+    derive hashsum, use subset as ID for unique but findable directory
+    => what goes in the sum?
+    => sorted, to induce permutation invariance
+
+move source/target directory finding to unique, central manager
+
+encapsulate individual code blocks
+    - model
+    - data
+    - optimiser
+    => upon importing, check version
+        - e.g. __version__ number in model.py
+          but should work with several files, not only single modules
+
+unified storage logic/structure:
+    - intermediate fit results
+    - superfolder for certain hyperparameter configurations?
+    - store hyperpar configuration human-readable
+    => if anything relevant changes, put new fits in new directory
+        - changes to the model?
+            => store model code separately?
+            => how to detect the RELEVANT model changes?
+                ?> use version number (manually maintained?)
+                ?> using a test suite, checking behaviour?
+                ?> adding checks without model changes should not result in changed checksum
+        - changes to the fitting parameters
+        - changes to the data (handling)
+

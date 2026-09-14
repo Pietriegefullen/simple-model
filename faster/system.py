@@ -39,7 +39,7 @@ def vector(full, pool = None, value = None):
         _vector[index(pool)] = value
     return _vector
 
-def initial_state(replica, model_parameters):
+def initial_state(replica, model_parameters, initial_mean_days = 0):
     S0 = np.zeros((len(SYSTEM),))
     
     if not replica is None:
@@ -71,9 +71,18 @@ def initial_state(replica, model_parameters):
         S0[index('Fe3')] = model_parameters['Fe3'].constant(0)
         S0[index('Acetate')] = model_parameters['Acetate'].constant(0)
         S0[index('DOC')] = model_parameters['DOC'].constant(0)
-
-        S0[index('CO2')] = replica.incubation['CO2'][0]
-        S0[index('CH4')] = replica.incubation['CH4'][0]
-
     
+    elif not replica is None:
+        d = int(np.nonzero(replica.CO2()[0] >= initial_mean_days)[0][0])
+        initial_mean = replica.CO2()[1][0]
+        if d > 0:
+            initial_mean = np.mean(replica.CO2()[1][:d])
+        S0[index('CO2')] = initial_mean
+        
+        d = int(np.nonzero(replica.CH4()[0] >= initial_mean_days)[0][0])
+        initial_mean = replica.CH4()[1][0]
+        if d > 0:
+            initial_mean = np.mean(replica.CH4()[1][:d])
+        S0[index('CH4')] = initial_mean
+        
     return S0

@@ -820,6 +820,19 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
+    s = d['1351']
+    s.plot(measurements = 'CH4')
+    for r in s.replicas:
+        print()
+        print(r)
+        initial_mean_days = 0
+        d = int(np.nonzero(r.CH4()[0] >= initial_mean_days)[0][0])
+        initial_mean = r.CH4()[1][0]
+        if d > 0:
+            initial_mean = np.mean(r.CH4()[1][:d])
+    plt.show()
+    1/0
+    
     for sample in d.samples:
         print(sample)
     1/0

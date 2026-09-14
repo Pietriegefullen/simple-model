@@ -182,9 +182,13 @@ if __name__ == '__main__':
     default_model_type = 'complex'
     
     default_fit_mode = 'split' #'split'
+<<<<<<< HEAD
+        
+=======
     
     default_initial_mean_days = 0
             
+>>>>>>> 1102f82e652162ac3aae7cd4a9b74dcf123bf71c
     fit_from = 0
     fit_to = None
     

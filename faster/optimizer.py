@@ -76,7 +76,8 @@ class Algorithm():
                  weighted_measurements = False,
                  rate_penalty = 0,
                  normalized = False,
-                 suffix = ''):
+                 suffix = '',
+                 initial_mean_days = 0):
         variables = model.parameters().variables()
         print(len(variables), 'variables before setting bounds') 
         if not parameter_range is None:
@@ -129,7 +130,8 @@ class Algorithm():
                                         loss_function_ch4 = loss_function_ch4,
                                         weighted_measurements = weighted_measurements,
                                         normalized = normalized,
-                                        rate_penalty = rate_penalty)
+                                        rate_penalty = rate_penalty,
+                                        initial_mean_days = initial_mean_days)
                        for replica in replicas]
         
         if self.algorithm == 'PSO':
@@ -222,7 +224,9 @@ class Objective():
         self._best_call = None
         model_type = model.model_type()
         self.cp_path = target_directory_path(replica_objectives, model_type, suffix)
-
+        
+        print('checkpoint path', self.cp_path)
+        
         if not os.path.isdir(self.cp_path):
             os.makedirs(self.cp_path)
         self._keep_only_best = keep_only_best
@@ -359,7 +363,8 @@ class ReplicaObjective():
                  loss_function_co2 = 'mse', 
                  loss_function_ch4 = 'mse',
                  rate_penalty = 0,
-                 normalized = False):
+                 normalized = False,
+                 initial_mean_days = 0):
         self.model = model
         self.replica = replica
         self.last_call = None
@@ -373,6 +378,8 @@ class ReplicaObjective():
         self._weights = None
         self._normalized = normalized
         self.rate_penalty = rate_penalty
+        
+        self.initial_mean_days = initial_mean_days
         
         if not fit_to is None and fit_from >= fit_to:
             raise ValueError('"from" value >= "to" value')
@@ -396,7 +403,8 @@ class ReplicaObjective():
         try:
             results = self.model.predict(self.replica, 
                                          self.days[self.used_indices], 
-                                         quiet = True)
+                                         quiet = True,
+                                         initial_mean_days = self.initial_mean_days)
         except KeyboardInterrupt:
             while True:
                 inp = input('continue ? [Y/n]> ')

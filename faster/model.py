@@ -128,6 +128,7 @@ class Model():
             weighted_measurements = False,
             rate_penalty = 0,
             normalized = False,
+            initial_mean_days = 0,
             suffix = ''):
         if algorithm is None:
             algorithm = OPTIMIZATION_ALGORITHM
@@ -147,10 +148,12 @@ class Model():
                              weighted_measurements = weighted_measurements,
                              rate_penalty = rate_penalty,
                              normalized = normalized,
-                             suffix = suffix)
+                             suffix = suffix,
+                             initial_mean_days = initial_mean_days)
         
     def predict(self, replica, t = None, quiet = False, parallel = False, 
-                reset_Fe3 = None, days_beyond_reset = 1000):
+                reset_Fe3 = None, days_beyond_reset = 1000,
+                initial_mean_days = 0):
         measured_days = replica['days']
 
         t_eval = measured_days
@@ -163,7 +166,7 @@ class Model():
             
         # prepare for solving
         self.build(quiet = quiet)
-        S0 = system.initial_state(replica, self.parameters())
+        S0 = system.initial_state(replica, self.parameters(), initial_mean_days)
         self.parameters().check()
         self.system_state_log.reset(replica)
         self.system_change_log.reset(replica)
