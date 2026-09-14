@@ -128,19 +128,30 @@ def load_fitted_parameters(sample_name, replica_name, model_type, after = None,
             return best_parameters
         return best_parameters, best_loss
     
-def plot_fit2(val_replica, run_log, measurement, log_fit, rate = False):
+def plot_fit2(val_replica, run_log, measurement, log_fit, rate = False, 
+              single_fit = False):
     val_replica.plot(measurements = [measurement], rate = rate)
     
     sample = val_replica.sample
     sample_name = sample.sample_name
     
-    fit_replicas = ''.join([str(r.replica_number) 
-                            for r in sample.replicas]).replace(str(val_replica.replica_number), '')
+    if single_fit:
+        fit_replicas = str(val_replica.replica_number)
+        val_replica = None
+        
+    else:
+        fit_replicas = ''.join([str(r.replica_number) 
+                                for r in sample.replicas]).replace(str(val_replica.replica_number), '')
 
     r2_val = np.nan
     if not rate:
-        run_log.R2(measurement, log_fit = log_fit)
-    run_log.plot([measurement], newfigure = False, label = f'val R² = {r2_val:4.2f}')
+        r2_val = run_log.R2(measurement, log_fit = log_fit)
+        
+    fm = 'fit'
+    if not val_replica is None:
+        fm = 'val'
+    run_log.plot([measurement], newfigure = False, label = f'{fm} R² = {r2_val:4.2f}')
+
     t_pred, pred_val = run_log[measurement]
     for repl in fit_replicas:
         if str(repl) in sample:
@@ -167,7 +178,10 @@ def plot_fit2(val_replica, run_log, measurement, log_fit, rate = False):
         ax.set_yscale('log')
     else:
         ax.set_yscale('linear')
-    ax.set_title(f'{str(sample_name)} validation: {val_replica.replica_number}')
+    
+    fm = 'validation' if not val_replica is None else 'fit'
+    vn = val_replica.replica_number if not val_replica is None else fit_replica.replica_number
+    ax.set_title(f'{str(sample_name)} {fm}: {vn}')
     return ax
 
 def plot_fitted_ratio(pathway_model, val_replica):
