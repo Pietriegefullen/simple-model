@@ -179,7 +179,7 @@ if __name__ == '__main__':
     default_val_replica_number = 4
     default_model_type = 'complex'
     
-    default_fit_mode = 'single' #'split'
+    default_fit_mode = 'split' #'split'
         
     fit_from = 0
     fit_to = None
