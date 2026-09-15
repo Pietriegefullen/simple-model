@@ -10,6 +10,10 @@ import model
 import data
 import USER_VARIABLES
 
+# TODO: consistent suffix handling!
+# => only as support, don't rely on it!
+
+
 # SET DEFAULTS
 default = {
             'sample':       '1351',
