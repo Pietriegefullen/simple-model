@@ -206,6 +206,12 @@ class Algorithm():
         
         return objective.best_call()
 
+class DifferentialEvolution(Algorithm):
+    pass
+
+class Powell(Algorithm):
+    pass
+
 def target_directory_path(replica_objectives, model_type, suffix = ''):
     str_model_type = '_' + model_type + '_'
     timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
