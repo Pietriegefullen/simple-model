@@ -133,7 +133,10 @@ class ModelParameters():
             
     def set(self, parameters, normalized = False):
         if isinstance(parameters, str) and parameters == 'default':
-            self.set(default_model_parameters(normalize_parameters = normalized))
+            defaults = [p for p in default_model_parameters(normalize_parameters = normalized)
+                        if p.name in self._parameters and self._parameters[p.name].is_unset()]
+
+            self.set(defaults)
             
         elif isinstance(parameters, dict):
             for p, value in parameters.items():
@@ -224,11 +227,12 @@ class Parameter():
     
     def set(self, p):
         if isinstance(p, Parameter):
-            self.value = p.value
             self.low = p.low
             self.high = p.high
             self.scale = p.scale
             self.normalize = p.normalize
+            self.value = p.value
+
         elif isinstance(p, (int, float)):
             if self.is_variable() and (not p <= self.high or not p >= self.low):
                 print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
@@ -243,6 +247,9 @@ class Parameter():
         if self.low == self.high:
             return False
         return not self.is_unset() and not self.low is None and not self.high is None
+    
+    def is_constant(self):
+        return not self.is_variable()
     
     def get_transform(self):
         if self.transformer is None:

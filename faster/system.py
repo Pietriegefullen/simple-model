@@ -52,19 +52,22 @@ def initial_state(replica, model_parameters, initial_mean_days = 0):
         model_parameters['DOC']
         model_parameters['H2O']
     
-    model_parameters['Fe3']
-    model_parameters['M_Ferm']
-    model_parameters['M_Hydro']
-    model_parameters['M_Homo']
-    model_parameters['M_Ac']
-    model_parameters['M_Fe3']
-    model_parameters['Acetate']
+    #model_parameters['Fe3']
+    #model_parameters['M_Ferm']
+    #model_parameters['M_Hydro']
+    #model_parameters['M_Homo']
+    #model_parameters['M_Ac']
+    #model_parameters['M_Fe3']
+    #model_parameters['Acetate']
     
     for pool in SYSTEM:
         if pool in model_parameters:
             init = model_parameters[pool]
             v = vector(0, pool, init)
             S0 += v
+        else:
+            print(pool, 'constant')
+            model_parameters[pool].constant(0)
     
     if not replica is None and str(replica.sample.sample_name).startswith('2'):
         # inocculated sample

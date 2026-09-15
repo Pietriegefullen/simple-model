@@ -13,28 +13,37 @@ import USER_VARIABLES
 # TODO: consistent suffix handling!
 # => only as support, don't rely on it!
 
+# TODO: list included pathways, ditch 'simple'/'complex', but maintain backwards compatibility?
+
+# optionally load initial parameters from different source
+#   => checkpoint ID? (-> hash), 
+
 
 # SET DEFAULTS
-default = {
-            'sample':       '1351',
-            'model_type':   'complex',
+chosen = {
+            'sample':                   1351,
+            'validation_replica':       4, 
+            'fit_mode':                 'single',
+            'model_type':               'simple',
+            'normalized_parameters':    True,
+            'algorithm':                'differential_evolution',
             
             }
-# query and change as you go
+
+algo_config = {'differential_evolution': {},
+               'powell':                 {}
+               }
+
+initial_parameters = {}
+
+
 hasargs = len(sys.argv) > 1
-
 if hasargs:
-    default['sample'] = sys.argv[1]
+    chosen['sample'] = sys.argv[1]
 
-
-# PREPARE DATA
-# load data
-# get fit and validation replicas
-
-# CONFIGURE MODEL
-# choose pathways
-# build model
-# initialise parameters
+# TODO: initialise parameters
+#       load parameters from chosen or default source
+#       store initial parameters (and parameter range) in config
 
 # PREPARE OPTIMISER
 # choose algorithm
@@ -51,31 +60,49 @@ if hasargs:
 #   variables, initial parameter values, parameter ranges
 #   optimiser and objective configuration
 
-# run optimiser (until stopping criterion?)
+# for hashing, make sure to unify datatypes! e.g. sample number as int/str
+
 # save intermediate results (handled by Objective? -> or callback to Optimiser?)
 # catch interrupt
 
-d = data.get_data_before_day()
-sample = d[default['sample']]
 
-if fit_mode == 'split':
-    splits = sample.leave_one_out_split()
-elif fit_mode == 'single':
-    splits = [{'fit':replica, 'val': replica}
-              for replica in sample.replicas]
-else:
-    raise NotImplementedError()
+#TODO: set model variable/constant parameters , initial values LATER
+
+# save hyperparameters with every plot (how?) -> maintain origin: model version, ...
+
+# get sample from dataset
+dataset = data.get_data_before_day()
+sample = dataset[chosen['sample']]
+split = sample.get_split(chosen['validation_replica'], 
+                         chosen['fit_mode'])
+
+# build and configure model
+chosen_pathways = model.get_pathways(chosen['model_type'])
+pathway_model = model.Model(chosen_pathways)
+pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
+pathway_model.parameters().set(initial_parameters)
 
 
-if not local_search:
-    algo = optimizer.DifferentialEvolution()
+# select optimiser
+algo = optimizer.get(chosen['algorithm'])
+algo.configure(algo_config[chosen['algorithm']])
+
+# build objective:
+    # keep optimizer.Objective and optimizer.ReplicaObjective for now? but simplify!
     
     
-else:
-    algo = optimizer.Powell()
+# for each replica, 
+# define handling of CO2 and CH4 individually, possibly Ac, Fe...
+# allow t_start to t_end fitting
+# => using run log, compute loss
+# consider normalization, weights, log transform, 
 
-try:
-    algo.fit(pathway_model, fit_replicas, val_replicas)
+# what is input to loss function?
+# run log, data, i.e. pred, true. anything else?
+# -> transformations, normalizations, ...
 
-except KeyboardInterrupt:
-    quit()
+
+# define checkpoint callback
+
+
+algo.minimize(objective)

@@ -62,12 +62,29 @@ def algo_kwargs(method):
     else:
         raise NotImplementedError()
 
+
+ALGOS = {'differential_evolution': DifferentialEvolution(),
+         'powell': Powell()}
+
+def get(algorithm_name):
+    return ALGOS[algorithm_name]
+
 class Algorithm():
-    def __init__(self, algorithm, **kwargs):
-        self.algorithm = algorithm
-        self.kwargs = kwargs
+    #def __init__(self, algorithm, **kwargs):
+    #    self.algorithm = algorithm
+    #    self.kwargs = kwargs
     
-    def minimize(self, model, replicas, log_co2 = True, log_ch4 = True,
+    def __init__(self, **default_kwargs):
+        self._kwargs = default_kwargs
+    
+    def configure(self, **kwargs):
+        self._kwargs.update(kwargs)
+    
+    def minimize(self, objective):
+                
+        return
+    
+    def minimize2(self, model, replicas, log_co2 = True, log_ch4 = True,
                  fit_from = 0, fit_to = None,
                  loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
                  loss_function_co2 = 'mse', 
@@ -207,7 +224,22 @@ class Algorithm():
         return objective.best_call()
 
 class DifferentialEvolution(Algorithm):
-    pass
+    def __init__(self):
+        default_kwargs = {}
+        super.__init__(default_kwargs)
+        self.generation = 1
+        
+    def minimize(self, objective):
+        strategy = self.kwargs['strategy']
+        updating = self.kwargs['updating']
+        
+        objective.generation = 1
+        bounds = list(zip(lower_bounds, upper_bounds))
+        _ = scipy.optimize.differential_evolution(objective,
+                                                  bounds = bounds,
+                                                  strategy = strategy,
+                                                  updating = updating, 
+                                                  callback = objective.get_callback())
 
 class Powell(Algorithm):
     pass

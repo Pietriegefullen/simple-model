@@ -537,6 +537,31 @@ class Sample():
             all_splits.append({'fit': sorted(fit_replicas, key = lambda r: int(r.replica_number)), 
                                'val': validation_replica})
         return all_splits
+    
+    def get_split(self, validation_replica, fit_mode = 'split'):
+        validation_replica = str(validation_replica)
+        if len(validation_replica) >= 5:
+            if not validation_replica[:4] == self.sample.sample_name:
+                raise Exception()
+        
+        if len(validation_replica) > 1 or len(validation_replica) == 0:
+            raise Exception()
+        
+        elif not validation_replica in [r.replica_number for r in self.replicas]:
+            raise Exception()
+            
+        split = {'val': self.__getitem__(validation_replica)}
+        if fit_mode == 'split':
+            split['fit'] = [r for r in self.replicas if not r is split['val']]
+            
+        elif fit_mode == 'single':
+            split['fit'] = split['val']
+            
+        else:
+            raise NotImplementedError()
+            
+        return split
+        
         
     def get_config(self):
         cfg = {'sample_name': self.sample_name,
