@@ -64,9 +64,8 @@ class Pathway():
         self.pathway_vector = self.stoichiometry + self.anabolism
         
         self.microbe_index = system.index(microbe)
-        self.use_thermodynamics = microbe['use_thermodynamics']
         
-        if self.use_thermodynamics:
+        if self.microbe['use_thermodynamics']:
             self.deltaG_f = np.sum(np.stack(
                     [system.vector(0, str(subst), chemistry.GIBBS_FORMATION[str(subst)])
                      for subst in (educts + products)],
@@ -144,7 +143,7 @@ class Pathway():
             v *= inhib_factor
             self.log('inhib', t, inhib_factor)
 
-        if self.use_thermodynamics:
+        if self.microbe['use_thermodynamics']:
             thermodynamic_factor = self.thermodynamics(t, S)
             v *= thermodynamic_factor
 
@@ -239,7 +238,7 @@ class Hydrolysis(Pathway):
         microbe = Microbe(name = 'M_Ferm',
                           v_max = model_parameters['Hydrolysis_v_max'],
                           Kmb = model_parameters['Hydrolysis_Kmb'],
-                          use_thermodynamics = False)
+                          use_thermodynamics = model_parameters['Hydrolysis_thermodynamics'])
         super().__init__(microbe, educts, products)
     
 class Fermentation(Pathway):
@@ -255,7 +254,7 @@ class Fermentation(Pathway):
                           CUE = model_parameters['Ferm_CUE'],
                           death_rate = model_parameters['death_rate'],
                           C_source = 'DOC',
-                          use_thermodynamics = False)
+                          use_thermodynamics = model_parameters['Fermentation_thermodynamics'])
         super().__init__(microbe, educts, products)
 
 class Hydro(Pathway):
@@ -270,7 +269,9 @@ class Hydro(Pathway):
                           v_max = model_parameters['Hydro_v_max'],
                           CUE = model_parameters['Hydro_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'CO2')
+                          C_source = 'CO2',
+                          use_thermodynamics = model_parameters['Hydro_thermodynamics']
+                          )
         super().__init__(microbe, educts, products)
 
 class Homo(Pathway):
@@ -285,7 +286,9 @@ class Homo(Pathway):
                           v_max = model_parameters['Homo_v_max'],
                           CUE = model_parameters['Homo_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'CO2')
+                          C_source = 'CO2',
+                          use_thermodynamics = model_parameters['Homo_thermodynamics']
+                          )
         super().__init__(microbe, educts, products)
 
 class Aceto(Pathway):
@@ -298,7 +301,8 @@ class Aceto(Pathway):
                           v_max = model_parameters['Ac_v_max'],
                           CUE = model_parameters['Ac_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'Acetate')
+                          C_source = 'Acetate',
+                          use_thermodynamics = model_parameters['Aceto_thermodynamics'])
         super().__init__(microbe, educts, products)
 
 class Fe3(Pathway):
@@ -314,5 +318,6 @@ class Fe3(Pathway):
                           v_max = model_parameters['Fe3_v_max'],
                           CUE = model_parameters['Fe3_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'Acetate')
+                          C_source = 'Acetate',
+                          use_thermodynamics = model_parameters['Fe3_thermodynamics'])
         super().__init__(microbe, educts, products)

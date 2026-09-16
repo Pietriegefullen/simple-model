@@ -10,20 +10,33 @@ import model
 import data
 import USER_VARIABLES
 
-# TODO: consistent suffix handling!
-# => only as support, don't rely on it!
-
+# TODO: disable entire pathways
+# TODO: configure pathways via model parameters/switches
 # TODO: list included pathways, ditch 'simple'/'complex', but maintain backwards compatibility?
 
-# optionally load initial parameters from different source
-#   => checkpoint ID? (-> hash), 
+# TODO: checkpoint handling
+#       - saving
+#       - retrieval
 
-# MODEL CONFIGURATION:
-# TODO: enable/disable pathways
-# TODO: enable/disable thermodynamics
+# TODO: optionally load initial parameters (checkpoints) from different source
+
+# TODO: store entire configuration: data, model, parameters, algo, ... with run.
+
+#TODO: set model variable/constant parameters , initial values LATER
+
+# TODO: args KISS, use libarry?
+
+# save hyperparameters
+#   timestamp
+#   model version
+#   fit/val replicas
+#   variables, initial parameter values, parameter ranges
+#   optimiser and objective configuration
+# for hashing, make sure to unify datatypes! e.g. sample number as int/str
+
+# save hyperparameters with every plot (how?) -> maintain origin: model version, ...
 
 
-# SET DEFAULTS
 chosen = {
             'sample':                   1351,
             'validation_replica':       4, 
@@ -34,11 +47,11 @@ chosen = {
             'normalized_parameters':    True,
             'algorithm':                'differential_evolution',
             'loss_weight':              {'CO2': 1.,
-                                         'CH4': 1.}
+                                         'CH4': 1.},
             'reduction':                {'CO2': 'mse',
                                          'CH4': 'mse'},
             'transform':                {'CO2': ['normalize'],
-                                         'CH4': ['log', 'normalize']}
+                                         'CH4': ['log', 'normalize']},
             't_start':                  None,
             't_end':                    None
             }
@@ -54,31 +67,6 @@ hasargs = len(sys.argv) > 1
 if hasargs:
     chosen['sample'] = sys.argv[1]
 
-# TODO: initialise parameters / set bounds
-#       load parameters from chosen or default source
-#       store initial parameters (and parameter range) in config
-
-#TODO: set model variable/constant parameters , initial values LATER
-
-# PREPARE OPTIMISER
-# choose algorithm
-# set checkpoint path
-# configure algorithm
-# get variables
-# set bounds
-# configure replica objectives and total objective 
-
-# save hyperparameters
-#   timestamp
-#   model version
-#   fit/val replicas
-#   variables, initial parameter values, parameter ranges
-#   optimiser and objective configuration
-
-# for hashing, make sure to unify datatypes! e.g. sample number as int/str
-
-
-# save hyperparameters with every plot (how?) -> maintain origin: model version, ...
 
 # get sample from dataset
 dataset = data.get_data_before_day()
@@ -114,4 +102,4 @@ total_objective = sum(replica_objectives)
 # if using hashes for model version, keep a lookup table to describe models!
 total_objective.add_callback(CheckpointCallback())
 
-algo.minimize(objective, initial_parameters)
+algo.minimize(total_objective, initial_parameters)

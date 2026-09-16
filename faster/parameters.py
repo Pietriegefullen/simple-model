@@ -44,6 +44,13 @@ def default_model_parameters(normalize_parameters = False):
          Parameter('M_Fe3',          .25, [1e-8, 5], normalize = normalize_parameters),
          Parameter('M_Homo',         .25, [1e-8, 5], normalize = normalize_parameters),
          Parameter('M_Ac',         .0033, [1e-8, 5], normalize = normalize_parameters),
+         
+         Switch('Hydrolysis_thermodynamics', False),
+         Switch('Fermentation_thermodynamics', False),
+         Switch('Hydro_thermodynamics', True),
+         Switch('Homo_thermodynamics', True),
+         Switch('Aceto_thermodynamics', True),
+         Switch('Fe3_thermodynamics', True),
         ]
         
     return p
@@ -247,7 +254,11 @@ class Parameter():
         self.high = range[1]
         return self
     
+    def check(p):
+        return True
+    
     def set(self, p):
+        self.check(p)
         if isinstance(p, Parameter):
             self.low = p.low
             self.high = p.high
@@ -332,7 +343,22 @@ class Parameter():
     
     def __rdiv__(self, other):
         return float(other)/self.value
+
+class Switch(Parameter):
+    def __init__(self, name, value):
+        value = int(value)
+        assert value == 1 or value == 0
+        super().__init__(name, bool(value), scale = 'linear')
     
+    def check(self, p):
+        for value in [p.value, p.high, p.low]:
+        if not value == 0 or not value == 1:
+            raise ValueError()
+        return True
+    
+    def get_transform(self):
+        return IdentityTransform()
+
 def boxplots(loaded_parameters, save_target = None):
     parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
     parameter_names = list(set(parameter_names)) # unique names
