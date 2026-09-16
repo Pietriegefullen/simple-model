@@ -18,6 +18,10 @@ import USER_VARIABLES
 # optionally load initial parameters from different source
 #   => checkpoint ID? (-> hash), 
 
+# MODEL CONFIGURATION:
+# TODO: enable/disable pathways
+# TODO: enable/disable thermodynamics
+
 
 # SET DEFAULTS
 chosen = {
@@ -27,7 +31,12 @@ chosen = {
             'model_type':               'simple',
             'normalized_parameters':    True,
             'algorithm':                'differential_evolution',
-            
+            'loss_weight':              {'CO2': 1.,
+                                         'CH4': 1.}
+            'reduction':                {'CO2': 'mse',
+                                         'CH4': 'mse'},
+            'transform':                {'CO2': ['normalize'],
+                                         'CH4': ['log', 'normalize']}
             }
 
 algo_config = {'differential_evolution': {},
@@ -87,13 +96,57 @@ pathway_model.parameters().set(initial_parameters)
 algo = optimizer.get(chosen['algorithm'])
 algo.configure(algo_config[chosen['algorithm']])
 
-# build objective:
-    # keep optimizer.Objective and optimizer.ReplicaObjective for now? but simplify!
+
+class Objective():
+    
+    def __init__(self, model):
+        self._model = model
+    
+    def add_loss(self, replica, loss_function, weight = 1.0)
+
 objective = optimizer.Objective(pathway_model)
 
+
+# TODO: move elsewhere
+def mse(true, pred):
+    return np.sqrt(np.sum((true - pred)**2))
+
+loss_functions = {'mse': mse}
+
+def loss_function(pool, reduction = 'mse', transform = None):
+    reduction_function = loss_functions['mse']
+    def loss(run_log):
+        t_pred, pool_pred = run_log[pool]
+        t_true, pool_true = replica[pool]
+        
+        if callable(transform):
+            pool_pred = transform(pool_pred)
+            pool_true = transform(pool_true)
+    
+        loss_value = reduction_function(pool_true, pool_pred)
+    
+        return loss_value
+    return loss
+
+transforms = {'log': parameters.LogTransform,
+              'normalize': parameters.MinMaxNormalization}
+
+def get_transform(function_names):
+    if not isinstance(function_names, list):
+        function_names = [function_names]
+    
+    transform_function = None
+    for f in function_names:
+        transform_function = transforms[f](transform_function)
+        
+    return transform_function
+
+
 for replica in fit_replicas:
-    objective.add_loss(CO2_loss_function(replica))
-    objective.add_loss(CH4_loss_function(replica))
+    for pool in ['CO2', 'CH4']:
+        transform = get_transform(chosen['transform'][pool])
+        loss = loss_function(pool, chosen['reduction'][pool]], transform)
+        objective.add_loss(replica, loss, chosen['loss_weight'][pool])
     
 # for each replica, 
 # define handling of CO2 and CH4 individually, possibly Ac, Fe...

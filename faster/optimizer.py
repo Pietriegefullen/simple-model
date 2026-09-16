@@ -223,7 +223,7 @@ class Algorithm():
         
         return objective.best_call()
 
-class DifferentialEvolution(Algorithm):
+class DifferentialEvolution(Algorithm):    
     def __init__(self):
         default_kwargs = {}
         super.__init__(default_kwargs)
@@ -243,6 +243,8 @@ class DifferentialEvolution(Algorithm):
 
 class Powell(Algorithm):
     pass
+
+
 
 def target_directory_path(replica_objectives, model_type, suffix = ''):
     str_model_type = '_' + model_type + '_'

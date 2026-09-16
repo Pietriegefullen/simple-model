@@ -85,10 +85,17 @@ class Normalization(Transform):
         self.target_high = target[1]
 
     def _transform(self, value):
+        if self.low == 'min' and self.high == 'max':
+            self.low = np.min(value)
+            self.high = np.max(value)
         return self.target_low + (value - self.low)/(self.high - self.low)*self.target_high
     
     def _inverse(self, value):
         return (value - self.target_low)/self.target_high*(self.high - self.low) + self.low
+
+class MinMaxNormalization(Normalization):
+    def __init__(self, transform, target = (0,1)):
+        super().__init__(transform, 'min', 'max', target)
 
 class ModelParameters():
     def __init__(self, d = None):

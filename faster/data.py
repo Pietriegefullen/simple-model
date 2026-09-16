@@ -642,11 +642,17 @@ class Replica():
 
     def __getitem__(self, key):
         if key == 'CO2':
-            return self.incubation['CO2']
+            result = self.incubation['CO2']
         elif key == 'CH4':
-            return self.incubation['CH4']
+            result = self.incubation['CH4']
         elif key == 'days':
-            return self.incubation['days']
+            result = self.incubation['days']
+        
+        if not self.last_day is None:
+            idx = self.incubation['days'] <= self.last_day
+            result = result[idx]
+
+        return result
     
     def plot(self, events = True, 
              marker = 'x', 
