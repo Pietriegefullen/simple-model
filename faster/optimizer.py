@@ -30,38 +30,6 @@ def r2(predicted, measured, log = False):
     
     return r2_value
 
-def algo_kwargs(method):
-    if method == 'PSO':
-        return {'c1': .5,
-                'c2': .3,
-                'w': .9,
-                'particles': 50,
-                'iterations': 25}
-    
-    elif method == 'gradient':
-        return {'method': 'L-BFGS-B',
-                'iterations': 200}
-    
-    elif method == 'differential_evolution':
-        return {'strategy': 'rand1bin',
-                'updating': 'deferred',#'immediate',
-                'popsize': 10,
-                'workers': -1,
-                'tol': 1e-4,
-                'init': 'sobol',
-                'polish': False,
-                'recombination': .7, # CR
-                'mutation': (.5,1.)  # F
-                }
-    
-    elif method == 'direct' or method == 'dual_annealing':
-        return {}
-    elif method == 'COBYLA' or method == 'Powell':
-        return {}
-    
-    else:
-        raise NotImplementedError()
-
 
 ALGOS = {'differential_evolution': DifferentialEvolution(),
          'powell': Powell()}
@@ -69,180 +37,145 @@ ALGOS = {'differential_evolution': DifferentialEvolution(),
 def get(algorithm_name):
     return ALGOS[algorithm_name]
 
-class Algorithm():
-    #def __init__(self, algorithm, **kwargs):
-    #    self.algorithm = algorithm
-    #    self.kwargs = kwargs
+def mse(true, pred):
+    return np.sqrt(np.sum((true - pred)**2))
+
+loss_functions = {'mse': mse}
+
+def loss_function(pool, reduction = 'mse', transform = None, 
+                  t_start = None, t_end = None):
+    reduction_function = loss_functions[reduction]
     
+    def loss(replica, run_log):
+        t_pred, pool_pred = run_log[pool]
+        t_true, pool_true = replica[pool]
+        
+        assert t_pred == t_true
+        
+        if not t_start is None or not t_end is None:
+            idx = np.arange(len(t_pred))
+            if not t_start is None:
+                idx = np.intersect1d(idx, np.nonzero(t_pred >= t_start)[0])
+                
+            if not t_end is None:
+                idx = np.intersect1d(idx, np.nonzero(t_pred <= t_end)[0])
+            
+            pool_pred = pool_pred[idx]
+            pool_true = pool_true[idx]
+        
+        if callable(transform):
+            pool_pred = transform(pool_pred)
+            pool_true = transform(pool_true)
+    
+        return reduction_function(pool_true, pool_pred)
+    return loss
+
+class Addable():
+    def __init__(self, left = None, right = None):
+        self._left = left
+        self._right = right
+    
+    def __call__(self, args, **kwargs):
+        return self._left(args, **kwargs) + self._right(args, **kwargs)
+    
+class Objective(Addable):
+    def __init__(self, model, replica, replica_weight = 1.0):
+        self._model = model
+        self._variables = model.parameters().variables()
+
+        self._replica = replica
+        self._replica_weight = replica_weight
+        
+        self._loss_contributions = []
+        
+        self._callbacks = []
+        
+        self._call_log = []
+        
+    def model(self):
+        if self._model is None:
+            return self._left.model()
+        
+    def __add__(self, other):
+        assert other._model is self.model
+        obj = Addable(self, other)
+        return obj
+
+    def __call__(self, transformed_parameters):
+        parameter_values = [var.inverse_transform(p) 
+                            for var, p in zip(self.variables, transformed_parameters)]
+        _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
+        run_log = self._model.predict(self._replica)
+        
+        replica_loss = 0
+        for loss_funcion, loss_weight in self._loss_contributions:
+            loss_value = loss_function(self._replica, run_log)
+            replica_loss += loss_weight*loss_value
+        
+        objective_value = self._replica_weight * replica_loss
+        
+        self._call_log.append((objective_value, parameter_values))
+        
+        for callback in self._callbacks:
+            callback(self)
+            
+        return objective_value
+
+    def add_callback(self, callback):
+        assert callable(callback)
+        self._callbacks.append(callback)
+
+
+class Algorithm():
     def __init__(self, **default_kwargs):
-        self._kwargs = default_kwargs
+        self._congfig = default_kwargs
     
     def configure(self, **kwargs):
-        self._kwargs.update(kwargs)
+        self._config.update(kwargs)
     
-    def minimize(self, objective):
-                
-        return
-    
-    def minimize2(self, model, replicas, log_co2 = True, log_ch4 = True,
-                 fit_from = 0, fit_to = None,
-                 loss_weight_CO2 = 1, loss_weight_CH4 = 1, 
-                 loss_function_co2 = 'mse', 
-                 loss_function_ch4 = 'mse',
-                 parameter_range = None,
-                 weighted_measurements = False,
-                 rate_penalty = 0,
-                 normalized = False,
-                 suffix = '',
-                 initial_mean_days = 0):
-        variables = model.parameters().variables()
-        print(len(variables), 'variables before setting bounds') 
-        if not parameter_range is None:
-            for p in parameter_range:
-                for v in variables:
-                    if v.name == p.name and not p.high == p.low:
-                        v.high = p.high
-                        v.low = p.low
-        variables = model.parameters().variables()
+    def get_bounds(self, variables):
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
-            
-        range_suffix = ''
-        if not fit_from == 0 or not fit_to is None:
-            range_suffix = '_' + str(fit_from) + '-'+ str(fit_to) 
-        
-        if not suffix == '':
-            suffix = '_'.join([range_suffix, suffix])
-        else:
-            suffix = range_suffix
-        
-        print()
-        rep = '_'.join([str(r) for r in replicas])
-        co2_log = 'lin' if not log_co2 else 'log'
-        ch4_log = 'lin' if not log_ch4 else 'log'
-        str_log = f'CO2 ({co2_log}), CH4 ({ch4_log}) '
-        print(f'minimizing {str_log}with {self.algorithm} for {rep}')
-        print('model:')
-        print(str(model))
-        print()
-        #title = 'Variable Parameters:'
-        #title += '\n' + '='*len(title) + '\n'
-        #sorted_params = sorted(variables, key = lambda x: x.name)
-        #print(title + '\n'.join([f'{i+1:3d}) ' + str(p) for i, p in enumerate(sorted_params)]))
+        bounds = list(zip(lower_bounds, upper_bounds))
+        return bounds
     
-        print('search space:')
-        dim, vol, red = model.model_parameters.search_space()
-        print(f'   {dim:d} dimensions')
-        print(f'   {vol:.2e} volume')
-        print(f'   {red:.3f} average reduction')
-    
-        if not variables:
-            raise Exception('Model has no variable parameters.')
-              
-        replica_obj = [ReplicaObjective(replica, model, log_co2 = log_co2, log_ch4 = log_ch4,
-                                        fit_from = fit_from, fit_to = fit_to,
-                                        loss_weight_CO2 = loss_weight_CO2,
-                                        loss_weight_CH4 = loss_weight_CH4,
-                                        loss_function_co2 = loss_function_co2,
-                                        loss_function_ch4 = loss_function_ch4,
-                                        weighted_measurements = weighted_measurements,
-                                        normalized = normalized,
-                                        rate_penalty = rate_penalty,
-                                        initial_mean_days = initial_mean_days)
-                       for replica in replicas]
-        
-        if self.algorithm == 'PSO':
-            import pyswarms as ps
-            if log:
-                raise NotImplementedError()
-            objective = ParticleObjective(replica_obj, variables, model)
-            bounds = (np.array(lower_bounds), np.array(upper_bounds))
-            
-            particles = self.kwargs['particles']
-            iterations = self.kwargs['iterations']
-            options = {'c1': self.kwargs['c1'],
-                       'c2': self.kwargs['c2'],
-                       'w': self.kwargs['w']}
-            
-            optimizer = ps.single.GlobalBestPSO(n_particles=particles, 
-                                                dimensions=len(variables),
-                                                options=options,
-                                                bounds = bounds)
-            _ = optimizer.optimize(objective,
-                                    iters = iterations,
-                                    n_processes = None)
-        
-        elif self.algorithm == 'gradient':
-            objective = Objective(replica_obj, variables, model, log = log)
-
-            method = self.kwargs['method']
-            iterations = self.kwargs['iterations']
-            x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
-            bounds = list(zip(lower_bounds, upper_bounds))
-            _ = scipy.optimize.minimize(objective,
-                                        x0,
-                                        bounds = bounds,
-                                        method = method,
-                                        options = {'maxiter': iterations})
-        
-        elif self.algorithm == 'direct':
-            objective = Objective(replica_obj, variables, model, log = log)
-            bounds = list(zip(lower_bounds, upper_bounds))
-            _ = scipy.optimize.direct(objective, bounds = bounds)
-                
-        elif self.algorithm == 'dual_annealing':
-            objective = Objective(replica_obj, variables, model, log = log)
-            bounds = list(zip(lower_bounds, upper_bounds))
-            _ = scipy.optimize.dual_annealing(objective, bounds = bounds)
-            
-        elif self.algorithm == 'differential_evolution':
-            strategy = self.kwargs['strategy']
-            updating = self.kwargs['updating']
-            
-            objective = Objective(replica_obj, variables, model, suffix)
-            objective.generation = 1
-            bounds = list(zip(lower_bounds, upper_bounds))
-            _ = scipy.optimize.differential_evolution(objective,
-                                                      bounds = bounds,
-                                                      strategy = strategy,
-                                                      updating = updating, 
-                                                      callback = objective.get_callback())
-
-        elif self.algorithm == 'COBYLA' or self.algorithm == 'Powell':
-            objective = Objective(replica_obj, variables, model, suffix,
-                                  keep_only_best = True)
-            x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
-            bounds = list(zip(lower_bounds, upper_bounds))
-            _ = scipy.optimize.minimize(objective, x0, method = self.algorithm, bounds = bounds)
-            
-        else:
-            raise NotImplementedError()
-            
-        _, optimal_parameters = objective.best_call()
-        _ = [variable.set(value) for variable, value in zip(variables, optimal_parameters)]
-        
-        return objective.best_call()
+    def minimize(self, objective, initial_parameters):
+        raise NotImplementedError()
+ 
 
 class DifferentialEvolution(Algorithm):    
     def __init__(self):
-        default_kwargs = {}
-        super.__init__(default_kwargs)
+        self._config = {'strategy': 'rand1bin',
+                        'updating': 'deferred',#'immediate',
+                        'popsize': 10,
+                        'workers': -1,
+                        'tol': 1e-4,
+                        'init': 'sobol',
+                        'polish': False,
+                        'recombination': .7, # CR
+                        'mutation': (.5,1.)  # F
+                        }
+        self.generation = 0
+        
+    def minimize(self, objective, initial_parameters):
         self.generation = 1
-        
-    def minimize(self, objective):
-        strategy = self.kwargs['strategy']
-        updating = self.kwargs['updating']
-        
-        objective.generation = 1
-        bounds = list(zip(lower_bounds, upper_bounds))
+        variables = objective.model().parameters().variables()
         _ = scipy.optimize.differential_evolution(objective,
-                                                  bounds = bounds,
-                                                  strategy = strategy,
-                                                  updating = updating, 
-                                                  callback = objective.get_callback())
+                                                  bounds = self.get_bounds(variables),
+                                                  callback = self.generation_counter,
+                                                  **self._config)
+        
+    def generation_counter(self, args, **kwargs):
+        self.generation += 1
+        return False
 
 class Powell(Algorithm):
-    pass
+    def minimize(self, objective, initial_parameters):
+        vairables = objective.model().parameters().variables()
+        x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
+        _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 
+                                    bounds = self.get_bounds(variables))
+
 
 
 
@@ -352,17 +285,6 @@ class Objective():
     def __str__(self):
         return 'Objective function: sum of loss from\n' + '\n'.join([str(s) 
                                                          for s in self.replica_objectives])
-
-class ParticleObjective(Objective):
-    def __call__(self, particle_model_parameter_values):
-        particle_fitnesses = []
-        for transformed_parameter_values in particle_model_parameter_values:
-            parameter_values = self.inverse_transform(transformed_parameter_values)
-            _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
-            losses = [obj() for obj in self.replica_objectives]
-            total_loss = np.sum(losses)
-            particle_fitnesses.append(total_loss)
-        return np.array(particle_fitnesses)
 
 class Loss():
     def __init__(self, predicted, measured):

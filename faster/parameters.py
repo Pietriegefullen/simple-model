@@ -97,6 +97,21 @@ class MinMaxNormalization(Normalization):
     def __init__(self, transform, target = (0,1)):
         super().__init__(transform, 'min', 'max', target)
 
+
+transforms = {'log': LogTransform,
+              'normalize': MinMaxNormalization}
+
+def get_transform(function_names):
+    if not isinstance(function_names, list):
+        function_names = [function_names]
+    
+    transform_function = None
+    for f in function_names:
+        transform_function = transforms[f](transform_function)
+        
+    return transform_function
+
+
 class ModelParameters():
     def __init__(self, d = None):
         if isinstance(d, dict):

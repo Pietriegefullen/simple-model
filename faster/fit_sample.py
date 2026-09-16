@@ -27,8 +27,10 @@ import USER_VARIABLES
 chosen = {
             'sample':                   1351,
             'validation_replica':       4, 
+            
             'fit_mode':                 'single',
-            'model_type':               'simple',
+            'model_type':               'complex',
+            
             'normalized_parameters':    True,
             'algorithm':                'differential_evolution',
             'loss_weight':              {'CO2': 1.,
@@ -37,9 +39,11 @@ chosen = {
                                          'CH4': 'mse'},
             'transform':                {'CO2': ['normalize'],
                                          'CH4': ['log', 'normalize']}
+            't_start':                  None,
+            't_end':                    None
             }
 
-algo_config = {'differential_evolution': {},
+algo_config = {'differential_evolution': {}, # empty dict uses default
                'powell':                 {}
                }
 
@@ -50,9 +54,11 @@ hasargs = len(sys.argv) > 1
 if hasargs:
     chosen['sample'] = sys.argv[1]
 
-# TODO: initialise parameters
+# TODO: initialise parameters / set bounds
 #       load parameters from chosen or default source
 #       store initial parameters (and parameter range) in config
+
+#TODO: set model variable/constant parameters , initial values LATER
 
 # PREPARE OPTIMISER
 # choose algorithm
@@ -71,11 +77,6 @@ if hasargs:
 
 # for hashing, make sure to unify datatypes! e.g. sample number as int/str
 
-# save intermediate results (handled by Objective? -> or callback to Optimiser?)
-# catch interrupt
-
-
-#TODO: set model variable/constant parameters , initial values LATER
 
 # save hyperparameters with every plot (how?) -> maintain origin: model version, ...
 
@@ -91,75 +92,26 @@ pathway_model = model.Model(chosen_pathways)
 pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
 pathway_model.parameters().set(initial_parameters)
 
-
 # select optimiser
 algo = optimizer.get(chosen['algorithm'])
 algo.configure(algo_config[chosen['algorithm']])
 
-
-class Objective():
-    
-    def __init__(self, model):
-        self._model = model
-    
-    def add_loss(self, replica, loss_function, weight = 1.0)
-
-objective = optimizer.Objective(pathway_model)
-
-
-# TODO: move elsewhere
-def mse(true, pred):
-    return np.sqrt(np.sum((true - pred)**2))
-
-loss_functions = {'mse': mse}
-
-def loss_function(pool, reduction = 'mse', transform = None):
-    reduction_function = loss_functions['mse']
-    def loss(run_log):
-        t_pred, pool_pred = run_log[pool]
-        t_true, pool_true = replica[pool]
-        
-        if callable(transform):
-            pool_pred = transform(pool_pred)
-            pool_true = transform(pool_true)
-    
-        loss_value = reduction_function(pool_true, pool_pred)
-    
-        return loss_value
-    return loss
-
-transforms = {'log': parameters.LogTransform,
-              'normalize': parameters.MinMaxNormalization}
-
-def get_transform(function_names):
-    if not isinstance(function_names, list):
-        function_names = [function_names]
-    
-    transform_function = None
-    for f in function_names:
-        transform_function = transforms[f](transform_function)
-        
-    return transform_function
-
-
+# build objective function
+replica_objectives = []
 for replica in fit_replicas:
+    replica_objective = Objective(pathway_model, replica)
     for pool in ['CO2', 'CH4']:
-        transform = get_transform(chosen['transform'][pool])
-        loss = loss_function(pool, chosen['reduction'][pool]], transform)
-        objective.add_loss(replica, loss, chosen['loss_weight'][pool])
-    
-# for each replica, 
-# define handling of CO2 and CH4 individually, possibly Ac, Fe...
-# allow t_start to t_end fitting
-# => using run log, compute loss
-# consider normalization, weights, log transform, 
+        transform = parameters.get_transform(chosen['transform'][pool])
+        pool_loss = optimizer.loss_function(pool, chosen['reduction'][pool]], transform,
+                                            t_start = chosen['t_start'],
+                                            t_end = chosen['t_end'])
+        replica_objective.add_loss(pool_loss, chosen['loss_weight'][pool])
+total_objective = sum(replica_objectives)
 
-# what is input to loss function?
-# run log, data, i.e. pred, true. anything else?
-# -> transformations, normalizations, ...
+# print callback?
+# store checkpoint callback!
+#   => TODO: design a sensible structure!
+# if using hashes for model version, keep a lookup table to describe models!
+total_objective.add_callback(CheckpointCallback())
 
-
-# define checkpoint callback
-
-
-algo.minimize(objective)
+algo.minimize(objective, initial_parameters)
