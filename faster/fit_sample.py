@@ -89,7 +89,11 @@ algo.configure(algo_config[chosen['algorithm']])
 
 # build objective:
     # keep optimizer.Objective and optimizer.ReplicaObjective for now? but simplify!
-    
+objective = optimizer.Objective(pathway_model)
+
+for replica in fit_replicas:
+    objective.add_loss(CO2_loss_function(replica))
+    objective.add_loss(CH4_loss_function(replica))
     
 # for each replica, 
 # define handling of CO2 and CH4 individually, possibly Ac, Fe...
