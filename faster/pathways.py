@@ -25,10 +25,12 @@ def pathway_color(name):
     return pwys[name]
 
 class Pathway():
-    def __init__(self, microbe, educts, products):        
+    def __init__(self, microbe, educts, products, use_thermodynamics):        
         self.educts = educts
         self.products = products
         self.microbe = microbe
+        
+        self.use_thermodynamics = use_thermodynamics
         
         self.Km = np.sum(np.stack([system.vector(0, educt, educt['Km'])
                                    for educt in educts], axis = -1), axis = -1)
@@ -65,7 +67,7 @@ class Pathway():
         
         self.microbe_index = system.index(microbe)
         
-        if self.microbe['use_thermodynamics']:
+        if self.use_thermodynamics:
             self.deltaG_f = np.sum(np.stack(
                     [system.vector(0, str(subst), chemistry.GIBBS_FORMATION[str(subst)])
                      for subst in (educts + products)],
@@ -84,8 +86,6 @@ class Pathway():
     def log(self, name, t, value):
         if not self.state_logger is None:
             self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
- 
-     
  
     def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
         eps = 1e-12    
@@ -143,7 +143,7 @@ class Pathway():
             v *= inhib_factor
             self.log('inhib', t, inhib_factor)
 
-        if self.microbe['use_thermodynamics']:
+        if self.use_thermodynamics:
             thermodynamic_factor = self.thermodynamics(t, S)
             v *= thermodynamic_factor
 
@@ -173,8 +173,7 @@ class Microbe():
                  death_rate = 0,
                  Kmb = 0, 
                  CUE = 0, 
-                 C_source = None, 
-                 use_thermodynamics = True):
+                 C_source = None):
         
         if not CUE == 0:
             assert C_source is not None
@@ -185,7 +184,6 @@ class Microbe():
         self.Kmb = Kmb
         self.CUE = CUE
         self.C_source = C_source
-        self.use_thermodynamics = use_thermodynamics
         
     def __getitem__(self, key):
         return getattr(self,key)
@@ -237,9 +235,8 @@ class Hydrolysis(Pathway):
         products = [Substance(1, 'DOC')]
         microbe = Microbe(name = 'M_Ferm',
                           v_max = model_parameters['Hydrolysis_v_max'],
-                          Kmb = model_parameters['Hydrolysis_Kmb'],
-                          use_thermodynamics = model_parameters['Hydrolysis_thermodynamics'])
-        super().__init__(microbe, educts, products)
+                          Kmb = model_parameters['Hydrolysis_Kmb'])
+        super().__init__(microbe, educts, products, False)
     
 class Fermentation(Pathway):
     def __init__(self, model_parameters):
@@ -253,9 +250,8 @@ class Fermentation(Pathway):
                           v_max = model_parameters['Ferm_v_max'],
                           CUE = model_parameters['Ferm_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'DOC',
-                          use_thermodynamics = model_parameters['Fermentation_thermodynamics'])
-        super().__init__(microbe, educts, products)
+                          C_source = 'DOC')
+        super().__init__(microbe, educts, products, False)
 
 class Hydro(Pathway):
      def __init__(self, model_parameters):
@@ -269,10 +265,8 @@ class Hydro(Pathway):
                           v_max = model_parameters['Hydro_v_max'],
                           CUE = model_parameters['Hydro_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'CO2',
-                          use_thermodynamics = model_parameters['Hydro_thermodynamics']
-                          )
-        super().__init__(microbe, educts, products)
+                          C_source = 'CO2')
+        super().__init__(microbe, educts, products, model_parameters['Hydro_thermodynamics'])
 
 class Homo(Pathway):
     def __init__(self, model_parameters):
@@ -286,10 +280,8 @@ class Homo(Pathway):
                           v_max = model_parameters['Homo_v_max'],
                           CUE = model_parameters['Homo_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'CO2',
-                          use_thermodynamics = model_parameters['Homo_thermodynamics']
-                          )
-        super().__init__(microbe, educts, products)
+                          C_source = 'CO2')
+        super().__init__(microbe, educts, products, model_parameters['Homo_thermodynamics'])
 
 class Aceto(Pathway):
     def __init__(self, model_parameters):
@@ -301,9 +293,8 @@ class Aceto(Pathway):
                           v_max = model_parameters['Ac_v_max'],
                           CUE = model_parameters['Ac_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'Acetate',
-                          use_thermodynamics = model_parameters['Aceto_thermodynamics'])
-        super().__init__(microbe, educts, products)
+                          C_source = 'Acetate')
+        super().__init__(microbe, educts, products, model_parameters['Aceto_thermodynamics'])
 
 class Fe3(Pathway):
     def __init__(self, model_parameters):
@@ -318,6 +309,5 @@ class Fe3(Pathway):
                           v_max = model_parameters['Fe3_v_max'],
                           CUE = model_parameters['Fe3_CUE'],
                           death_rate = model_parameters['death_rate'],
-                          C_source = 'Acetate',
-                          use_thermodynamics = model_parameters['Fe3_thermodynamics'])
-        super().__init__(microbe, educts, products)
+                          C_source = 'Acetate')
+        super().__init__(microbe, educts, products, model_parameters['Fe3_thermodynamics'])

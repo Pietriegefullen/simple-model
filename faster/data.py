@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import traceback
 import json
 
-from USER_VARIABLES import ROOT_DIRECTORY
+from USER_VARIABLES import CODE_DIRECTORY as ROOT_DIRECTORY
 import CONSTANTS
 
 import loading
@@ -334,7 +334,7 @@ class KnoblauchData():
         for s in samples:
             self.add_sample(s)
 
-        if not self.samples:
+        if len(self.samples) == 0:
             self.load()
         
     def load(self):
@@ -555,7 +555,7 @@ class Sample():
             split['fit'] = [r for r in self.replicas if not r is split['val']]
             
         elif fit_mode == 'single':
-            split['fit'] = split['val']
+            split['fit'] = [split['val']]
             
         else:
             raise NotImplementedError()
@@ -647,6 +647,8 @@ class Replica():
             result = self.incubation['CH4']
         elif key == 'days':
             result = self.incubation['days']
+        else:
+            raise NotImplementedError()
         
         if not self.last_day is None:
             idx = self.incubation['days'] <= self.last_day

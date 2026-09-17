@@ -31,55 +31,113 @@ def r2(predicted, measured, log = False):
     return r2_value
 
 
-ALGOS = {'differential_evolution': DifferentialEvolution(),
-         'powell': Powell()}
-
 def get(algorithm_name):
-    return ALGOS[algorithm_name]
+    algo_classes = {'differential_evolution': DifferentialEvolution,
+            'Powell': Powell}
+    chosen_class = algo_classes[algorithm_name]
+    algo_instance = chosen_class()
+    return algo_instance
 
 def mse(true, pred):
     return np.sqrt(np.sum((true - pred)**2))
 
-loss_functions = {'mse': mse}
-
-def loss_function(pool, reduction = 'mse', transform = None, 
-                  t_start = None, t_end = None):
-    reduction_function = loss_functions[reduction]
+class Loss():
+    def __init__(self, pool, reduction_function, transform = None, t_start = None, t_end = None):
+        self.pool = pool
+        self.reduction_function = reduction_function
+        self.transform = transform
+        self.t_start = t_start
+        self.t_end = t_end
+        
+        self._model = None
     
-    def loss(replica, run_log):
-        t_pred, pool_pred = run_log[pool]
-        t_true, pool_true = replica[pool]
+    def set_model(self, model):
+        self._model = model
         
-        assert t_pred == t_true
+    def __call__(self, replica):
+        run_log = self._model.system_state_log
+        t_pred, pool_pred = run_log[self.pool]
+        pool_true = replica[self.pool]
+        t_true = replica.incubation['days']
         
-        if not t_start is None or not t_end is None:
+        assert np.all(t_pred == t_true)
+        
+        if not self.t_start is None or not self.t_end is None:
             idx = np.arange(len(t_pred))
-            if not t_start is None:
-                idx = np.intersect1d(idx, np.nonzero(t_pred >= t_start)[0])
+            if not self.t_start is None:
+                idx = np.intersect1d(idx, np.nonzero(t_pred >= self.t_start)[0])
                 
-            if not t_end is None:
-                idx = np.intersect1d(idx, np.nonzero(t_pred <= t_end)[0])
+            if not self.t_end is None:
+                idx = np.intersect1d(idx, np.nonzero(t_pred <= self.t_end)[0])
             
             pool_pred = pool_pred[idx]
             pool_true = pool_true[idx]
         
-        if callable(transform):
-            pool_pred = transform(pool_pred)
-            pool_true = transform(pool_true)
+        if callable(self.transform):
+            pool_pred = self.transform(pool_pred)
+            pool_true = self.transform(pool_true)
     
-        return reduction_function(pool_true, pool_pred)
-    return loss
+        return self.reduction_function(pool_true, pool_pred)
+
+loss_functions = {'mse': mse}
+
+def get_loss_function(pool, reduction = 'mse', transform = None, 
+                  t_start = None, t_end = None):
+    return Loss(pool, loss_functions[reduction], 
+                transform = transform, 
+                t_start = t_start, t_end = t_end)
 
 class Addable():
     def __init__(self, left = None, right = None):
         self._left = left
         self._right = right
+        
+        self._callbacks = []
+        self._call_log = []
+        
+    def model(self):
+        if hasattr(self, '_model'):
+            return self._model
+        return self._left.model()
+    
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        return self.__add__(other)
+    
+    def __add__(self, other):
+        assert other._model is self.model()
+        obj = Addable(self, other)
+        return obj
+    
+    def _call(self, args, **kwargs):
+        return self._left(args, **kwargs) + self._right(args, **kwargs)
     
     def __call__(self, args, **kwargs):
-        return self._left(args, **kwargs) + self._right(args, **kwargs)
+        value = self._call(args, **kwargs)
+        self._call_log.append((args, kwargs, value))
+        
+        for callback in self._callbacks:
+            callback(self)
+            
+        return value
+    
+    def call_count(self):
+        return len(self._call_log)
+    
+    def last_call(self):
+        return self._call_log[-1]
+    
+    def best_call(self):
+        return sorted(self._call_log, key = lambda k: k[-1])[0]
+    
+    def add_callback(self, callback):
+        assert callable(callback)
+        self._callbacks.append(callback)
     
 class Objective(Addable):
     def __init__(self, model, replica, replica_weight = 1.0):
+        super().__init__()
         self._model = model
         self._variables = model.parameters().variables()
 
@@ -87,51 +145,40 @@ class Objective(Addable):
         self._replica_weight = replica_weight
         
         self._loss_contributions = []
-        
-        self._callbacks = []
-        
-        self._call_log = []
-        
-    def model(self):
-        if self._model is None:
-            return self._left.model()
-        
-    def __add__(self, other):
-        assert other._model is self.model
-        obj = Addable(self, other)
-        return obj
+            
+    def add_loss(self, loss_function, loss_weight):
+        assert callable(loss_function)
+        loss_function.set_model(self._model)
+        self._loss_contributions.append((loss_function, loss_weight))
 
-    def __call__(self, transformed_parameters):
+    def _call(self, transformed_parameters):
         parameter_values = [var.inverse_transform(p) 
-                            for var, p in zip(self.variables, transformed_parameters)]
-        _ = [v.set(p) for v, p in zip(self.variables, np.squeeze(parameter_values))]
+                            for var, p in zip(self._variables, transformed_parameters)]
+        _ = [v.set(p) for v, p in zip(self._variables, np.squeeze(parameter_values))]
         run_log = self._model.predict(self._replica)
         
         replica_loss = 0
-        for loss_funcion, loss_weight in self._loss_contributions:
-            loss_value = loss_function(self._replica, run_log)
+        for loss_function, loss_weight in self._loss_contributions:
+            loss_value = loss_function(self._replica)
             replica_loss += loss_weight*loss_value
         
         objective_value = self._replica_weight * replica_loss
         
-        self._call_log.append((objective_value, parameter_values))
-        
-        for callback in self._callbacks:
-            callback(self)
-            
         return objective_value
 
-    def add_callback(self, callback):
-        assert callable(callback)
-        self._callbacks.append(callback)
 
 
 class Algorithm():
     def __init__(self, **default_kwargs):
-        self._congfig = default_kwargs
+        self._kwargs = default_kwargs
+        self._configure(**default_kwargs)
     
-    def configure(self, **kwargs):
-        self._config.update(kwargs)
+    def _configure(self, **kwargs):
+        for name, value in kwargs.items():
+            setattr(self, name, value)
+    
+    def configure(self, kwargs):
+        self._configure(**kwargs)
     
     def get_bounds(self, variables):
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
@@ -145,7 +192,7 @@ class Algorithm():
 
 class DifferentialEvolution(Algorithm):    
     def __init__(self):
-        self._config = {'strategy': 'rand1bin',
+        defaults = {'strategy': 'rand1bin',
                         'updating': 'deferred',#'immediate',
                         'popsize': 10,
                         'workers': -1,
@@ -155,15 +202,21 @@ class DifferentialEvolution(Algorithm):
                         'recombination': .7, # CR
                         'mutation': (.5,1.)  # F
                         }
+        super().__init__(**defaults)
         self.generation = 0
         
     def minimize(self, objective, initial_parameters):
         self.generation = 1
         variables = objective.model().parameters().variables()
-        _ = scipy.optimize.differential_evolution(objective,
-                                                  bounds = self.get_bounds(variables),
-                                                  callback = self.generation_counter,
-                                                  **self._config)
+        print('starting')
+        try:
+            _ = scipy.optimize.differential_evolution(objective,
+                                                      bounds = self.get_bounds(variables),
+                                                      callback = self.generation_counter)
+            #,
+                                                      #**self._kwargs)
+        except KeyboardInterrupt:
+            return
         
     def generation_counter(self, args, **kwargs):
         self.generation += 1
@@ -178,7 +231,6 @@ class Powell(Algorithm):
 
 
 
-
 def target_directory_path(replica_objectives, model_type, suffix = ''):
     str_model_type = '_' + model_type + '_'
     timestamp = datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
@@ -187,7 +239,7 @@ def target_directory_path(replica_objectives, model_type, suffix = ''):
     cp_path = os.path.join(USER_VARIABLES.LOG_DIRECTORY + suffix, name) 
     return cp_path
 
-class Objective():
+class Objective2():
     def __init__(self, replica_objectives, variables, model, suffix = '', keep_only_best = False):
         self.model = model
         self.replica_objectives = replica_objectives
@@ -286,7 +338,7 @@ class Objective():
         return 'Objective function: sum of loss from\n' + '\n'.join([str(s) 
                                                          for s in self.replica_objectives])
 
-class Loss():
+class Loss2():
     def __init__(self, predicted, measured):
         self.predicted = predicted
         self.measured = measured

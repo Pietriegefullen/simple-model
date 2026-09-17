@@ -68,7 +68,7 @@ def integrate(f, t, S0, solver_result, reset_Fe3):
     return solver_result
         
 
-
+# obsolete?
 def get_pathways(model_type):
     basic = ['Hydrolysis',
              'Fermentation',
@@ -242,8 +242,10 @@ class Model():
         model_string += str(self.model_parameters)
         model_string += '\n'
         var_cnt = sum([int(p.is_variable()) for p in self.model_parameters])
+        nan_cnt = sum([int(p.is_unset()) for p in self.model_parameters])
         model_string += '\n'
-        model_string += f'{var_cnt:d} variables'
+        model_string += f'{var_cnt:d} variables\n'
+        model_string += f'{nan_cnt:d} unset'
         return model_string
 
     def save(self, target_directory, file_name):

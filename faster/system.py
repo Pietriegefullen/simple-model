@@ -66,7 +66,6 @@ def initial_state(replica, model_parameters, initial_mean_days = 0):
             v = vector(0, pool, init)
             S0 += v
         else:
-            print(pool, 'constant')
             model_parameters[pool].constant(0)
     
     if not replica is None and str(replica.sample.sample_name).startswith('2'):

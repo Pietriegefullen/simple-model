@@ -45,12 +45,10 @@ def default_model_parameters(normalize_parameters = False):
          Parameter('M_Homo',         .25, [1e-8, 5], normalize = normalize_parameters),
          Parameter('M_Ac',         .0033, [1e-8, 5], normalize = normalize_parameters),
          
-         Switch('Hydrolysis_thermodynamics', False),
-         Switch('Fermentation_thermodynamics', False),
-         Switch('Hydro_thermodynamics', True),
-         Switch('Homo_thermodynamics', True),
-         Switch('Aceto_thermodynamics', True),
-         Switch('Fe3_thermodynamics', True),
+         Parameter('Hydro_thermodynamics', True, {True}),
+         Parameter('Homo_thermodynamics', True, {True}),
+         Parameter('Aceto_thermodynamics', True, {True}),
+         Parameter('Fe3_thermodynamics', True, {True}),
         ]
         
     return p
@@ -214,8 +212,9 @@ class ModelParameters():
         title = 'Model Parameters:'
         title += '\n' + '='*len(title) + '\n'
         sorted_params = sorted(self._parameters.values(), key = lambda x: x.name)
-        return title + '\n'.join([f'{i+1:3d}) ' + str(p) 
+        s = title + '\n'.join([f'{i+1:3d}) ' + str(p) 
                                   for i,p in enumerate(sorted_params)])
+        return s
 
 
 class Parameter():
@@ -223,53 +222,74 @@ class Parameter():
         self.name = name
         self.value = value
         
+        self.options = None
         self.low = None
         self.high = None
+        
+        if isinstance(range, set):
+            self.options = range
+        
+        elif isinstance(range, (tuple, list)):
+            self.low = range[0]
+            self.high = range[1]
+
         self.scale = scale
         self.normalize = normalize
         self.transformer = None
-        if not range is None:
-            self.low = range[0]
-            self.high = range[1]
     
     def lower(self):
         if not self.is_variable():
             raise Exception()
+        if self.low is None:
+            return np.min(self.options)
         return self.low
     
     def upper(self):
         if not self.is_variable():
             raise Exception()
+        if self.high is None:
+            return np.max(self.options)
         return self.high
     
     def constant(self, value):
         self.value = value
         self.low = None
         self.high = None
+        self.options = None
         return self
     
     def variable(self, value, range):
         self.value = value
-        self.low = range[0]
-        self.high = range[1]
+        if isinstance(range, set):
+            self.low = None
+            self.high = None
+            self.options = range
+        elif isinstance(range, tuple):
+            self.low = range[0]
+            self.high = range[1]
+            self.options = None
         return self
     
-    def check(p):
-        return True
-    
     def set(self, p):
-        self.check(p)
         if isinstance(p, Parameter):
             self.low = p.low
             self.high = p.high
+            self.options = p.options
             self.scale = p.scale
             self.normalize = p.normalize
             self.value = p.value
 
-        elif isinstance(p, (int, float)):
-            if self.is_variable() and (not p <= self.high or not p >= self.low):
-                print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
-            self.value = float(p)
+        elif isinstance(p, (int, float, bool)):
+            if self.is_variable():
+                out_of_range = False
+                if self.options is None and (not p <= self.high or not p >= self.low):
+                    out_of_range = True
+                elif isinstance(self.options, set) and not p in self.options:
+                    out_of_range = True
+
+                if out_of_range:
+                    print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
+                self.value = float(p)
         else:
             raise NotImplementedError(str(p))
     
@@ -277,12 +297,16 @@ class Parameter():
         return np.isnan(self.value)
                         
     def is_variable(self):
-        if self.low == self.high:
+        if not self.options is None and len(self.options) > 1:
+            return True
+        elif isinstance(self.options, set) and len(self.options) <= 1:
+            return False
+        if not self.low is None and self.low == self.high:
             return False
         return not self.is_unset() and not self.low is None and not self.high is None
     
     def is_constant(self):
-        return not self.is_variable()
+        return not self.is_variable() and not self.is_unset()
     
     def get_transform(self):
         if self.transformer is None:
@@ -343,21 +367,6 @@ class Parameter():
     
     def __rdiv__(self, other):
         return float(other)/self.value
-
-class Switch(Parameter):
-    def __init__(self, name, value):
-        value = int(value)
-        assert value == 1 or value == 0
-        super().__init__(name, bool(value), scale = 'linear')
-    
-    def check(self, p):
-        for value in [p.value, p.high, p.low]:
-        if not value == 0 or not value == 1:
-            raise ValueError()
-        return True
-    
-    def get_transform(self):
-        return IdentityTransform()
 
 def boxplots(loaded_parameters, save_target = None):
     parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
