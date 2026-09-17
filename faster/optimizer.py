@@ -50,17 +50,42 @@ class Loss():
         self.t_end = t_end
         
         self._model = None
+        self._replica = None
     
-    def set_model(self, model):
+    def set_model(self, model, replica):
         self._model = model
+        self._replica = replica
         
-    def __call__(self, replica):
+        self._model.add_t(self._replica.incubation['days'])
+        
+    def R2(self):
+        predicted, measured = self.get_values()
+        usable = np.logical_and(np.isfinite(predicted), np.isfinite(measured))
+        measured_mean = np.nanmean(measured[usable])
+        SS_res = np.nansum((predicted[usable] - measured[usable])**2)
+        SS_total = np.nansum((measured[usable] - measured_mean)**2)
+    
+        r2_value = 1 - SS_res/SS_total
+        
+        return r2_value
+    
+    def get_values(self):
         run_log = self._model.system_state_log
         t_pred, pool_pred = run_log[self.pool]
-        pool_true = replica[self.pool]
-        t_true = replica.incubation['days']
+        pool_true = self._replica[self.pool]
+        t_true = self._replica.incubation['days']
         
-        assert np.all(t_pred == t_true)
+        ind = np.squeeze([np.nonzero(t_pred==t)[0] for t in t_true])
+        t_pred = t_pred[ind]
+        pool_pred = pool_pred[ind]
+        
+        assert np.all(np.isclose(t_pred, t_true)), str(t_pred) +'\n' + str(t_true)
+
+        if 0 in t_pred:
+            pool_pred = pool_pred[t_pred != 0]
+            pool_true = pool_true[t_pred != 0]
+            t_true = t_true[t_pred != 0]
+            t_pred = t_pred[t_pred != 0]
         
         if not self.t_start is None or not self.t_end is None:
             idx = np.arange(len(t_pred))
@@ -76,7 +101,14 @@ class Loss():
         if callable(self.transform):
             pool_pred = self.transform(pool_pred)
             pool_true = self.transform(pool_true)
+        return pool_pred, pool_true
     
+    def __str__(self):
+        s = f'{self.pool} R2: {self.R2():6.2f}'
+        return s
+    
+    def __call__(self):
+        pool_pred, pool_true = self.get_values()
         return self.reduction_function(pool_true, pool_pred)
 
 loss_functions = {'mse': mse}
@@ -135,6 +167,10 @@ class Addable():
         assert callable(callback)
         self._callbacks.append(callback)
     
+    def __str__(self):
+        return '\n'.join([str(s) for s in [self._left, self._right]
+                          if not s is None])
+    
 class Objective(Addable):
     def __init__(self, model, replica, replica_weight = 1.0):
         super().__init__()
@@ -148,24 +184,29 @@ class Objective(Addable):
             
     def add_loss(self, loss_function, loss_weight):
         assert callable(loss_function)
-        loss_function.set_model(self._model)
+        loss_function.set_model(self._model, self._replica)
         self._loss_contributions.append((loss_function, loss_weight))
 
     def _call(self, transformed_parameters):
         parameter_values = [var.inverse_transform(p) 
                             for var, p in zip(self._variables, transformed_parameters)]
         _ = [v.set(p) for v, p in zip(self._variables, np.squeeze(parameter_values))]
+        
         run_log = self._model.predict(self._replica)
         
         replica_loss = 0
         for loss_function, loss_weight in self._loss_contributions:
-            loss_value = loss_function(self._replica)
+            loss_value = loss_function()
             replica_loss += loss_weight*loss_value
         
         objective_value = self._replica_weight * replica_loss
-        
         return objective_value
 
+    def __str__(self):
+        r_name = '-'.join([self._replica.sample.sample_name,self._replica.replica_number])
+        lstr = '  '.join([str(loss_function)
+                              for loss_function, _ in self._loss_contributions])
+        return f'{r_name}: {lstr}'
 
 
 class Algorithm():

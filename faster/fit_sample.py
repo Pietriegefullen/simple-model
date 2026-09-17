@@ -67,7 +67,7 @@ chosen = {
             't_start':                  None,
             't_end':                    None,
             
-            'fit_mode':                 'single', # 'single' or 'split'
+            'fit_mode':                 'split', # 'single' or 'split'
             'pathways':                 ['Hydrolysis',
                                          'Fermentation',
                                          'Hydro',
@@ -105,10 +105,10 @@ dataset = data.get_data_before_day()
 sample = dataset[chosen['sample']]
 split = sample.get_split(chosen['validation_replica'], 
                          chosen['fit_mode'])
+
 # build and configure model
 pathway_model = model.Model(chosen['pathways'])
 pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
-
 pathway_model.parameters().set(initial_parameters)
 for p_name, p_value in chosen['parameter_override'].items():
     pathway_model.parameters()[p_name].constant(p_value)
@@ -132,11 +132,6 @@ for replica in split['fit']:
 total_objective = sum(replica_objectives)
 total_objective.add_callback(checkpoint.CheckpointCallback())
 total_objective.add_callback(checkpoint.PrintCallback())
-
-# print callback?
-# store checkpoint callback!
-#   => TODO: design a sensible structure!
-# if using hashes for model version, keep a lookup table to describe models!
 
 run_metadata = [chosen, algo_config, initial_parameters]
 

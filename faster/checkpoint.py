@@ -13,7 +13,9 @@ class PrintCallback():
         args, kwargs, loss_value = objective.last_call()
         _, _, best_loss = objective.best_call()
         cnt = objective.call_count()
-        print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
+        print(objective)
+        #print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
+        print(f'call {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}')
 
 class CheckpointCallback():
     def __call__(self, objective):

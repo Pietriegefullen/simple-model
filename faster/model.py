@@ -97,6 +97,9 @@ class Model():
         self.contributing_pathways = None
         self.build(quiet = True)
         
+        
+        self.t = None
+        
     def build(self, quiet = False):
         self.contributing_pathways = [p(self.model_parameters) 
                                       for p in self._unbuilt_contributing_pathways]
@@ -151,19 +154,30 @@ class Model():
                              suffix = suffix,
                              initial_mean_days = initial_mean_days)
         
+    def add_t(self, t):
+        if self.t is None:
+            self.t = np.squeeze(t)
+        else:
+            self.t = np.concatenate([np.squeeze(t), self.t])
+        self._clean_t()
+        
+    def _clean_t(self):
+        self.t = np.sort(list(set(self.t)))
+        
     def predict(self, replica, t = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000,
                 initial_mean_days = 0):
         measured_days = replica['days']
-
-        t_eval = measured_days
+        self.add_t(measured_days)
         if not t is None:
-            t_eval = np.array(t)
-            
+            self.add_t(t)
+        
         if not reset_Fe3 is None:
             last_day = reset_Fe3 + days_beyond_reset
-            t = np.concatenate([t, [last_day]], axis = 0)
-            
+            self.add_t(last_day)
+
+        t_eval = np.array(self.t)
+
         # prepare for solving
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters(), initial_mean_days)
@@ -197,23 +211,11 @@ class Model():
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
    
-        # compute R2 values
-        used_measured_indices = np.array([np.nonzero(measured_days == t)[0] for t in t_eval])
         
-        _, predicted_CO2 = self.system_state_log['CO2']
-        predicted_CO2_on_measured = predicted_CO2
-        measured_CO2 = replica['CO2'][used_measured_indices]
-        co2_r2 = r2(predicted_CO2_on_measured, measured_CO2, log = True)
-        
-        _, predicted_CH4 = self.system_state_log['CH4']
-        predicted_CH4_on_measured = predicted_CH4
-        measured_CH4 = replica['CH4'][used_measured_indices]
-        ch4_r2 = r2(predicted_CH4_on_measured, measured_CH4, log = True)
-        
-        self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
-        self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
-        self.system_state_log._log['R2'] = {'CO2': co2_r2,
-                                            'CH4': ch4_r2}
+        #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
+        #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
+        #self.system_state_log._log['R2'] = {'CO2': co2_r2,
+        #                                    'CH4': ch4_r2}
         
         add_to_log = []
         for k, val in self.system_state_log._log.items():
