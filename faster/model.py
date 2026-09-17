@@ -96,10 +96,15 @@ class Model():
         self._unbuilt_contributing_pathways = pathway_classes
         self.contributing_pathways = None
         self.build(quiet = True)
-        
-        
+
         self.t = None
-        
+    
+    def get_config(self):
+        cfg = {}
+        for pathway in self.contributing_pathways:
+            cfg[pathway.__class__.__name__] = pathway.get_config()
+        return cfg
+    
     def build(self, quiet = False):
         self.contributing_pathways = [p(self.model_parameters) 
                                       for p in self._unbuilt_contributing_pathways]

@@ -101,6 +101,7 @@ class Loss():
         if callable(self.transform):
             pool_pred = self.transform(pool_pred)
             pool_true = self.transform(pool_true)
+            
         return pool_pred, pool_true
     
     def __str__(self):
