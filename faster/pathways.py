@@ -78,8 +78,9 @@ class Pathway():
        
     def get_config(self):
         cfg = {'microbe': self.microbe.get_config(),
-               'educts': sorted([e.get_config() for e in self.educts]),
-               'products': sorted([e.get_config() for e in self.products])
+               'educts': sorted({e.name: e.get_config() for e in self.educts}),
+               'products': sorted({e.name: e.get_config() for e in self.products}),
+               'use_thermodynamics': self.use_thermodynamics
                }
         return cfg
     
@@ -204,8 +205,7 @@ class Microbe():
                 'v_max':self.v_max,
                 'Kmb': self.Kmb,
                 'CUE': self.CUE,
-                'C_source': self.C_source,
-                'use_thermodynamics': self.use_thermodynamics}
+                'C_source': self.C_source}
 
 class Substance():
     def __init__(self, stoichiometry, name, 

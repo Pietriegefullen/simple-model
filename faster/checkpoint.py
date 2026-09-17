@@ -1,11 +1,9 @@
 import hashlib
 import json
 
-from USER_VARIABLES import RESULTS_DIRECTORY as CP_ROOT
+import wn
 
-# RUN hash
-# model hash
-# 
+from USER_VARIABLES import RESULTS_DIRECTORY as CP_ROOT
 
 ALPHABET = 'abcdefghijklmnopqrstuvwxyz'.upper()
 
@@ -18,13 +16,13 @@ def freeze(obj):
         return tuple(freeze(v) for v in obj)
     return obj
 
-def build_id(config, group_length = 4, length = 12):
+def compute_hash(config):
     assert isinstance(config, dict)
-    print(freeze(config))
-    data = json.dumps(freeze(config), sort_keys=True, separators=(",", ":"))
-    #s_hash = hashlib.sha256(data.encode()).hexdigest()
-   
     digest = hash(tuple(sorted(freeze(config))))
+    return digest
+
+def build_id(config, group_length = 3, length = 2):
+    digest = compute_hash(config)
     
     number = abs(digest)
 
@@ -35,10 +33,11 @@ def build_id(config, group_length = 4, length = 12):
         number, remainder = divmod(number, base)
         result.append(ALPHABET[remainder])
 
-    s_hash = "".join(reversed(result)).zfill(length)[-length:]
+    s_hash = "".join(reversed(result)).zfill(length*group_length)[-length*group_length:]
     
     identifier = "-".join(
-                        s_hash[i:i+3] for i in range(0, len(s_hash), group_length)
+                        s_hash[i:i+group_length] 
+                        for i in range(0, len(s_hash), group_length)
                     )
     return identifier
 
@@ -61,13 +60,35 @@ class PrintCallback():
             print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
 
 class CheckpointCallback():
+    def __init__(self, keep_only_n = None):
+        self.keep_only_n = keep_only_n
+        
+        
+    def checkpoint_id(self, objective):
+        model_id = build_id(objective.model().get_config(), 3, 2)
+        
+        # plain:
+        # sample_number-validation_replica
+        # fit_mode
+        
+        # loss_value w/o decimal point -> careful formatting!
+    
+    def cleanup(self, save_dir):
+        if not self.keep_only_n is None:
+            raise NotImplementedError()
+            # sort by loss value
+            # keep only 
+        
+        
     def __call__(self, objective):
+        cp_transformed_parameters, _, last_loss = objective.last_call()
+        _,_, best_loss = objective.best_call()
         
-        # model ID: model version -> manually?
-        #   low priority, expecting little change.
-            
-        # pathway ID: from pathway configurations
+        if not last_loss == best_loss:
+            return
         
+        model_id = 'model-' + build_id(objective.model().get_config(), 3,2)
+                    
         # optimisation ID: also including parameters (which are const, which variable!, bounds)
         
         # run ID: initial parameters!
@@ -76,22 +97,36 @@ class CheckpointCallback():
         # sample/replica
         # fit_mode
         
-        # fit_period (t_start, t_end)
+        validation_replica = #TODO: get from where?
         
-        # don't use hash for simple (bool) configuration such as fit_mode
-        
-        run_id = build_id()
+        # hashed: fit_period (t_start, t_end)
+                
         
         save_dir = os.path.join(CP_PATH, run_id)
-        
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         
-        # determine save path
+        file_name = '_'.join([sample_name, ])
+        file_path = os.path.join(save_dir, file_name)
+        
         # get configuration
         # store parameters
+        #   with which metadata?
         
-        pass
+        variables = objective.model().parameters().variables()
+        checkpoint_parameters = [var.inverse_transform(p) 
+                            for var, p in zip(variables, cp_transformed_parameters)]
+        
+        checkpoint_data = {
+                            'parameters': checkpoint_parameters,
+                            'total_loss': last_loss,
+                            'model': model_config,
+                           }
+        
+        #with open(checkpoint_file, 'w') as cf:
+        #    json.dump(checkpoint_data, cf, indent = 4)
+
+        #self.cleanup(save_dir)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

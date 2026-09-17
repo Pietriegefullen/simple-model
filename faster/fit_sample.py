@@ -4,6 +4,11 @@ import optimizer
 import parameters
 import checkpoint
 
+
+# TODO: adding two objectives returns Objective, not Addable?
+# => Objective IS Addable.
+
+
 parser = argparse.ArgumentParser(
                     prog='fit_sample',
                     description='Fits a model to replica data.',
@@ -123,9 +128,11 @@ for replica in split['fit']:
     replica_objective = optimizer.Objective(pathway_model, replica)
     for pool in ['CO2', 'CH4']:
         transform = parameters.get_transform(chosen['transform'][pool])
-        pool_loss = optimizer.get_loss_function(pool, chosen['reduction'][pool], transform,
-                                            t_start = chosen['t_start'],
-                                            t_end = chosen['t_end'])
+        pool_loss = optimizer.get_loss_function(pool, 
+                                                chosen['reduction'][pool], 
+                                                transform,
+                                                t_start = chosen['t_start'],
+                                                t_end = chosen['t_end'])
         replica_objective.add_loss(pool_loss, chosen['loss_weight'][pool])
     replica_objectives.append(replica_objective)
 

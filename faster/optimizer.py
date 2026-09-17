@@ -42,7 +42,8 @@ def mse(true, pred):
     return np.sqrt(np.sum((true - pred)**2))
 
 class Loss():
-    def __init__(self, pool, reduction_function, transform = None, t_start = None, t_end = None):
+    def __init__(self, pool, reduction_function, 
+                 transform = None, t_start = None, t_end = None):
         self.pool = pool
         self.reduction_function = reduction_function
         self.transform = transform
@@ -69,11 +70,10 @@ class Loss():
         
         return r2_value
     
-    def get_values(self):
-        run_log = self._model.system_state_log
+    def get_values(self, replica, run_log):
         t_pred, pool_pred = run_log[self.pool]
-        pool_true = self._replica[self.pool]
-        t_true = self._replica.incubation['days']
+        pool_true = replica[self.pool]
+        t_true = replica.incubation['days']
         
         ind = np.squeeze([np.nonzero(t_pred==t)[0] for t in t_true])
         t_pred = t_pred[ind]
@@ -108,8 +108,8 @@ class Loss():
         s = f'{self.pool} R2: {self.R2():6.2f}'
         return s
     
-    def __call__(self):
-        pool_pred, pool_true = self.get_values()
+    def __call__(self, replica, run_log):
+        pool_pred, pool_true = self.get_values(replica, run_log)
         return self.reduction_function(pool_true, pool_pred)
 
 loss_functions = {'mse': mse}
@@ -173,19 +173,21 @@ class Addable():
                           if not s is None])
     
 class Objective(Addable):
-    def __init__(self, model, replica, replica_weight = 1.0):
+    def __init__(self, model, replica, replica_weight = 1.0, val_replica = None):
         super().__init__()
         self._model = model
         self._variables = model.parameters().variables()
 
         self._replica = replica
         self._replica_weight = replica_weight
+        self._val_replica = val_replica
         
         self._loss_contributions = []
             
     def add_loss(self, loss_function, loss_weight):
         assert callable(loss_function)
-        loss_function.set_model(self._model, self._replica)
+        #loss_function.set_model(self._model, self._replica)
+        self._model.add_t(self._replica.incubation['days'])
         self._loss_contributions.append((loss_function, loss_weight))
 
     def _call(self, transformed_parameters):
@@ -197,7 +199,7 @@ class Objective(Addable):
         
         replica_loss = 0
         for loss_function, loss_weight in self._loss_contributions:
-            loss_value = loss_function()
+            loss_value = loss_function(self._replica, run_log)
             replica_loss += loss_weight*loss_value
         
         objective_value = self._replica_weight * replica_loss
