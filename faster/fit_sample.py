@@ -1,12 +1,10 @@
 import argparse
 
+import model
+import data
 import optimizer
 import parameters
 import checkpoint
-
-
-# TODO: adding two objectives returns Objective, not Addable?
-# => Objective IS Addable.
 
 
 parser = argparse.ArgumentParser(
@@ -18,52 +16,19 @@ parser.add_argument('validation_replica', type = int)
 
 # omit pathways
 parser.add_argument('--omit', nargs = '+', default = [])
+
 # override parameters/switches
 # specify initial parameter values from checkpoint
 
 args = parser.parse_args()
 
-# TODO: check these ipmorts
-import sys
-import os
-import traceback
-import matplotlib.pyplot as plt
-from datetime import datetime
-import json
-import numpy as np
+# TODO: vmax may be eitehr float or Parameter
+#       => unified conversion to dict() -> using a helper function.
 
-import model
-import data
-import USER_VARIABLES
-
-# TODO: is Switch internally reinitialised as Parameter???
-# -> when set to const?
-
-# TODO: disable entire pathways
-# TODO: configure pathways via model parameters/switches
-# TODO: list included pathways, ditch 'simple'/'complex', but maintain backwards compatibility?
-
-# TODO: checkpoint handling
-#       - saving
-#       - retrieval
-
+# TODO: adding two objectives returns Objective, not Addable? => Objective IS Addable.
 # TODO: optionally load initial parameters (checkpoints) from different source
-
-# TODO: store entire configuration: data, model, parameters, algo, ... with run.
-#   => which configuration changes what? -> 
-
 #TODO: set model variable/constant parameters , initial values LATER
-
-# save hyperparameters
-#   timestamp
-#   model version
-#   fit/val replicas
-#   variables, initial parameter values, parameter ranges
-#   optimiser and objective configuration
-# for hashing, make sure to unify datatypes! e.g. sample number as int/str
-
-# save hyperparameters with every plot (how?) -> maintain origin: model version, ...
-
+# TODO: save hyperparameters with every plot (how?) -> maintain origin: model version, ...
 
 chosen = {
             'sample':                   1351,
@@ -98,7 +63,7 @@ algo_config = {'differential_evolution': {}, # empty dict uses default
                'powell':                 {}
                }
 
-initial_parameters = {}
+initial_parameters = {} # TODO: define bounds
 
 chosen['sample'] = args.sample
 chosen['validation_replica'] = args.validation_replica
@@ -136,10 +101,12 @@ for replica in split['fit']:
         replica_objective.add_loss(pool_loss, chosen['loss_weight'][pool])
     replica_objectives.append(replica_objective)
 
+run_config= {'model': pathway_model.get_config(),
+             'chosen': chosen,
+             'algo': algo_config,
+             'initial': initial_parameters}
 total_objective = sum(replica_objectives)
-total_objective.add_callback(checkpoint.CheckpointCallback())
-total_objective.add_callback(checkpoint.PrintCallback())
-
-run_metadata = [chosen, algo_config, initial_parameters]
+total_objective.add_callback(checkpoint.CheckpointCallback(run_config))
+total_objective.add_callback(checkpoint.PrintCallback(run_config))
 
 algo.minimize(total_objective, initial_parameters)

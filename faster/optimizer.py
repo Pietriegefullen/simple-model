@@ -151,7 +151,7 @@ class Addable():
         self._call_log.append((args, kwargs, value))
         
         for callback in self._callbacks:
-            callback(self)
+            callback()
             
         return value
     
@@ -166,8 +166,9 @@ class Addable():
     
     def add_callback(self, callback):
         assert callable(callback)
+        callback.set_objective(self)
         self._callbacks.append(callback)
-    
+
     def __str__(self):
         return '\n'.join([str(s) for s in [self._left, self._right]
                           if not s is None])

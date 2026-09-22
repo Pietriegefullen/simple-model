@@ -17,6 +17,10 @@ import USER_VARIABLES
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
+version_major = '0'
+version_minor = '1'
+__version__ = '.'.join([version_major, version_minor])
+
 def integrate(f, t, S0, solver_result, reset_Fe3):
     #print('solving IVP')
     
@@ -103,6 +107,7 @@ class Model():
         cfg = {}
         for pathway in self.contributing_pathways:
             cfg[pathway.__class__.__name__] = pathway.get_config()
+        cfg.update({'version':__version__})
         return cfg
     
     def build(self, quiet = False):
