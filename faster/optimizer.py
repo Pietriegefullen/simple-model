@@ -59,7 +59,7 @@ class Loss():
         
         self._model.add_t(self._replica.incubation['days'])
         
-    def R2(self):
+    def R2(self, replica, run_log):
         predicted, measured = self.get_values()
         usable = np.logical_and(np.isfinite(predicted), np.isfinite(measured))
         measured_mean = np.nanmean(measured[usable])
@@ -105,7 +105,7 @@ class Loss():
         return pool_pred, pool_true
     
     def __str__(self):
-        s = f'{self.pool} R2: {self.R2():6.2f}'
+        s = f'{self.pool}'
         return s
     
     def __call__(self, replica, run_log):
@@ -232,8 +232,13 @@ class Algorithm():
         return bounds
     
     def minimize(self, objective, initial_parameters):
+        print('Fitting with ' + self.__class__.__name__)
+        print(objective.model())
+        print(objective)
+        self._minimize(objective, initial_parameters)
+    
+    def _minimize(self, objective, initial_parameters):
         raise NotImplementedError()
- 
 
 class DifferentialEvolution(Algorithm):    
     def __init__(self):
@@ -250,10 +255,10 @@ class DifferentialEvolution(Algorithm):
         super().__init__(**defaults)
         self.generation = 0
         
-    def minimize(self, objective, initial_parameters):
+    def _minimize(self, objective, initial_parameters):
         self.generation = 1
         variables = objective.model().parameters().variables()
-        print('starting')
+
         try:
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = self.get_bounds(variables),
@@ -268,7 +273,7 @@ class DifferentialEvolution(Algorithm):
         return False
 
 class Powell(Algorithm):
-    def minimize(self, objective, initial_parameters):
+    def _minimize(self, objective, initial_parameters):
         vairables = objective.model().parameters().variables()
         x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
         _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 

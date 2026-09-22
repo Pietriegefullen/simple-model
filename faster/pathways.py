@@ -6,6 +6,8 @@ import CONSTANTS
 
 HENRYS_LAW = system.henrys_law()
 
+from parameters import flatten as flat
+
 def pathway_by_name(name):
     pwys = {'Homo': Homo,
             'Aceto': Aceto,
@@ -80,7 +82,7 @@ class Pathway():
         cfg = {'microbe': self.microbe.get_config(),
                'educts': sorted({e.name: e.get_config() for e in self.educts}),
                'products': sorted({e.name: e.get_config() for e in self.products}),
-               'use_thermodynamics': self.use_thermodynamics
+               'use_thermodynamics': flat(self.use_thermodynamics)
                }
         return cfg
     
@@ -201,11 +203,11 @@ class Microbe():
     
     def get_config(self):
         return {'name': self.name,
-                'death_rate': self.death_rate,
-                'v_max':self.v_max,
-                'Kmb': self.Kmb,
-                'CUE': self.CUE,
-                'C_source': self.C_source}
+                'death_rate': flat(self.death_rate),
+                'v_max':flat(self.v_max),
+                'Kmb': flat(self.Kmb),
+                'CUE': flat(self.CUE),
+                'C_source': flat(self.C_source)}
 
 class Substance():
     def __init__(self, stoichiometry, name, 

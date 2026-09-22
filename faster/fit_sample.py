@@ -18,15 +18,21 @@ parser.add_argument('validation_replica', type = int)
 parser.add_argument('--omit', nargs = '+', default = [])
 
 # override parameters/switches
-# specify initial parameter values from checkpoint
 
 args = parser.parse_args()
+# TODO: read args into config
+
+# TODO: __str__ for Objective/Loss
+
+# TODO: finish init config!
+# TODO: print where initial parameters/ranges are from
+
+# TODO: loaded parameter range sets all to variable?
 
 # TODO: vmax may be eitehr float or Parameter
 #       => unified conversion to dict() -> using a helper function.
 
 # TODO: adding two objectives returns Objective, not Addable? => Objective IS Addable.
-# TODO: optionally load initial parameters (checkpoints) from different source
 #TODO: set model variable/constant parameters , initial values LATER
 # TODO: save hyperparameters with every plot (how?) -> maintain origin: model version, ...
 
@@ -63,7 +69,26 @@ algo_config = {'differential_evolution': {}, # empty dict uses default
                'powell':                 {}
                }
 
-initial_parameters = {} # TODO: define bounds
+init_config = {
+                'best_N': None,
+}
+
+# model: hash
+# sample: int or str
+# validation_replica: 
+# replica: sample+replica (overrides sample and validation_replica)
+# run_ID: str
+# best_N: 'wide' or 'narrow'?
+
+# default is: all from sample+replica.
+# choose initial parameters by
+# run ID
+# best N in folder
+# loss criterion in folder
+# 
+# => init_config does not affect hashes!
+
+
 
 chosen['sample'] = args.sample
 chosen['validation_replica'] = args.validation_replica
@@ -76,10 +101,13 @@ sample = dataset[chosen['sample']]
 split = sample.get_split(chosen['validation_replica'], 
                          chosen['fit_mode'])
 
-# build and configure model
+# build model and configure parameters
 pathway_model = model.Model(chosen['pathways'])
 pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
+initial_parameters = parameters.load_parameters(init_config)
 pathway_model.parameters().set(initial_parameters)
+
+# override model parameters
 for p_name, p_value in chosen['parameter_override'].items():
     pathway_model.parameters()[p_name].constant(p_value)
 
@@ -104,7 +132,7 @@ for replica in split['fit']:
 run_config= {'model': pathway_model.get_config(),
              'chosen': chosen,
              'algo': algo_config,
-             'initial': initial_parameters}
+             'initial': initial_parameters.get_config()}
 total_objective = sum(replica_objectives)
 total_objective.add_callback(checkpoint.CheckpointCallback(run_config))
 total_objective.add_callback(checkpoint.PrintCallback(run_config))

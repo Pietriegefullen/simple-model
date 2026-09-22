@@ -3,6 +3,97 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 from abc import ABC, abstractmethod
+import hashing
+
+def load_file(file_path):
+    with open(file_path, 'r') as pf:
+        file_content = json.load(pf)
+    return file_content
+
+def load_parameter_file(file_path):
+    file_content = load_file(file_path)
+
+    assert 'parameters' in file_content.keys()
+    assert 'total_loss' in file_content.keys()
+
+    parameters = ModelParameters(file_content['parameters'])
+    loss = float(file_content['total_loss'])
+
+    return parameters, loss
+
+def load_parameters(init_config):
+    from USER_VARIABLES import RESULTS_DIRECTORY
+
+    checks = []
+    def check(criterion, value, id_func = None):
+        def check_function(run_config):
+            result = id_func(run_config) if callable(id_func) else run_config[criterion]
+            return str(result) == str(value)
+        return check_function
+
+    if 'replica' in init_config:
+        replica = str(init_config['replica'])
+        replica = [c for c in replica if c in '0123456789' ]
+        assert len(replica) == 5
+        init_config['sample'] = int(replica[:4])
+        init_config['validation_replica'] = int(replica[-1:])
+        del init_config['replica']
+
+    if 'run_ID' in init_config:
+        checks.append(check('run', {'run', init_config}, hashing.build_run_id))
+
+    if 'model' in init_config:
+        checks.append(check('model'), init_config['model'], hashing.build_model_id)
+
+    if 'sample' in init_config:
+        checks.append(check('sample'), init_config['sample'])
+        
+    if 'validation_replica' in init_config:
+        checks.append(check('validation_replica'), init_config['validation_replica'])
+
+    candidate_files = []
+    for d in os.listdir(RESULTS_DIRECTORY):
+        path = os.path.join(RESULTS_DIRECTORY, d)
+        if not os.path.isdir(path): continue
+        
+        for file in os.listdir(path):
+            if 'config' in file: continue
+            run_ID = file.split('_')[0]
+            run_config = load_file(os.path.join(path, run_ID +'_config'))
+            if not all([c(run_config) for c in checks]):
+                continue
+
+            candidate_files.append(os.path.join(path, file))
+
+    # default: same fit_mode
+    #               sample+replica
+    #               pathway configuration must be compatible
+    #               
+    # don't throw, but warn about incompatibilities
+
+    # loss comparability is required for best_N
+
+    # load
+    loaded = []
+    for cf in candidate_files:
+        parameters, loss = load_parameter_file(cf)
+        loaded.append((loss, parameters))
+
+    # select
+    best_N = None if not 'best_N' in init_config else init_config['best_N']
+    loaded = sorted(loaded, key = lambda k: k[0])
+    if not best_N is None:
+        loaded = loaded[:best_N]
+
+    if len(loaded) == 0:
+        return {}
+
+    # unify bounds
+    _, parameters = loaded[0]
+    for _, loaded_pars in loaded[1:]:
+        parameters.extend_range_by_value(loaded_pars, ignore_constants = True)
+        
+    return parameters
 
 def default_model_parameters(normalize_parameters = False):
     p = [
@@ -185,6 +276,10 @@ class ModelParameters():
         elif isinstance(parameters, tuple):
             name, value = parameters
             self.set({name:value})
+            
+        elif isinstance(parameters, ModelParameters):
+            self.set([p for p in parameters])
+            
         else:
             raise NotImplementedError()
             
@@ -216,6 +311,11 @@ class ModelParameters():
                                   for i,p in enumerate(sorted_params)])
         return s
 
+    def extend_range_by_value(self, parameters, ignore_constants = True):
+        if isinstance(parameters, Parameter):
+            parameters = [parameters]
+        for p in parameters:
+            self[p.name].extend_range_by_value(p, ignore_constants)
 
 class Parameter():
     def __init__(self, name, value = np.nan, range = None, scale = 'log', normalize = False):
@@ -272,12 +372,12 @@ class Parameter():
     
     def set(self, p):
         if isinstance(p, Parameter):
+            self.value = p.value
+            self.scale = p.scale
+            self.normalize = p.normalize
             self.low = p.low
             self.high = p.high
             self.options = p.options
-            self.scale = p.scale
-            self.normalize = p.normalize
-            self.value = p.value
 
         elif isinstance(p, (int, float, bool)):
             if self.is_variable():
@@ -292,7 +392,17 @@ class Parameter():
                 self.value = float(p)
         else:
             raise NotImplementedError(str(p))
+   
+    def extend_range_by_value(self, p, ignore_constants = False):
+        if self.is_variable() or ignore_constants:
+            value = p.value        
     
+            if self.high is None or value > self.high:
+                self.high = value
+    
+            if self.low is None or value < self.low:
+                self.low = value
+
     def is_unset(self):
         return np.isnan(self.value)
                         
@@ -367,6 +477,12 @@ class Parameter():
     
     def __rdiv__(self, other):
         return float(other)/self.value
+
+
+def flatten(parameter):
+    if not isinstance(parameter, Parameter):
+        return parameter
+    return parameter.value
 
 def boxplots(loaded_parameters, save_target = None):
     parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
