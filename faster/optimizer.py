@@ -98,20 +98,41 @@ class Loss():
             
             pool_pred = pool_pred[idx]
             pool_true = pool_true[idx]
-        
+            
         if callable(self.transform):
             pool_pred = self.transform(pool_pred)
             pool_true = self.transform(pool_true)
-            
+        
+        usable = np.logical_and(np.isfinite(pool_pred), np.isfinite(pool_true))
+        
+        sz = pool_pred.size
+        
+        pool_pred = pool_pred[usable]
+        pool_true = pool_true[usable]
+        
+        if (sz - pool_pred.size) > .5*sz:
+            print('WARNING: less than 50% usable values!')
+
         return pool_pred, pool_true
     
     def __str__(self):
-        s = f'{self.pool}'
-        return s
+        tf = self.pool
+        if callable(self.transform):
+            l, r = self.transform.operator()
+            tf = l + tf + r
+        f = str(self.reduction_function.__name__) + '(' + tf + ')'
+        return f
     
     def __call__(self, replica, run_log):
         pool_pred, pool_true = self.get_values(replica, run_log)
-        return self.reduction_function(pool_true, pool_pred)
+        if not np.all(np.isfinite(pool_pred)):
+            raise Exception('Non-finite pred values')
+        if not np.all(np.isfinite(pool_true)):
+            raise Exception('Non-finite true values')
+        loss_value = self.reduction_function(pool_true, pool_pred)
+        if not np.isfinite(loss_value):
+            raise Exception(str(self) + ' returned ' + str(loss_value))
+        return loss_value
 
 loss_functions = {'mse': mse}
 
@@ -171,7 +192,7 @@ class Addable():
         self._callbacks.append(callback)
 
     def __str__(self):
-        return '\n'.join([str(s) for s in [self._left, self._right]
+        return ' + '.join([str(s) for s in [self._left, self._right]
                           if not s is None])
     
 class Objective(Addable):
@@ -201,18 +222,43 @@ class Objective(Addable):
         
         replica_loss = 0
         for loss_function, loss_weight in self._loss_contributions:
-            loss_value = loss_function(self._replica, run_log)
+            try:
+                loss_value = loss_function(self._replica, run_log)
+            except Exception as ex:
+                ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
+                raise 
             replica_loss += loss_weight*loss_value
         
         objective_value = self._replica_weight * replica_loss
         return objective_value
 
     def __str__(self):
-        r_name = '-'.join([self._replica.sample.sample_name,self._replica.replica_number])
-        lstr = '  '.join([str(loss_function)
-                              for loss_function, _ in self._loss_contributions])
-        return f'{r_name}: {lstr}'
-
+        def format_weight(w):
+            return '' if w == 1 else f'{w:.2g} * '
+        
+        def format_subscript(s):
+            s = str(s)
+            subs = {'0': '₀',
+                    '1': '₁',
+                    '2': '₂',
+                    '3': '₃',
+                    '4': '₄',
+                    '5': '₅', 
+                    '6': '₆', 
+                    '7': '₇', 
+                    '8': '₈',
+                    '9': '₉', 
+                    '-': '₋'}
+            return ''.join([subs[i] if i in subs else i for i in s ])
+            
+            
+        s_weight = format_weight(self._replica_weight)
+        s_loss = ' + '.join([format_weight(w) + str(l) for l,w in self._loss_contributions])
+        replica = str(self._replica.sample.sample_name) + '-' + str(self._replica.replica_number)
+        s_replica = format_subscript(replica)
+        
+        return s_weight + '[ '+ s_loss + ' ]' + s_replica
+        
 
 class Algorithm(ABC):
     def __init__(self, **default_kwargs):
@@ -235,7 +281,10 @@ class Algorithm(ABC):
     def minimize(self, objective, initial_parameters):
         print('Fitting with ' + self.__class__.__name__)
         print(objective.model())
-        print(objective)
+        print()
+        print('Objective = ' + str(objective))
+        if len(objective.model().parameters().variables()) == 0:
+            raise Exception('Model has no variables. Check initial parameters.')
         self._minimize(objective, initial_parameters)
     
     @abstractmethod

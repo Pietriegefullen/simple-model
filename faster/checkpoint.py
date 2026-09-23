@@ -2,6 +2,7 @@ import os
 import json
 
 import hashing
+import parameters
 
 from USER_VARIABLES import RESULTS_DIRECTORY as CP_ROOT
 
@@ -11,6 +12,20 @@ checkpoint_plain = [('model', hashing.build_model_id),
                     ('chosen', 'fit_mode')
                     # run ID is always appended
                     ]
+
+fill_length = {'fit_mode': 6}
+
+def fill_value(value, key):
+    if not key in fill_length:
+        return value
+    length = fill_length[key]
+    if len(value) > length:
+        return value[:length]
+    while len(value) < length:
+        value += '_'
+    return value
+        
+    
 # configure callback:
 #   keep only N best, if N is None, keep all
 #   store location
@@ -47,10 +62,10 @@ class Callback():
         plain = []
         for keys in checkpoint_plain:
             value = get_value(self.run_config, keys)
-            #value = str(self.run_config['chosen'][key])
+            value = fill_value(str(value), keys[-1])
             plain.append(value)
         plain.append(self.run_id)
-        return '_'.join([str(p) for p in plain])
+        return '_'.join([p for p in plain])
 
 class PrintCallback(Callback):
     def __init__(self, run_config):
@@ -70,14 +85,19 @@ class PrintCallback(Callback):
 class CheckpointCallback(Callback):
     def __init__(self, run_config, keep_only_n = None):
         super().__init__(run_config)
+        assert keep_only_n > 0
         self.keep_only_n = keep_only_n
 
     def cleanup(self, save_dir):
-        if not self.keep_only_n is None:
-            raise NotImplementedError()
-            # sort by loss value
-            # keep only 
-            # skip config file
+        if self.keep_only_n is None:
+            return
+        files = [os.path.join(save_dir, f) for f in os.listdir(save_dir)]
+        if len(files) > self.keep_only_n:            
+            all_files = sorted([(parameters.load_parameter_file(f)[1], f)
+                                for f in files])
+
+            for _, f in all_files[self.keep_only_n:]:
+                os.remove(f)
         
     def __call__(self):
         cp_transformed_parameters, _, last_loss = self.objective.last_call()
@@ -89,7 +109,7 @@ class CheckpointCallback(Callback):
         if not os.path.isdir(self.target_directory):
             os.makedirs(self.target_directory)
 
-        checkpoint_parameters = self.objective.model().parameters().get_config()
+        checkpoint_parameters = self.objective.model().parameters().get_values()
         
         checkpoint_data = {
                             'parameters': checkpoint_parameters,

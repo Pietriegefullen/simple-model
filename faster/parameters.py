@@ -149,6 +149,9 @@ def default_model_parameters(normalize_parameters = False):
 class Transform(ABC):
     def __init__(self, transform = None):
         self._transf = IdentityTransform() if transform is None else transform
+    
+    def __call__(self, value):
+        return self.transform(value)
         
     def transform(self, value):
         value = self._transf.transform(value)
@@ -165,14 +168,38 @@ class Transform(ABC):
     @abstractmethod
     def _inverse(self, value):
         raise NotImplementedError()
-        
+    
+    def __str__(self):
+        return self.__class__.__name__
+    
+    def short(self):
+        return self.__class__.__name__
+            
+    def operator(self):
+        l, r = self._transf.operator()
+        return self.short() + '(' + l, r + ')'
+    
 class IdentityTransform():
+    def __call__(self, value):
+        return self.transform(value)
     def transform(self, value): return value
     def inverse(self, value): return value
+    def operator(self): return '', ''
+    def __str__(self): return ''
 
 class LogTransform(Transform):
-    def _transform(self, value): return np.log(value)
-    def _inverse(self, value): return np.exp(value)
+    def __init__(self, transform = None):
+        super().__init__(transform)
+        
+    def _transform(self, value): 
+        result = np.log(value)
+        return result
+    
+    def _inverse(self, value): 
+        return np.exp(value)
+    
+    def short(self):
+        return 'log'
     
 class Normalization(Transform):
     def __init__(self, transform, low, high, target = (0,1)):
@@ -184,17 +211,37 @@ class Normalization(Transform):
 
     def _transform(self, value):
         if self.low == 'min' and self.high == 'max':
-            self.low = np.min(value)
-            self.high = np.max(value)
-        return self.target_low + (value - self.low)/(self.high - self.low)*self.target_high
+            assert np.unique(value).size > 1
+            low = np.nanmin(value)
+            high = np.nanmax(value)
+        else:
+            low = float(self.low)
+            high = float(self.high)
+
+        target_range = self.target_high - self.target_low
+        result = self.target_low + (value - low)/(high - low)*target_range
+        return result
     
     def _inverse(self, value):
-        return (value - self.target_low)/self.target_high*(self.high - self.low) + self.low
-
+        target_range = self.target_high - self.target_low
+        return (value - self.target_low)/target_range*(self.high - self.low) + self.low
+    
+    def short(self):
+        return 'norm'
+    
 class MinMaxNormalization(Normalization):
     def __init__(self, transform, target = (0,1)):
         super().__init__(transform, 'min', 'max', target)
-
+    
+    def _inverse(self, value):
+        raise Exception('Inverse not possible without storing min/max of last call.')
+    
+    def short(self):
+        return 'norm'
+    
+    def operator(self):
+        l, r = super().operator()
+        return l, r[:-1] + ',0,1)'
 
 transforms = {'log': LogTransform,
               'normalize': MinMaxNormalization}
@@ -206,7 +253,6 @@ def get_transform(function_names):
     transform_function = None
     for f in function_names:
         transform_function = transforms[f](transform_function)
-        
     return transform_function
 
 
@@ -302,8 +348,11 @@ class ModelParameters():
             compare = other.name
         return compare in self._parameters.keys()
     
-    def get_config(self):
+    def get_values(self):
         return {p.name: p.value for p in self._parameters.values()}
+    
+    def get_config(self):
+        return {p.name: p.get_config() for p in self._parameters.values()}
     
     def __str__(self):
         title = 'Model Parameters:'
@@ -338,6 +387,21 @@ class Parameter():
         self.scale = scale
         self.normalize = normalize
         self.transformer = None
+        
+    def get_config(self):
+        rng = None
+        if self.is_variable():
+            if not self.options is None:
+                rng = frozenset(self.options)
+            else:
+                rng = (self.low, self.high)
+        return {
+                'name': self.name,
+                'value': self.value,
+                'range': rng,
+                'scale': self.scale,
+                'normalize': self.normalize,
+                    }
     
     def lower(self):
         if not self.is_variable():

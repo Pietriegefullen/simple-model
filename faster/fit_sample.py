@@ -23,8 +23,7 @@ parser.add_argument('--omit', nargs = '+', default = [])
 args = parser.parse_args()
 
 # TODO: read args into config
-
-# TODO: __str__ for Objective/Loss
+# TODO: cleanup checkpoint dir -> keep only best N.
 
 # TODO: finish init config!
 # TODO: warn if loaded parameters have incompatible origin -> input()
@@ -124,7 +123,8 @@ run_config= {'model': pathway_model.get_config(only_structure = True),
              'algo': algo.get_config(),
              'initial': pathway_model.parameters().get_config()}
 total_objective = sum(replica_objectives)
-total_objective.add_callback(checkpoint.CheckpointCallback(run_config))
+total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
+                                                           keep_only_n = 2))
 total_objective.add_callback(checkpoint.PrintCallback(run_config))
 
 algo.minimize(total_objective, initial_parameters)
