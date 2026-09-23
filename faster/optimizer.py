@@ -111,7 +111,12 @@ class Loss():
         pool_true = pool_true[usable]
         
         if (sz - pool_pred.size) > .5*sz:
+            print()
             print('WARNING: less than 50% usable values!')
+            
+        elif pool_pred.size < 3:
+            print()
+            print('WARNING: less than 3 usable samples!')
 
         return pool_pred, pool_true
     

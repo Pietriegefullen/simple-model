@@ -84,6 +84,10 @@ def load_parameters(init_config):
     if len(loaded) == 0:
         return ModelParameters({})
     
+    elif len(loaded) == 1:
+        print('Cannot determine parameter range from a single checkpoint.')
+        return ModelParameters({})
+    
     print()
     print('loading parameters from')
     for _, _, cf in loaded:
@@ -461,12 +465,19 @@ class Parameter():
    
     def extend_range_by_value(self, p, ignore_constants = False):
         if self.is_variable() or ignore_constants:
-            value = p.value        
-    
-            if self.high is None or value > self.high:
+            value = p.value
+            
+            if self.high is None:
+                self.high = self.value
+                
+            if self.low is None:
+                self.low = self.value
+            
+            
+            if value > self.high:
                 self.high = value
     
-            if self.low is None or value < self.low:
+            if value < self.low:
                 self.low = value
 
     def is_unset(self):

@@ -1,5 +1,4 @@
 import argparse
-
 import model
 import data
 import optimizer
@@ -7,53 +6,99 @@ import parameters
 import checkpoint
 import hashing
 
-
 parser = argparse.ArgumentParser(
                     prog='fit_sample',
                     description='Fits a model to replica data.',
                     epilog='')
 parser.add_argument('sample', type = int)
 parser.add_argument('validation_replica', type = int)
-
-# omit pathways
 parser.add_argument('--omit', nargs = '+', default = [])
-
-# override parameters/switches
+parser.add_argument('--single', action = 'store_true')
+parser.add_argument('--t', nargs = 2)
+parser.add_argument('--p', nargs = '+')
+parser.add_argument('--local', action = 'store_true')
 
 args = parser.parse_args()
 
-# TODO: read args into config
-# TODO: cleanup checkpoint dir -> keep only best N.
 
-# TODO: finish init config!
+def parse_t(t, tp):
+    try:
+        t_value = tp(t)
+    except:
+        t_lower = t.strip().lower()
+        if t_lower == 'inf' or t_lower == 'none':
+            t_value = None
+        elif t_lower == 'true': 
+            return True
+        elif t_lower == 'false':
+            return False
+    return t_value
+        
+
+def numeric(value):
+    numbers = '0123456789'
+    if value.strip().lower() == 'inf':
+        return True
+    decimal = value.count('.') <= 1
+    return decimal and all([v in numbers for v in str(value).replace('.', '')])
+    
+def parse(value):
+    s = value.strip().lower()
+    if s == 'true':
+        return True
+    if s == 'false':
+        return False
+    if s == 'none':
+        return None
+    
+    if numeric(value):
+        if '.' in s or value.strip().lower() == 'inf':
+            return float(value.lower())
+        return int(value)
+    
+    return value
+        
+t_start, t_end = None, None
+if not args.t is None:
+    t_start, t_end = [parse_t(t_) for t_ in args.t]
+    if t_start == 0:
+        t_start = None
+    elif t_start < 0:
+        raise ValueError()
+    if not t_start is None and not t_end is None:
+        assert t_end > t_start
+
+# TODO: separate userinput.
+# TODO: parse initial parameter range (narrow <best_N>, or other criteria!)
+# TODO: parse loss configuration (weights, other reduction functions)
+# TODO: handle few usable sample points!!!
 # TODO: warn if loaded parameters have incompatible origin -> input()
-# TODO: loaded parameter range sets all to variable?
+# TODO: in Objective, determine t_start, t_end for all loss contributions
+#       predict only as necessary.
+override = {} if args.p is None else {k: parse(v) 
+                                      for k,v in list(zip(args.p[::2], args.p[1::2]))}
 
-# TODO: adding two objectives returns Objective, not Addable? => Objective IS Addable.
-#TODO: set model variable/constant parameters , initial values LATER
 # TODO: save hyperparameters with every plot (how?) -> maintain origin: model version, ...
-
 chosen = {
             'sample':                   1351,
             'validation_replica':       4, 
             
-            't_start':                  None,
-            't_end':                    None,
+            't_start':                  t_start,
+            't_end':                    t_end,
             
-            'fit_mode':                 'split', # 'single' or 'split'
+            'fit_mode':                 'single' if args.single else 'split',
             'pathways':                 ['Hydrolysis',
                                          'Fermentation',
                                          'Hydro',
                                          'Aceto',
                                          'Homo',
                                          'Fe3'],
-            
-            # set specified parameters to constant value
-            'parameter_override':       {},  # e.g. 'Homo_thermodynamics': False
-            
+            'parameter_override':       override,  # e.g. 'Homo_thermodynamics': False
             'normalized_parameters':    True,
-            'algorithm':                'differential_evolution',
-            
+            'algorithm':                'powell' if args.local else 'differential_evolution',
+            }
+
+objective_config = {
             'loss_weight':              {'CO2': 1.,
                                          'CH4': 1.},
             'reduction':                {'CO2': 'mse',
@@ -71,7 +116,6 @@ chosen['validation_replica'] = args.validation_replica
 for omitted_pathway in args.omit:
     chosen['pathways'].remove(omitted_pathway)
     
-
 
 # get sample from dataset
 dataset = data.get_data_before_day()
@@ -91,8 +135,8 @@ init_config = {
                 'validation_replica':   chosen['validation_replica'],
                 'model':                model_id,
                 'run_ID':               None,
-                
 }
+
 initial_parameters = parameters.load_parameters(init_config)
 pathway_model.parameters().set(initial_parameters)
 
@@ -109,17 +153,18 @@ replica_objectives = []
 for replica in split['fit']:
     replica_objective = optimizer.Objective(pathway_model, replica)
     for pool in ['CO2', 'CH4']:
-        transform = parameters.get_transform(chosen['transform'][pool])
+        transform = parameters.get_transform(objective_config['transform'][pool])
         pool_loss = optimizer.get_loss_function(pool, 
-                                                chosen['reduction'][pool], 
+                                                objective_config['reduction'][pool], 
                                                 transform,
                                                 t_start = chosen['t_start'],
                                                 t_end = chosen['t_end'])
-        replica_objective.add_loss(pool_loss, chosen['loss_weight'][pool])
+        replica_objective.add_loss(pool_loss, objective_config['loss_weight'][pool])
     replica_objectives.append(replica_objective)
 
 run_config= {'model': pathway_model.get_config(only_structure = True),
              'chosen': chosen,
+             'objective': objective_config,
              'algo': algo.get_config(),
              'initial': pathway_model.parameters().get_config()}
 total_objective = sum(replica_objectives)

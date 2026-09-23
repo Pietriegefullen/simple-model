@@ -6,7 +6,9 @@ import parameters
 
 from USER_VARIABLES import RESULTS_DIRECTORY as CP_ROOT
 
-checkpoint_plain = [('model', hashing.build_model_id), 
+checkpoint_plain = [
+                    ('objective', hashing.build_loss_id),
+                    ('model', hashing.build_model_id), 
                     ('chosen', 'sample'), 
                     ('chosen', 'validation_replica'), 
                     ('chosen', 'fit_mode')

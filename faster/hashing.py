@@ -43,6 +43,10 @@ def build_model_id(config):
     # TODO: compatibility layer here
     return 'model-' + build_id(config, 3,1)
 
+def build_loss_id(config):
+    # TODO: compatibility layer here
+    return 'loss-' + build_id(config, 3,1)
+
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}
     print(build_id(d))
