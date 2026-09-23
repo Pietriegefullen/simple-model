@@ -78,11 +78,11 @@ class Pathway():
         
         self.state_logger = None
        
-    def get_config(self):
-        cfg = {'microbe': self.microbe.get_config(),
-               'educts': sorted({e.name: e.get_config() for e in self.educts}),
-               'products': sorted({e.name: e.get_config() for e in self.products}),
-               'use_thermodynamics': flat(self.use_thermodynamics)
+    def get_config(self, only_structure = False):
+        cfg = {'microbe': self.microbe.get_config(only_structure),
+               'educts': {e.name: e.get_config(only_structure) for e in sorted(self.educts)},
+               'products': {e.name: e.get_config(only_structure) for e in sorted(self.products)},
+               'use_thermodynamics': flat(self.use_thermodynamics, only_structure)
                }
         return cfg
     
@@ -201,13 +201,13 @@ class Microbe():
     def __str__(self):
         return self.name
     
-    def get_config(self):
+    def get_config(self, only_structure = False):
         return {'name': self.name,
-                'death_rate': flat(self.death_rate),
-                'v_max':flat(self.v_max),
-                'Kmb': flat(self.Kmb),
-                'CUE': flat(self.CUE),
-                'C_source': flat(self.C_source)}
+                'death_rate': flat(self.death_rate, only_structure),
+                'v_max':flat(self.v_max, only_structure),
+                'Kmb': flat(self.Kmb, only_structure),
+                'CUE': flat(self.CUE, only_structure),
+                'C_source': flat(self.C_source, only_structure)}
 
 class Substance():
     def __init__(self, stoichiometry, name, 
@@ -231,12 +231,16 @@ class Substance():
             return self.name == other
         raise NotImplementedError()
 
-    def get_config(self):
+    def get_config(self, only_structure):
         return {'name': self.name,
-                'stoichiometry': self.stoichiometry,
-                'Km': self.Km,
-                'inhibition': self.inhibition}
+                'stoichiometry': flat(self.stoichiometry, only_structure),
+                'Km': flat(self.Km, only_structure),
+                'inhibition': flat(self.inhibition, only_structure)}
 
+    def __lt__(self, other):
+        return self.name < other.name
+    
+        
 
 class Hydrolysis(Pathway):
     def __init__(self, model_parameters):

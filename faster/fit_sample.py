@@ -5,6 +5,7 @@ import data
 import optimizer
 import parameters
 import checkpoint
+import hashing
 
 
 parser = argparse.ArgumentParser(
@@ -20,17 +21,14 @@ parser.add_argument('--omit', nargs = '+', default = [])
 # override parameters/switches
 
 args = parser.parse_args()
+
 # TODO: read args into config
 
 # TODO: __str__ for Objective/Loss
 
 # TODO: finish init config!
-# TODO: print where initial parameters/ranges are from
-
+# TODO: warn if loaded parameters have incompatible origin -> input()
 # TODO: loaded parameter range sets all to variable?
-
-# TODO: vmax may be eitehr float or Parameter
-#       => unified conversion to dict() -> using a helper function.
 
 # TODO: adding two objectives returns Objective, not Addable? => Objective IS Addable.
 #TODO: set model variable/constant parameters , initial values LATER
@@ -69,31 +67,12 @@ algo_config = {'differential_evolution': {}, # empty dict uses default
                'powell':                 {}
                }
 
-init_config = {
-                'best_N': None,
-}
-
-# model: hash
-# sample: int or str
-# validation_replica: 
-# replica: sample+replica (overrides sample and validation_replica)
-# run_ID: str
-# best_N: 'wide' or 'narrow'?
-
-# default is: all from sample+replica.
-# choose initial parameters by
-# run ID
-# best N in folder
-# loss criterion in folder
-# 
-# => init_config does not affect hashes!
-
-
-
 chosen['sample'] = args.sample
 chosen['validation_replica'] = args.validation_replica
 for omitted_pathway in args.omit:
     chosen['pathways'].remove(omitted_pathway)
+    
+
 
 # get sample from dataset
 dataset = data.get_data_before_day()
@@ -104,6 +83,17 @@ split = sample.get_split(chosen['validation_replica'],
 # build model and configure parameters
 pathway_model = model.Model(chosen['pathways'])
 pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
+
+model_id = hashing.build_model_id(pathway_model.get_config(only_structure = True))
+
+init_config = {
+                'best_N':               3,
+                'sample':               chosen['sample'],
+                'validation_replica':   chosen['validation_replica'],
+                'model':                model_id,
+                'run_ID':               None,
+                
+}
 initial_parameters = parameters.load_parameters(init_config)
 pathway_model.parameters().set(initial_parameters)
 
@@ -129,10 +119,10 @@ for replica in split['fit']:
         replica_objective.add_loss(pool_loss, chosen['loss_weight'][pool])
     replica_objectives.append(replica_objective)
 
-run_config= {'model': pathway_model.get_config(),
+run_config= {'model': pathway_model.get_config(only_structure = True),
              'chosen': chosen,
-             'algo': algo_config,
-             'initial': initial_parameters.get_config()}
+             'algo': algo.get_config(),
+             'initial': pathway_model.parameters().get_config()}
 total_objective = sum(replica_objectives)
 total_objective.add_callback(checkpoint.CheckpointCallback(run_config))
 total_objective.add_callback(checkpoint.PrintCallback(run_config))

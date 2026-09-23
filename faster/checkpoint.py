@@ -5,10 +5,31 @@ import hashing
 
 from USER_VARIABLES import RESULTS_DIRECTORY as CP_ROOT
 
-checkpoint_plain = ['sample', 'validation_replica', 'fit_mode']
+checkpoint_plain = [('model', hashing.build_model_id), 
+                    ('chosen', 'sample'), 
+                    ('chosen', 'validation_replica'), 
+                    ('chosen', 'fit_mode')
+                    # run ID is always appended
+                    ]
 # configure callback:
 #   keep only N best, if N is None, keep all
 #   store location
+
+def get_value(d, ks, hash_function = None):
+    if not isinstance(ks, (list, tuple)):
+        ks = [ks]
+    if len(ks) == 2 and callable(ks[-1]):
+        ks, hash_function = ks
+        return hash_function(d[ks])
+    
+    if len(ks) > 1:
+        hash_function = None
+        return get_value(d[ks[0]], ks[1:], hash_function)
+    
+    else:
+        return d[ks[0]]
+    
+    raise Exception('Should not happen.')
 
 class Callback():
     def __init__(self, run_config):
@@ -23,11 +44,13 @@ class Callback():
         self.target_directory = os.path.join(CP_ROOT, self.run_dir())
 
     def run_dir(self):
-        plain = [self.run_id]
-        for key in checkpoint_plain:
-            value = str(self.run_config['chosen'][key])
+        plain = []
+        for keys in checkpoint_plain:
+            value = get_value(self.run_config, keys)
+            #value = str(self.run_config['chosen'][key])
             plain.append(value)
-        return '_'.join(plain)
+        plain.append(self.run_id)
+        return '_'.join([str(p) for p in plain])
 
 class PrintCallback(Callback):
     def __init__(self, run_config):
@@ -65,19 +88,24 @@ class CheckpointCallback(Callback):
 
         if not os.path.isdir(self.target_directory):
             os.makedirs(self.target_directory)
-            config_file = os.path.join(self.target_directory,
-                                        '_'.join([self.run_id, 'config']))
-            with open(config_file, 'w') as cf:
-                json.dump(self.run_config, cf, indent = 4)
 
         checkpoint_parameters = self.objective.model().parameters().get_config()
         
         checkpoint_data = {
                             'parameters': checkpoint_parameters,
                             'total_loss': last_loss,
+                            'run_config': self.run_config,
                            }
        
-        file_name = self.run_dir() + f'_loss-{round(last_loss*1000):06d}'
+        f_loss = f'{last_loss:.3f}'.replace('.', '')
+        if len(f_loss) > 8:
+            # overflow
+            f_loss = '9'*8
+        else:
+            while len(f_loss) < 8:
+                f_loss = '0' + f_loss
+        
+        file_name = self.run_dir() + f'_loss-{f_loss}'
         checkpoint_file = os.path.join(self.target_directory, file_name)
         with open(checkpoint_file, 'w') as cf:
             json.dump(checkpoint_data, cf, indent = 4)

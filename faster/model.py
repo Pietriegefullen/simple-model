@@ -103,10 +103,10 @@ class Model():
 
         self.t = None
     
-    def get_config(self):
+    def get_config(self, only_structure = False):
         cfg = {}
         for pathway in self.contributing_pathways:
-            cfg[pathway.__class__.__name__] = pathway.get_config()
+            cfg[pathway.__class__.__name__] = pathway.get_config(only_structure)
         cfg.update({'version':__version__})
         return cfg
     

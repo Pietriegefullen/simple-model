@@ -6,6 +6,7 @@ import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
 from datetime import datetime
+from abc import ABC, abstractmethod
 
 from data import compute_rate
 
@@ -213,11 +214,11 @@ class Objective(Addable):
         return f'{r_name}: {lstr}'
 
 
-class Algorithm():
+class Algorithm(ABC):
     def __init__(self, **default_kwargs):
         self._kwargs = default_kwargs
         self._configure(**default_kwargs)
-    
+
     def _configure(self, **kwargs):
         for name, value in kwargs.items():
             setattr(self, name, value)
@@ -237,8 +238,12 @@ class Algorithm():
         print(objective)
         self._minimize(objective, initial_parameters)
     
+    @abstractmethod
     def _minimize(self, objective, initial_parameters):
         raise NotImplementedError()
+    
+    def get_config(self):
+        return self._kwargs
 
 class DifferentialEvolution(Algorithm):    
     def __init__(self):
@@ -262,7 +267,20 @@ class DifferentialEvolution(Algorithm):
         try:
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = self.get_bounds(variables),
-                                                      callback = self.generation_counter)
+                                                      callback = self.generation_counter,
+                                                      strategy = self.strategy,
+                                                      )
+            """
+                                                      updating = self.updating,
+                                                      popsize = self.popsize,
+                                                      workers = self.workers,
+                                                      tol = self.tol,
+                                                      init = self.init,
+                                                      polish = self.polish,
+                                                      recombination = self.recombination,
+                                                      mutation = self.mutation
+                                                      )
+    """
             #,
                                                       #**self._kwargs)
         except KeyboardInterrupt:
@@ -271,6 +289,7 @@ class DifferentialEvolution(Algorithm):
     def generation_counter(self, args, **kwargs):
         self.generation += 1
         return False
+
 
 class Powell(Algorithm):
     def _minimize(self, objective, initial_parameters):

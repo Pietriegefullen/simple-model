@@ -37,11 +37,11 @@ def build_id(config, group_length = 3, length = 2):
 
 def build_run_id(config):
     # TODO: compatibility layer here
-    return build_id(config, 4,1)
+    return 'run-' + build_id(config, 4,1)
 
 def build_model_id(config):
     # TODO: compatibility layer here
-    return build_id(config, 3,1)
+    return 'model-' + build_id(config, 3,1)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

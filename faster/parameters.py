@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import json
 from abc import ABC, abstractmethod
 import hashing
+import checkpoint
 
 def load_file(file_path):
     with open(file_path, 'r') as pf:
@@ -24,11 +25,13 @@ def load_parameter_file(file_path):
 def load_parameters(init_config):
     from USER_VARIABLES import RESULTS_DIRECTORY
 
+    init_config = {k: v for k,v in init_config.items() if not v is None}
+
     checks = []
-    def check(criterion, value, id_func = None):
+    def check(criterion, value):
         def check_function(run_config):
-            result = id_func(run_config) if callable(id_func) else run_config[criterion]
-            return str(result) == str(value)
+            run_config_value = checkpoint.get_value(run_config, criterion)
+            return str(run_config_value) == str(value)
         return check_function
 
     if 'replica' in init_config:
@@ -40,16 +43,16 @@ def load_parameters(init_config):
         del init_config['replica']
 
     if 'run_ID' in init_config:
-        checks.append(check('run', {'run', init_config}, hashing.build_run_id))
+        checks.append(check(('run', hashing.build_run_id), {'run', init_config}))
 
     if 'model' in init_config:
-        checks.append(check('model'), init_config['model'], hashing.build_model_id)
+        checks.append(check(('model',hashing.build_model_id), init_config['model']))
 
     if 'sample' in init_config:
-        checks.append(check('sample'), init_config['sample'])
+        checks.append(check(('chosen', 'sample'), init_config['sample']))
         
     if 'validation_replica' in init_config:
-        checks.append(check('validation_replica'), init_config['validation_replica'])
+        checks.append(check(('chosen', 'validation_replica'), init_config['validation_replica']))
 
     candidate_files = []
     for d in os.listdir(RESULTS_DIRECTORY):
@@ -57,27 +60,20 @@ def load_parameters(init_config):
         if not os.path.isdir(path): continue
         
         for file in os.listdir(path):
-            if 'config' in file: continue
-            run_ID = file.split('_')[0]
-            run_config = load_file(os.path.join(path, run_ID +'_config'))
-            if not all([c(run_config) for c in checks]):
+            checkpoint_data = load_file(os.path.join(path, file))
+            if not all([ c(checkpoint_data['run_config']) for c in checks]): 
                 continue
 
             candidate_files.append(os.path.join(path, file))
 
-    # default: same fit_mode
-    #               sample+replica
-    #               pathway configuration must be compatible
-    #               
     # don't throw, but warn about incompatibilities
-
     # loss comparability is required for best_N
 
     # load
     loaded = []
     for cf in candidate_files:
         parameters, loss = load_parameter_file(cf)
-        loaded.append((loss, parameters))
+        loaded.append((loss, parameters, cf))
 
     # select
     best_N = None if not 'best_N' in init_config else init_config['best_N']
@@ -86,11 +82,17 @@ def load_parameters(init_config):
         loaded = loaded[:best_N]
 
     if len(loaded) == 0:
-        return {}
+        return ModelParameters({})
+    
+    print()
+    print('loading parameters from')
+    for _, _, cf in loaded:
+        print(os.path.split(cf)[-1])
+    print()
 
     # unify bounds
-    _, parameters = loaded[0]
-    for _, loaded_pars in loaded[1:]:
+    _, parameters,_ = loaded[0]
+    for _, loaded_pars, _ in loaded[1:]:
         parameters.extend_range_by_value(loaded_pars, ignore_constants = True)
         
     return parameters
@@ -479,9 +481,11 @@ class Parameter():
         return float(other)/self.value
 
 
-def flatten(parameter):
+def flatten(parameter, only_structure = False):
     if not isinstance(parameter, Parameter):
         return parameter
+    if only_structure and parameter.is_variable():
+        return 'variable'
     return parameter.value
 
 def boxplots(loaded_parameters, save_target = None):
