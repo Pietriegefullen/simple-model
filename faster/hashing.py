@@ -39,13 +39,28 @@ def build_run_id(config):
     # TODO: compatibility layer here
     return 'run-' + build_id(config, 3,2)
 
+def add_missing_thermodynamics_switch(config):
+    import parameters
+    pathway_keys = [k for k in config.keys() if not k == 'version']
+    default_values = parameters.default_model_parameters()
+
+    for pwy_name in pathway_keys:
+        parameter_name = 'use_thermodynamics'
+        if not parameter_name in config[pwy_name].keys():
+            idx = [p.name for p in default_values].index(pwy_name + '_thermodynamics')
+            default_p = default_values[idx]
+            config[pwy_name][parameter_name] = default_p.value
+        
 def build_model_id(config):
-    # TODO: compatibility layer here
+    add_missing_thermodynamics_switch(config)
     return 'model-' + build_id(config, 3,1)
 
 def build_loss_id(config):
     # TODO: compatibility layer here
     return 'loss-' + build_id(config, 3,1)
+
+def build_checkpoint_id(config):
+    return 'cp-' + build_id(config, 3,2)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

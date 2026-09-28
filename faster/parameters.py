@@ -5,35 +5,77 @@ import json
 from abc import ABC, abstractmethod
 import hashing
 import checkpoint
+import system
+import traceback
+
+def load_parameter_file(file_path):
+    for attempt in [_load_plain_parameter_file, _load_annotated_parameter_file]:
+        try:
+            parameters = attempt(file_path)
+            return parameters
+        except:
+            print(traceback.format_exc())
+            continue
+    raise Exception('Could not load parameters from checkpoint file.')
 
 def load_file(file_path):
     with open(file_path, 'r') as pf:
         file_content = json.load(pf)
     return file_content
 
-def load_parameter_file(file_path):
-    file_content = load_file(file_path)
+def delete_nondefault(parameters):
+    default_names = [d.name for d in default_model_parameters()]
+    delete = [p.name for p in parameters if not p.name in default_names]
+    for k in delete:
+        del parameters._parameters[k]
+      
+def set_missing_default(parameters):
+    for d in default_model_parameters():
+        if not d in parameters:
+            parameters[d.name].set(d)
 
+def set_initial_pool(parameters):
+    pool_names = system.SYSTEM
+    for pool in system.SYSTEM:
+        if not pool in parameters:
+            parameters[pool].constant(0)
+            
+def _load_plain_parameter_file(file_path):
+    file_content = load_file(file_path)
+    assert isinstance(file_content, dict)
+    parameter_names = [p.name for p in default_model_parameters()]
+        
+    assert all([k in parameter_names  or k in system.SYSTEM
+                for k in file_content.keys()])
+    parameters = ModelParameters(file_content)
+    _, file_name = os.path.split(file_path)
+    loss = float(file_name.split('loss_')[-1])
+    run_config = {}
+    
+    set_initial_pool(parameters)
+    set_missing_default(parameters)
+
+    return parameters, loss, run_config
+
+def _load_annotated_parameter_file(file_path):
+    file_content = load_file(file_path)
     assert 'parameters' in file_content.keys()
     assert 'total_loss' in file_content.keys()
-
+    assert 'run_config' in file_content.keys()
     parameters = ModelParameters(file_content['parameters'])
     loss = float(file_content['total_loss'])
+    return parameters, loss, file_content['run_config']
 
-    return parameters, loss
-
-def load_parameters(init_config):
+def get_candidates(init_config):
     from USER_VARIABLES import RESULTS_DIRECTORY
-
-    init_config = {k: v for k,v in init_config.items() if not v is None}
-
     checks = []
     def check(criterion, value):
         def check_function(run_config):
             run_config_value = checkpoint.get_value(run_config, criterion)
             return str(run_config_value) == str(value)
+        check_function.__name__ = 'check_' + str(criterion) + '_' + str(value)
         return check_function
-
+    
     if 'replica' in init_config:
         replica = str(init_config['replica'])
         replica = [c for c in replica if c in '0123456789' ]
@@ -54,7 +96,8 @@ def load_parameters(init_config):
     if 'validation_replica' in init_config:
         checks.append(check(('chosen', 'validation_replica'), init_config['validation_replica']))
 
-    candidate_files = []
+    print('candidate checks', '\n'.join([c.__name__ for c in checks]))
+    candidates = []
     for d in os.listdir(RESULTS_DIRECTORY):
         path = os.path.join(RESULTS_DIRECTORY, d)
         if not os.path.isdir(path): continue
@@ -63,43 +106,51 @@ def load_parameters(init_config):
             checkpoint_data = load_file(os.path.join(path, file))
             if not all([ c(checkpoint_data['run_config']) for c in checks]): 
                 continue
+            
+            parameters = ModelParameters(checkpoint_data['parameters'])
+            loss = float(checkpoint_data['total_loss'])
+            candidates.append((parameters, loss, checkpoint_data['run_config']))
+    return candidates
 
-            candidate_files.append(os.path.join(path, file))
-
-    # don't throw, but warn about incompatibilities
-    # loss comparability is required for best_N
-
-    # load
-    loaded = []
-    for cf in candidate_files:
-        parameters, loss = load_parameter_file(cf)
-        loaded.append((loss, parameters, cf))
-
-    # select
-    best_N = None if not 'best_N' in init_config else init_config['best_N']
-    loaded = sorted(loaded, key = lambda k: k[0])
-    if not best_N is None:
-        loaded = loaded[:best_N]
-
-    if len(loaded) == 0:
-        return ModelParameters({})
+def select_candidates(candidates, init_config):
+    if 'best' in init_config:
+        candidates = sorted(candidates, key = lambda c: c[1])
+        return candidates[:int(init_config['best'])]
     
-    elif len(loaded) == 1:
-        print('Cannot determine parameter range from a single checkpoint.')
-        return ModelParameters({})
+    if 'worst' in init_config:
+        candidates = sorted(candidates, key = lambda c: -c[1])
+        return candidates[:int(init_config['worst'])]
     
-    print()
-    print('loading parameters from')
-    for _, _, cf in loaded:
-        print(os.path.split(cf)[-1])
-    print()
+    # return list of ModelParameters
+    # ordering is important
+    # the first redurned instance is used as initial values
+    # others are used to extend parameter range.
+    raise NotImplementedError()
+    
+def load_parameters(init_config):
+    init_config = {k: v for k,v in init_config.items() if not v is None}
+    
+    if len(init_config) == 0 or len(init_config) == 1 and 'normalized' in init_config:
+        normalized = init_config['normalized'] if 'normalized' in init_config else False
+        return default_model_parameters(normalized)
+    
+    if 'file' in init_config:
+        loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
+        rng_config = dict(init_config)
+        rng_config['dir'], _ = os.path.split(init_config['file'])
+        del rng_config['file']
+        loaded_range = load_parameters(rng_config)
+        loaded_parameters.extend_range_by_value(loaded_range, ignore_constants = True)
+        return loaded_parameters
 
-    # unify bounds
-    _, parameters,_ = loaded[0]
-    for _, loaded_pars, _ in loaded[1:]:
-        parameters.extend_range_by_value(loaded_pars, ignore_constants = True)
-        
-    return parameters
+    candidate_files = get_candidates(init_config)
+    selected_candidates = select_candidates(candidate_files, init_config)
+    loaded_range, _, _ = selected_candidates[0]
+    selected_parameters, _, _ = zip(*selected_candidates[1:])
+    for par in selected_parameters:
+        loaded_range.extend_range_by_value(par, ignore_constants = True)
+    
+    return loaded_range
 
 def default_model_parameters(normalize_parameters = False):
     p = [
@@ -467,18 +518,22 @@ class Parameter():
         if self.is_variable() or ignore_constants:
             value = p.value
             
-            if self.high is None:
-                self.high = self.value
+            if not self.options is None:
+                self.options.add(value)
+            
+            else:
+                if self.high is None:
+                    self.high = self.value
+                    
+                if self.low is None:
+                    self.low = self.value
                 
-            if self.low is None:
-                self.low = self.value
-            
-            
-            if value > self.high:
-                self.high = value
-    
-            if value < self.low:
-                self.low = value
+                
+                if value > self.high:
+                    self.high = value
+        
+                if value < self.low:
+                    self.low = value
 
     def is_unset(self):
         return np.isnan(self.value)
@@ -692,59 +747,4 @@ def R2plot():
     plt.xlim([0,1])
     plt.show()
     
-def load_best():
-    import os
-    import model
-    import USER_VARIABLES
-    all_parameters = {  'simple': {},
-                        'complex': {}}
-    found = {}
-    result_source = USER_VARIABLES.LOG_DIRECTORY
-    for f in os.listdir(result_source):
-        parameter_source = os.path.join(result_source, f)
-        if not os.path.isdir(parameter_source) or not f.startswith('fit'):
-            continue
-
-        if not 'log' in f:
-            continue
-
-        try:
-            best_loss, best_parameters = model.get_best_loss_parameters(parameter_source)
-            model_type = 'complex' if 'complex' in f else 'simple'
-        
-            replicas = [s for s in f.split('log')[0].replace('fit_','').split('_') if not s == '']
-            sample = replicas[0][:4]
-            repl = '/'.join([r[-1] for r in sorted(replicas)]) + ' ' + model_type
-            if not sample in found:
-                found[sample] = {}
-            if not repl in found[sample]:
-                found[sample][repl] = None
-
-    
-            if found[sample][repl] is None or best_loss < found[sample][repl][0]:
-                found[sample][repl] = (best_loss, best_parameters)
-            
-            else:
-                continue
-                
-        except:
-            print('no parameters found in', parameter_source)
-            continue
-
-        for k, p in best_parameters.items():
-            if not k in all_parameters[model_type]:
-                all_parameters[model_type][k] = []
-            all_parameters[model_type][k].append(p)
-
-    found = sort_dict(found)
-
-    return all_parameters, found
-
-if __name__ == '__main__':
-
-    R2plot()
-    1/0
-    all_parameters, found = load_best()
-
-    boxplots(all_parameters)
 

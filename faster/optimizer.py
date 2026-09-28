@@ -1,4 +1,3 @@
-import gc
 import os
 import json
 import traceback
@@ -9,11 +8,8 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 from data import compute_rate
-
+import parameters
 import USER_VARIABLES
-
-import linecache
-import os
 
 
 def r2(predicted, measured, log = False):
@@ -218,10 +214,25 @@ class Objective(Addable):
         self._model.add_t(self._replica.incubation['days'])
         self._loss_contributions.append((loss_function, loss_weight))
 
-    def _call(self, transformed_parameters):
-        parameter_values = [var.inverse_transform(p) 
-                            for var, p in zip(self._variables, transformed_parameters)]
-        _ = [v.set(p) for v, p in zip(self._variables, np.squeeze(parameter_values))]
+    def set_parameters(self, parameters, values, transformed = False):
+        if transformed:
+            values = [var.inverse_transform(p) 
+                            for var, p in zip(parameters, values)]
+        _ = [v.set(p) for v, p in zip(parameters, np.squeeze(values))]
+        
+    def _call(self, transformed_parameters, transformed = True):
+        # TODO: variables are empty, if setting specific parameters!
+        # => allow calling with ModelParameters()?
+        # => but for minimize, must be plain array of numbers!
+        if isinstance(transformed_parameters, parameters.ModelParameters):
+            p_dict = transformed_parameters.as_dict()
+            p_values = list(p_dict.values())
+            pars = self.model().parameters()
+            self.set_parameters([pars[n] for n in list(p_dict.keys())], 
+                                [p.value for p in p_values], transformed = transformed)
+        else:
+            self.set_parameters(self._variables, transformed_parameters, 
+                                transformed = transformed)
         
         run_log = self._model.predict(self._replica)
         
@@ -282,6 +293,7 @@ class Algorithm(ABC):
         upper_bounds = np.reshape([v.transform(v.upper()) for v in variables], (-1,))
         bounds = list(zip(lower_bounds, upper_bounds))
         return bounds
+
     
     def minimize(self, objective, initial_parameters):
         print('Fitting with ' + self.__class__.__name__)
@@ -440,8 +452,6 @@ class Objective2():
         if not self.generation is None:
             genstr = str(self.generation)
         print('generation', genstr, 'calls', f'{self._call_count:6d}','total loss', f'{total_loss:7.2f}', 'current best', f'{best:7.2f}')
-
-        gc.collect()
         return total_loss
   
     def file_name(self, total_loss):

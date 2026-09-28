@@ -13,6 +13,7 @@ checkpoint_plain = [
                     ('chosen', 'validation_replica'), 
                     ('chosen', 'fit_mode')
                     # run ID is always appended
+                    # checkpoint ID
                     ]
 
 fill_length = {'fit_mode': 6}
@@ -53,14 +54,18 @@ class Callback():
         self.objective = None
         self.target_directory = None
         self.run_config = run_config
-        self.run_id = hashing.build_run_id(run_config)
+        if not run_config is None and 'legacy' in run_config:
+            self.run_id = hashing.build_run_id({'legacy': run_config['legacy']})
+        else:
+            self.run_id = None if run_config is None else hashing.build_run_id(run_config)
 
     def set_objective(self, objective):
         self.objective = objective
         model_id = hashing.build_model_id(objective.model().get_config())
-        self.target_directory = os.path.join(CP_ROOT, self.run_dir())
+        if not self.run_id is None:
+            self.target_directory = os.path.join(CP_ROOT, self.run_dir_name())
 
-    def run_dir(self):
+    def run_dir_name(self):
         plain = []
         for keys in checkpoint_plain:
             value = get_value(self.run_config, keys)
@@ -68,6 +73,14 @@ class Callback():
             plain.append(value)
         plain.append(self.run_id)
         return '_'.join([p for p in plain])
+
+class SetAllConstant(Callback):
+    def __init__(self):
+        super().__init__(None)
+        
+    def __call__(self):
+        for var in self.objective.model().parameters().variables():
+            var.constant(var.value)
 
 class PrintCallback(Callback):
     def __init__(self, run_config):
@@ -85,10 +98,12 @@ class PrintCallback(Callback):
             print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
 
 class CheckpointCallback(Callback):
-    def __init__(self, run_config, keep_only_n = None):
+    def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False):
         super().__init__(run_config)
         assert keep_only_n > 0
         self.keep_only_n = keep_only_n
+        self.verbose = False
+        self.legacy = legacy
 
     def cleanup(self, save_dir):
         if self.keep_only_n is None:
@@ -119,6 +134,8 @@ class CheckpointCallback(Callback):
                             'run_config': self.run_config,
                            }
        
+        cp_id = hashing.build_checkpoint_id(checkpoint_data)
+        
         f_loss = f'{last_loss:.3f}'.replace('.', '')
         if len(f_loss) > 8:
             # overflow
@@ -127,10 +144,12 @@ class CheckpointCallback(Callback):
             while len(f_loss) < 8:
                 f_loss = '0' + f_loss
         
-        file_name = self.run_dir() + f'_loss-{f_loss}'
+        file_name = self.run_dir_name() + f'_loss-{f_loss}_' + cp_id
         checkpoint_file = os.path.join(self.target_directory, file_name)
         with open(checkpoint_file, 'w') as cf:
             json.dump(checkpoint_data, cf, indent = 4)
-
+            
+        if self.verbose:
+            print('Saved checkpoint ', checkpoint_file)
         self.cleanup(self.target_directory)
 
