@@ -52,7 +52,7 @@ def get_value(d, ks, hash_function = None):
 class Callback():
     def __init__(self, run_config):
         self.objective = None
-        self.target_directory = None
+        self._target_directory = None
         self.run_config = run_config
         if not run_config is None and 'legacy' in run_config:
             self.run_id = hashing.build_run_id({'legacy': run_config['legacy']})
@@ -61,12 +61,15 @@ class Callback():
 
     def set_objective(self, objective):
         self.objective = objective
-        model_id = hashing.build_model_id(objective.model().get_config())
-        if not self.run_id is None:
-            self.target_directory = os.path.join(CP_ROOT, self.run_dir_name())
+        
+    def target_directory(self):
+        if self._target_directory is None and not self.run_id is None:
+            self._target_directory = os.path.join(CP_ROOT, self.run_dir_name())
+        return self._target_directory
 
     def run_dir_name(self):
         plain = []
+        
         for keys in checkpoint_plain:
             value = get_value(self.run_config, keys)
             value = fill_value(str(value), keys[-1])
@@ -104,6 +107,16 @@ class CheckpointCallback(Callback):
         self.keep_only_n = keep_only_n
         self.verbose = False
         self.legacy = legacy
+        
+        # set range of legacy parameters to default range
+        if self.legacy:
+            default_parameters = parameters.default_model_parameters()
+            parameter_names = self.run_config()['initial'].keys()
+            for p_name in parameter_names:
+                p = parameters.Parameter.from_config(self.run_config['initial'][p_name])
+                if not p.is_variable(): continue
+                self.run_config['initial'][p_name] = default_parameters[p_name].get_config()
+        
 
     def cleanup(self, save_dir):
         if self.keep_only_n is None:
@@ -123,8 +136,8 @@ class CheckpointCallback(Callback):
         if not last_loss == best_loss:
             return
 
-        if not os.path.isdir(self.target_directory):
-            os.makedirs(self.target_directory)
+        if not os.path.isdir(self.target_directory()):
+            os.makedirs(self.target_directory())
 
         checkpoint_parameters = self.objective.model().parameters().get_values()
         
@@ -145,11 +158,12 @@ class CheckpointCallback(Callback):
                 f_loss = '0' + f_loss
         
         file_name = self.run_dir_name() + f'_loss-{f_loss}_' + cp_id
-        checkpoint_file = os.path.join(self.target_directory, file_name)
+        checkpoint_file = os.path.join(self.target_directory(), file_name)
         with open(checkpoint_file, 'w') as cf:
             json.dump(checkpoint_data, cf, indent = 4)
             
-        if self.verbose:
-            print('Saved checkpoint ', checkpoint_file)
-        self.cleanup(self.target_directory)
+        #if self.verbose:
+        print()
+        print('Saved checkpoint ', checkpoint_file)
+        self.cleanup(self.target_directory())
 

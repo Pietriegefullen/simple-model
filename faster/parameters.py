@@ -7,6 +7,37 @@ import hashing
 import checkpoint
 import system
 import traceback
+    
+def load_parameters(init_config):
+    init_config = {k: v for k,v in init_config.items() if not v is None}
+    
+    if len(init_config) == 0 or len(init_config) == 1 and 'normalized' in init_config:
+        normalized = init_config['normalized'] if 'normalized' in init_config else False
+        return default_model_parameters(normalized)
+    
+    if 'file' in init_config:
+        loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
+        if 'range' in init_config and init_config['range'] == 'default':
+            default_range = ModelParameters({p.name: p for p in default_model_parameters()
+                                             if p.name in loaded_parameters})
+            _ = [default_range[p.name].set(p.value) for p in loaded_parameters
+                 if p in default_range]
+            for p in loaded_parameters:
+                if not p.name in default_range:
+                    default_range[p.name].set(p)
+            loaded_parameters = default_range
+        else:
+            raise NotImplementedError()
+        return loaded_parameters
+
+    candidate_files = get_candidates(init_config)
+    selected_candidates = select_candidates(candidate_files, init_config)
+    loaded_range, _, _ = selected_candidates[0]
+    selected_parameters, _, _ = zip(*selected_candidates[1:])
+    for par in selected_parameters:
+        loaded_range.extend_range_by_value(par, ignore_constants = True)
+    
+    return loaded_range
 
 def load_parameter_file(file_path):
     for attempt in [_load_plain_parameter_file, _load_annotated_parameter_file]:
@@ -59,9 +90,9 @@ def _load_plain_parameter_file(file_path):
 
 def _load_annotated_parameter_file(file_path):
     file_content = load_file(file_path)
-    assert 'parameters' in file_content.keys()
-    assert 'total_loss' in file_content.keys()
-    assert 'run_config' in file_content.keys()
+    assert 'parameters' in file_content
+    assert 'total_loss' in file_content
+    assert 'run_config' in file_content
     parameters = ModelParameters(file_content['parameters'])
     loss = float(file_content['total_loss'])
     return parameters, loss, file_content['run_config']
@@ -121,36 +152,8 @@ def select_candidates(candidates, init_config):
         candidates = sorted(candidates, key = lambda c: -c[1])
         return candidates[:int(init_config['worst'])]
     
-    # return list of ModelParameters
-    # ordering is important
-    # the first redurned instance is used as initial values
-    # others are used to extend parameter range.
     raise NotImplementedError()
-    
-def load_parameters(init_config):
-    init_config = {k: v for k,v in init_config.items() if not v is None}
-    
-    if len(init_config) == 0 or len(init_config) == 1 and 'normalized' in init_config:
-        normalized = init_config['normalized'] if 'normalized' in init_config else False
-        return default_model_parameters(normalized)
-    
-    if 'file' in init_config:
-        loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
-        rng_config = dict(init_config)
-        rng_config['dir'], _ = os.path.split(init_config['file'])
-        del rng_config['file']
-        loaded_range = load_parameters(rng_config)
-        loaded_parameters.extend_range_by_value(loaded_range, ignore_constants = True)
-        return loaded_parameters
 
-    candidate_files = get_candidates(init_config)
-    selected_candidates = select_candidates(candidate_files, init_config)
-    loaded_range, _, _ = selected_candidates[0]
-    selected_parameters, _, _ = zip(*selected_candidates[1:])
-    for par in selected_parameters:
-        loaded_range.extend_range_by_value(par, ignore_constants = True)
-    
-    return loaded_range
 
 def default_model_parameters(normalize_parameters = False):
     p = [
@@ -443,6 +446,11 @@ class Parameter():
         self.normalize = normalize
         self.transformer = None
         
+    @classmethod
+    def from_config(cls, cfg):
+        p = Parameter(cfg['name'], cfg['value'], cfg['range'], cfg['scale'], cfg['normalize'])
+        return p
+    
     def get_config(self):
         rng = None
         if self.is_variable():

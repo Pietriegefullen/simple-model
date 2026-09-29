@@ -41,6 +41,7 @@ def fit(chosen, objective_config, algo_config, init_config,
     legacy_path = None if not 'file' in init_config else os.path.split(init_config['file'])[0]
     initial_parameters = parameters.load_parameters(init_config)
     pathway_model.parameters().set(initial_parameters)
+
     
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
@@ -63,7 +64,7 @@ def fit(chosen, objective_config, algo_config, init_config,
                                                     t_end = chosen['t_end'])
             replica_objective.add_loss(pool_loss, objective_config['loss_weight'][pool])
         replica_objectives.append(replica_objective)
-    
+
     run_config= {'model': pathway_model.get_config(only_structure = True),
                  'chosen': chosen,
                  'objective': objective_config,
@@ -73,10 +74,6 @@ def fit(chosen, objective_config, algo_config, init_config,
     if not legacy_path is None:
         run_config['legacy'] = legacy_path
     total_objective = sum(replica_objectives)
-    
-    if convert:
-        total_objective.add_callback(checkpoint.SetAllConstant())
-        
     total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
                                                                keep_only_n = 10,
                                                                verbose = verbose_callback))

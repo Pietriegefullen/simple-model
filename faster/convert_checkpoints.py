@@ -25,6 +25,7 @@ parser.add_argument('--p', nargs = '+') # override
 args = parser.parse_args()
 p = args.path
 x = args.exclude
+override = args.p
 
 def get_checkpoint_files(path, criteria = None, exclude = None):
     file_list = []
@@ -57,15 +58,12 @@ print(f'Found {len(candidates):d} candidate{pl}.')
 input()
 
 for candidate in candidates:
-    print(candidate)
-
     setattr(args, 't_start', None)
     setattr(args, 't_end', None)
     setattr(args, 'override', {})
     setattr(args, 'local', False)
     setattr(args, 'omit', [])
 
-    
     series, folder_name = os.path.split(os.path.split(candidate)[0])
     replicas = []
     for token in folder_name.replace('fit_', '').split('_'):
@@ -96,8 +94,6 @@ for candidate in candidates:
     if '_0-' in series or 'penalty' in series:
         raise NotImplementedError()
     
-    input()
-
     chosen = {
             'sample':                   args.sample,
             'validation_replica':       args.validation_replica, 
@@ -133,7 +129,7 @@ for candidate in candidates:
     
     init_config = {
             'file':                     candidate,
-            'worst':                    2,
+            'range':                    'default',
     }
     
     for omitted_pathway in args.omit:
@@ -143,5 +139,3 @@ for candidate in candidates:
                    verbose_callback = True,
                    convert = True)
     
-    print('checkpoint should be saved')
-    input()
