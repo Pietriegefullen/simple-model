@@ -131,38 +131,6 @@ class Model():
         for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
             self.system_change_log.log_snap(pool_name, t, dSi_dt)
         return dS_dt
-    
-    def fit(self, replicas, algorithm = None, log_co2 = True, log_ch4 = True,
-            fit_from = 0, fit_to = None,
-            loss_weight_CO2 = 1, loss_weight_CH4 = 1,
-            loss_function_co2 = 'mse', 
-            loss_function_ch4 = 'mse',
-            parameter_range = None,
-            weighted_measurements = False,
-            rate_penalty = 0,
-            normalized = False,
-            initial_mean_days = 0,
-            suffix = ''):
-        if algorithm is None:
-            algorithm = OPTIMIZATION_ALGORITHM
-            
-        if not isinstance(replicas, list):
-            replicas = [replicas]
-        
-        algo = optimizer.Algorithm(algorithm, 
-                                   **optimizer.algo_kwargs(algorithm))
-        return algo.minimize(self, replicas, log_co2 = log_co2, log_ch4 = log_ch4,
-                             fit_from = fit_from, fit_to = fit_to,
-                             loss_weight_CO2 = loss_weight_CO2, 
-                             loss_weight_CH4 = loss_weight_CH4, 
-                             loss_function_co2 = loss_function_co2,
-                             loss_function_ch4 = loss_function_ch4,
-                             parameter_range = parameter_range,
-                             weighted_measurements = weighted_measurements,
-                             rate_penalty = rate_penalty,
-                             normalized = normalized,
-                             suffix = suffix,
-                             initial_mean_days = initial_mean_days)
         
     def add_t(self, t):
         if self.t is None:

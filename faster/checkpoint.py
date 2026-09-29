@@ -27,11 +27,6 @@ def fill_value(value, key):
     while len(value) < length:
         value += '_'
     return value
-        
-    
-# configure callback:
-#   keep only N best, if N is None, keep all
-#   store location
 
 def get_value(d, ks, hash_function = None):
     if not isinstance(ks, (list, tuple)):
@@ -54,10 +49,8 @@ class Callback():
         self.objective = None
         self._target_directory = None
         self.run_config = run_config
-        if not run_config is None and 'legacy' in run_config:
-            self.run_id = hashing.build_run_id({'legacy': run_config['legacy']})
-        else:
-            self.run_id = None if run_config is None else hashing.build_run_id(run_config)
+
+        self.run_id = None if run_config is None else hashing.build_run_id(run_config)
 
     def set_objective(self, objective):
         self.objective = objective
@@ -74,7 +67,7 @@ class Callback():
             value = get_value(self.run_config, keys)
             value = fill_value(str(value), keys[-1])
             plain.append(value)
-        plain.append(self.run_id)
+        #plain.append(self.run_id)
         return '_'.join([p for p in plain])
 
 class SetAllConstant(Callback):
@@ -165,5 +158,5 @@ class CheckpointCallback(Callback):
         #if self.verbose:
         print()
         print('Saved checkpoint ', checkpoint_file)
-        self.cleanup(self.target_directory())
+        #self.cleanup(self.target_directory())
 

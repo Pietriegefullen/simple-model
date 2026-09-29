@@ -36,8 +36,10 @@ def build_id(config, group_length = 3, length = 2):
     return identifier
 
 def build_run_id(config):
-    # TODO: compatibility layer here
-    return 'run-' + build_id(config, 3,2)
+    cp = config.copy() # shallow copy!
+    ignore = ['legacy', 'legacy_file', ]
+    _ = [cp.pop(i,None) for i in ignore]
+    return 'run-' + build_id(cp, 3,2)
 
 def add_missing_thermodynamics_switch(config):
     import parameters

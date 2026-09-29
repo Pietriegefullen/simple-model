@@ -1,13 +1,47 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Jul  8 14:41:30 2026
 
-@author: Lara
-"""
 import os
 import shutil
 import stat
-import USER_VARIABLES
+from USER_VARIABLES import RESULTS_DIRECTORY
+import parameters
+from fit_sample import run
+
+
+
+def get_best_checkpoint(criteria = None, exclude = None):
+    candidate = None
+    cp_id = None
+    for root, dirs, files in os.walk(RESULTS_DIRECTORY):
+        for file in files:
+            file_path = os.path.join(root, file)
+            
+            pos = criteria is None or all([c in file_path for c in criteria])
+            neg = exclude is None or not any([c in file_path for c in exclude])
+            if not pos or not  neg:
+                continue
+            
+            loaded_parameters, loss, run_config = parameters.load_parameter_file(file_path)
+            cp_id = [f for f in file.split('_') if 'cp-' in f][0]
+            run_id = [f for f in file.split('_') if 'run-' in f][0]
+            if candidate is None or candidate[1] > loss:
+                candidate = (loaded_parameters, loss, run_config)
+    return candidate, cp_id
+
+# call collect_best determinining fit_mode.
+# then, iterate over all replicas/samples.
+# skip nonexisting
+
+cp, cp_id = get_best_checkpoint(criteria = ['1351_5', 'split'])
+parameters, _, run_config = cp
+run_log = run(run_config, parameters)
+
+# determine plot target
+# plot fit using run_log, run_config and data (load automatically)
+# store plots using cp_id
+
+print(parameters)
+input()
+
 
 after = '2026-08-04--08-30'
 

@@ -8,7 +8,7 @@ import checkpoint
 import system
 import traceback
     
-def load_parameters(init_config):
+def load_parameters(init_config, return_run_config = False):
     init_config = {k: v for k,v in init_config.items() if not v is None}
     
     if len(init_config) == 0 or len(init_config) == 1 and 'normalized' in init_config:
@@ -26,8 +26,12 @@ def load_parameters(init_config):
                 if not p.name in default_range:
                     default_range[p.name].set(p)
             loaded_parameters = default_range
+        elif len(init_config) == 1:
+            pass
         else:
             raise NotImplementedError()
+        if return_run_config:
+            return loaded_parameters, run_config
         return loaded_parameters
 
     candidate_files = get_candidates(init_config)
@@ -45,7 +49,6 @@ def load_parameter_file(file_path):
             parameters = attempt(file_path)
             return parameters
         except:
-            print(traceback.format_exc())
             continue
     raise Exception('Could not load parameters from checkpoint file.')
 
@@ -75,9 +78,9 @@ def _load_plain_parameter_file(file_path):
     file_content = load_file(file_path)
     assert isinstance(file_content, dict)
     parameter_names = [p.name for p in default_model_parameters()]
-        
-    assert all([k in parameter_names  or k in system.SYSTEM
-                for k in file_content.keys()])
+    
+    assert all([k in parameter_names or k in system.SYSTEM
+                for k in file_content.keys()]), file_path
     parameters = ModelParameters(file_content)
     _, file_name = os.path.split(file_path)
     loss = float(file_name.split('loss_')[-1])
@@ -409,8 +412,9 @@ class ModelParameters():
     def get_values(self):
         return {p.name: p.value for p in self._parameters.values()}
     
-    def get_config(self):
-        return {p.name: p.get_config() for p in self._parameters.values()}
+    def get_config(self, only_range = False):
+        return {p.name: p.get_config(only_range = only_range) 
+                for p in self._parameters.values()}
     
     def __str__(self):
         title = 'Model Parameters:'
@@ -451,20 +455,22 @@ class Parameter():
         p = Parameter(cfg['name'], cfg['value'], cfg['range'], cfg['scale'], cfg['normalize'])
         return p
     
-    def get_config(self):
+    def get_config(self, only_range = False):
         rng = None
         if self.is_variable():
             if not self.options is None:
                 rng = frozenset(self.options)
             else:
                 rng = (self.low, self.high)
-        return {
+        cfg = {
                 'name': self.name,
-                'value': self.value,
                 'range': rng,
                 'scale': self.scale,
                 'normalize': self.normalize,
                     }
+        if not only_range:
+            cfg['value'] = self.value
+        return cfg
     
     def lower(self):
         if not self.is_variable():

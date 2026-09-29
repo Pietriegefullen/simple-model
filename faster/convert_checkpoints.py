@@ -2,6 +2,7 @@ import os
 
 import argparse
 import fit_sample
+import parameters
 import user_input
 from USER_VARIABLES import PROJECT_DIRECTORY as ROOT
 
@@ -27,7 +28,13 @@ p = args.path
 x = args.exclude
 override = args.p
 
-def get_checkpoint_files(path, criteria = None, exclude = None):
+existing_legacy = []
+for root, dirs, files in os.walk(os.path.join(ROOT, 'results')):
+    for cp_file in files:
+        _, run_config = parameters.load_parameters({'file':os.path.join(root, cp_file)}, return_run_config = True)
+        existing_legacy.append(run_config['legacy_file'])
+
+def get_legacy_heckpoint_files(path, criteria = None, exclude = None, skip_existing = False):
     file_list = []
     for d in os.listdir(path):
         if d == 'results': continue
@@ -41,17 +48,18 @@ def get_checkpoint_files(path, criteria = None, exclude = None):
             for f in os.listdir(folder):
                 file_path = os.path.join(path, d, f)
                       
+                if skip_existing and file_path in existing_legacy:
+                    continue
+                
                 pos = criteria is None or all([c in file_path for c in criteria])
                 neg = exclude is None or not any([c in file_path for c in exclude])
-                
                 if pos and neg:
                     file_list.append(file_path)
-
         else:
             file_list += get_checkpoint_files(folder, criteria, exclude)
     return file_list
     
-candidates = get_checkpoint_files(ROOT, p, x)
+candidates = get_legacy_checkpoint_files(ROOT, p, x)
 pl = "" if len(candidates) == 1 else "s"
 print(f'Found {len(candidates):d} candidate{pl}.')
 
@@ -136,6 +144,7 @@ for candidate in candidates:
         chosen['pathways'].remove(omitted_pathway)
     
     fit_sample.fit(chosen, objective_config, algo_config, init_config, 
+                   store_checkpoints = True,
                    verbose_callback = True,
-                   convert = True)
+                   minimize = False)
     

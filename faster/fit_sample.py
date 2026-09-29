@@ -19,9 +19,21 @@ import hashing
 # TODO: if sample has only two replicas, fit_mode split is equivalent to single.
 #       => only the meaning of validation changes.
 
+def run(run_config, initial_parameters):
+    chosen = run_config['chosen']
+    objective_config = run_config['objective']
+    algo_config = {chosen['algorithm']: run_config['algo']}
+    init_config = {'range': parameters.ModelParameters(run_config['range']),
+                   'parameters': initial_parameters}
+    run_log = fit(chosen, objective_config, algo_config, init_config, 
+                  store_checkpoints = False,
+                  minimize = False)
+    return run_log
+
 def fit(chosen, objective_config, algo_config, init_config, 
+        store_checkpoints = True,
         verbose_callback = False,
-        convert = False):
+        minimize = True):
 
     # get sample from dataset
     dataset = data.get_data_before_day()
@@ -35,13 +47,24 @@ def fit(chosen, objective_config, algo_config, init_config,
     
     model_id = hashing.build_model_id(pathway_model.get_config(only_structure = True))
     
-    if not 'file' in init_config and (not 'model' in init_config or init_config['model'] is None):
-        init_config['model'] = model_id
+    legacy_path = None
+    if 'parameters' in init_config:
+        initial_parameters = init_config['parameters']
+        
+        if 'range' in init_config:
+            parameter_range = init_config['range']
+            _ = [parameter_range[p.name].set(p) for p in initial_parameters]
+            initial_parameters = parameter_range
+            
+    else:
+        if not 'file' in init_config and (not 'model' in init_config or init_config['model'] is None):
+            init_config['model'] = model_id
+        
+        legacy_file = init_config['file']
+        legacy_path = None if not 'file' in init_config else os.path.split(legacy_file)[0]
+        initial_parameters = parameters.load_parameters(init_config)
     
-    legacy_path = None if not 'file' in init_config else os.path.split(init_config['file'])[0]
-    initial_parameters = parameters.load_parameters(init_config)
     pathway_model.parameters().set(initial_parameters)
-
     
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
@@ -69,21 +92,27 @@ def fit(chosen, objective_config, algo_config, init_config,
                  'chosen': chosen,
                  'objective': objective_config,
                  'algo': algo.get_config(),
-                 'initial': pathway_model.parameters().get_config()
+                 'range': pathway_model.parameters().get_config(only_range = True)
                  }
     if not legacy_path is None:
         run_config['legacy'] = legacy_path
+        run_config['legacy_file'] = legacy_file
     total_objective = sum(replica_objectives)
-    total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
-                                                               keep_only_n = 10,
-                                                               verbose = verbose_callback))
+    
+    if store_checkpoints:
+        total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
+                                                                   keep_only_n = 10,
+                                                                   verbose = verbose_callback))
     total_objective.add_callback(checkpoint.PrintCallback(run_config))
     
-    if convert:
+    if not minimize:
         total_objective(initial_parameters, transformed = False)
-        return
+
+    else:    
+        algo.minimize(total_objective, initial_parameters)
     
-    algo.minimize(total_objective, initial_parameters)
+    run_log = total_objective.model().system_state_log
+    return run_log
 
 if __name__ == '__main__':
     import user_input
