@@ -2,11 +2,50 @@
 import os
 import shutil
 import stat
-from USER_VARIABLES import RESULTS_DIRECTORY
+from USER_VARIABLES import RESULTS_DIRECTORY, PROJECT_DIRECTORY
 import parameters
 from fit_sample import run
+import data
+import argparse
+import matplotlib.pyplot as plt
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('input', default = None, nargs = '+')
+args = parser.parse_args()
+
+sample = None
+validation_replica = None
+fit_mode = None
+if not args.input is None:
+    for i in args.input:
+        try:
+            int(i)
+            if len(str(i)) == 1:
+                validation_replica = str(i)
+            elif len(str(i)) == 4:
+                sample = str(i)
+            else:
+                raise NotImplementedError()
+        except:
+            if i == 'split' or 'single':
+                fit_mode = i
+            else:
+                raise NotImplementedError()
 
 
+dataset = data.get_data_before_carex()
+if sample is None:
+    sample = [s.sample_name for s in dataset.samples]
+elif not isinstance(sample, list):
+    sample = [sample]
+    
+if fit_mode is None:
+    fit_mode = ['split', 'single']
+elif not isinstance(fit_mode, list):
+    fit_mode = [fit_mode]
+    
+all_replicas = validation_replica is None
 
 def get_best_checkpoint(criteria = None, exclude = None):
     candidate = None
@@ -23,23 +62,49 @@ def get_best_checkpoint(criteria = None, exclude = None):
             loaded_parameters, loss, run_config = parameters.load_parameter_file(file_path)
             cp_id = [f for f in file.split('_') if 'cp-' in f][0]
             run_id = [f for f in file.split('_') if 'run-' in f][0]
-            if candidate is None or candidate[1] > loss:
-                candidate = (loaded_parameters, loss, run_config)
-    return candidate, cp_id
+            if candidate is None or (loss < candidate[1]):
+                if not candidate is None: print('loss', loss, candidate[1])
+                candidate = (loaded_parameters, loss, run_config, cp_id)
+    return candidate[:-1], candidate[-1]
 
-# call collect_best determinining fit_mode.
-# then, iterate over all replicas/samples.
-# skip nonexisting
-
-cp, cp_id = get_best_checkpoint(criteria = ['1351_5', 'split'])
-parameters, _, run_config = cp
-run_log = run(run_config, parameters)
-
-# determine plot target
-# plot fit using run_log, run_config and data (load automatically)
+for mode in fit_mode:
+    for sample_number in sample:
+        if all_replicas:
+            validation_replica = [r.replica_number for r in dataset[sample_number].replicas]
+        elif not isinstance(validation_replica, list):
+            validation_replica = [validation_replica]
+        for replica in validation_replica:
+            
+            cp, cp_id = get_best_checkpoint(criteria = ['_'.join([str(sample_number), 
+                                                            str(replica)]), 
+                                                  mode])
+            print('best', cp_id)
+            if cp is None: continue
+            cp_parameters, _, run_config = cp
+            run_log = run(run_config, cp_parameters)
+            
+            plot_target = os.path.join(PROJECT_DIRECTORY, 'best_' + mode, 
+                                       sample_number, replica)
+            
+            r = str(sample_number) + str(replica)
+            ax = dataset[r].plot(measurements = 'CO2', log = False) # TODO: returns None, plots both!
+            run_log.plot('CO2', newfigure = False, log = False)
+            ax = plt.gca()
+            ax.set_yscale('linear')
+            ax.set_ylim([0,50])
+            #run_log.plot('CH4', newfigure = False)
+            plt.show()
+            
+            # plot data
+            # plot run
+            # in provided axes.
+            # do a def plot_fit() wrapper around this.
+            # store in plot target using 'fit', sample, replica, fit_mode, loss, cp_id
+            # plot CO2 and CH4 side-by-side???
+            # using the log-axis as transform dictates in run_config.
+            
 # store plots using cp_id
 
-print(parameters)
 input()
 
 

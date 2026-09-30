@@ -6,20 +6,15 @@ import optimizer
 import parameters
 import checkpoint
 import hashing
+import numpy as np
 
-# TODO: for converting, derive configuration from checkpoint file and folder
-# TODO: is a timestamp meaningful? only for CP, not folder
-# TODO: parse initial parameter range (narrow <best_N>, or other criteria!)
-# TODO: parse loss configuration (weights, other reduction functions)
 # TODO: handle few usable sample points!!!
-# TODO: warn if loaded parameters have incompatible origin -> input()
 # TODO: in Objective, determine t_start, t_end for all loss contributions
 #       predict only as necessary.
-# TODO: save hyperparameters with every plot (how?) -> maintain origin: model version, ...
-# TODO: if sample has only two replicas, fit_mode split is equivalent to single.
-#       => only the meaning of validation changes.
+# TODO: complete init_config specification for fits using new checkpoints
 
-def run(run_config, initial_parameters):
+
+def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']
     objective_config = run_config['objective']
     algo_config = {chosen['algorithm']: run_config['algo']}
@@ -27,24 +22,23 @@ def run(run_config, initial_parameters):
                    'parameters': initial_parameters}
     run_log = fit(chosen, objective_config, algo_config, init_config, 
                   store_checkpoints = False,
-                  minimize = False)
+                  minimize = False,
+                  **kwargs)
     return run_log
 
 def fit(chosen, objective_config, algo_config, init_config, 
         store_checkpoints = True,
         verbose_callback = False,
-        minimize = True):
-
+        minimize = True, 
+        cp_target = None):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
     split = sample.get_split(chosen['validation_replica'], 
                              chosen['fit_mode'])
-    
     # build model and configure parameters
     pathway_model = model.Model(chosen['pathways'])
     pathway_model.parameters().set('default', normalized = chosen['normalized_parameters'])
-    
     model_id = hashing.build_model_id(pathway_model.get_config(only_structure = True))
     
     legacy_path = None
@@ -61,10 +55,10 @@ def fit(chosen, objective_config, algo_config, init_config,
             init_config['model'] = model_id
         
         legacy_file = init_config['file']
-        legacy_path = None if not 'file' in init_config else os.path.split(legacy_file)[0]
+        legacy_path = None if legacy_file is None else os.path.split(legacy_file)[0]
         initial_parameters = parameters.load_parameters(init_config)
+        
     
-    pathway_model.parameters().set(initial_parameters)
     
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
@@ -79,10 +73,31 @@ def fit(chosen, objective_config, algo_config, init_config,
     for replica in split['fit']:
         replica_objective = optimizer.Objective(pathway_model, replica)
         for pool in ['CO2', 'CH4']:
-            transform = parameters.get_transform(objective_config['transform'][pool])
+            
+            # make replica-provided parameters nan
+            _ = [initial_parameters[name].set(np.nan) 
+                 for name in ['H2O', 'CH4', 'CO2', 'TOC', 'DOC']]
+            
+            tf = parameters.IdentityTransform()
+            for t in objective_config['transform'][pool]:
+                if t == 'normalize':
+                    if pool == 'CO2':
+                        _,pool_values = replica.CO2()
+                    elif pool == 'CH4':
+                        _,pool_values = replica.CH4()
+                    else:
+                        raise NotImplementedError()
+                    values = tf.transform(pool_values)
+                    finite_values = values[np.isfinite(values)]
+                    replica_low = np.min(finite_values)
+                    replica_high = np.max(finite_values)
+                    tf = parameters.Normalization(tf, replica_low, replica_high)
+                elif t == 'log':
+                    tf = parameters.LogTransform(tf)
+            
             pool_loss = optimizer.get_loss_function(pool, 
                                                     objective_config['reduction'][pool], 
-                                                    transform,
+                                                    tf,
                                                     t_start = chosen['t_start'],
                                                     t_end = chosen['t_end'])
             replica_objective.add_loss(pool_loss, objective_config['loss_weight'][pool])
@@ -92,7 +107,7 @@ def fit(chosen, objective_config, algo_config, init_config,
                  'chosen': chosen,
                  'objective': objective_config,
                  'algo': algo.get_config(),
-                 'range': pathway_model.parameters().get_config(only_range = True)
+                 'range': initial_parameters.get_config(only_range = True)
                  }
     if not legacy_path is None:
         run_config['legacy'] = legacy_path
@@ -102,11 +117,14 @@ def fit(chosen, objective_config, algo_config, init_config,
     if store_checkpoints:
         total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
                                                                    keep_only_n = 10,
-                                                                   verbose = verbose_callback))
+                                                                   verbose = verbose_callback,
+                                                                   target = cp_target))
     total_objective.add_callback(checkpoint.PrintCallback(run_config))
-    
+
     if not minimize:
+        print(total_objective)
         total_objective(initial_parameters, transformed = False)
+        print()
 
     else:    
         algo.minimize(total_objective, initial_parameters)
@@ -153,7 +171,7 @@ if __name__ == '__main__':
                 }
     
     init_config = {
-            'best_N':                   3,
+            'best_N':                   args.best,
             'sample':                   chosen['sample'],
             'validation_replica':       chosen['validation_replica'],
             'model':                    None,

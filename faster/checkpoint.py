@@ -16,18 +16,6 @@ checkpoint_plain = [
                     # checkpoint ID
                     ]
 
-fill_length = {'fit_mode': 6}
-
-def fill_value(value, key):
-    if not key in fill_length:
-        return value
-    length = fill_length[key]
-    if len(value) > length:
-        return value[:length]
-    while len(value) < length:
-        value += '_'
-    return value
-
 def get_value(d, ks, hash_function = None):
     if not isinstance(ks, (list, tuple)):
         ks = [ks]
@@ -65,10 +53,8 @@ class Callback():
         
         for keys in checkpoint_plain:
             value = get_value(self.run_config, keys)
-            value = fill_value(str(value), keys[-1])
             plain.append(value)
-        #plain.append(self.run_id)
-        return '_'.join([p for p in plain])
+        return '_'.join([str(p) for p in plain])
 
 class SetAllConstant(Callback):
     def __init__(self):
@@ -94,12 +80,15 @@ class PrintCallback(Callback):
             print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
 
 class CheckpointCallback(Callback):
-    def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False):
+    def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
+                 target = None):
         super().__init__(run_config)
         assert keep_only_n > 0
         self.keep_only_n = keep_only_n
         self.verbose = False
         self.legacy = legacy
+        if not target is None:
+            self._target_directory = target
         
         # set range of legacy parameters to default range
         if self.legacy:
@@ -150,7 +139,8 @@ class CheckpointCallback(Callback):
             while len(f_loss) < 8:
                 f_loss = '0' + f_loss
         
-        file_name = self.run_dir_name() + f'_loss-{f_loss}_' + cp_id
+        file_name = '_'.join([self.run_dir_name(), f'loss-{f_loss}',
+                              self.run_id, cp_id])
         checkpoint_file = os.path.join(self.target_directory(), file_name)
         with open(checkpoint_file, 'w') as cf:
             json.dump(checkpoint_data, cf, indent = 4)

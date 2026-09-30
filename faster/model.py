@@ -184,11 +184,13 @@ class Model():
             raise Exception('timeout')
             
         solver_result = solver_result[0]
-
+        
+        # prevent nonpositive pool values
+        solver_result.y = np.maximum(solver_result.y, 1e-24) 
+        
         # add pool values to log
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
-   
         
         #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
         #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured

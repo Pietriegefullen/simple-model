@@ -6,11 +6,6 @@ import parameters
 import user_input
 from USER_VARIABLES import PROJECT_DIRECTORY as ROOT
 
-# TODO: for converted checkpoints, the run ID is identical
-#       regardless of parameter ranges.
-#       but Parameter ranges should be identical for the same run?
-#       for legacy checkpoints, use default ranges?
-
 # TODO: make sure run ID is identical for EQUIVALENT definitions.
 #       algo_config is not used for any ID.
 #       should t_start, t_end be used for objective ID?
@@ -34,7 +29,7 @@ for root, dirs, files in os.walk(os.path.join(ROOT, 'results')):
         _, run_config = parameters.load_parameters({'file':os.path.join(root, cp_file)}, return_run_config = True)
         existing_legacy.append(run_config['legacy_file'])
 
-def get_legacy_heckpoint_files(path, criteria = None, exclude = None, skip_existing = False):
+def get_legacy_checkpoint_files(path, criteria = None, exclude = None, skip_existing = False):
     file_list = []
     for d in os.listdir(path):
         if d == 'results': continue
@@ -56,10 +51,10 @@ def get_legacy_heckpoint_files(path, criteria = None, exclude = None, skip_exist
                 if pos and neg:
                     file_list.append(file_path)
         else:
-            file_list += get_checkpoint_files(folder, criteria, exclude)
+            file_list += get_legacy_checkpoint_files(folder, criteria, exclude, skip_existing)
     return file_list
     
-candidates = get_legacy_checkpoint_files(ROOT, p, x)
+candidates = get_legacy_checkpoint_files(ROOT, p, x, skip_existing = True)
 pl = "" if len(candidates) == 1 else "s"
 print(f'Found {len(candidates):d} candidate{pl}.')
 

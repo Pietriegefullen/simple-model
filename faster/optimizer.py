@@ -71,12 +71,22 @@ class Loss():
         t_pred, pool_pred = run_log[self.pool]
         pool_true = replica[self.pool]
         t_true = replica.incubation['days']
+  
+        if self.pool == 'CO2':
+            t_true, pool_true = replica.CO2()
+        elif self.pool == 'CH4':
+            t_true, pool_true = replica.CH4()
+        else:
+            raise NotImplementedError()
+            
+        assert pool_true.size == t_true.size
         
         ind = np.squeeze([np.nonzero(t_pred==t)[0] for t in t_true])
         t_pred = t_pred[ind]
         pool_pred = pool_pred[ind]
         
         assert np.all(np.isclose(t_pred, t_true)), str(t_pred) +'\n' + str(t_true)
+
 
         if 0 in t_pred:
             pool_pred = pool_pred[t_pred != 0]
@@ -94,7 +104,8 @@ class Loss():
             
             pool_pred = pool_pred[idx]
             pool_true = pool_true[idx]
-            
+
+        before_pred = np.array(pool_pred)        
         if callable(self.transform):
             pool_pred = self.transform(pool_pred)
             pool_true = self.transform(pool_true)
@@ -103,16 +114,21 @@ class Loss():
         
         sz = pool_pred.size
         
+        unusable_count = np.count_nonzero(np.logical_not(usable))
+        if unusable_count > .5*sz:
+            print()
+            print('WARNING: less than 50% usable values!', replica, self.pool)
+            print('before', before_pred)
+            print('transforming')
+            after_pred = self.transform(before_pred)
+            print('after', after_pred)
+            print('    ', after_pred)
+            print('transform', self.transform.operator())
+            input()
+        
         pool_pred = pool_pred[usable]
         pool_true = pool_true[usable]
         
-        if (sz - pool_pred.size) > .5*sz:
-            print()
-            print('WARNING: less than 50% usable values!')
-            
-        elif pool_pred.size < 3:
-            print()
-            print('WARNING: less than 3 usable samples!')
 
         return pool_pred, pool_true
     
@@ -296,8 +312,12 @@ class Algorithm(ABC):
 
     
     def minimize(self, objective, initial_parameters):
+        objective.model().parameters().set(initial_parameters)
         print('Fitting with ' + self.__class__.__name__)
         print(objective.model())
+        print()
+        print('search space average fraction:', 
+              objective.model().parameters().search_space()[-1])
         print()
         print('Objective = ' + str(objective))
         if len(objective.model().parameters().variables()) == 0:
