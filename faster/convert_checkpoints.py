@@ -27,6 +27,9 @@ existing_legacy = []
 for root, dirs, files in os.walk(os.path.join(ROOT, 'results')):
     for cp_file in files:
         _, run_config = parameters.load_parameters({'file':os.path.join(root, cp_file)}, return_run_config = True)
+        if not 'legacy_file' in run_config:
+            print('missing')
+            continue
         existing_legacy.append(run_config['legacy_file'])
 
 def get_legacy_checkpoint_files(path, criteria = None, exclude = None, skip_existing = False):

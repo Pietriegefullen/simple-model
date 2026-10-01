@@ -12,7 +12,9 @@ import numpy as np
 # TODO: in Objective, determine t_start, t_end for all loss contributions
 #       predict only as necessary.
 # TODO: complete init_config specification for fits using new checkpoints
+# TODO: loss normalization is not equal for loaded checkpoints?
 
+# TODO: model id is GJT, not AJ???
 
 def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']

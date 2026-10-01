@@ -51,7 +51,7 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
         selected_parameters, _, _, file_path = zip(*selected_candidates[1:])
         print('range')
         for par, pth in zip(selected_parameters, file_path):
-            print(os.path.split(file_path)[-1])
+            print(os.path.split(pth)[-1])
             loaded_range.extend_range_by_value(par, ignore_constants = True)
     return loaded_range
 

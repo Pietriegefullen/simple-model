@@ -118,18 +118,10 @@ class Loss():
         if unusable_count > .5*sz:
             print()
             print('WARNING: less than 50% usable values!', replica, self.pool)
-            print('before', before_pred)
-            print('transforming')
-            after_pred = self.transform(before_pred)
-            print('after', after_pred)
-            print('    ', after_pred)
-            print('transform', self.transform.operator())
-            input()
-        
+            
         pool_pred = pool_pred[usable]
         pool_true = pool_true[usable]
         
-
         return pool_pred, pool_true
     
     def __str__(self):

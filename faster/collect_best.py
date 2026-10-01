@@ -65,6 +65,10 @@ def get_best_checkpoint(criteria = None, exclude = None):
             if candidate is None or (loss < candidate[1]):
                 if not candidate is None: print('loss', loss, candidate[1])
                 candidate = (loaded_parameters, loss, run_config, cp_id)
+    if candidate is None:
+        print('found no candidates')
+        print('criteria:', criteria, 'exclude:', exclude)
+        return None, None
     return candidate[:-1], candidate[-1]
 
 for mode in fit_mode:
@@ -91,7 +95,7 @@ for mode in fit_mode:
             run_log.plot('CO2', newfigure = False, log = False)
             ax = plt.gca()
             ax.set_yscale('linear')
-            ax.set_ylim([0,50])
+            #ax.set_ylim([0,50])
             #run_log.plot('CH4', newfigure = False)
             plt.show()
             
