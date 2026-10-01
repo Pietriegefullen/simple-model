@@ -162,6 +162,11 @@ class Model():
         self.parameters().check()
         self.system_state_log.reset(replica)
         self.system_change_log.reset(replica)
+        
+
+        print(self.parameters())
+        input()
+
       
         # solve initial value problem
         if parallel:

@@ -228,12 +228,11 @@ class Objective(Addable):
         if transformed:
             values = [var.inverse_transform(p) 
                             for var, p in zip(parameters, values)]
+
         _ = [v.set(p) for v, p in zip(parameters, np.atleast_1d(values))]
         
+        
     def _call(self, transformed_parameters, transformed = True):
-        # TODO: variables are empty, if setting specific parameters!
-        # => allow calling with ModelParameters()?
-        # => but for minimize, must be plain array of numbers!
         if isinstance(transformed_parameters, parameters.ModelParameters):
             p_dict = transformed_parameters.as_dict()
             p_values = list(p_dict.values())
@@ -243,7 +242,7 @@ class Objective(Addable):
         else:
             self.set_parameters(self.variables(), transformed_parameters, 
                                 transformed = transformed)
-        
+
         run_log = self._model.predict(self._replica)
         
         replica_loss = 0
@@ -347,7 +346,7 @@ class DifferentialEvolution(Algorithm):
         except KeyboardInterrupt:
             return
         
-    def generation_counter(self, args, **kwargs):
+    def generation_counter(self, *args, **kwargs):
         self.generation += 1
         return False
 

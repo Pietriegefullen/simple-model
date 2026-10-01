@@ -59,7 +59,6 @@ def fit(chosen, objective_config, algo_config, init_config,
         legacy_file = init_config['file']
         legacy_path = None if legacy_file is None else os.path.split(legacy_file)[0]
         initial_parameters = parameters.load_parameters(init_config)
-        
     
     
     # override model parameters

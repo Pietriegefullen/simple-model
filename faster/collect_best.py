@@ -8,6 +8,7 @@ from fit_sample import run
 import data
 import argparse
 import matplotlib.pyplot as plt
+import plot
 
 parser = argparse.ArgumentParser()
 
@@ -52,6 +53,7 @@ def get_best_checkpoint(criteria = None, exclude = None):
     cp_id = None
     for root, dirs, files in os.walk(RESULTS_DIRECTORY):
         for file in files:
+            if file.startswith('.'): continue
             file_path = os.path.join(root, file)
             
             pos = criteria is None or all([c in file_path for c in criteria])
@@ -63,7 +65,6 @@ def get_best_checkpoint(criteria = None, exclude = None):
             cp_id = [f for f in file.split('_') if 'cp-' in f][0]
             run_id = [f for f in file.split('_') if 'run-' in f][0]
             if candidate is None or (loss < candidate[1]):
-                if not candidate is None: print('loss', loss, candidate[1])
                 candidate = (loaded_parameters, loss, run_config, cp_id)
     if candidate is None:
         print('found no candidates')
@@ -90,12 +91,17 @@ for mode in fit_mode:
             plot_target = os.path.join(PROJECT_DIRECTORY, 'best_' + mode, 
                                        sample_number, replica)
             
+            r = dataset[str(sample_number) + str(replica)]
+            axs = plot.plot_data(r)
+            axs = plot.plot_fit(run_log, ax = axs)
+            plt.show()
+
             r = str(sample_number) + str(replica)
             ax = dataset[r].plot(measurements = 'CO2', log = False) # TODO: returns None, plots both!
             run_log.plot('CO2', newfigure = False, log = False)
             ax = plt.gca()
             ax.set_yscale('linear')
-            #ax.set_ylim([0,50])
+            ax.set_ylim([0,25])
             #run_log.plot('CH4', newfigure = False)
             plt.show()
             

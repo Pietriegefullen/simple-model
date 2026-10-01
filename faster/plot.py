@@ -10,9 +10,54 @@ import matplotlib.ticker as ticker
 from chemistry import GIBBS_MINIMUM as DGmin
 from pathways import pathway_color
 
-
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
+
+def get_axes(ax, separate = True):
+    axs = {'CO2': None, 'CH4': None}
+    if ax is None:
+        fig, _ax = plt.subplots(1,1 + int(separate))
+        fig.set_size_inches(8, 4)
+        axs['CO2'] = _ax if not separate else _ax[0]
+        axs['CH4'] = _ax if not separate else _ax[1]
+
+    elif isinstance(ax, (list, tuple)):
+        print('ax list')
+        axs['CO2'] = ax[0]
+        axs['CH4'] = ax[1]
+    else:
+        raise NotImplementedError()
+    return axs
+
+def pool_color(pool):
+    if pool == 'CO2':
+        c = CO2_COLOR
+    elif pool == 'CH4': 
+        c = CH4_COLOR
+    else:
+        raise NotImplementedError()
+    return c
+
+def plot_data(replica, ax = None, separate = True):
+    axs = get_axes(ax = ax, separate = separate)
+    for pool in ['CO2', 'CH4']:
+        if pool == 'CO2':
+            t, pool_value = replica.CO2()
+            c = CO2_COLOR
+        elif pool == 'CH4': 
+            t, pool_value = replica.CH4()
+            c = CH4_COLOR
+
+        axs[pool].plot(t, pool_value, 'x', color = c)
+    return tuple(axs.values())
+
+def plot_fit(run_log, ax = None, separate = True):
+    axs = get_axes(ax = ax, separate = separate)
+    for pool in ['CO2', 'CH4']:
+        t, pool_value = run_log[pool]
+        axs[pool].plot(t, pool_value, '-', color = pool_color(pool))
+    return axs
+
 
 def design(ax):
     
@@ -92,7 +137,7 @@ def legend(ax):
                              edgecolor = 'k')
 
 
-def plot_data(x, y, ax = None, **kwargs):
+def plot_data2(x, y, ax = None, **kwargs):
     if ax is None:
         fig, ax = plt.subplots()
     
@@ -108,7 +153,7 @@ def plot_model(x,y, ax = None, **kwargs):
     xaxis_time(ax)
     return ax
 
-def plot_fit(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, log_ch4 = True):
+def plot_fit2(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, log_ch4 = True):
     if ax is None:
         fig, ax = plt.subplots()
     

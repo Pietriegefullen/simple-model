@@ -542,7 +542,8 @@ class Parameter():
 
                 if out_of_range:
                     print(f'WARNING: Setting {self.name} to {p} is out of bounds.')
-                self.value = float(p)
+            self.value = float(p)
+
         else:
             raise NotImplementedError(str(p))
    
