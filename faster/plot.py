@@ -1,10 +1,9 @@
-
 import numpy as np
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
-#plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = True
 import matplotlib.ticker as ticker
 
 from chemistry import GIBBS_MINIMUM as DGmin
@@ -22,12 +21,16 @@ def get_axes(ax, separate = True):
         axs['CH4'] = _ax if not separate else _ax[1]
 
     elif isinstance(ax, (list, tuple)):
-        print('ax list')
         axs['CO2'] = ax[0]
         axs['CH4'] = ax[1]
+        fig = ax[0].get_figure()
+
+    elif isinstance(ax, plt.Axes):
+        return ax
+
     else:
         raise NotImplementedError()
-    return axs
+    return fig, axs
 
 def pool_color(pool):
     if pool == 'CO2':
@@ -38,8 +41,15 @@ def pool_color(pool):
         raise NotImplementedError()
     return c
 
+def format_ax(ax, log_scale = False):
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    if log_scale:
+        ax.set_yscale('log')
+
 def plot_data(replica, ax = None, separate = True):
-    axs = get_axes(ax = ax, separate = separate)
+    fig, axs = get_axes(ax = ax, separate = separate)
     for pool in ['CO2', 'CH4']:
         if pool == 'CO2':
             t, pool_value = replica.CO2()
@@ -47,16 +57,31 @@ def plot_data(replica, ax = None, separate = True):
         elif pool == 'CH4': 
             t, pool_value = replica.CH4()
             c = CH4_COLOR
+        
+        ax = axs[pool]
+        ax.plot(t, pool_value, 'x', color = c, label = r'incubation data', clip_on = False)
 
-        axs[pool].plot(t, pool_value, 'x', color = c)
-    return tuple(axs.values())
+        log_values = np.log(pool_value)
+        finite_log_values = log_values[np.isfinite(log_values)]
+
+        ax.set_ylim(np.exp([np.min(finite_log_values), np.nanmax(finite_log_values)]))
+        p = pool[:-1] + rf'\textsubscript{{{pool[-1]}}}'
+        ax.set_title(rf'$\mathrm{{{p}}}$')
+        ax.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
+        ax.set_xlabel(r'$\mathrm{time\ [d]}$')
+
+    fig.suptitle(replica)
+    fig.tight_layout()
+    return fig, tuple(axs.values())
 
 def plot_fit(run_log, ax = None, separate = True):
-    axs = get_axes(ax = ax, separate = separate)
+    fig, axs = get_axes(ax = ax, separate = separate)
     for pool in ['CO2', 'CH4']:
         t, pool_value = run_log[pool]
-        axs[pool].plot(t, pool_value, '-', color = pool_color(pool))
-    return axs
+        ax = axs[pool]
+        ax.plot(t, pool_value, '-', color = pool_color(pool))
+
+    return fig, axs
 
 
 def design(ax):

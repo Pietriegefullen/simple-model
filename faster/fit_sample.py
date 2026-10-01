@@ -15,6 +15,8 @@ import numpy as np
 # TODO: loss normalization is not equal for loaded checkpoints?
 
 # TODO: model id is GJT, not AJ???
+# TODO: checkpoint stores only if better in target directory!
+#       => allows -1 workers.
 
 def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']
@@ -133,6 +135,7 @@ def fit(chosen, objective_config, algo_config, init_config,
         algo.minimize(total_objective, initial_parameters)
     
     run_log = total_objective.model().system_state_log
+
     return run_log
 
 if __name__ == '__main__':

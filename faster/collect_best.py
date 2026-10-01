@@ -92,21 +92,29 @@ for mode in fit_mode:
                                        sample_number, replica)
             
             r = dataset[str(sample_number) + str(replica)]
-            axs = plot.plot_data(r)
-            axs = plot.plot_fit(run_log, ax = axs)
+            fig, axs = plot.plot_data(r)
+            fig, axs = plot.plot_fit(run_log, ax = axs)
+
+            from matplotlib.lines import Line2D
+
+            handles = [
+                Line2D([], [], color='k', linestyle='-', label='model'),
+                Line2D([], [], color='k', marker='x', linestyle='None', label='incubation data'),
+            ]
+
+            axs['CH4'].legend(handles=handles,
+                               fancybox = False,
+                               edgecolor = 'k', 
+                               loc = 'lower right')
+                   
+            for pool, ax in axs.items():
+                plot.format_ax(ax,
+                              log_scale = 'log' in run_config['objective']['transform'][pool])
+
+            # store with cp_id
+
             plt.show()
 
-            r = str(sample_number) + str(replica)
-            ax = dataset[r].plot(measurements = 'CO2', log = False) # TODO: returns None, plots both!
-            run_log.plot('CO2', newfigure = False, log = False)
-            ax = plt.gca()
-            ax.set_yscale('linear')
-            ax.set_ylim([0,25])
-            #run_log.plot('CH4', newfigure = False)
-            plt.show()
-            
-            # plot data
-            # plot run
             # in provided axes.
             # do a def plot_fit() wrapper around this.
             # store in plot target using 'fit', sample, replica, fit_mode, loss, cp_id
