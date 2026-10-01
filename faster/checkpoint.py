@@ -131,7 +131,7 @@ class CheckpointCallback(Callback):
        
         cp_id = hashing.build_checkpoint_id(checkpoint_data)
         
-        f_loss = f'{last_loss:.3f}'.replace('.', '')
+        f_loss = f'{last_loss:.6f}'.replace('.', '')
         if len(f_loss) > 8:
             # overflow
             f_loss = '9'*8
