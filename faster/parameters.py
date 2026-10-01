@@ -15,7 +15,8 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
     
     if 'default' in init_config and init_config['default'] or len(init_config) == 0 or (len(init_config) == 1 and 'normalized' in init_config):
         normalized = init_config['normalized'] if 'normalized' in init_config else False
-        return default_model_parameters(normalized)
+        default_range = ModelParameters({p.name: p for p in default_model_parameters(normalized)})
+        return default_range
 
     if 'file' in init_config and not init_config['file'] is None:
         loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
@@ -519,6 +520,9 @@ class Parameter():
             self.options = None
         return self
     
+    def make_unset(self):
+        self.value = np.nan
+
     def set(self, p):
         if isinstance(p, Parameter):
             self.value = p.value

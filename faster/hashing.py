@@ -44,7 +44,7 @@ def build_run_id(config):
     cp = config.copy() # shallow copy!
     ignore = ['legacy', 'legacy_file', ]
     _ = [cp.pop(i,None) for i in ignore]
-    return 'run-' + build_id(cp)
+    return 'run-' + build_id(cp, 3,2)
 
 def add_missing_thermodynamics_switch(config):
     import parameters
@@ -60,14 +60,14 @@ def add_missing_thermodynamics_switch(config):
         
 def build_model_id(config):
     add_missing_thermodynamics_switch(config)
-    return 'model-' + build_id(config)
+    return 'model-' + build_id(config, 4,2)
 
 def build_loss_id(config):
     # TODO: compatibility layer here
-    return 'loss-' + build_id(config)
+    return 'loss-' + build_id(config, 4,2)
 
 def build_checkpoint_id(config):
-    return 'cp-' + build_id(config)
+    return 'cp-' + build_id(config, 4,2)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

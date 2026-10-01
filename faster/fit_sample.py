@@ -77,8 +77,10 @@ def fit(chosen, objective_config, algo_config, init_config,
         for pool in ['CO2', 'CH4']:
             
             # make replica-provided parameters nan
-            _ = [initial_parameters[name].set(np.nan) 
-                 for name in ['H2O', 'CH4', 'CO2', 'TOC', 'DOC']]
+            for name in ['H2O', 'CH4', 'CO2', 'TOC', 'DOC']:
+                if name in initial_parameters:
+                    del initial_parameters._parameters[name] 
+                 
             
             tf = parameters.IdentityTransform()
             for t in objective_config['transform'][pool]:
@@ -168,7 +170,7 @@ if __name__ == '__main__':
             }
     
     algo_config = {
-            'differential_evolution':   {}, # empty dict uses default
+            'differential_evolution':   {'workers' : 1}, # empty dict uses default
             'powell':                   {}
                 }
     

@@ -109,7 +109,7 @@ for mode in fit_mode:
             
 # store plots using cp_id
 
-input()
+quit()
 
 
 after = '2026-08-04--08-30'

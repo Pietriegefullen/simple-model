@@ -36,7 +36,7 @@ def get(algorithm_name):
     return algo_instance
 
 def mse(true, pred):
-    return np.sum((true - pred)**2))
+    return np.mean((true - pred)**2)
 
 class Loss():
     def __init__(self, pool, reduction_function, 
@@ -208,7 +208,6 @@ class Objective(Addable):
     def __init__(self, model, replica, replica_weight = 1.0, val_replica = None):
         super().__init__()
         self._model = model
-        self._variables = model.parameters().variables()
 
         self._replica = replica
         self._replica_weight = replica_weight
@@ -216,6 +215,9 @@ class Objective(Addable):
         
         self._loss_contributions = []
             
+    def variables(self):
+        return self.model().parameters().variables()
+
     def add_loss(self, loss_function, loss_weight):
         assert callable(loss_function)
         #loss_function.set_model(self._model, self._replica)
@@ -226,7 +228,7 @@ class Objective(Addable):
         if transformed:
             values = [var.inverse_transform(p) 
                             for var, p in zip(parameters, values)]
-        _ = [v.set(p) for v, p in zip(parameters, np.squeeze(values))]
+        _ = [v.set(p) for v, p in zip(parameters, np.atleast_1d(values))]
         
     def _call(self, transformed_parameters, transformed = True):
         # TODO: variables are empty, if setting specific parameters!
@@ -239,7 +241,7 @@ class Objective(Addable):
             self.set_parameters([pars[n] for n in list(p_dict.keys())], 
                                 [p.value for p in p_values], transformed = transformed)
         else:
-            self.set_parameters(self._variables, transformed_parameters, 
+            self.set_parameters(self.variables(), transformed_parameters, 
                                 transformed = transformed)
         
         run_log = self._model.predict(self._replica)
