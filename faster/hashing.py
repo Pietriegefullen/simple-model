@@ -1,33 +1,38 @@
 import hashlib
-ALPHABET = 'abcdefghijklmnopqrstuvwxyz'.upper()
+import base64
+import json
+import math
 
 def freeze(obj):
     if isinstance(obj, dict):
-        return tuple(sorted((k, freeze(v)) for k, v in obj.items()))
+        return {str(k): freeze(v) for k, v in sorted(obj.items(), key = lambda kv: str(kv[0]))}
     if isinstance(obj, (list, tuple)):
-        return tuple(freeze(v) for v in obj)
-    if isinstance(obj, set):
-        return tuple(freeze(v) for v in obj)
+        return [freeze(v) for v in obj]
+    if isinstance(obj, (set, frozenset)):
+        values = [freeze(v) for v in obj]
+        return {'type': 'set', 'values': sorted(values, key = _canonical_json)}
+    if isinstance(obj, float):
+        if math.isnan(obj):
+            return {'type': 'float', 'value': 'NaN'}
+        if math.isinf(obj):
+            return {'type': 'float', 'value': 'Infinity' if obj > 0 else '-Infinity'}
+    if hasattr(obj, 'item'):
+        return freeze(obj.item())
     return obj
+
+def _canonical_json(obj):
+    return json.dumps(obj, sort_keys = True, separators = (',', ':'),
+                      ensure_ascii = True, allow_nan = False)
 
 def compute_hash(config):
     assert isinstance(config, dict)
-    digest = hash(tuple(sorted(freeze(config))))
-    return digest
+    payload = _canonical_json(freeze(config)).encode('utf-8')
+    return hashlib.blake2b(payload, digest_size = 16).digest()
 
-def build_id(config, group_length = 3, length = 2):
+def build_id(config, group_length = 3, length = 3):
     digest = compute_hash(config)
-    
-    number = abs(digest)
-
-    result = []
-    base = len(ALPHABET)
-
-    while number:
-        number, remainder = divmod(number, base)
-        result.append(ALPHABET[remainder])
-
-    s_hash = "".join(reversed(result)).zfill(length*group_length)[-length*group_length:]
+    encoded = base64.b32encode(digest).decode('ascii').rstrip('=')
+    s_hash = encoded[:length*group_length]
     
     identifier = "-".join(
                         s_hash[i:i+group_length] 
@@ -39,7 +44,7 @@ def build_run_id(config):
     cp = config.copy() # shallow copy!
     ignore = ['legacy', 'legacy_file', ]
     _ = [cp.pop(i,None) for i in ignore]
-    return 'run-' + build_id(cp, 3,2)
+    return 'run-' + build_id(cp)
 
 def add_missing_thermodynamics_switch(config):
     import parameters
@@ -55,14 +60,14 @@ def add_missing_thermodynamics_switch(config):
         
 def build_model_id(config):
     add_missing_thermodynamics_switch(config)
-    return 'model-' + build_id(config, 3,1)
+    return 'model-' + build_id(config)
 
 def build_loss_id(config):
     # TODO: compatibility layer here
-    return 'loss-' + build_id(config, 3,1)
+    return 'loss-' + build_id(config)
 
 def build_checkpoint_id(config):
-    return 'cp-' + build_id(config, 3,2)
+    return 'cp-' + build_id(config)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

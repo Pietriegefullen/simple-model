@@ -69,7 +69,7 @@ class Pathway():
         
         self.microbe_index = system.index(microbe)
         
-        if self.use_thermodynamics:
+        if float(self.use_thermodynamics) == 1:
             self.deltaG_f = np.sum(np.stack(
                     [system.vector(0, str(subst), chemistry.GIBBS_FORMATION[str(subst)])
                      for subst in (educts + products)],
@@ -153,7 +153,7 @@ class Pathway():
             v *= inhib_factor
             self.log('inhib', t, inhib_factor)
 
-        if self.use_thermodynamics:
+        if float(self.use_thermodynamics) == 1:
             thermodynamic_factor = self.thermodynamics(t, S)
             v *= thermodynamic_factor
 

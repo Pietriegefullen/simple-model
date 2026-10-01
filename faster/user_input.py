@@ -30,6 +30,7 @@ def parse_args_fit():
                         epilog='')
     parser.add_argument('sample', type = int)
     parser.add_argument('validation_replica', type = int)
+    parser.add_argument('--default', action = 'store_true')
     parser.add_argument('--omit', nargs = '+', default = [])
     parser.add_argument('--single', action = 'store_true')
     parser.add_argument('--t', nargs = 2)

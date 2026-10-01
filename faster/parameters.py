@@ -13,10 +13,10 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
     print('determine initial parameters')
     init_config = {k: v for k,v in init_config.items() if not v is None}
     
-    if len(init_config) == 0 or len(init_config) == 1 and 'normalized' in init_config:
+    if 'default' in init_config and init_config['default'] or len(init_config) == 0 or (len(init_config) == 1 and 'normalized' in init_config):
         normalized = init_config['normalized'] if 'normalized' in init_config else False
         return default_model_parameters(normalized)
-    
+
     if 'file' in init_config and not init_config['file'] is None:
         loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
         if 'range' in init_config and init_config['range'] == 'default':

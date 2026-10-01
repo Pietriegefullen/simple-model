@@ -28,7 +28,7 @@ if not args.input is None:
             else:
                 raise NotImplementedError()
         except:
-            if i == 'split' or 'single':
+            if i == 'split' or i == 'single':
                 fit_mode = i
             else:
                 raise NotImplementedError()

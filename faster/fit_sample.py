@@ -173,9 +173,10 @@ if __name__ == '__main__':
                 }
     
     init_config = {
-            'best_N':                   args.best,
-            'sample':                   chosen['sample'],
-            'validation_replica':       chosen['validation_replica'],
+            'default':                  args.default,
+            'best_N':                   None if args.default else args.best,
+            'sample':                   None if args.default else chosen['sample'],
+            'validation_replica':       None if args.default else chosen['validation_replica'],
             'model':                    None,
             'run_ID':                   None,
             'file':                     None,

@@ -36,7 +36,7 @@ def get(algorithm_name):
     return algo_instance
 
 def mse(true, pred):
-    return np.sqrt(np.sum((true - pred)**2))
+    return np.sum((true - pred)**2))
 
 class Loss():
     def __init__(self, pool, reduction_function, 
@@ -287,14 +287,9 @@ class Objective(Addable):
 class Algorithm(ABC):
     def __init__(self, **default_kwargs):
         self._kwargs = default_kwargs
-        self._configure(**default_kwargs)
 
-    def _configure(self, **kwargs):
-        for name, value in kwargs.items():
-            setattr(self, name, value)
-    
     def configure(self, kwargs):
-        self._configure(**kwargs)
+        self._kwargs.update(kwargs)
     
     def get_bounds(self, variables):
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
@@ -302,7 +297,6 @@ class Algorithm(ABC):
         bounds = list(zip(lower_bounds, upper_bounds))
         return bounds
 
-    
     def minimize(self, objective, initial_parameters):
         objective.model().parameters().set(initial_parameters)
         print('Fitting with ' + self.__class__.__name__)
@@ -346,21 +340,8 @@ class DifferentialEvolution(Algorithm):
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = self.get_bounds(variables),
                                                       callback = self.generation_counter,
-                                                      strategy = self.strategy,
+                                                      **self._kwargs
                                                       )
-            """
-                                                      updating = self.updating,
-                                                      popsize = self.popsize,
-                                                      workers = self.workers,
-                                                      tol = self.tol,
-                                                      init = self.init,
-                                                      polish = self.polish,
-                                                      recombination = self.recombination,
-                                                      mutation = self.mutation
-                                                      )
-    """
-            #,
-                                                      #**self._kwargs)
         except KeyboardInterrupt:
             return
         
@@ -374,6 +355,7 @@ class Powell(Algorithm):
         variables = objective.model().parameters().variables()
         x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
         _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 
-                                    bounds = self.get_bounds(variables))
+                                    bounds = self.get_bounds(variables),
+                                    **self._kwargs)
 
 

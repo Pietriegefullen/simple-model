@@ -83,15 +83,15 @@ for candidate in candidates:
         single = True
         
     else:
-        samples = {r[:-1] for r in replicas}
-        assert len(samples) == 1
-        sample = samples.pop()
+        fit_samples = {r[:-1] for r in replicas}
+        assert len(fit_samples) == 1
+        sample = fit_samples.pop()
         fit_replicas = [r[-1] for r in replicas]
         validation_replica = next(r for r in '456' if r not in fit_replicas)
         single = False
         
-    setattr(args, 'sample', replicas[0][:-1])
-    setattr(args, 'validation_replica', replicas[0][-1])
+    setattr(args, 'sample', sample)
+    setattr(args, 'validation_replica', validation_replica)
     setattr(args, 'single', single)
 
     if not 'complex' in folder_name:
