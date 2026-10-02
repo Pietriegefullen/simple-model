@@ -345,7 +345,7 @@ class ModelParameters():
         reductions = []
         for p in self.variables():
             p_def = next((dp for dp in default_ranges if p.name == dp.name), None)
-            if p_def is None: raise Exception('Should not happen.')
+            if p_def is None: raise Exception('Should not happen. ' + str(p.name))
             p_range = p.transform(p.high) - p.transform(p.low)
             p_default_range = p.transform(p_def.high) - p.transform(p_def.low)
             w_i = p_range/p_default_range

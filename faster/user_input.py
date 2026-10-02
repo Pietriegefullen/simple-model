@@ -32,7 +32,8 @@ def parse_args_fit():
     parser.add_argument('validation_replica', type = int)
     parser.add_argument('--default', action = 'store_true')
     parser.add_argument('--omit', nargs = '+', default = [])
-    parser.add_argument('--single', action = 'store_true')
+    parser.add_argument('--single', action = 'store_true', default = None)
+    parser.add_argument('--split', action = 'store_true', default = None)
     parser.add_argument('--t', nargs = 2)
     parser.add_argument('--p', nargs = '+')
     parser.add_argument('--local', action = 'store_true')
@@ -41,6 +42,14 @@ def parse_args_fit():
     parser.add_argument('--initial', nargs = '+')
     
     args = parser.parse_args()
+
+    if args.single is None and args.split is None:
+        args.split = True
+
+    if not args.single is None and not args.split is None:
+        raise Exception('Specify either "split" or "single", not both.')
+
+    args.single = not args.split if not args.split is None else args.single
     
     t_start, t_end = None, None
     if not args.t is None:

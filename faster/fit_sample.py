@@ -94,7 +94,6 @@ def fit(chosen, objective_config, algo_config, init_config,
     total_objective.add_callback(checkpoint.PrintCallback(run_config))
 
     if not minimize:
-        print(total_objective)
         total_objective(initial_parameters, transformed = False)
         print()
 

@@ -59,11 +59,16 @@ def plot_data(replica, ax = None, separate = True, **kwargs):
             c = CH4_COLOR
         
         ax = axs[pool]
-        ax.plot(t, pool_value, 'x', color = c, label = r'incubation data',
+        if not 'marker' in kwargs:
+            kwargs['marker'] = 'x'
+        kwargs['linestyle'] = 'None'
+
+        ax.plot(t, pool_value, color = c, label = r'incubation data',
                 clip_on = False, 
                 **kwargs)
 
-        log_values = np.log(pool_value)
+        with np.errstate(invalid = 'ignore', divide = 'ignore'):
+            log_values = np.log(pool_value)
         finite_log_values = log_values[np.isfinite(log_values)]
 
         #ax.set_ylim(np.exp([np.min(finite_log_values), np.nanmax(finite_log_values)]))
