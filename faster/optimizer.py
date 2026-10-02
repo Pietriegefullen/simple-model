@@ -38,6 +38,42 @@ def get(algorithm_name):
 def mse(true, pred):
     return np.mean((true - pred)**2)
 
+def build_objective_function(pathway_model, replicas, objective_config, t_start = 0, t_end = None):
+    import parameters
+    if not isinstance(replicas, (list, tuple)):
+        replicas = [replicas]
+    replica_objectives = []
+    for replica in replicas:
+        replica_objective = Objective(pathway_model, replica)
+        for pool in ['CO2', 'CH4']:
+            tf = parameters.IdentityTransform()
+            for t in objective_config['transform'][pool]:
+                if t == 'normalize':
+                    if pool == 'CO2':
+                        _,pool_values = replica.CO2()
+                    elif pool == 'CH4':
+                        _,pool_values = replica.CH4()
+                    else:
+                        raise NotImplementedError()
+                    values = tf.transform(pool_values)
+                    finite_values = values[np.isfinite(values)]
+                    replica_low = np.min(finite_values)
+                    replica_high = np.max(finite_values)
+                    tf = parameters.Normalization(tf, replica_low, replica_high)
+                elif t == 'log':
+                    tf = parameters.LogTransform(tf)
+            
+            pool_loss = get_loss_function(pool, 
+                                        objective_config['reduction'][pool], 
+                                        tf,
+                                        t_start = t_start,
+                                        t_end = t_end)
+            replica_objective.add_loss(pool_loss, objective_config['loss_weight'][pool])
+        replica_objectives.append(replica_objective)
+    total_objective = sum(replica_objectives)
+
+    return total_objective
+
 class Loss():
     def __init__(self, pool, reduction_function, 
                  transform = None, t_start = None, t_end = None):
@@ -56,15 +92,17 @@ class Loss():
         
         self._model.add_t(self._replica.incubation['days'])
         
-    def R2(self, replica, run_log):
-        predicted, measured = self.get_values()
+    def squared_errors(self, replica, run_log):
+        predicted, measured = self.get_values(replica, run_log)
         usable = np.logical_and(np.isfinite(predicted), np.isfinite(measured))
         measured_mean = np.nanmean(measured[usable])
-        SS_res = np.nansum((predicted[usable] - measured[usable])**2)
-        SS_total = np.nansum((measured[usable] - measured_mean)**2)
-    
-        r2_value = 1 - SS_res/SS_total
+        residual = (predicted[usable] - measured[usable])**2
+        total = (measured[usable] - measured_mean)**2
+        return residual, total
         
+    def R2(self, replica, run_log):
+        S_res, S_total = squared_errors(replica, run_log)
+        r2_value = 1 - np.nansum(S_res)/np.nansum(S_total)
         return r2_value
     
     def get_values(self, replica, run_log):
@@ -81,9 +119,15 @@ class Loss():
             
         assert pool_true.size == t_true.size
         
-        ind = np.squeeze([np.nonzero(t_pred==t)[0] for t in t_true])
+        ind = np.array([np.nonzero(t_pred==t)[0].item() for t in t_true
+                        if np.any(t == t_pred)]).squeeze()
         t_pred = t_pred[ind]
         pool_pred = pool_pred[ind]
+
+        ind = np.array([np.nonzero(t_true==t)[0].item() for t in t_pred
+                        if np.any(t == t_true)]).squeeze()
+        t_true = t_true[ind]
+        pool_true = pool_true[ind]
         
         assert np.all(np.isclose(t_pred, t_true)), str(t_pred) +'\n' + str(t_true)
 
@@ -173,7 +217,21 @@ class Addable():
         assert other._model is self.model()
         obj = Addable(self, other)
         return obj
-    
+
+    def weighted_mse(self, run_log):
+        mse = [objective.weighted_mse(run_log)
+               for objective in (self._left, self._right)]
+        if any(contribution is None for contribution, _ in mse):
+            return None, None
+        return tuple(sum(values) for values in zip(*mse))
+
+    def R2(self, run_log):
+        mse_res, mse_tot = self.weighted_mse(run_log)
+        return None if mse_res is None else 1 - mse_res/mse_tot
+
+    def fit_replicas(self):
+        return list({self._left.fit_replicas(), self._right.fit_replicas()})
+
     def _call(self, args, **kwargs):
         return self._left(args, **kwargs) + self._right(args, **kwargs)
     
@@ -205,16 +263,18 @@ class Addable():
                           if not s is None])
     
 class Objective(Addable):
-    def __init__(self, model, replica, replica_weight = 1.0, val_replica = None):
+    def __init__(self, model, replica, replica_weight = 1.0):
         super().__init__()
         self._model = model
 
         self._replica = replica
         self._replica_weight = replica_weight
-        self._val_replica = val_replica
         
         self._loss_contributions = []
             
+    def fit_replicas(self):
+        return self._replica
+
     def variables(self):
         return self.model().parameters().variables()
 
@@ -223,6 +283,16 @@ class Objective(Addable):
         #loss_function.set_model(self._model, self._replica)
         self._model.add_t(self._replica.incubation['days'])
         self._loss_contributions.append((loss_function, loss_weight))
+
+    def weighted_mse(self, run_log):
+        weighted_model_mse = 0
+        weighted_total_mse = 0
+        for loss_function, loss_weight in self._loss_contributions:
+            s_residual, s_total = loss_function.squared_errors(self._replica, run_log)
+            weighted_model_mse += loss_weight*np.nanmean(s_residual)
+            weighted_total_mse += loss_weight*np.nanmean(s_total)
+        return weighted_model_mse, weighted_total_mse
+
 
     def set_parameters(self, parameters, values, transformed = False):
         if transformed:
@@ -256,6 +326,7 @@ class Objective(Addable):
         
         objective_value = self._replica_weight * replica_loss
         return objective_value
+   
 
     def __str__(self):
         def format_weight(w):
@@ -358,5 +429,4 @@ class Powell(Algorithm):
         _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 
                                     bounds = self.get_bounds(variables),
                                     **self._kwargs)
-
 

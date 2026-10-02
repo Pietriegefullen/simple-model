@@ -9,6 +9,8 @@ import data
 import argparse
 import matplotlib.pyplot as plt
 import plot
+import model
+import optimizer
 
 parser = argparse.ArgumentParser()
 
@@ -45,7 +47,7 @@ if fit_mode is None:
     fit_mode = ['split', 'single']
 elif not isinstance(fit_mode, list):
     fit_mode = [fit_mode]
-    
+
 all_replicas = validation_replica is None
 
 def get_best_checkpoint(criteria = None, exclude = None):
@@ -79,21 +81,30 @@ for mode in fit_mode:
         elif not isinstance(validation_replica, list):
             validation_replica = [validation_replica]
         for replica in validation_replica:
-            
+            replica_name = str(sample_number) + str(replica)
             cp, cp_id = get_best_checkpoint(criteria = ['_'.join([str(sample_number), 
                                                             str(replica)]), 
                                                   mode])
-            print('best', cp_id)
             if cp is None: continue
             cp_parameters, _, run_config = cp
-            run_log = run(run_config, cp_parameters)
+            pathway_model, objective, run_log = run(run_config, cp_parameters)
+
+            val_objective = optimizer.build_objective_function(pathway_model,
+                                                               dataset[replica_name],
+                                                               run_config['objective'],
+                                                               t_start = 0, t_end = None)
             
             plot_target = os.path.join(PROJECT_DIRECTORY, 'best_' + mode, 
                                        sample_number, replica)
             
-            r = dataset[str(sample_number) + str(replica)]
+            r = dataset[replica_name]
             fig, axs = plot.plot_data(r)
             fig, axs = plot.plot_fit(run_log, ax = axs)
+        
+            r2_fit = objective.R2(run_log)
+            r2_val = val_objective.R2(run_log)
+            # TODO: also list R2 for each loss contribution
+            print(r2_fit, r2_val)
 
             from matplotlib.lines import Line2D
 
