@@ -48,7 +48,7 @@ def format_ax(ax, log_scale = False):
     if log_scale:
         ax.set_yscale('log')
 
-def plot_data(replica, ax = None, separate = True):
+def plot_data(replica, ax = None, separate = True, **kwargs):
     fig, axs = get_axes(ax = ax, separate = separate)
     for pool in ['CO2', 'CH4']:
         if pool == 'CO2':
@@ -59,18 +59,21 @@ def plot_data(replica, ax = None, separate = True):
             c = CH4_COLOR
         
         ax = axs[pool]
-        ax.plot(t, pool_value, 'x', color = c, label = r'incubation data', clip_on = False)
+        ax.plot(t, pool_value, 'x', color = c, label = r'incubation data',
+                clip_on = False, 
+                **kwargs)
 
         log_values = np.log(pool_value)
         finite_log_values = log_values[np.isfinite(log_values)]
 
-        ax.set_ylim(np.exp([np.min(finite_log_values), np.nanmax(finite_log_values)]))
+        #ax.set_ylim(np.exp([np.min(finite_log_values), np.nanmax(finite_log_values)]))
         p = pool[:-1] + rf'\textsubscript{{{pool[-1]}}}'
         ax.set_title(rf'$\mathrm{{{p}}}$')
         ax.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
         ax.set_xlabel(r'$\mathrm{time\ [d]}$')
 
-    fig.suptitle(replica)
+    sample_label = str(replica.sample).replace(' ', r'\ ')
+    fig.suptitle(rf'$\mathrm{{{sample_label}}}$')
     fig.tight_layout()
     return fig, tuple(axs.values())
 

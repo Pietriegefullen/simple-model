@@ -1,5 +1,8 @@
 import os
 import json
+import fcntl
+import tempfile
+from contextlib import contextmanager
 
 import hashing
 import parameters
@@ -83,9 +86,9 @@ class CheckpointCallback(Callback):
     def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
                  target = None):
         super().__init__(run_config)
-        assert keep_only_n > 0
+        assert keep_only_n is None or keep_only_n > 0
         self.keep_only_n = keep_only_n
-        self.verbose = False
+        self.verbose = verbose
         self.legacy = legacy
         if not target is None:
             self._target_directory = target
@@ -100,53 +103,73 @@ class CheckpointCallback(Callback):
                 self.run_config['initial'][p_name] = default_parameters[p_name].get_config()
         
 
+    def checkpoints(self, save_dir):
+        checkpoints = []
+        for entry in os.scandir(save_dir):
+            if not entry.is_file() or entry.name.startswith('.'):
+                continue
+            try:
+                with open(entry.path) as checkpoint_file:
+                    loss = json.load(checkpoint_file)['total_loss']
+            except (json.JSONDecodeError, KeyError, OSError):
+                continue
+            checkpoints.append((loss, entry.path))
+        return sorted(checkpoints)
+
+    @contextmanager
+    def locked_directory(self):
+        save_dir = self.target_directory()
+        os.makedirs(save_dir, exist_ok = True)
+        lock_file = os.path.join(save_dir, '.checkpoint.lock')
+        with open(lock_file, 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield save_dir
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
     def cleanup(self, save_dir):
         if self.keep_only_n is None:
             return
-        files = [os.path.join(save_dir, f) for f in os.listdir(save_dir)]
-        if len(files) > self.keep_only_n:            
-            all_files = sorted([(parameters.load_parameter_file(f)[1], f)
-                                for f in files])
-
-            for _, f in all_files[self.keep_only_n:]:
-                os.remove(f)
+        for _, checkpoint_file in self.checkpoints(save_dir)[self.keep_only_n:]:
+            os.remove(checkpoint_file)
         
     def __call__(self):
         cp_transformed_parameters, _, last_loss = self.objective.last_call()
-        _,_, best_loss = self.objective.best_call()
-        
-        if not last_loss == best_loss:
-            return
+        with self.locked_directory() as save_dir:
+            checkpoints = self.checkpoints(save_dir)
+            if (self.keep_only_n is not None
+                    and len(checkpoints) >= self.keep_only_n
+                    and last_loss >= checkpoints[-1][0]):
+                return
 
-        if not os.path.isdir(self.target_directory()):
-            os.makedirs(self.target_directory())
+            checkpoint_data = {
+                                'parameters': self.objective.model().parameters().get_values(),
+                                'total_loss': last_loss,
+                                'run_config': self.run_config,
+                               }
+            cp_id = hashing.build_checkpoint_id(checkpoint_data)
 
-        checkpoint_parameters = self.objective.model().parameters().get_values()
-        
-        checkpoint_data = {
-                            'parameters': checkpoint_parameters,
-                            'total_loss': last_loss,
-                            'run_config': self.run_config,
-                           }
-       
-        cp_id = hashing.build_checkpoint_id(checkpoint_data)
-        
-        f_loss = f'{last_loss:.6f}'.replace('.', '')
-        if len(f_loss) > 8:
-            # overflow
-            f_loss = '9'*8
-        else:
-            while len(f_loss) < 8:
-                f_loss = '0' + f_loss
-        
-        file_name = '_'.join([self.run_dir_name(), f'loss-{f_loss}',
-                              self.run_id, cp_id])
-        checkpoint_file = os.path.join(self.target_directory(), file_name)
-        with open(checkpoint_file, 'w') as cf:
-            json.dump(checkpoint_data, cf, indent = 4)
-            
-        #if self.verbose:
-        print()
-        print('Saved checkpoint ', checkpoint_file)
-        #self.cleanup(self.target_directory())
+            f_loss = f'{last_loss:.6f}'.replace('.', '')
+            if len(f_loss) > 8:
+                f_loss = '9'*8
+            else:
+                f_loss = f_loss.zfill(8)
 
+            file_name = '_'.join([self.run_dir_name(), f'loss-{f_loss}',
+                                  self.run_id, cp_id])
+            checkpoint_file = os.path.join(save_dir, file_name)
+            file_descriptor, temporary_file = tempfile.mkstemp(
+                dir = save_dir, prefix = '.checkpoint-', text = True)
+            try:
+                with os.fdopen(file_descriptor, 'w') as checkpoint:
+                    json.dump(checkpoint_data, checkpoint, indent = 4)
+                os.replace(temporary_file, checkpoint_file)
+            finally:
+                if os.path.exists(temporary_file):
+                    os.remove(temporary_file)
+
+            self.cleanup(save_dir)
+
+        if self.verbose:
+            print(f'\nSaved checkpoint {checkpoint_file}')

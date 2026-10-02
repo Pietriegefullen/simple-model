@@ -63,7 +63,6 @@ def build_model_id(config):
     return 'model-' + build_id(config, 4,2)
 
 def build_loss_id(config):
-    # TODO: compatibility layer here
     return 'loss-' + build_id(config, 4,2)
 
 def build_checkpoint_id(config):

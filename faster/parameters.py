@@ -289,7 +289,7 @@ class LogTransform(Transform):
         super().__init__(transform)
         
     def _transform(self, value):
-        with np.errstate(invalid='ignore'):
+        with np.errstate(invalid='ignore', divide = 'ignore'):
             result = np.log(value)
         return result
     

@@ -38,6 +38,7 @@ def parse_args_fit():
     parser.add_argument('--local', action = 'store_true')
     parser.add_argument('--best', default = None)
     parser.add_argument('--dry', action = 'store_true')
+    parser.add_argument('--initial', nargs = '+')
     
     args = parser.parse_args()
     
@@ -55,11 +56,4 @@ def parse_args_fit():
     
     setattr(args, 'override', {} if args.p is None else {k: parse(v) 
                               for k,v in list(zip(args.p[::2], args.p[1::2]))})
-    
-    # init_config 
-    # empty uses default
-    # normalized: True/False
-    
-    
-    
     return args

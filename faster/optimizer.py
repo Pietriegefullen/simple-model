@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import multiprocessing
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -139,13 +140,14 @@ class Loss():
             
         assert pool_true.size == t_true.size
         
-        ind = np.array([np.nonzero(t_pred==t)[0].item() for t in t_true
-                        if np.any(t == t_pred)]).squeeze()
+        ind = np.array([np.nonzero(np.isclose(t_pred,t))[0].item() for t in t_true
+                        if np.any(np.isclose(t,t_pred))]).squeeze()
         t_pred = t_pred[ind]
         pool_pred = pool_pred[ind]
 
-        ind = np.array([np.nonzero(t_true==t)[0].item() for t in t_pred
-                        if np.any(t == t_true)]).squeeze()
+        ind = np.array([np.nonzero(np.isclose(t_true,t))[0].item()
+                        for t in t_pred if np.any(np.isclose(t,t_true))]).squeeze()
+
         t_true = t_true[ind]
         pool_true = pool_true[ind]
         
@@ -222,6 +224,9 @@ class Addable():
         
         self._callbacks = []
         self._call_log = []
+        self._global_call_counter = None
+        self._global_call_lock = None
+        self._final_call_count = None
 
     def loss_contributions(self):
         return self._left.loss_contributions() + self._right.loss_contributions()
@@ -257,8 +262,22 @@ class Addable():
 
     def _call(self, args, **kwargs):
         return self._left(args, **kwargs) + self._right(args, **kwargs)
+
+    def set_global_call_counter(self, counter, lock):
+        self._global_call_counter = counter
+        self._global_call_lock = lock
+        self._final_call_count = None
+
+    def finalize_global_call_counter(self):
+        with self._global_call_lock:
+            self._final_call_count = self._global_call_counter.value
+        self._global_call_counter = None
+        self._global_call_lock = None
     
     def __call__(self, args, **kwargs):
+        if self._global_call_counter is not None:
+            with self._global_call_lock:
+                self._global_call_counter.value += 1
         value = self._call(args, **kwargs)
         self._call_log.append((args, kwargs, value))
         
@@ -268,6 +287,11 @@ class Addable():
         return value
     
     def call_count(self):
+        if self._global_call_counter is not None:
+            with self._global_call_lock:
+                return self._global_call_counter.value
+        if self._final_call_count is not None:
+            return self._final_call_count
         return len(self._call_log)
     
     def last_call(self):
@@ -440,6 +464,10 @@ class DifferentialEvolution(Algorithm):
     def _minimize(self, objective, initial_parameters):
         self.generation = 1
         variables = objective.model().parameters().variables()
+        manager = None
+        if self._kwargs['workers'] != 1:
+            manager = multiprocessing.Manager()
+            objective.set_global_call_counter(manager.Value('i', 0), manager.Lock())
 
         try:
             _ = scipy.optimize.differential_evolution(objective,
@@ -449,6 +477,10 @@ class DifferentialEvolution(Algorithm):
                                                       )
         except KeyboardInterrupt:
             return
+        finally:
+            if manager is not None:
+                objective.finalize_global_call_counter()
+                manager.shutdown()
         
     def generation_counter(self, *args, **kwargs):
         self.generation += 1

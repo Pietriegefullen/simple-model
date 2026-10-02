@@ -9,16 +9,6 @@ import hashing
 import numpy as np
 
 # TODO: handle few usable sample points!!!
-# TODO: in Objective, determine t_start, t_end for all loss contributions
-#       predict only as necessary.
-# TODO: complete init_config specification for fits using new checkpoints
-# TODO: loss normalization is not equal for loaded checkpoints?
-
-# TODO: model id is GJT, not AJ???
-# TODO: checkpoint stores only if better in target directory!
-#       => allows -1 workers.
-
-# TODO: plot all replicas or single according to fit_mode.
 
 def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']
@@ -146,7 +136,7 @@ if __name__ == '__main__':
             }
     
     algo_config = {
-            'differential_evolution':   {'workers' : 1}, # empty dict uses default
+            'differential_evolution':   {'workers' : -1}, # empty dict uses default
             'powell':                   {}
                 }
     
