@@ -100,10 +100,30 @@ class Loss():
         total = (measured[usable] - measured_mean)**2
         return residual, total
         
-    def R2(self, replica, run_log):
-        S_res, S_total = squared_errors(replica, run_log)
+    def R2(self, run_log):
+        S_res, S_total = self.squared_errors(self._replica, run_log)
         r2_value = 1 - np.nansum(S_res)/np.nansum(S_total)
         return r2_value
+
+    def t_eval(self, replica):
+        if self.pool == 'CO2':
+            t, values = replica.CO2()
+        elif self.pool == 'CH4':
+            t, values = replica.CH4()
+        else:
+            raise NotImplementedError()
+
+        usable = np.isfinite(t)
+        if callable(self.transform):
+            usable &= np.isfinite(self.transform(values))
+
+        usable &= t != 0
+        if self.t_start is not None:
+            usable &= t >= self.t_start
+        if self.t_end is not None:
+            usable &= t <= self.t_end
+
+        return t[usable]
     
     def get_values(self, replica, run_log):
         t_pred, pool_pred = run_log[self.pool]
@@ -202,6 +222,9 @@ class Addable():
         
         self._callbacks = []
         self._call_log = []
+
+    def loss_contributions(self):
+        return self._left.loss_contributions() + self._right.loss_contributions()
         
     def model(self):
         if hasattr(self, '_model'):
@@ -272,6 +295,12 @@ class Objective(Addable):
         
         self._loss_contributions = []
             
+    def loss_contributions(self):
+        l = self._loss_contributions
+        for _l, _ in l:
+            _l._replica = self._replica 
+        return l
+
     def fit_replicas(self):
         return self._replica
 
@@ -280,14 +309,18 @@ class Objective(Addable):
 
     def add_loss(self, loss_function, loss_weight):
         assert callable(loss_function)
-        #loss_function.set_model(self._model, self._replica)
-        self._model.add_t(self._replica.incubation['days'])
-        self._loss_contributions.append((loss_function, loss_weight))
+        self.loss_contributions().append((loss_function, loss_weight))
+
+    def t_eval(self):
+        return np.unique(np.concatenate([
+            loss_function.t_eval(self._replica)
+            for loss_function, _ in self.loss_contributions()
+        ]))
 
     def weighted_mse(self, run_log):
         weighted_model_mse = 0
         weighted_total_mse = 0
-        for loss_function, loss_weight in self._loss_contributions:
+        for loss_function, loss_weight in self.loss_contributions():
             s_residual, s_total = loss_function.squared_errors(self._replica, run_log)
             weighted_model_mse += loss_weight*np.nanmean(s_residual)
             weighted_total_mse += loss_weight*np.nanmean(s_total)
@@ -313,10 +346,10 @@ class Objective(Addable):
             self.set_parameters(self.variables(), transformed_parameters, 
                                 transformed = transformed)
 
-        run_log = self._model.predict(self._replica)
+        run_log = self._model.predict(self._replica, t_eval = self.t_eval())
         
         replica_loss = 0
-        for loss_function, loss_weight in self._loss_contributions:
+        for loss_function, loss_weight in self.loss_contributions():
             try:
                 loss_value = loss_function(self._replica, run_log)
             except Exception as ex:
@@ -349,7 +382,7 @@ class Objective(Addable):
             
             
         s_weight = format_weight(self._replica_weight)
-        s_loss = ' + '.join([format_weight(w) + str(l) for l,w in self._loss_contributions])
+        s_loss = ' + '.join([format_weight(w) + str(l) for l,w in self.loss_contributions()])
         replica = str(self._replica.sample.sample_name) + '-' + str(self._replica.replica_number)
         s_replica = format_subscript(replica)
         
@@ -429,4 +462,3 @@ class Powell(Algorithm):
         _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 
                                     bounds = self.get_bounds(variables),
                                     **self._kwargs)
-

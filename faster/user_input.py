@@ -37,6 +37,7 @@ def parse_args_fit():
     parser.add_argument('--p', nargs = '+')
     parser.add_argument('--local', action = 'store_true')
     parser.add_argument('--best', default = None)
+    parser.add_argument('--dry', action = 'store_true')
     
     args = parser.parse_args()
     

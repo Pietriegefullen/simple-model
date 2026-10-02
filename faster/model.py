@@ -149,19 +149,21 @@ class Model():
     def _clean_t(self):
         self.t = np.sort(list(set(self.t)))
         
-    def predict(self, replica, t = None, quiet = False, parallel = False, 
+    def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000,
                 initial_mean_days = 0):
-        measured_days = replica['days']
-        self.add_t(measured_days)
-        if not t is None:
-            self.add_t(t)
+        if t is not None and t_eval is not None:
+            raise ValueError('Specify either t or t_eval, not both.')
+
+        if t_eval is None:
+            t_eval = replica['days']
+            if t is not None:
+                t_eval = np.concatenate([t_eval, np.atleast_1d(t)])
+        t_eval = np.sort(np.unique(np.atleast_1d(t_eval)))
         
         if not reset_Fe3 is None:
             last_day = reset_Fe3 + days_beyond_reset
-            self.add_t(last_day)
-
-        t_eval = np.array(self.t)
+            t_eval = np.sort(np.unique(np.append(t_eval, last_day)))
 
         # prepare for solving
         self.build(quiet = quiet)
@@ -493,5 +495,4 @@ def get_best_loss_parameters(parameter_source):
         raise Exception('loading parameters failed')
     best_loss, best_parameters = list(sorted(all_files))[0]
     return best_loss, best_parameters
-
 

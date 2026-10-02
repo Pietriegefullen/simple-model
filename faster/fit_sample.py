@@ -163,6 +163,7 @@ if __name__ == '__main__':
     for omitted_pathway in args.omit:
         chosen['pathways'].remove(omitted_pathway)
     
-    fit(chosen, objective_config, algo_config, init_config)
+    fit(chosen, objective_config, algo_config, init_config,
+        store_checkpoints = not args.dry)
     
     

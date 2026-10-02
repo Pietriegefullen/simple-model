@@ -12,6 +12,17 @@ import plot
 import model
 import optimizer
 
+# TODO: 
+# validation replica is specified.
+# => fit replicas are determined automatically.
+# => in split: other(s), in single, same.
+# in split mode, 
+# load checkpoint from split run
+#   if sample has only two replicas, load from single
+# 
+# TODO: in plots, show which replicas are fit/validation.
+# in single mode, both are same, i.e. ONLY fit, no validation!
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('input', default = None, nargs = '+')
@@ -35,7 +46,6 @@ if not args.input is None:
                 fit_mode = i
             else:
                 raise NotImplementedError()
-
 
 dataset = data.get_data_before_carex()
 if sample is None:
@@ -103,8 +113,13 @@ for mode in fit_mode:
         
             r2_fit = objective.R2(run_log)
             r2_val = val_objective.R2(run_log)
-            # TODO: also list R2 for each loss contribution
+
+            for loss_f, loss_w in objective.loss_contributions():
+                print(loss_f._replica, loss_f.pool, loss_f.R2(run_log))
+
             print(r2_fit, r2_val)
+
+            # TODO: distinguish between fit and val in plot!
 
             from matplotlib.lines import Line2D
 
