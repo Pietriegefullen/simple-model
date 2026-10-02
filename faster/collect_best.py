@@ -8,11 +8,15 @@ import parameters
 from fit_sample import run
 import data
 import argparse
+import hashing
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import plot
 import model
 import optimizer
+
+# TODO: take model ID into account.
+#       => collect separately.
 
 # TODO: 
 # validation replica is specified.
@@ -94,12 +98,27 @@ for fit_mode in fit_modes:
             validation_replica = [validation_replica]
         for replica in validation_replica:
             replica_name = str(sample_number) + str(replica)
+
+
+
+
             fit_criteria = 'single' if len(dataset[sample_number].replicas) <= 2 else fit_mode
             cp, cp_id = get_best_checkpoint(criteria = ['_'.join([str(sample_number), 
                                                             str(replica)]), 
                                                   fit_criteria])
+
+            # store with cp_id
             if cp is None: continue
             cp_parameters, _, run_config = cp
+            model_id = hashing.build_model_id(run_config['model'])
+            print(model_id,  sample_number, replica, fit_mode)
+            plot_target = os.path.join(PROJECT_DIRECTORY, 
+                                       '_'.join(['best', model_id, fit_mode]),
+                                       '-'.join([sample_number, replica]))
+            file_name = '_'.join(['00',
+                                   '-'.join([sample_number, replica]),
+                                   model_id, fit_mode, cp_id])
+
             pathway_model, objective, run_log = run(run_config, cp_parameters)
 
             val_objective = optimizer.build_objective_function(pathway_model,
@@ -149,10 +168,9 @@ for fit_mode in fit_modes:
                 plot.format_ax(ax,
                               log_scale = 'log' in run_config['objective']['transform'][pool])
 
-            # store with cp_id
-            plot_target = os.path.join(PROJECT_DIRECTORY, 'best_' + fit_mode, 
-                                       sample_number, replica)
-
+            if not os.path.isdir(plot_target):
+                os.makedirs(plot_target)
+            plt.savefig(os.path.join(plot_target, file_name), dpi = 300)
             plt.show()
 
             # in provided axes.
@@ -260,7 +278,6 @@ if not plot is None:
         day_limits = [int(i) for i in source_suffix.replace('_','').split('-')]
     
 for sample_name in os.listdir(target):
-    print(sample_name)        
     sample_dir = os.path.join(target, sample_name)
     if not os.path.isdir(sample_dir):
         continue
@@ -284,7 +301,6 @@ for sample_name in os.listdir(target):
             sample = dataset[sample_name]
             plot_target = os.path.join(target, sample_name, fit_replicas, 'plot')
             
-            print(sample_name, plot_target)
             if plot_only_missing and os.path.isdir(plot_target) and len(os.listdir(plot_target)) > 0:
                 continue
             

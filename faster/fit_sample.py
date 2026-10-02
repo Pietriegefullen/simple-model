@@ -9,6 +9,9 @@ import hashing
 import numpy as np
 
 # TODO: handle few usable sample points!!!
+# TODO: rename checkpoints:
+#       recompute model_id from config and rename files.
+#       => always compute id from config, b/c hashing makes config canonical.
 
 def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']
@@ -49,7 +52,7 @@ def fit(chosen, objective_config, algo_config, init_config,
         legacy_file = init_config['file']
         legacy_path = None if legacy_file is None else os.path.split(legacy_file)[0]
         initial_parameters = parameters.load_parameters(init_config)
-    
+
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
         initial_parameters[p_name].constant(p_value)

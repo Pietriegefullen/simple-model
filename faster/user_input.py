@@ -53,7 +53,22 @@ def parse_args_fit():
             assert t_end > t_start
     setattr(args, 't_start', t_start)
     setattr(args, 't_end', t_end)
-    
-    setattr(args, 'override', {} if args.p is None else {k: parse(v) 
-                              for k,v in list(zip(args.p[::2], args.p[1::2]))})
+   
+    setattr(args, 'override', parse_override(args.p))
+
     return args
+
+def parse_override(inp):
+    import parameters
+    keys = inp[::2]
+    values = inp[1::2]
+    parsed = {}
+    parameter_names = [p.name for p in parameters.default_model_parameters()]
+    for k,v in zip(keys, values):
+        if '*' in k:
+            for p_name in parameter_names:
+                if k.replace('*', '') in p_name:
+                    parsed[p_name] = parse(v)
+        else:
+            parsed[k] = parse(v)
+    return parsed

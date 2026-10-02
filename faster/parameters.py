@@ -9,6 +9,7 @@ import system
 import traceback
 import USER_VARIABLES    
 
+
 def load_parameters(init_config, return_run_config = False, source_directory = None):
     print('determine initial parameters')
     init_config = {k: v for k,v in init_config.items() if not v is None}

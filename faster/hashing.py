@@ -57,7 +57,8 @@ def add_missing_thermodynamics_switch(config):
             idx = [p.name for p in default_values].index(pwy_name + '_thermodynamics')
             default_p = default_values[idx]
             config[pwy_name][parameter_name] = default_p.value
-        
+        config[pwy_name][parameter_name] = int(config[pwy_name][parameter_name])
+
 def build_model_id(config):
     add_missing_thermodynamics_switch(config)
     return 'model-' + build_id(config, 4,2)
