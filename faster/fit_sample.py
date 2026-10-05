@@ -8,6 +8,12 @@ import checkpoint
 import hashing
 import numpy as np
 
+# TODO: when loading candidates for fit_sample.py 1351 6 --best 10, 
+#       Hydro.use_thermodynamics is variable and should be bool?
+#       => when computing run ID for checkpoint
+#       CAUSE: model use_thermodynamics is seen as variable. should not!?
+#       SUSPICION: are checkpoints loaded from incompatible model variants!!!!
+
 # TODO: handle few usable sample points!!!
 # TODO: rename checkpoints:
 #       recompute model_id from config and rename files.
@@ -17,7 +23,8 @@ def run(run_config, initial_parameters, **kwargs):
     chosen = run_config['chosen']
     objective_config = run_config['objective']
     algo_config = {chosen['algorithm']: run_config['algo']}
-    init_config = {'range': parameters.ModelParameters(run_config['range']),
+    rng = {k:v for k, v in run_config['range'].items() if k in initial_parameters}
+    init_config = {'range': parameters.ModelParameters(rng),
                    'parameters': initial_parameters}
     pathway_model, objective, run_log = fit(chosen, objective_config, algo_config, init_config, 
                                           store_checkpoints = False,
@@ -27,42 +34,33 @@ def run(run_config, initial_parameters, **kwargs):
 
 def fit(chosen, objective_config, algo_config, init_config, 
         store_checkpoints = True,
+        checkpoint_keep_only_n = 10,
         verbose_callback = False,
         minimize = True, 
-        cp_target = None):
+        cp_target = None,
+        checkpoint_source = None,
+        overwrite_existing_checkpoints = False):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
     split = sample.get_split(chosen['validation_replica'], 
                              chosen['fit_mode'])
-    
-    legacy_path = None
-    if 'parameters' in init_config:
-        initial_parameters = init_config['parameters']
-        
-        if 'range' in init_config:
-            parameter_range = init_config['range']
-            _ = [parameter_range[p.name].set(p) for p in initial_parameters]
-            initial_parameters = parameter_range
-            
-    else:
-        if not 'file' in init_config and (not 'model' in init_config or init_config['model'] is None):
-            init_config['model'] = model_id
-        
-        legacy_file = init_config['file']
-        legacy_path = None if legacy_file is None else os.path.split(legacy_file)[0]
-        initial_parameters = parameters.load_parameters(init_config)
 
+    # build model and configure parameters
+    pathway_model = model.build_model(chosen['pathways'], chosen['normalized_parameters'])
+
+    if 'best_N' in init_config and not init_config['best_N'] is None:
+        model_id = hashing.build_model_id(pathway_model.get_config(only_structure = True))
+        init_config['model'] = model_id
+
+    legacy_path = None
+    initial_parameters = parameters.load_parameters(init_config, source_directory=checkpoint_source)
+        
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
         initial_parameters[p_name].constant(p_value)
-    
-    # build model and configure parameters
-    pathway_model = model.configure_model(chosen['pathways'],
-                                          chosen['normalized_parameters'], 
-                                          initial_parameters)
 
-    model_id = hashing.build_model_id(pathway_model.get_config(only_structure = True))
+    pathway_model.parameters().set(initial_parameters)
 
     # select optimiser
     algo = optimizer.get(chosen['algorithm'])
@@ -88,9 +86,10 @@ def fit(chosen, objective_config, algo_config, init_config,
     
     if store_checkpoints:
         total_objective.add_callback(checkpoint.CheckpointCallback(run_config, 
-                                                                   keep_only_n = 10,
+                                                                   keep_only_n = checkpoint_keep_only_n,
                                                                    verbose = verbose_callback,
-                                                                   target = cp_target))
+                                                                   target = cp_target,
+                                                                   overwrite_existing = overwrite_existing_checkpoints))
     total_objective.add_callback(checkpoint.PrintCallback(run_config))
 
     if not minimize:
@@ -156,6 +155,7 @@ if __name__ == '__main__':
         chosen['pathways'].remove(omitted_pathway)
     
     fit(chosen, objective_config, algo_config, init_config,
-        store_checkpoints = not args.dry)
+        store_checkpoints = not args.dry,
+        overwrite_existing_checkpoints = args.overwrite_checkpoints)
     
     

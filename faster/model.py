@@ -22,10 +22,9 @@ version_minor = '1'
 __version__ = '.'.join([version_major, version_minor])
 
 
-def configure_model(pathways, normalized, initial_parameters):
+def build_model(pathways, normalized):
     pathway_model = Model(pathways)
     pathway_model.parameters().set('default', normalized = normalized)
-    pathway_model.parameters().set(initial_parameters)
     return pathway_model
 
 def integrate(f, t, S0, solver_result, reset_Fe3):

@@ -1,0 +1,13 @@
+{
+  "succeeded": [],
+  "failed": [
+    {
+      "variant": "default",
+      "sample": "1351",
+      "replica": "4",
+      "fit_mode": "single",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/martinlegeland/Code/soil/simple-model/faster/fit_all.py\", line 233, in run_batch\n    job['stages'] = run_one_fit(\n  File \"/Users/martinlegeland/Code/soil/simple-model/faster/fit_all.py\", line 178, in run_one_fit\n    'name': STAGE_SETTINGS[stage_index]['name'],\nKeyError: 'name'\n"
+    }
+  ],
+  "skipped": []
+}

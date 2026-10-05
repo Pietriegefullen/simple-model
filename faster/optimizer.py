@@ -225,8 +225,14 @@ class Addable():
         self._callbacks = []
         self._call_log = []
         self._global_call_counter = None
+        self._global_best_loss = None
+        self._global_best_r2 = None
         self._global_call_lock = None
         self._final_call_count = None
+        self._final_best_loss = None
+        self._final_best_r2 = None
+        self._best_local_loss = None
+        self._best_local_r2 = None
 
     def loss_contributions(self):
         return self._left.loss_contributions() + self._right.loss_contributions()
@@ -257,21 +263,46 @@ class Addable():
         mse_res, mse_tot = self.weighted_mse(run_log)
         return None if mse_res is None else 1 - mse_res/mse_tot
 
+    def last_weighted_mse(self):
+        """Return residual and total variance from the most recent evaluation."""
+        if self._left is None or self._right is None:
+            return None, None
+        mse = [objective.last_weighted_mse()
+               for objective in (self._left, self._right)]
+        if any(contribution is None for contribution, _ in mse):
+            return None, None
+        return tuple(sum(values) for values in zip(*mse))
+
+    def last_R2(self):
+        """Return R² for the exact model evaluations that produced last loss."""
+        mse_res, mse_tot = self.last_weighted_mse()
+        return None if mse_res is None else 1 - mse_res/mse_tot
+
     def fit_replicas(self):
         return list({self._left.fit_replicas(), self._right.fit_replicas()})
 
     def _call(self, args, **kwargs):
         return self._left(args, **kwargs) + self._right(args, **kwargs)
 
-    def set_global_call_counter(self, counter, lock):
+    def set_global_call_counter(self, counter, lock, best_loss = None, best_r2 = None):
         self._global_call_counter = counter
+        self._global_best_loss = best_loss
+        self._global_best_r2 = best_r2
         self._global_call_lock = lock
         self._final_call_count = None
+        self._final_best_loss = None
+        self._final_best_r2 = None
 
     def finalize_global_call_counter(self):
         with self._global_call_lock:
             self._final_call_count = self._global_call_counter.value
+            if self._global_best_loss is not None:
+                self._final_best_loss = self._global_best_loss.value
+            if self._global_best_r2 is not None:
+                self._final_best_r2 = self._global_best_r2.value
         self._global_call_counter = None
+        self._global_best_loss = None
+        self._global_best_r2 = None
         self._global_call_lock = None
     
     def __call__(self, args, **kwargs):
@@ -280,7 +311,21 @@ class Addable():
                 self._global_call_counter.value += 1
         value = self._call(args, **kwargs)
         self._call_log.append((args, kwargs, value))
-        
+        last_r2 = self.last_R2()
+        if self._best_local_loss is None or value < self._best_local_loss:
+            self._best_local_loss = value
+            self._best_local_r2 = last_r2
+
+        # Each worker has its own call log.  Publish the minimum before
+        # callbacks run so they all report the same best loss/R² pair.
+        if self._global_best_loss is not None:
+            with self._global_call_lock:
+                if value < self._global_best_loss.value:
+                    self._global_best_loss.value = value
+                    if self._global_best_r2 is not None:
+                        self._global_best_r2.value = (
+                            float('nan') if last_r2 is None else float(last_r2))
+
         for callback in self._callbacks:
             callback()
             
@@ -299,6 +344,23 @@ class Addable():
     
     def best_call(self):
         return sorted(self._call_log, key = lambda k: k[-1])[0]
+
+    def best_loss(self):
+        if self._global_best_loss is not None:
+            with self._global_call_lock:
+                return self._global_best_loss.value
+        if self._final_best_loss is not None:
+            return self._final_best_loss
+        return self.best_call()[-1]
+
+    def best_R2(self):
+        if self._global_best_r2 is not None:
+            with self._global_call_lock:
+                value = self._global_best_r2.value
+            return None if np.isnan(value) else value
+        if self._final_best_r2 is not None:
+            return None if np.isnan(self._final_best_r2) else self._final_best_r2
+        return self._best_local_r2
     
     def add_callback(self, callback):
         assert callable(callback)
@@ -318,6 +380,7 @@ class Objective(Addable):
         self._replica_weight = replica_weight
         
         self._loss_contributions = []
+        self._last_weighted_mse = None
             
     def loss_contributions(self):
         l = self._loss_contributions
@@ -364,8 +427,10 @@ class Objective(Addable):
             p_dict = transformed_parameters.as_dict()
             p_values = list(p_dict.values())
             pars = self.model().parameters()
+            assert all([p in pars for p in transformed_parameters])
             self.set_parameters([pars[n] for n in list(p_dict.keys())], 
-                                [p.value for p in p_values], transformed = transformed)
+                                [p.value for p in p_values],
+                                transformed = transformed)
         else:
             self.set_parameters(self.variables(), transformed_parameters, 
                                 transformed = transformed)
@@ -380,9 +445,16 @@ class Objective(Addable):
                 ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
                 raise 
             replica_loss += loss_weight*loss_value
+
+        # ``predict`` reuses the model's mutable run log.  Retain the derived
+        # metrics now, while they still belong to this replica evaluation.
+        self._last_weighted_mse = self.weighted_mse(run_log)
         
         objective_value = self._replica_weight * replica_loss
         return objective_value
+
+    def last_weighted_mse(self):
+        return self._last_weighted_mse
    
 
     def __str__(self):
@@ -435,6 +507,13 @@ class Algorithm(ABC):
               objective.model().parameters().search_space()[-1])
         print()
         print('Objective = ' + str(objective))
+        print()
+        for cb in objective._callbacks:
+            print()
+        print('\n'.join(set([os.path.join(*cb.target_directory().split(os.sep)[-2:])
+                        for cb in objective._callbacks])))
+        
+        print()
         if len(objective.model().parameters().variables()) == 0:
             raise Exception('Model has no variables. Check initial parameters.')
         self._minimize(objective, initial_parameters)
@@ -467,7 +546,10 @@ class DifferentialEvolution(Algorithm):
         manager = None
         if self._kwargs['workers'] != 1:
             manager = multiprocessing.Manager()
-            objective.set_global_call_counter(manager.Value('i', 0), manager.Lock())
+            objective.set_global_call_counter(
+                manager.Value('i', 0), manager.Lock(),
+                manager.Value('d', float('inf')),
+                manager.Value('d', float('nan')))
 
         try:
             _ = scipy.optimize.differential_evolution(objective,

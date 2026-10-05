@@ -70,26 +70,28 @@ class SetAllConstant(Callback):
 class PrintCallback(Callback):
     def __init__(self, run_config):
         super().__init__(run_config)
-        self.print_r2 = False
         
     def __call__(self):
         args, kwargs, loss_value = self.objective.last_call()
-        _, _, best_loss = self.objective.best_call()
         cnt = self.objective.call_count()
-        if self.print_r2:
-            print(self.objective)
-            print(f'call {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}')
-        else:
-            print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, best loss: {best_loss:8.3g}', end = '')
+        best_loss = self.objective.best_loss()
+        best_r2 = self.objective.best_R2()
+        r2_text = 'n/a' if best_r2 is None else f'{best_r2:.2f}'
+        print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, '
+              f'best loss: {best_loss:8.3g}, best R2 = {r2_text}', end = '')
 
 class CheckpointCallback(Callback):
     def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
-                 target = None):
+                 target = None, overwrite_existing = False):
         super().__init__(run_config)
         assert keep_only_n is None or keep_only_n > 0
         self.keep_only_n = keep_only_n
         self.verbose = verbose
         self.legacy = legacy
+        self.overwrite_existing = overwrite_existing
+        self._existing_checkpoint_paths = None
+        self._existing_best_loss = None
+        self._current_run_best_loss = None
         if not target is None:
             self._target_directory = target
         
@@ -101,7 +103,6 @@ class CheckpointCallback(Callback):
                 p = parameters.Parameter.from_config(self.run_config['initial'][p_name])
                 if not p.is_variable(): continue
                 self.run_config['initial'][p_name] = default_parameters[p_name].get_config()
-        
 
     def checkpoints(self, save_dir):
         checkpoints = []
@@ -133,11 +134,40 @@ class CheckpointCallback(Callback):
             return
         for _, checkpoint_file in self.checkpoints(save_dir)[self.keep_only_n:]:
             os.remove(checkpoint_file)
+
+    def prepare_existing_checkpoints(self, checkpoints):
+        """Snapshot or explicitly discard checkpoints that predate this run."""
+        if self._existing_checkpoint_paths is not None:
+            return checkpoints
+
+        self._existing_checkpoint_paths = {path for _, path in checkpoints}
+        if checkpoints:
+            self._existing_best_loss = checkpoints[0][0]
+
+        if not self.overwrite_existing:
+            return checkpoints
+
+        for _, checkpoint_file in checkpoints:
+            os.remove(checkpoint_file)
+        return []
+
+    def existing_checkpoint_is_better(self):
+        return (not self.overwrite_existing
+                and self._existing_best_loss is not None
+                and self._current_run_best_loss is not None
+                and self._existing_best_loss < self._current_run_best_loss)
         
     def __call__(self):
         cp_transformed_parameters, _, last_loss = self.objective.last_call()
+        if (self._current_run_best_loss is None
+                or last_loss < self._current_run_best_loss):
+            self._current_run_best_loss = last_loss
+
         with self.locked_directory() as save_dir:
-            checkpoints = self.checkpoints(save_dir)
+            checkpoints = self.prepare_existing_checkpoints(self.checkpoints(save_dir))
+            if self.existing_checkpoint_is_better():
+                return
+
             if (self.keep_only_n is not None
                     and len(checkpoints) >= self.keep_only_n
                     and last_loss >= checkpoints[-1][0]):

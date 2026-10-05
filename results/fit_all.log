@@ -1,0 +1,12 @@
+2026-10-05 10:55:55,297 INFO starting variant=default sample=1351 replica=4 mode=single stage=1; budget=20000 model evaluations (20000 objective evaluations × 1 replicas)
+2026-10-05 10:57:41,397 INFO starting variant=default sample=1351 replica=4 mode=single stage=1; budget=20000 model evaluations (20000 objective evaluations × 1 replicas)
+2026-10-05 11:07:02,040 INFO starting variant=default sample=1351 replica=4 mode=single stage=1; budget=20000 model evaluations (20000 objective evaluations × 1 replicas)
+2026-10-05 11:40:27,475 ERROR fit failed: variant=default sample=1351 replica=4 mode=single
+Traceback (most recent call last):
+  File "/Users/martinlegeland/Code/soil/simple-model/faster/fit_all.py", line 233, in run_batch
+    job['stages'] = run_one_fit(
+  File "/Users/martinlegeland/Code/soil/simple-model/faster/fit_all.py", line 178, in run_one_fit
+    'name': STAGE_SETTINGS[stage_index]['name'],
+KeyError: 'name'
+
+2026-10-05 11:40:27,477 INFO starting variant=default sample=1351 replica=4 mode=split stage=1; budget=20000 model evaluations (10000 objective evaluations × 2 replicas)

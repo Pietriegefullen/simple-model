@@ -10,9 +10,22 @@ import traceback
 import USER_VARIABLES    
 
 
+BOOLEAN_TYPES = (bool, np.bool_)
+
+
 def load_parameters(init_config, return_run_config = False, source_directory = None):
     print('determine initial parameters')
     init_config = {k: v for k,v in init_config.items() if not v is None}
+
+    if 'parameters' in init_config:
+        initial_parameters = init_config['parameters']
+        
+        if 'range' in init_config:
+            parameter_range = init_config['range']
+            _ = [parameter_range[p.name].set(p) for p in initial_parameters]
+            initial_parameters = parameter_range
+        
+        return initial_parameters
     
     if 'default' in init_config and init_config['default'] or len(init_config) == 0 or (len(init_config) == 1 and 'normalized' in init_config):
         normalized = init_config['normalized'] if 'normalized' in init_config else False
@@ -48,12 +61,10 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
         raise Exception()
     
     loaded_range, _, _, file_path = selected_candidates[0]
-    print('values', os.path.split(file_path)[-1])
     if len(selected_candidates) > 1:
         selected_parameters, _, _, file_path = zip(*selected_candidates[1:])
-        print('range')
         for par, pth in zip(selected_parameters, file_path):
-            print(os.path.split(pth)[-1])
+            #print(os.path.split(pth)[-1])
             loaded_range.extend_range_by_value(par, ignore_constants = True)
     return loaded_range
 
@@ -66,8 +77,8 @@ def load_parameter_file(file_path):
         except Exception as ex:
             exs.append((ex, file_path))
             continue
-    print(exs)
-    raise Exception('Could not load parameters from checkpoint file.')
+    #print(exs)
+    raise Exception('Could not load parameters from checkpoint file. ' + os.path.split(file_path)[-1])
 
 def load_file(file_path):
     with open(file_path, 'r') as pf:
@@ -329,9 +340,20 @@ class ModelParameters():
     def __init__(self, d = None):
         if isinstance(d, ModelParameters):
             d = d.as_dict()
+
         if isinstance(d, dict):
-            d =  {k:(v if isinstance(v, Parameter) else Parameter(k,v))
-                for k,v in d.items()}
+            parameter_values = d
+            d = {}
+            for k, v in parameter_values.items():
+                if isinstance(v, Parameter):
+                    p = v
+                elif isinstance(v, dict):
+                    p = Parameter.from_config(v)
+                elif isinstance(v, (int, float) + BOOLEAN_TYPES):
+                    p = Parameter(k, v)
+                else:
+                    raise TypeError(f'Unsupported value for parameter {k}: {type(v).__name__}')
+                d[k] = p
         
         elif d is None:
             d = {}
@@ -345,7 +367,7 @@ class ModelParameters():
         reductions = []
         for p in self.variables():
             p_def = next((dp for dp in default_ranges if p.name == dp.name), None)
-            if p_def is None: raise Exception('Should not happen. ' + str(p.name))
+            if p_def is None: raise Exception('Should not happen. ' + str(p.name) + f' {p.low/p.high:.8f}, {p.high:.8f}')
             p_range = p.transform(p.high) - p.transform(p.low)
             p_default_range = p.transform(p_def.high) - p.transform(p_def.low)
             w_i = p_range/p_default_range
@@ -390,7 +412,7 @@ class ModelParameters():
                 if p.name in self._parameters:
                     self._parameters[p.name].set(p)
                 else:
-                    print('Ignoring parameter that does not exist in model:', p)
+                    print('Ignoring parameter that does not exist in model:', p.name)
 
         elif isinstance(parameters, tuple):
             name, value = parameters
@@ -443,7 +465,7 @@ class ModelParameters():
 class Parameter():
     def __init__(self, name, value = np.nan, range = None, scale = None, normalize = False):
         self.name = name
-        self.value = value
+        self._value = value
         
         self.options = None
         self.low = None
@@ -465,9 +487,22 @@ class Parameter():
         self.normalize = normalize
         self.transformer = None
         
+    @property
+    def value(self):
+        if not isinstance(self._value, (type(None), int, float) + BOOLEAN_TYPES):
+            raise ValueError()
+        return self._value
         
+    @value.setter
+    def value(self, value):
+        if not isinstance(value, (int, float) + BOOLEAN_TYPES):
+            raise ValueError()
+        self._value = value
+
     @classmethod
     def from_config(cls, cfg):
+        if not 'value' in cfg:
+            cfg['value'] = np.nan
         p = Parameter(cfg['name'], cfg['value'], cfg['range'], cfg['scale'], cfg['normalize'])
         return p
     
@@ -533,7 +568,7 @@ class Parameter():
             self.high = p.high
             self.options = p.options
 
-        elif isinstance(p, (int, float, bool)):
+        elif isinstance(p, (int, float) + BOOLEAN_TYPES):
             if self.is_variable() and np.isfinite(p):
                 out_of_range = False
                 if self.options is None and (not p <= self.high or not p >= self.low):
@@ -547,7 +582,7 @@ class Parameter():
 
         else:
             raise NotImplementedError(str(p))
-   
+
     def extend_range_by_value(self, p, ignore_constants = False):
         if self.is_variable() or ignore_constants:
             value = p.value
@@ -570,15 +605,18 @@ class Parameter():
                     self.low = value
 
     def is_unset(self):
-        return np.isnan(self.value)
-                        
+        return self.value == float('nan') or self.value is None or np.isnan(self.value)
+
     def is_variable(self):
         if not self.options is None and len(self.options) > 1:
             return True
+
         elif isinstance(self.options, set) and len(self.options) <= 1:
             return False
-        if not self.low is None and self.low == self.high:
+
+        if (not self.low is None) and np.isclose(self.low,self.high):
             return False
+
         return not self.is_unset() and not self.low is None and not self.high is None
     
     def is_constant(self):
@@ -782,4 +820,3 @@ def R2plot():
     plt.xlim([0,1])
     plt.show()
     
-

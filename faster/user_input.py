@@ -39,6 +39,8 @@ def parse_args_fit():
     parser.add_argument('--local', action = 'store_true')
     parser.add_argument('--best', default = None)
     parser.add_argument('--dry', action = 'store_true')
+    parser.add_argument('--overwrite-checkpoints', '--overwrite', action = 'store_true',
+                        help = 'replace checkpoints already stored for this run')
     parser.add_argument('--initial', nargs = '+')
     
     args = parser.parse_args()
@@ -69,6 +71,8 @@ def parse_args_fit():
 
 def parse_override(inp):
     import parameters
+    if inp is None:
+        return {}
     keys = inp[::2]
     values = inp[1::2]
     parsed = {}
