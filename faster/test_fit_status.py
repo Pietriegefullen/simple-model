@@ -62,11 +62,39 @@ class FitStatusTest(unittest.TestCase):
             self.objective)
         self.assertAlmostEqual(variance, 0.3125)
 
-    def test_report_marks_missing_replicas_and_counts_coverage(self):
+    def test_report_highlights_values_below_the_default_threshold(self):
+        results = [
+            fit_status.FitResult('1000', '4', 'single', 'A', .875, None),
+            fit_status.FitResult('1000', '5', 'single', 'A', .799, None),
+        ]
+        report = fit_status.format_report(results, self.dataset, color=True)
+        self.assertIn('  1000', report)
+        self.assertIn(' 0.875', report)
+        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE} 0.799', report)
+        self.assertNotIn('0.799!', report)
+        self.assertIn('R² < 0.800', report)
+        self.assertIn('coverage: 2/2 fitted', report)
+        self.assertIn('sample      4      5', report)
+        self.assertNotIn('sample      1', report)
+
+    def test_report_accepts_a_different_highlight_threshold(self):
         result = fit_status.FitResult('1000', '4', 'single', 'A', .875, None)
-        report = fit_status.format_report([result], self.dataset)
-        self.assertIn('1000        ', report)
-        self.assertIn('0.875', report)
+        report = fit_status.format_report(
+            [result], self.dataset, highlight_threshold=.9, color=True)
+        self.assertIn('R² < 0.900', report)
+        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE} 0.875', report)
+
+    def test_report_omits_samples_with_requested_prefixes(self):
+        omitted_sample = _Sample()
+        omitted_sample.sample_name = '2000'
+        self.dataset.samples.append(omitted_sample)
+        result = fit_status.FitResult('1000', '4', 'single', 'A', .875, None)
+
+        report = fit_status.format_report(
+            [result], self.dataset, omit_sample_prefixes=('2', '3'))
+
+        self.assertIn('1000', report)
+        self.assertNotIn('2000', report)
         self.assertIn('coverage: 1/2 fitted', report)
 
 

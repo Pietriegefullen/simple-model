@@ -15,6 +15,7 @@ save the same terminal-friendly report to a file.
 
 import argparse
 import json
+import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,6 +31,9 @@ from USER_VARIABLES import RESULTS_DIRECTORY
 
 MISSING = '--'
 NOT_APPLICABLE = ' '
+DEFAULT_HIGHLIGHT_THRESHOLD = 0.8
+HIGHLIGHT_STYLE = '\033[1;31m'  # bold red
+RESET_STYLE = '\033[0m'
 
 
 @dataclass(frozen=True)
@@ -151,18 +155,38 @@ def best_results(results_directory, dataset):
     return list(best.values()), errors
 
 
-def expected_replicas(dataset):
-    """Return every usable sample and its replica numbers in display order."""
+def expected_replicas(dataset, omit_sample_prefixes=()):
+    """Return usable samples and replicas, excluding any requested prefixes."""
     return [
         (str(sample.sample_name), tuple(str(replica.replica_number)
                                         for replica in sample.replicas))
-        for sample in dataset.samples if sample.has_replicas()
+        for sample in dataset.samples
+        if sample.has_replicas() and not str(sample.sample_name).startswith(
+            tuple(omit_sample_prefixes))
     ]
 
 
-def format_report(results, dataset, fit_modes=None, variants=None):
+def replica_columns(samples):
+    """Return the replica numbers present in the selected sample rows."""
+    return tuple(sorted(
+        {replica for _, replicas in samples for replica in replicas},
+        key=int))
+
+
+def format_r2(r2, highlight_threshold, color=False):
+    """Return a fixed-width R² cell, styled when it needs attention."""
+    value = f'{r2:.3f}'.rjust(6)
+    if color and r2 < highlight_threshold:
+        return f'{HIGHLIGHT_STYLE}{value}{RESET_STYLE}'
+    return value
+
+
+def format_report(results, dataset, fit_modes=None, variants=None,
+                  highlight_threshold=DEFAULT_HIGHLIGHT_THRESHOLD, color=False,
+                  omit_sample_prefixes=()):
     """Format a matrix of best R² values, with ``--`` for fits still missing."""
-    all_replicas = expected_replicas(dataset)
+    all_replicas = expected_replicas(dataset, omit_sample_prefixes)
+    columns = replica_columns(all_replicas)
     values = {(result.fit_mode, result.variant, result.sample, result.replica):
               result.total_r2 for result in results}
     available_modes = sorted({result.fit_mode for result in results})
@@ -176,6 +200,7 @@ def format_report(results, dataset, fit_modes=None, variants=None):
         'Best total R² by fitted validation replica',
         'Cell values are the highest total R² across saved checkpoints.',
         f'{MISSING} = not fitted; blank = replica is not present in that sample.',
+        f'Values with R² < {highlight_threshold:.3f} are highlighted and need attention.',
     ]
     for mode in modes:
         lines.append(f'\nfit mode: {mode}')
@@ -183,10 +208,10 @@ def format_report(results, dataset, fit_modes=None, variants=None):
             fitted = 0
             expected = sum(len(replicas) for _, replicas in all_replicas)
             lines.append(f'  model variant: {variant}')
-            lines.append('  sample      1      2      3      4      5      6')
+            lines.append('  sample' + ''.join(f'{replica:>7}' for replica in columns))
             for sample, replicas in all_replicas:
                 cells = []
-                for replica in map(str, range(1, 7)):
+                for replica in columns:
                     if replica not in replicas:
                         cells.append(NOT_APPLICABLE)
                         continue
@@ -195,8 +220,9 @@ def format_report(results, dataset, fit_modes=None, variants=None):
                         cells.append(MISSING)
                     else:
                         fitted += 1
-                        cells.append(f'{r2:.3f}')
-                lines.append(f'  {sample:<6} ' + ' '.join(f'{cell:>6}' for cell in cells))
+                        cells.append(format_r2(r2, highlight_threshold, color))
+                lines.append(f'  {sample:<6} ' + ' '.join(
+                    cell.rjust(6) for cell in cells))
             lines.append(f'  coverage: {fitted}/{expected} fitted')
     return '\n'.join(lines)
 
@@ -211,6 +237,15 @@ def parse_args():
                         help='Only report this fit mode; may be repeated.')
     parser.add_argument('--variant', action='append', dest='variants',
                         help='Only report this model variant; may be repeated.')
+    parser.add_argument('--highlight-threshold', type=float,
+                        default=DEFAULT_HIGHLIGHT_THRESHOLD,
+                        help='Mark R² values below this value (default: 0.8).')
+    parser.add_argument('--omit-samples-starting-with', nargs='+', metavar='PREFIX',
+                        default=('2','3'),
+                        help='Omit overview rows whose sample IDs start with these prefixes.')
+    parser.add_argument('--color', choices=('auto', 'always', 'never'),
+                        default='auto',
+                        help='Use ANSI highlighting: auto for a terminal, always, or never.')
     return parser.parse_args()
 
 
@@ -218,7 +253,10 @@ def main():
     args = parse_args()
     dataset = data.get_data_before_day()
     results, errors = best_results(args.results, dataset)
-    report = format_report(results, dataset, args.fit_modes, args.variants)
+    color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
+    report = format_report(results, dataset, args.fit_modes, args.variants,
+                           args.highlight_threshold, color,
+                           args.omit_samples_starting_with)
     print(report)
     if errors:
         print(f'\nSkipped {len(errors)} checkpoint(s) that could not be interpreted.')
@@ -227,7 +265,10 @@ def main():
         if len(errors) > 5:
             print(f'  ... and {len(errors) - 5} more')
     if args.output:
-        args.output.write_text(report + '\n')
+        plain_report = format_report(results, dataset, args.fit_modes,
+                                     args.highlight_threshold,
+                                     omit_sample_prefixes=args.omit_samples_starting_with)
+        args.output.write_text(plain_report + '\n')
 
 
 if __name__ == '__main__':

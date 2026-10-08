@@ -8,26 +8,24 @@ scales.
 
 Examples
 --------
-python faster/compare_checkpoints.py 7RV6-HVP2 KCB5 \\
-    --output plots/checkpoint-comparison.svg
+python faster/compare_checkpoints.py 7RV6-HVP2 KCB5
 
 Checkpoint identifiers are looked up recursively in
 ``USER_VARIABLES.RESULTS_DIRECTORY``. A partial identifier is accepted when it
-resolves to exactly one checkpoint.
+resolves to exactly one checkpoint. By default, each figure is written beneath
+``variant_comparisons`` alongside the corresponding model-variant comparison.
 """
 
 import argparse
 import contextlib
 import io
 import json
-import math
 import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import TwoSlopeNorm
-from matplotlib.patches import Patch
 
 import parameters
 import hashing
@@ -92,15 +90,6 @@ def read_checkpoint(path):
     return checkpoint.get("parameters", checkpoint)
 
 
-def metadata():
-    """Parameter scales and bounds declared by the model, keyed by name."""
-    return {
-        parameter.name: ((parameter.low, parameter.high)
-                         if parameter.is_variable() else None, parameter.scale)
-        for parameter in parameters.default_model_parameters()
-    }
-
-
 # This mirrors the pool and pathway ordering used by ``collect_best`` plots.
 # Keeping a pathway's biomass, kinetic parameters, and CUE together makes it
 # much easier to scan a model change than grouping all parameters by type.
@@ -132,20 +121,6 @@ PARAMETER_ORDER = {
 def parameter_group(name):
     """Associate every known parameter with the pathway drawn in the plots."""
     return PARAMETER_TO_GROUP.get(name, "Other")
-
-def range_position(value, bounds, scale):
-    """Map a raw parameter value to [0, 1] using its declared fit scale."""
-    if value is None or bounds is None:
-        return np.nan
-    lower, upper = bounds
-    if scale == "log":
-        if value <= 0 or lower <= 0 or upper <= 0:
-            return np.nan
-        value, lower, upper = map(math.log10, (value, lower, upper))
-    if upper == lower:
-        return np.nan
-    return (value - lower) / (upper - lower)
-
 
 def loss_from_checkpoint(path):
     """Use the loss stored in modern checkpoints, then fall back to filenames."""
@@ -210,19 +185,50 @@ def display_label(path, loss, variant):
     return "\n".join(lines)
 
 
+def default_output_path(paths):
+    """Choose the variant-comparison directory and a non-colliding plot name."""
+    contexts = []
+    for path in paths:
+        with Path(path).open() as handle:
+            checkpoint = json.load(handle)
+        run_config = checkpoint.get("run_config")
+        if not run_config:
+            contexts.append(None)
+            continue
+        chosen = run_config["chosen"]
+        contexts.append((
+            hashing.build_loss_id(run_config["objective"]),
+            chosen["fit_mode"],
+            str(chosen["sample"]),
+            str(chosen["validation_replica"]),
+        ))
+
+    root = Path(PROJECT_DIRECTORY) / "variant_comparisons"
+    if len(set(contexts)) == 1 and contexts[0] is not None:
+        loss_id, fit_mode, sample, replica = contexts[0]
+        directory = root / f"{loss_id}_{fit_mode}" / f"{sample}-{replica}"
+    else:
+        directory = root / "checkpoint_comparisons"
+
+    names = [checkpoint_id(path) or Path(path).stem for path in paths]
+    return directory / ("03_parameters_" + "_vs_".join(names) + ".png")
+
+
 def load_rows(paths, show_constant):
     fitted = [read_checkpoint(path) for path in paths]
-    model_metadata = metadata()
     names = set().union(*[values.keys() for values in fitted])
     rows = []
     for name in names:
-        bounds, scale = model_metadata.get(name, (None, "linear"))
-        # Constants and unknown fields do not have a meaningful search position.
-        if bounds is None:
-            continue
         values = [checkpoint.get(name) for checkpoint in fitted]
-        positions = [range_position(value, bounds, scale) for value in values]
-        finite = np.asarray([value for value in positions if np.isfinite(value)])
+        if any(isinstance(value, bool) for value in values if value is not None):
+            continue
+        numeric_values = np.asarray([
+            float(value) if isinstance(value, (int, float)) else np.nan
+            for value in values
+        ])
+        finite = numeric_values[np.isfinite(numeric_values)]
+        if not len(finite):
+            continue
         # Fixed parameters add visual noise.  They remain available on request.
         if (not show_constant and len(finite) == len(paths)
                 and np.ptp(finite) < 1e-12):
@@ -230,20 +236,32 @@ def load_rows(paths, show_constant):
         rows.append({
             "name": name,
             "group": parameter_group(name),
-            "scale": scale,
-            "bounds": bounds,
-            "values": values,
-            "positions": positions,
+            "values": numeric_values,
         })
     return rows
 
 
+def log_relative_values(values, reference_value):
+    """Return log10(value/reference), avoiding arbitrary parameter bounds."""
+    relative = np.full(len(values), np.nan)
+    if not np.isfinite(reference_value):
+        return relative
+    for index, value in enumerate(values):
+        if not np.isfinite(value):
+            continue
+        if value > 0 and reference_value > 0:
+            relative[index] = np.log10(value / reference_value)
+        elif value == 0 and reference_value == 0:
+            relative[index] = 0
+    return relative
+
+
 def order_rows(rows, reference_index, sort):
     for row in rows:
-        positions = np.asarray(row["positions"], dtype=float)
-        reference = positions[reference_index]
-        differences = positions - reference
-        row["max_change"] = np.nanmax(np.abs(differences)) if np.isfinite(differences).any() else -1
+        row["relative"] = log_relative_values(
+            row["values"], row["values"][reference_index])
+        row["max_change"] = (np.nanmax(np.abs(row["relative"]))
+                             if np.isfinite(row["relative"]).any() else -1)
     if sort == "change":
         return sorted(rows, key=lambda row: (-row["max_change"], row["name"]))
     group_index = {name: index for index, name in enumerate(GROUP_ORDER)}
@@ -262,14 +280,33 @@ def add_group_separators(axis, rows, row_offset=0):
             last_group = row["group"]
 
 
-def annotate_r2_rows(axis, values, signed=False):
+def annotate_r2_rows(axis, values):
     """Print exact R² values in the first rows of a checkpoint-aligned grid."""
     for row_index, row_values in enumerate(values):
         for column_index, value in enumerate(row_values):
-            text = "—" if not np.isfinite(value) else f"{value:+.2f}" if signed else f"{value:.2f}"
+            text = "—" if not np.isfinite(value) else f"{value:.2f}"
             axis.text(column_index, row_index, text, ha="center", va="center",
                       fontsize=8, color="black",
                       bbox={"facecolor": "white", "edgecolor": "none", "alpha": .75, "pad": .5})
+
+
+def annotate_zero_ratio_cells(axis, rows, reference_index, row_offset):
+    """Mark changes involving a zero reference that do not have a finite ratio."""
+    for row_index, row in enumerate(rows, start=row_offset):
+        reference_value = row["values"][reference_index]
+        if not np.isfinite(reference_value):
+            continue
+        for column_index, value in enumerate(row["values"]):
+            if not np.isfinite(value) or value == reference_value:
+                continue
+            if reference_value == 0 and value > 0:
+                text = "∞"
+            elif reference_value > 0 and value == 0:
+                text = "−∞"
+            else:
+                continue
+            axis.text(column_index, row_index, text, ha="center", va="center",
+                      fontsize=9, color="black")
 
 
 def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2=True):
@@ -277,9 +314,7 @@ def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2
     if not rows:
         raise ValueError("No varying, ranged parameters found. Try --include-constant.")
 
-    position_data = np.asarray([row["positions"] for row in rows], dtype=float)
-    reference = position_data[:, [reference_index]]
-    difference_data = position_data - reference
+    relative_data = np.asarray([row["relative"] for row in rows], dtype=float)
     losses = [loss_from_checkpoint(path) for path in paths]
     variants = [variant_from_checkpoint(path) for path in paths]
     labels = [display_label(path, loss, variant)
@@ -294,56 +329,38 @@ def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2
         fit_r2 = np.asarray([values[0] for values in r2_values], dtype=float)
         validation_r2 = np.asarray([values[1] for values in r2_values], dtype=float)
         r2_data = np.vstack((fit_r2, validation_r2, np.full(len(paths), np.nan)))
-        r2_delta = r2_data - r2_data[:, [reference_index]]
-        position_data = np.vstack((r2_data, position_data))
-        difference_data = np.vstack((r2_delta, difference_data))
+        relative_data = np.vstack((np.full_like(r2_data, np.nan), relative_data))
 
     height = max(5, .28 * (len(rows) + r2_row_count) + 2.3)
-    width = max(10, 4.5 + 1.05 * len(paths))
-    figure = plt.figure(figsize=(width, height))
-    grid = figure.add_gridspec(1, 2, wspace=.08)
-    position_axis = figure.add_subplot(grid[0, 0])
-    delta_axis = figure.add_subplot(grid[0, 1], sharey=position_axis)
-
-    position_map = plt.get_cmap("viridis").copy()
-    delta_map = plt.get_cmap("coolwarm").copy()
-    position_map.set_bad("#d9d9d9")
-    delta_map.set_bad("#d9d9d9")
-    position_image = position_axis.imshow(position_data, aspect="auto", cmap=position_map,
-                                           vmin=0, vmax=1, interpolation="nearest")
-    delta_image = delta_axis.imshow(
-        difference_data, aspect="auto", cmap=delta_map,
-        norm=TwoSlopeNorm(vcenter=0, vmin=-1, vmax=1), interpolation="nearest",
+    width = max(7, 4.5 + 1.05 * len(paths))
+    figure, axis = plt.subplots(figsize=(width, height))
+    finite_relative = relative_data[np.isfinite(relative_data)]
+    color_limit = max(np.max(np.abs(finite_relative)) if len(finite_relative) else 1, .1)
+    relative_map = plt.get_cmap("RdBu_r").copy()
+    relative_map.set_bad("#d9d9d9")
+    relative_image = axis.imshow(
+        relative_data, aspect="auto", cmap=relative_map,
+        norm=TwoSlopeNorm(vcenter=0, vmin=-color_limit, vmax=color_limit),
+        interpolation="nearest",
     )
 
-    position_title = ("R² and fitted position in declared search range"
-                      if has_r2 else "Fitted position in declared search range")
-    for axis, title in (
-        (position_axis, position_title),
-        (delta_axis, f"Change from {checkpoint_id(paths[reference_index]) or Path(paths[reference_index]).name}"),
-    ):
-        axis.set_title(title)
-        axis.set_xticks(np.arange(len(paths)), labels, rotation=55, ha="right")
-        axis.tick_params(axis="x", length=0)
-        add_group_separators(axis, rows, row_offset=r2_row_count)
-        if has_r2:
-            axis.axhline(r2_row_count - .5, color="black", linewidth=1.1)
-
-    position_axis.set_yticks(np.arange(len(rows) + r2_row_count),
-                             r2_labels + [row["name"] for row in rows])
-    position_axis.tick_params(axis="y", length=0, labelsize=8)
-    delta_axis.tick_params(axis="y", left=False, labelleft=False)
+    reference_name = checkpoint_id(paths[reference_index]) or Path(paths[reference_index]).name
+    axis.set_title(f"Parameter change relative to {reference_name}")
+    axis.set_xticks(np.arange(len(paths)), labels, rotation=55, ha="right")
+    axis.tick_params(axis="x", length=0)
+    add_group_separators(axis, rows, row_offset=r2_row_count)
     if has_r2:
-        annotate_r2_rows(position_axis, r2_data[:2])
-        annotate_r2_rows(delta_axis, r2_delta[:2], signed=True)
-    figure.colorbar(position_image, ax=position_axis, fraction=.035, pad=.03,
-                    label="Parameter rows: 0 = lower bound; 1 = upper bound")
-    figure.colorbar(delta_image, ax=delta_axis, fraction=.035, pad=.03,
-                    label="change in range position")
-    figure.legend(
-        handles=[Patch(facecolor="#d9d9d9", label="not present / no declared range")],
-        loc="lower center", ncol=1, frameon=False,
-    )
+        axis.axhline(r2_row_count - .5, color="black", linewidth=1.1)
+    axis.set_yticks(np.arange(len(rows) + r2_row_count),
+                    r2_labels + [row["name"] for row in rows])
+    axis.tick_params(axis="y", length=0, labelsize=8)
+    if has_r2:
+        annotate_r2_rows(axis, r2_data[:2])
+    annotate_zero_ratio_cells(axis, rows, reference_index, r2_row_count)
+    figure.colorbar(relative_image, ax=axis, fraction=.035, pad=.03,
+                    label=f"log₁₀(parameter / {reference_name})")
+    figure.text(.5, .025, "Grey: unavailable comparison; ±∞: zero-reference change",
+                ha="center", va="center")
     figure.subplots_adjust(left=.28, bottom=.25, top=.92)
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output, bbox_inches="tight")
@@ -357,8 +374,8 @@ def main():
                         help="unique full or partial IDs from results/ (or direct checkpoint paths)")
     parser.add_argument("--results-dir", default=RESULTS_DIRECTORY,
                         help="checkpoint search directory (default: USER_VARIABLES.RESULTS_DIRECTORY)")
-    parser.add_argument("--output", "-o", default=str(Path(PROJECT_DIRECTORY) / "comparison.png"),
-                        help="output figure (SVG, PDF, or PNG)")
+    parser.add_argument("--output", "-o",
+                        help="output figure (default: matching variant_comparisons directory)")
     parser.add_argument("--reference", type=int, default=0,
                         help="zero-based checkpoint index used as the delta reference (default: 0)")
     parser.add_argument("--sort", choices=("group", "change"), default="group",
@@ -374,9 +391,10 @@ def main():
         paths = resolve_checkpoints(args.checkpoint_ids, args.results_dir)
     except ValueError as error:
         parser.error(str(error))
-    rows = plot_comparison(paths, args.output, args.reference,
+    output = args.output or default_output_path(paths)
+    rows = plot_comparison(paths, output, args.reference,
                            args.sort, args.include_constant, show_r2=not args.no_r2)
-    print(f"Wrote {args.output} ({len(rows)} parameters, {len(paths)} checkpoints)")
+    print(f"Wrote {output} ({len(rows)} parameters, {len(paths)} checkpoints)")
 
 
 if __name__ == "__main__":

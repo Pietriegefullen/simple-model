@@ -19,18 +19,23 @@ Limit output to the one currently complete A/B/C comparison group::
 from __future__ import annotations
 
 import argparse
+import copy
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 import collect_best
+import compare_checkpoints
 import data
 import optimizer
+import parameters
 import plot
 from chemistry import GIBBS_MINIMUM
 from fit_sample import run
+from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
 
@@ -47,6 +52,23 @@ VARIANT_COLORS = {
 DEFAULT_VARIANTS = ('A', 'B', 'C')
 
 
+@dataclass(frozen=True)
+class VariantRunSpec:
+    """A model variant, its fitting metadata, and values used for its replay."""
+
+    variant: str
+    checkpoint: object
+    run_config: dict
+    parameter_values: parameters.ModelParameters
+
+
+def variant_legend_label(variant):
+    """Label C as the fixed-parameter A counterfactual, not a refit."""
+    if variant == 'C':
+        return r'$\mathrm{model\ {C}\ (A\ parameters)}$'
+    return rf'$\mathrm{{model\ {{{variant}}}}}$'
+
+
 def comparison_groups(checkpoints, variants=DEFAULT_VARIANTS):
     """Return comparable checkpoints, grouped by common data and objective.
 
@@ -57,7 +79,9 @@ def comparison_groups(checkpoints, variants=DEFAULT_VARIANTS):
     wanted = set(variants)
     groups = defaultdict(dict)
     for checkpoint in checkpoints:
-        variant = collect_best.model_variant(checkpoint)
+        # Results may also contain exploratory models that do not have an
+        # A/B/C label.  They are irrelevant to this report, not an error.
+        variant = model_variant_from_id(checkpoint.model_id)
         if variant not in wanted:
             continue
         key = (checkpoint.loss_id, checkpoint.fit_mode, checkpoint.replica)
@@ -76,62 +100,97 @@ def comparison_suptitle(checkpoint, variants, suffix=''):
     return ' | '.join(parts)
 
 
-def _validate_comparison(checkpoints):
+def counterfactual_c_spec(a_checkpoint):
+    """Build no-Hydro model C from A's checkpoint and fitted values."""
+    run_config = copy.deepcopy(a_checkpoint.run_config)
+    chosen = run_config['chosen']
+    chosen['pathways'] = [pathway for pathway in chosen['pathways']
+                          if pathway != 'Hydro']
+    # ``fit_sample.run`` rebuilds from ``chosen['pathways']``.  Keep the
+    # stored structural metadata accurate too, for diagnostics and reuse.
+    run_config['model'].pop('Hydro', None)
+    run_config['range'] = {
+        name: config for name, config in run_config['range'].items()
+        if not name.startswith('Hydro_')
+    }
+    parameter_values = parameters.ModelParameters({
+        name: config for name, config in a_checkpoint.parameters.get_config().items()
+        if not name.startswith('Hydro_')
+    })
+    return VariantRunSpec('C', a_checkpoint, run_config, parameter_values)
+
+
+def variant_run_specs(by_variant, variants=DEFAULT_VARIANTS):
+    """Return replay specifications, always deriving C from A when present."""
+    specs = []
+    for variant in variants:
+        checkpoint = by_variant.get(variant)
+        if variant != 'C' and checkpoint is not None:
+            specs.append(VariantRunSpec(
+                variant, checkpoint, checkpoint.run_config, checkpoint.parameters))
+    if 'A' in by_variant:
+        specs.append(counterfactual_c_spec(by_variant['A']))
+    return specs
+
+
+def _validate_comparison(specifications):
     """Reject model overlays that do not use the same fitting context."""
-    reference = checkpoints[0]
+    reference = specifications[0].checkpoint
     reference_key = (reference.loss_id, reference.fit_mode, reference.replica)
-    for checkpoint in checkpoints[1:]:
+    for specification in specifications[1:]:
+        checkpoint = specification.checkpoint
         key = (checkpoint.loss_id, checkpoint.fit_mode, checkpoint.replica)
         if key != reference_key:
             raise ValueError('Variant comparisons require the same loss, fit mode, '
                              'sample, and validation replica.')
 
 
-def _validation_objective(checkpoint, pathway_model, validation_replica):
+def _validation_objective(run_config, pathway_model, validation_replica):
     return optimizer.build_objective_function(
         pathway_model,
         validation_replica,
-        checkpoint.run_config['objective'],
+        run_config['objective'],
         t_start=0,
         t_end=None,
     )
 
 
-def run_variants(checkpoints):
-    """Replay each checkpoint once and index the resulting runs by variant."""
+def run_variants(specifications):
+    """Replay variant specifications once each."""
     results = {}
-    for checkpoint in checkpoints:
-        results[collect_best.model_variant(checkpoint)] = run(
-            checkpoint.run_config, checkpoint.parameters)
+    for specification in specifications:
+        results[specification.variant] = run(
+            specification.run_config, specification.parameter_values)
     return results
 
 
-def plot_fit_comparison(checkpoints, dataset, model_runs=None):
+def plot_fit_comparison(specifications, dataset, model_runs=None):
     """Overlay two or more fitted variants using the standard fit-plot style.
 
     Gas identity remains encoded by the CO2/CH4 panel colours; model identity
     is encoded by line style.  Measurements are drawn once, so identical data
     are not visually amplified for every compared model.
     """
-    checkpoints = sorted(checkpoints, key=collect_best.model_variant)
-    if len(checkpoints) < 2:
+    specifications = sorted(specifications, key=lambda spec: spec.variant)
+    if len(specifications) < 2:
         raise ValueError('At least two model variants are required for a comparison.')
-    _validate_comparison(checkpoints)
+    _validate_comparison(specifications)
     if model_runs is None:
-        model_runs = run_variants(checkpoints)
+        model_runs = run_variants(specifications)
 
-    reference = checkpoints[0]
+    reference = specifications[0].checkpoint
     sample, validation_replica, fitted_replicas = collect_best.fit_replicas(
         reference, dataset)
     figure, axes = collect_best.create_fit_figure()
     handles = collect_best.plot_fit_measurements(reference, dataset, axes)
 
     variants = []
-    for checkpoint in checkpoints:
-        variant = collect_best.model_variant(checkpoint)
+    for specification in specifications:
+        checkpoint = specification.checkpoint
+        variant = specification.variant
         pathway_model, objective, run_log = model_runs[variant]
         validation_objective = _validation_objective(
-            checkpoint, pathway_model, validation_replica)
+            specification.run_config, pathway_model, validation_replica)
         linestyle = VARIANT_LINESTYLES.get(variant, '-')
         for pool, axis in axes.items():
             time, values = run_log[pool]
@@ -140,7 +199,8 @@ def plot_fit_comparison(checkpoints, dataset, model_runs=None):
         handles.append(Line2D(
             [], [], color='k', linestyle=linestyle, linewidth=1.5,
             label=collect_best.fit_score_label(
-                checkpoint, objective, validation_objective, run_log),
+                checkpoint, objective, validation_objective, run_log,
+                model_label=variant_legend_label(variant)),
         ))
         variants.append(variant)
 
@@ -152,29 +212,29 @@ def plot_fit_comparison(checkpoints, dataset, model_runs=None):
     return figure, axes
 
 
-def plot_homo_delta_g_comparison(checkpoints, model_runs=None):
+def plot_homo_delta_g_comparison(specifications, model_runs=None):
     """Compare Homo-pathway ΔG trajectories for variants A and C.
 
     This answers the mechanistic question directly: removing the Hydro pathway
     (model C) changes H2/CO2 availability, which shifts Homo's Gibbs energy.
     The horizontal reference is the model's Gibbs minimum.
     """
-    checkpoints = sorted(checkpoints, key=collect_best.model_variant)
-    _validate_comparison(checkpoints)
-    variants = [collect_best.model_variant(checkpoint) for checkpoint in checkpoints]
+    specifications = sorted(specifications, key=lambda spec: spec.variant)
+    _validate_comparison(specifications)
+    variants = [specification.variant for specification in specifications]
     if set(variants) != {'A', 'C'}:
         raise ValueError('The Homo ΔG comparison requires exactly variants A and C.')
     if model_runs is None:
-        model_runs = run_variants(checkpoints)
+        model_runs = run_variants(specifications)
 
-    reference = checkpoints[0]
+    reference = specifications[0].checkpoint
     figure, axes = plot.create_figure(plot.FigureSpec(
         axis_names=('homo_delta_g',),
         figsize=(4, 4),
     ))
     axis = axes['homo_delta_g']
-    for checkpoint in checkpoints:
-        variant = collect_best.model_variant(checkpoint)
+    for specification in specifications:
+        variant = specification.variant
         _, _, run_log = model_runs[variant]
         try:
             time, values = run_log['Homo_deltaG_r']
@@ -186,7 +246,7 @@ def plot_homo_delta_g_comparison(checkpoints, model_runs=None):
             color=VARIANT_COLORS[variant],
             linestyle=VARIANT_LINESTYLES[variant],
             linewidth=1.5,
-            label=rf'$\mathrm{{model\ {variant}}}$',
+            label=variant_legend_label(variant),
         )
     axis.axhline(
         GIBBS_MINIMUM, color='k', linestyle='--', linewidth=1,
@@ -222,29 +282,43 @@ def save_comparisons(results_directory=RESULTS_DIRECTORY, output_directory=None,
     dataset = data.get_data_before_carex()
     paths = []
     for group, by_variant in sorted(groups.items()):
-        selected = [by_variant[variant] for variant in variants
-                    if variant in by_variant]
-        model_runs = run_variants(selected) if len(selected) >= 2 else None
-        if len(selected) >= 2:
-            figure, _ = plot_fit_comparison(selected, dataset, model_runs=model_runs)
-            selected_variants = [collect_best.model_variant(cp) for cp in selected]
-            directory = comparison_target(output_directory, group)
+        specifications = variant_run_specs(by_variant, variants)
+        model_runs = run_variants(specifications) if len(specifications) >= 2 else None
+        directory = comparison_target(output_directory, group)
+        if 'A' in by_variant and 'B' in by_variant:
+            a_checkpoint = by_variant['A']
+            b_checkpoint = by_variant['B']
+            if a_checkpoint.source is None or b_checkpoint.source is None:
+                raise ValueError('Parameter comparison requires checkpoint source paths.')
+            directory.mkdir(parents=True, exist_ok=True)
+            path = directory / '00_parameters_A_reference.png'
+            compare_checkpoints.plot_comparison(
+                [a_checkpoint.source, b_checkpoint.source], path,
+                reference_index=0, sort='group', show_constant=True,
+                show_r2=False)
+            paths.append(path)
+        if len(specifications) >= 2:
+            figure, _ = plot_fit_comparison(
+                specifications, dataset, model_runs=model_runs)
+            selected_variants = [specification.variant for specification in specifications]
             directory.mkdir(parents=True, exist_ok=True)
             path = directory / ('01_fit_' + '_vs_'.join(selected_variants) + '.png')
             figure.savefig(path, dpi=300)
             plt.close(figure)
             paths.append(path)
 
-        if 'A' in by_variant and 'C' in by_variant:
-            selected = [by_variant['A'], by_variant['C']]
+        by_variant_specification = {
+            specification.variant: specification for specification in specifications}
+        if {'A', 'C'}.issubset(by_variant_specification):
+            selected = [by_variant_specification['A'], by_variant_specification['C']]
             figure, _ = plot_homo_delta_g_comparison(selected, model_runs=model_runs)
-            directory = comparison_target(output_directory, group)
             directory.mkdir(parents=True, exist_ok=True)
             path = directory / '02_homo_delta_g_A_vs_C.png'
             figure.savefig(path, dpi=300)
             plt.close(figure)
             paths.append(path)
     return paths
+
 
 
 def parse_args():
@@ -273,12 +347,14 @@ def main(args=None):
         'loss_ids': args.loss_ids,
         'model_ids': None,
     }
+
     if args.dry_run:
         checkpoints = collect_best.filter_checkpoints(
             collect_best.collect_best(args.results_directory), **filters)
         for group, by_variant in sorted(comparison_groups(
                 checkpoints, args.variants).items()):
-            available = [variant for variant in args.variants if variant in by_variant]
+            available = [specification.variant for specification
+                         in variant_run_specs(by_variant, args.variants)]
             if len(available) >= 2:
                 print(group, 'models ' + ', '.join(available))
         return

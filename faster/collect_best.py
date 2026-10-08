@@ -59,6 +59,7 @@ class Checkpoint:
     loss: float
     run_config: dict
     id: str
+    source: str = None
 
     @cached_property
     def model_id(self):
@@ -110,7 +111,7 @@ def collect_all(results_directory=RESULTS_DIRECTORY):
                 raise ValueError(f'Run configuration missing from {file_path}')
 
             collected.append(Checkpoint(loaded_parameters, loss, run_config,
-                                        checkpoint_ids[0]))
+                                        checkpoint_ids[0], file_path))
     return collected
 
 
@@ -354,7 +355,8 @@ def plot_fit_measurements(checkpoint, dataset, axes):
     return handles
 
 
-def fit_score_label(checkpoint, objective, validation_objective, run_log):
+def fit_score_label(checkpoint, objective, validation_objective, run_log,
+                    model_label=None):
     """Return the R² label used for a model line in a fit comparison."""
     r2_values = [(objective.R2(run_log), 'fit')]
     if checkpoint.fit_mode != 'single':
@@ -363,7 +365,9 @@ def fit_score_label(checkpoint, objective, validation_objective, run_log):
         rf'$R^2_{{\mathrm{{{name}}}}} = {value:.2f}$'
         for value, name in r2_values
     )
-    return ' '.join((rf'$\mathrm{{model\ {{{model_variant(checkpoint)}}}}}$', r2_text))
+    if model_label is None:
+        model_label = rf'$\mathrm{{model\ {{{model_variant(checkpoint)}}}}}$'
+    return ' '.join((model_label, r2_text))
 
 
 def format_fit_axes(checkpoint, sample, axes):
