@@ -68,16 +68,32 @@ class SetAllConstant(Callback):
             var.constant(var.value)
 
 class PrintCallback(Callback):
-    def __init__(self, run_config):
+    def __init__(self, run_config, initial_best_loss = None,
+                 initial_best_r2 = None):
         super().__init__(run_config)
+        # A fit can resume in a directory that already contains results.  The
+        # stored loss is an incumbent too, even though it is not part of this
+        # Objective's call log.
+        self.initial_best_loss = initial_best_loss
+        self.initial_best_r2 = initial_best_r2
         
     def __call__(self):
         args, kwargs, loss_value = self.objective.last_call()
         cnt = self.objective.call_count()
+        generation = self.objective.generation()
+        generation_text = 'n/a' if generation is None else str(generation)
         best_loss = self.objective.best_loss()
         best_r2 = self.objective.best_R2()
+        if (self.initial_best_loss is not None
+                and self.initial_best_loss <= best_loss):
+            best_loss = self.initial_best_loss
+            # Checkpoints do not retain R², so do not pair a historical loss
+            # with R² from a different evaluation.  ``fit`` recreates the
+            # checkpoint's run log before supplying this value.
+            best_r2 = self.initial_best_r2
         r2_text = 'n/a' if best_r2 is None else f'{best_r2:.2f}'
-        print(f'\rcall {cnt:6d}: loss value {loss_value:8.3g}, '
+        print(f'\rgeneration {generation_text}: call {cnt:6d}: '
+              f'loss value {loss_value:8.3g}, '
               f'best loss: {best_loss:8.3g}, best R2 = {r2_text}', end = '')
 
 class CheckpointCallback(Callback):
@@ -150,6 +166,30 @@ class CheckpointCallback(Callback):
         for _, checkpoint_file in checkpoints:
             os.remove(checkpoint_file)
         return []
+
+    def load_best_existing_checkpoint(self):
+        """Return the best valid checkpoint already in this run directory.
+
+        Initialising this before minimisation makes the existing result the
+        incumbent for both checkpoint retention and live progress output.
+        ``--overwrite-checkpoints`` deliberately keeps its documented
+        behaviour of starting with an empty checkpoint directory.
+        """
+        with self.locked_directory() as save_dir:
+            checkpoints = self.prepare_existing_checkpoints(
+                self.checkpoints(save_dir))
+            if not checkpoints:
+                return None
+
+            _, checkpoint_file = checkpoints[0]
+            try:
+                with open(checkpoint_file) as handle:
+                    return checkpoint_file, json.load(handle)
+            except (json.JSONDecodeError, OSError):
+                # A file can become unreadable after the initial scan only if
+                # another process has modified it outside this lock.  Treat it
+                # as unavailable rather than preventing the fit from running.
+                return None
 
     def existing_checkpoint_is_better(self):
         return (not self.overwrite_existing

@@ -34,6 +34,7 @@ class _PrintObjective:
     def __init__(self, calls):
         self.calls = calls
         self.index = 0
+        self.generation_number = 1
 
     def last_call(self):
         return None, None, self.calls[self.index][0]
@@ -50,6 +51,9 @@ class _PrintObjective:
 
     def call_count(self):
         return self.index + 1
+
+    def generation(self):
+        return self.generation_number
 
 
 def _write_checkpoint(path, loss):
@@ -88,6 +92,17 @@ class ExistingCheckpointTest(unittest.TestCase):
                            if not name.startswith('.')]
             self.assertEqual(len(checkpoints), 2)
 
+    def test_loads_lowest_loss_existing_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _write_checkpoint(os.path.join(directory, 'worse-checkpoint'), 2.0)
+            best_checkpoint = os.path.join(directory, 'best-checkpoint')
+            _write_checkpoint(best_checkpoint, 1.0)
+
+            loaded = self._callback(directory).load_best_existing_checkpoint()
+
+            self.assertEqual(loaded[0], best_checkpoint)
+            self.assertEqual(loaded[1]['total_loss'], 1.0)
+
     def test_overwrite_existing_checkpoints_replaces_them(self):
         with tempfile.TemporaryDirectory() as directory:
             old_checkpoint = os.path.join(directory, 'old-checkpoint')
@@ -114,6 +129,33 @@ class ExistingCheckpointTest(unittest.TestCase):
             callback()
 
         self.assertIn('best loss:        2, best R2 = 0.20', output.getvalue())
+
+    def test_print_callback_includes_generation_count(self):
+        objective = _PrintObjective(((3.0, 0.1),))
+        objective.generation_number = 4
+        callback = checkpoint.PrintCallback(None)
+        callback.set_objective(objective)
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            callback()
+
+        self.assertIn('generation 4: call', output.getvalue())
+
+    def test_print_callback_reports_existing_best_r2_until_it_is_beaten(self):
+        objective = _PrintObjective(((2.0, 0.9), (0.5, 0.2)))
+        callback = checkpoint.PrintCallback(
+            None, initial_best_loss=1.0, initial_best_r2=0.7)
+        callback.set_objective(objective)
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            callback()
+            objective.index = 1
+            callback()
+
+        self.assertIn('best loss:        1, best R2 = 0.70', output.getvalue())
+        self.assertIn('best loss:      0.5, best R2 = 0.20', output.getvalue())
 
 
 if __name__ == '__main__':

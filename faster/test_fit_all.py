@@ -24,6 +24,25 @@ class StagedFitHelpersTest(unittest.TestCase):
             Sample(), 'split', 100)
         self.assertEqual((objective_calls, replica_count), (34, 3))
 
+    def test_initialization_only_stage_uses_exact_objective_budget(self):
+        class Sample:
+            replicas = [object(), object(), object()]
+
+        config, objective_calls, replica_count = fit_all.stage_algorithm_config(
+            0, 101, Sample(), 'split', workers=1, seed=7,
+            scipy_polish=False, initialization_only=True,
+            initialization='halton')
+
+        self.assertEqual((objective_calls, replica_count), (51, 2))
+        self.assertEqual(config, {
+            'initial_sampling': {
+                'init': 'halton',
+                'samples': 51,
+                'seed': 7,
+                'workers': 1,
+            },
+        })
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,6 +13,16 @@ import parameters
 import USER_VARIABLES
 
 
+# Optimisers require finite objective values.  This penalty is large enough
+# that a valid candidate always wins, without risking overflow when losses are
+# combined across replicas.
+INVALID_OBJECTIVE_PENALTY = 1e100
+
+
+class NonFiniteLoss(ValueError):
+    """A single candidate produced no usable finite loss value."""
+
+
 def r2(predicted, measured, log = False):
     predicted = np.squeeze(predicted)
     measured = np.squeeze(measured)
@@ -31,13 +41,15 @@ def r2(predicted, measured, log = False):
 
 def get(algorithm_name):
     algo_classes = {'differential_evolution': DifferentialEvolution,
-            'Powell': Powell}
+            'Powell': Powell,
+            'initial_sampling': InitialSampling}
     chosen_class = algo_classes[algorithm_name]
     algo_instance = chosen_class()
     return algo_instance
 
 def mse(true, pred):
-    return np.mean((true - pred)**2)
+    with np.errstate(over='ignore', invalid='ignore'):
+        return np.mean((true - pred)**2)
 
 def build_objective_function(pathway_model, replicas, objective_config, t_start = 0, t_end = None):
     import parameters
@@ -200,13 +212,15 @@ class Loss():
     
     def __call__(self, replica, run_log):
         pool_pred, pool_true = self.get_values(replica, run_log)
+        if pool_pred.size == 0 or pool_true.size == 0:
+            raise NonFiniteLoss(f'{self} has no usable values')
         if not np.all(np.isfinite(pool_pred)):
-            raise Exception('Non-finite pred values')
+            raise NonFiniteLoss(f'{self} has non-finite predicted values')
         if not np.all(np.isfinite(pool_true)):
-            raise Exception('Non-finite true values')
+            raise NonFiniteLoss(f'{self} has non-finite measured values')
         loss_value = self.reduction_function(pool_true, pool_pred)
         if not np.isfinite(loss_value):
-            raise Exception(str(self) + ' returned ' + str(loss_value))
+            raise NonFiniteLoss(f'{self} returned {loss_value}')
         return loss_value
 
 loss_functions = {'mse': mse}
@@ -233,6 +247,7 @@ class Addable():
         self._final_best_r2 = None
         self._best_local_loss = None
         self._best_local_r2 = None
+        self._generation = None
 
     def loss_contributions(self):
         return self._left.loss_contributions() + self._right.loss_contributions()
@@ -269,14 +284,15 @@ class Addable():
             return None, None
         mse = [objective.last_weighted_mse()
                for objective in (self._left, self._right)]
-        if any(contribution is None for contribution, _ in mse):
+        if any(contribution is None or any(value is None for value in contribution)
+               for contribution in mse):
             return None, None
         return tuple(sum(values) for values in zip(*mse))
 
     def last_R2(self):
         """Return R² for the exact model evaluations that produced last loss."""
         mse_res, mse_tot = self.last_weighted_mse()
-        return None if mse_res is None else 1 - mse_res/mse_tot
+        return None if mse_res is None or mse_tot is None else 1 - mse_res/mse_tot
 
     def fit_replicas(self):
         return list({self._left.fit_replicas(), self._right.fit_replicas()})
@@ -292,6 +308,19 @@ class Addable():
         self._final_call_count = None
         self._final_best_loss = None
         self._final_best_r2 = None
+
+    def set_generation(self, generation):
+        """Expose the optimiser generation to callbacks.
+
+        ``generation`` may be a multiprocessing manager value, allowing
+        callbacks running in worker processes to see the current generation.
+        """
+        self._generation = generation
+
+    def generation(self):
+        if self._generation is None:
+            return None
+        return getattr(self._generation, 'value', self._generation)
 
     def finalize_global_call_counter(self):
         with self._global_call_lock:
@@ -441,6 +470,11 @@ class Objective(Addable):
         for loss_function, loss_weight in self.loss_contributions():
             try:
                 loss_value = loss_function(self._replica, run_log)
+            except NonFiniteLoss as error:
+                print(f'\nWARNING: Replica {self._replica}: {error}; '
+                      f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')
+                self._last_weighted_mse = None, None
+                return self._replica_weight * INVALID_OBJECTIVE_PENALTY
             except Exception as ex:
                 ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
                 raise 
@@ -542,6 +576,8 @@ class DifferentialEvolution(Algorithm):
         
     def _minimize(self, objective, initial_parameters):
         self.generation = 1
+        self._objective = objective
+        self._shared_generation = None
         variables = objective.model().parameters().variables()
         manager = None
         if self._kwargs['workers'] != 1:
@@ -550,6 +586,10 @@ class DifferentialEvolution(Algorithm):
                 manager.Value('i', 0), manager.Lock(),
                 manager.Value('d', float('inf')),
                 manager.Value('d', float('nan')))
+            self._shared_generation = manager.Value('i', self.generation)
+            objective.set_generation(self._shared_generation)
+        else:
+            objective.set_generation(self.generation)
 
         try:
             _ = scipy.optimize.differential_evolution(objective,
@@ -566,7 +606,90 @@ class DifferentialEvolution(Algorithm):
         
     def generation_counter(self, *args, **kwargs):
         self.generation += 1
+        if self._shared_generation is None:
+            self._objective.set_generation(self.generation)
+        else:
+            self._shared_generation.value = self.generation
         return False
+
+
+class InitialSampling(Algorithm):
+    """Evaluate a space-filling initial population without evolving it.
+
+    This is deliberately separate from :class:`DifferentialEvolution`: it
+    produces candidate points using the same families of initial designs, but
+    never calls SciPy's differential-evolution solver or creates a generation
+    of trial vectors.  It is useful when the first population already gives
+    the desired fit, and for staged space-narrowing runs based on checkpoints.
+    """
+
+    _SAMPLERS = ('sobol', 'latinhypercube', 'halton', 'random')
+
+    def __init__(self):
+        super().__init__(init='sobol', samples=128, seed=None, workers=1)
+        self.best_x = None
+        self.best_fun = None
+
+    def _unit_population(self, dimension, samples):
+        method = self._kwargs['init']
+        seed = self._kwargs.get('seed')
+
+        if method == 'sobol':
+            # ``random_base2`` preserves Sobol's balance property.  Trimming
+            # the final block lets callers request an exact evaluation budget.
+            sampler = scipy.stats.qmc.Sobol(d=dimension, scramble=True, seed=seed)
+            return sampler.random_base2(int(np.ceil(np.log2(samples))))[:samples]
+        if method == 'latinhypercube':
+            return scipy.stats.qmc.LatinHypercube(d=dimension, seed=seed).random(samples)
+        if method == 'halton':
+            return scipy.stats.qmc.Halton(d=dimension, scramble=True, seed=seed).random(samples)
+        if method == 'random':
+            return np.random.default_rng(seed).random((samples, dimension))
+        raise ValueError(
+            "initial_sampling init must be one of "
+            + ', '.join(self._SAMPLERS) + f'; got {method!r}')
+
+    def _minimize(self, objective, initial_parameters):
+        samples = self._kwargs['samples']
+        if not isinstance(samples, (int, np.integer)) or samples <= 0:
+            raise ValueError('initial_sampling samples must be a positive integer')
+
+        variables = objective.model().parameters().variables()
+        if hasattr(objective, 'set_generation'):
+            objective.set_generation(1)
+        bounds = np.asarray(self.get_bounds(variables), dtype=float)
+        unit_population = self._unit_population(len(variables), int(samples))
+        population = bounds[:, 0] + unit_population * (bounds[:, 1] - bounds[:, 0])
+
+        # Evaluating candidates directly (rather than using DE with maxiter=0)
+        # means the call count is exactly ``samples`` and no mutation or
+        # crossover is performed.
+        workers = self._kwargs['workers']
+        if workers == 1:
+            losses = np.asarray([objective(candidate) for candidate in population])
+        else:
+            if not isinstance(workers, (int, np.integer)) or workers == 0 or workers < -1:
+                raise ValueError('initial_sampling workers must be 1, -1, or a positive integer')
+            manager = multiprocessing.Manager()
+            objective.set_global_call_counter(
+                manager.Value('i', 0), manager.Lock(),
+                manager.Value('d', float('inf')),
+                manager.Value('d', float('nan')))
+            pool = multiprocessing.Pool(None if workers == -1 else workers)
+            try:
+                losses = np.asarray(pool.map(objective, population))
+            finally:
+                pool.close()
+                pool.join()
+                objective.finalize_global_call_counter()
+                manager.shutdown()
+        best_index = int(np.argmin(losses))
+        self.best_x = population[best_index].copy()
+        self.best_fun = float(losses[best_index])
+
+        # Leave the model in the selected state without another objective call:
+        # callbacks have already checkpointed every evaluated candidate.
+        objective.set_parameters(variables, self.best_x, transformed=True)
 
 
 class Powell(Algorithm):

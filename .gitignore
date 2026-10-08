@@ -5,4 +5,6 @@ faster/report.log
 
 faster/Daten_Erganzung_temp.xlsx
 faster/~*
+minima_results/
+checkpoint_basin_results/
 best*/

@@ -1,3 +1,28 @@
+"""Reusable, axes-oriented plotting helpers.
+
+The public boundary in this module is deliberately small:
+
+1. describe a figure once with :class:`FigureSpec`;
+2. create it with :func:`create_figure`; and
+3. pass the named axes to functions that add data or model curves.
+
+For example::
+
+    spec = FigureSpec(ncols=2, axis_names=("CO2", "CH4"), figsize=(8, 4))
+    figure, axes = create_figure(spec)
+    plot_replica_pools(replica, axes, marker="o")
+    plot_run_pools(run_log, axes)
+
+``subplot_mosaic`` is available through ``FigureSpec(mosaic=...)`` when a
+rectangular grid is not expressive enough.  The older ``plot_data`` and
+``plot_fit`` functions remain as compatibility wrappers.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Sequence
+
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -11,26 +36,112 @@ from pathways import pathway_color
 
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
+POOL_NAMES = ('CO2', 'CH4')
+
+
+@dataclass(frozen=True)
+class FigureSpec:
+    """Configuration for a figure and its named axes.
+
+    ``figsize`` is in inches.  ``box_aspect`` is the height/width ratio of
+    every axes box (use it for visual shape, rather than ``set_aspect``, which
+    changes the data-coordinate scaling).  Give either a rectangular grid via
+    ``nrows``/``ncols`` or a Matplotlib ``subplot_mosaic`` via ``mosaic``.
+    """
+
+    nrows: int = 1
+    ncols: int = 1
+    axis_names: tuple[str, ...] | None = None
+    mosaic: str | Sequence[Sequence[str]] | None = None
+    figsize: tuple[float, float] = (8, 4)
+    sharex: bool | str = False
+    sharey: bool | str = False
+    box_aspect: float | None = None
+    # ``None`` keeps the builder neutral; report-specific code can choose
+    # ``tight_layout`` after it has added titles, labels, and legends.
+    layout: str | None = None
+    subplot_kw: Mapping[str, Any] = field(default_factory=dict)
+    gridspec_kw: Mapping[str, Any] = field(default_factory=dict)
+
+
+def create_figure(spec: FigureSpec) -> tuple[plt.Figure, dict[str, plt.Axes]]:
+    """Create a configured figure and return its axes by stable names.
+
+    Naming axes avoids positional coupling at call sites.  A two-panel figure
+    can therefore be changed from a row to a column without changing plotting
+    functions or the code that selects ``axes['CO2']``.
+    """
+    if spec.mosaic is not None:
+        if spec.axis_names is not None:
+            raise ValueError('axis_names cannot be used with a mosaic; use its labels.')
+        figure = plt.figure(figsize=spec.figsize, layout=spec.layout)
+        axes = figure.subplot_mosaic(
+            spec.mosaic,
+            sharex=spec.sharex,
+            sharey=spec.sharey,
+            subplot_kw=dict(spec.subplot_kw),
+            gridspec_kw=dict(spec.gridspec_kw),
+        )
+    else:
+        if spec.nrows < 1 or spec.ncols < 1:
+            raise ValueError('nrows and ncols must be positive.')
+        count = spec.nrows * spec.ncols
+        names = spec.axis_names or tuple(f'ax{i}' for i in range(count))
+        if len(names) != count:
+            raise ValueError(
+                f'Expected {count} axis names for a {spec.nrows}x{spec.ncols} grid, '
+                f'got {len(names)}.')
+        if len(set(names)) != len(names):
+            raise ValueError('axis_names must be unique.')
+        figure, grid = plt.subplots(
+            spec.nrows,
+            spec.ncols,
+            figsize=spec.figsize,
+            sharex=spec.sharex,
+            sharey=spec.sharey,
+            squeeze=False,
+            layout=spec.layout,
+            subplot_kw=dict(spec.subplot_kw),
+            gridspec_kw=dict(spec.gridspec_kw),
+        )
+        axes = dict(zip(names, grid.flat))
+
+    if spec.box_aspect is not None:
+        for axis in axes.values():
+            axis.set_box_aspect(spec.box_aspect)
+    return figure, dict(axes)
+
+
+def _pool_axes(ax: object, separate: bool) -> tuple[plt.Figure, dict[str, plt.Axes]]:
+    """Normalise legacy axes inputs to the named-axes interface."""
+    if ax is None:
+        names = POOL_NAMES if separate else ('pool',)
+        figure, axes = create_figure(FigureSpec(
+            ncols=2 if separate else 1,
+            axis_names=names,
+            figsize=(8, 4),
+        ))
+        if separate:
+            return figure, axes
+        return figure, {pool: axes['pool'] for pool in POOL_NAMES}
+    if isinstance(ax, Mapping):
+        missing = set(POOL_NAMES) - set(ax)
+        if missing:
+            raise ValueError(f'Missing pool axes: {sorted(missing)}.')
+        return next(iter(ax.values())).figure, dict(ax)
+    if isinstance(ax, (list, tuple, np.ndarray)):
+        flat_axes = np.asarray(ax, dtype=object).flat
+        axes = list(flat_axes)
+        if len(axes) != 2:
+            raise ValueError('Expected exactly two axes for CO2 and CH4.')
+        return axes[0].figure, dict(zip(POOL_NAMES, axes))
+    if isinstance(ax, plt.Axes):
+        return ax.figure, {pool: ax for pool in POOL_NAMES}
+    raise TypeError('ax must be an Axes, a two-axis sequence, or a pool-axis mapping.')
 
 def get_axes(ax, separate = True):
-    axs = {'CO2': None, 'CH4': None}
-    if ax is None:
-        fig, _ax = plt.subplots(1,1 + int(separate))
-        fig.set_size_inches(8, 4)
-        axs['CO2'] = _ax if not separate else _ax[0]
-        axs['CH4'] = _ax if not separate else _ax[1]
-
-    elif isinstance(ax, (list, tuple)):
-        axs['CO2'] = ax[0]
-        axs['CH4'] = ax[1]
-        fig = ax[0].get_figure()
-
-    elif isinstance(ax, plt.Axes):
-        return ax
-
-    else:
-        raise NotImplementedError()
-    return fig, axs
+    """Compatibility wrapper; new code should use ``create_figure``."""
+    return _pool_axes(ax, separate)
 
 def pool_color(pool):
     if pool == 'CO2':
@@ -48,48 +159,62 @@ def format_ax(ax, log_scale = False):
     if log_scale:
         ax.set_yscale('log')
 
-def plot_data(replica, ax = None, separate = True, **kwargs):
-    fig, axs = get_axes(ax = ax, separate = separate)
-    for pool in ['CO2', 'CH4']:
-        if pool == 'CO2':
-            t, pool_value = replica.CO2()
-            c = CO2_COLOR
-        elif pool == 'CH4': 
-            t, pool_value = replica.CH4()
-            c = CH4_COLOR
-        
-        ax = axs[pool]
-        if not 'marker' in kwargs:
-            kwargs['marker'] = 'x'
-        kwargs['linestyle'] = 'None'
+def plot_pool_data(replica, pool, ax, **kwargs):
+    """Add one replica's measured pool to ``ax`` and return that same axes."""
+    if pool not in POOL_NAMES:
+        raise ValueError(f'Unknown measured pool: {pool}.')
+    time, values = getattr(replica, pool)()
+    options = {'marker': 'x', 'linestyle': 'None'}
+    options.update(kwargs)
+    ax.plot(time, values, color=pool_color(pool), label='incubation data',
+            clip_on=False, **options)
+    ax.set_title(rf'$\mathrm{{{pool[:-1]}_{pool[-1]}}}$')
+    ax.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
+    ax.set_xlabel(r'$\mathrm{time\ [d]}$')
+    return ax
 
-        ax.plot(t, pool_value, color = c, label = r'incubation data',
-                clip_on = False, 
-                **kwargs)
 
-        with np.errstate(invalid = 'ignore', divide = 'ignore'):
-            log_values = np.log(pool_value)
-        finite_log_values = log_values[np.isfinite(log_values)]
+def plot_replica_pools(replica, axes: Mapping[str, plt.Axes], **kwargs):
+    """Add CO2 and CH4 measurements to explicitly supplied named axes."""
+    for pool in POOL_NAMES:
+        plot_pool_data(replica, pool, axes[pool], **kwargs)
+    return axes
 
-        #ax.set_ylim(np.exp([np.min(finite_log_values), np.nanmax(finite_log_values)]))
-        p = pool[:-1] + rf'\textsubscript{{{pool[-1]}}}'
-        ax.set_title(rf'$\mathrm{{{p}}}$')
-        ax.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
-        ax.set_xlabel(r'$\mathrm{time\ [d]}$')
 
+def plot_run_pool(run_log, pool, ax, **kwargs):
+    """Add one modeled pool from a run log to ``ax`` and return it."""
+    if pool not in POOL_NAMES:
+        raise ValueError(f'Unknown modeled pool: {pool}.')
+    time, values = run_log[pool]
+    ax.plot(time, values, '-', color=pool_color(pool), **kwargs)
+    return ax
+
+
+def plot_run_pools(run_log, axes: Mapping[str, plt.Axes], **kwargs):
+    """Add modeled CO2 and CH4 curves to explicitly supplied named axes."""
+    for pool in POOL_NAMES:
+        plot_run_pool(run_log, pool, axes[pool], **kwargs)
+    return axes
+
+
+def plot_data(replica, ax=None, separate=True, **kwargs):
+    """Compatibility wrapper around :func:`plot_replica_pools`.
+
+    It returns a named axes dictionary (rather than a positional tuple), which
+    is accepted unchanged by later calls to ``plot_data`` and ``plot_fit``.
+    """
+    figure, axes = _pool_axes(ax, separate)
+    plot_replica_pools(replica, axes, **kwargs)
     sample_label = str(replica.sample).replace(' ', r'\ ')
-    fig.suptitle(rf'$\mathrm{{{sample_label}}}$')
-    fig.tight_layout()
-    return fig, tuple(axs.values())
+    figure.suptitle(rf'$\mathrm{{{sample_label}}}$')
+    return figure, axes
 
-def plot_fit(run_log, ax = None, separate = True):
-    fig, axs = get_axes(ax = ax, separate = separate)
-    for pool in ['CO2', 'CH4']:
-        t, pool_value = run_log[pool]
-        ax = axs[pool]
-        ax.plot(t, pool_value, '-', color = pool_color(pool))
 
-    return fig, axs
+def plot_fit(run_log, ax=None, separate=True):
+    """Compatibility wrapper around :func:`plot_run_pools`."""
+    figure, axes = _pool_axes(ax, separate)
+    plot_run_pools(run_log, axes)
+    return figure, axes
 
 
 def design(ax):

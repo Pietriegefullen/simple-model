@@ -41,7 +41,8 @@ def parse_args_fit():
     parser.add_argument('--dry', action = 'store_true')
     parser.add_argument('--overwrite-checkpoints', '--overwrite', action = 'store_true',
                         help = 'replace checkpoints already stored for this run')
-    parser.add_argument('--initial', nargs = '+')
+    parser.add_argument('--checkpoint', '--initial', dest='checkpoint', metavar='PATH',
+                        help='checkpoint JSON to use as the initial parameters')
     
     args = parser.parse_args()
 

@@ -21,9 +21,8 @@ import optimizer
 import parameters
 import plot
 from fit_sample import run
+from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
-
-# TODO: model variant identification for all IDs
 
 # ``00`` is reserved for the data/model fit (CO2 and CH4).  The remaining
 # system pools are grouped with the pathway diagnostics below, rather than
@@ -259,7 +258,7 @@ def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
 
 def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     """Plot one modeled pool or pathway quantity in the fit-plot style."""
-    figure, axis = plt.subplots(figsize=(8, 4))
+    figure, axis = plt.subplots(figsize=(4, 4))
     axis.plot(time, values, '-', color='k', label=name)
     if v_max is not None:
         axis.axhline(v_max, color='k', linestyle='--', label='v_max')
@@ -275,17 +274,10 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     return figure, axis
 
 def model_variant(cp):
-    variants = {
-                'PIRL': 'A',         # default
-                '6FY6': 'B',         # no thermodynamics
-                'KX3J': 'C',         # no Hydro
-                'XIYF': 'old',
-                'FA75': 'A'
-    }
-    for key, variant in variants.items():
-        if cp.model_id.startswith('model-' + key):
-            return variant
-    raise Exception('Model variant not identified.')
+    variant = model_variant_from_id(cp.model_id)
+    if variant is not None:
+        return variant
+    raise Exception('Model variant not identified: ' + cp.model_id)
 
 
 def sample_y_limits(sample, relative_padding=0.05):
@@ -317,64 +309,65 @@ def sample_y_limits(sample, relative_padding=0.05):
     return limits
 
 
-
-def plot_fit(checkpoint, dataset, model_run=None):
-    """Plot fitted replicas, validation data, and a model run for a checkpoint."""
-    if model_run is None:
-        model_run = run(checkpoint.run_config, checkpoint.parameters)
-    pathway_model, objective, run_log = model_run
+def fit_replicas(checkpoint, dataset):
+    """Return the sample, validation replica, and fitted replicas for a plot."""
     sample_number, validation_number = checkpoint.replica
     sample = dataset[sample_number]
     validation_replica = sample[validation_number]
-    validation_objective = optimizer.build_objective_function(
-        pathway_model,
-        validation_replica,
-        checkpoint.run_config['objective'],
-        t_start=0,
-        t_end=None,
-    )
-    fit_replicas = sample.get_split(validation_number, checkpoint.fit_mode)['fit']
+    replicas = sample.get_split(validation_number, checkpoint.fit_mode)['fit']
+    return sample, validation_replica, replicas
 
-    axes = None
+
+def create_fit_figure():
+    """Create the standard two-pool figure used for fitted-model plots."""
+    return plot.create_figure(plot.FigureSpec(
+        ncols=2,
+        axis_names=('CO2', 'CH4'),
+        figsize=(10, 5),
+        sharex=True,
+    ))
+
+
+def plot_fit_measurements(checkpoint, dataset, axes):
+    """Draw the fit/validation measurements and return their legend handles."""
+    _, validation_replica, fitted_replicas = fit_replicas(checkpoint, dataset)
     markersize = 3
     markers = cycle(('^', 's', 'D', 'v', 'P', 'X'))
     handles = []
-    for fit_replica in fit_replicas:
+    for fitted_replica in fitted_replicas:
         marker = next(markers)
-        figure, axes = plot.plot_data(
-            fit_replica, ax=axes, marker=marker, ms=markersize, mfc='none')
+        plot.plot_replica_pools(
+            fitted_replica, axes, marker=marker, ms=markersize, mfc='none')
         handles.append(Line2D(
             [], [], color='k', marker=marker, linestyle='None',
             markerfacecolor='none', markersize=markersize,
-            label=f'fit replica {fit_replica.replica_number}',
+            label=f'fit replica {fitted_replica.replica_number}',
         ))
 
     if checkpoint.fit_mode == 'split':
-        figure, axes = plot.plot_data(
-            validation_replica, ax=axes, marker='o', ms=markersize)
+        plot.plot_replica_pools(
+            validation_replica, axes, marker='o', ms=markersize)
         handles.append(Line2D(
             [], [], color='k', marker='o', linestyle='None', markersize=markersize,
             label=f'validation replica {validation_replica.replica_number}',
         ))
-    figure, axes = plot.plot_fit(run_log, ax=axes)
+    return handles
 
-    r2_fit = objective.R2(run_log)
-    r2_validation = validation_objective.R2(run_log)
-    r2_values = [(r2_fit, 'fit')]
+
+def fit_score_label(checkpoint, objective, validation_objective, run_log):
+    """Return the R² label used for a model line in a fit comparison."""
+    r2_values = [(objective.R2(run_log), 'fit')]
     if checkpoint.fit_mode != 'single':
-        r2_values.append((r2_validation, 'val'))
+        r2_values.append((validation_objective.R2(run_log), 'val'))
     r2_text = ', '.join(
         rf'$R^2_{{\mathrm{{{name}}}}} = {value:.2f}$'
         for value, name in r2_values
     )
-    variant = model_variant(checkpoint)
-    handles.append(Line2D(
-        [], [], color='k', linestyle='-',
-        label=' '.join((rf'$\mathrm{{model\ {{{variant}}}}}$', r2_text)),
-    ))
+    return ' '.join((rf'$\mathrm{{model\ {{{model_variant(checkpoint)}}}}}$', r2_text))
 
-    axes['CH4'].legend(
-        handles=handles, fancybox=False, edgecolor='k', loc='lower right')
+
+def format_fit_axes(checkpoint, sample, axes):
+    """Apply the standard fit-plot scales, limits, and axes style."""
     y_limits = sample_y_limits(sample)
     for pool, axis in axes.items():
         plot.format_ax(
@@ -384,9 +377,42 @@ def plot_fit(checkpoint, dataset, model_run=None):
         if pool in y_limits:
             axis.set_ylim(y_limits[pool])
 
-    figure.suptitle(figure_suptitle(
-        checkpoint, fit_replicas, getattr(run_log, 'replica', None)))
-    figure.tight_layout(rect=(0, 0, 1, 0.85))
+
+def finish_fit_figure(figure, suptitle):
+    """Apply the fixed report layout shared by fit comparison figures."""
+    figure.suptitle(suptitle)
+    figure.subplots_adjust(
+        left=0.12, right=0.97, bottom=0.14, top=0.78, wspace=0.30)
+
+
+
+def plot_fit(checkpoint, dataset, model_run=None):
+    """Plot fitted replicas, validation data, and a model run for a checkpoint."""
+    if model_run is None:
+        model_run = run(checkpoint.run_config, checkpoint.parameters)
+    pathway_model, objective, run_log = model_run
+    sample, validation_replica, fitted_replicas = fit_replicas(checkpoint, dataset)
+    validation_objective = optimizer.build_objective_function(
+        pathway_model,
+        validation_replica,
+        checkpoint.run_config['objective'],
+        t_start=0,
+        t_end=None,
+    )
+    figure, axes = create_fit_figure()
+    handles = plot_fit_measurements(checkpoint, dataset, axes)
+    plot.plot_run_pools(run_log, axes)
+
+    handles.append(Line2D(
+        [], [], color='k', linestyle='-',
+        label=fit_score_label(checkpoint, objective, validation_objective, run_log),
+    ))
+
+    axes['CH4'].legend(
+        handles=handles, fancybox=False, edgecolor='k', loc='lower right')
+    format_fit_axes(checkpoint, sample, axes)
+    finish_fit_figure(figure, figure_suptitle(
+        checkpoint, fitted_replicas, getattr(run_log, 'replica', None)))
 
     return figure, axes
 

@@ -26,17 +26,22 @@ def as_bool(value):
     value = _scalar(value)
     if isinstance(value, bool):
         return value
-    if isinstance(value, numbers.Real) and not isinstance(value, bool):
-        if value == 0:
-            return False
-        if value == 1:
-            return True
     if isinstance(value, str):
         normalized = value.strip().casefold()
-        if normalized in {'true', '1', 'yes', 'on'}:
+        if normalized in {'true', 'np._true', 'np.true_', 'numpy.true_',
+                          'yes', 'on'}:
             return True
-        if normalized in {'false', '0', 'no', 'off'}:
+        if normalized in {'false', 'np._false', 'np.false_', 'numpy.false_',
+                          'no', 'off'}:
             return False
+    try:
+        numeric = as_float(value)
+    except ValueError:
+        numeric = None
+    if numeric == 0:
+        return False
+    if numeric == 1:
+        return True
     raise ValueError(f'Expected a boolean value, got {value!r}')
 
 
@@ -65,9 +70,11 @@ def as_float(value):
     if isinstance(value, bool):
         raise ValueError(f'Expected a numeric value, got {value!r}')
     try:
-        return float(value)
+        numeric = float(value)
     except (TypeError, ValueError) as error:
         raise ValueError(f'Expected a numeric value, got {value!r}') from error
+    # JSON distinguishes -0.0 from 0.0 even though model calculations do not.
+    return 0.0 if numeric == 0 else numeric
 
 
 def as_float_or_variable(value):
@@ -98,7 +105,7 @@ def _cast_scalar(value, converter, path, key=None):
         raise ValueError(f'Invalid value at {rendered_path}: {error}') from error
 
 
-def cast_config(config, schema, path=(), key=None):
+def cast_config(config, schema, path=(), key=None, strict=False):
     """Return a deep, schema-cast copy of a configuration.
 
     A schema mirrors the relevant parts of a configuration.  Leaf values are
@@ -122,24 +129,33 @@ def cast_config(config, schema, path=(), key=None):
             rendered_path = '.'.join(map(str, path)) or '<root>'
             raise ValueError(f'Expected a mapping at {rendered_path}, got {config!r}')
         wildcard = schema.get('*')
-        return {
-            item_key: cast_config(
-                value, schema.get(item_key, wildcard), path + (item_key,), item_key)
-            for item_key, value in config.items()
-        }
+        cast = {}
+        for item_key, value in config.items():
+            if item_key in schema:
+                item_schema = schema[item_key]
+            elif wildcard is not None:
+                item_schema = wildcard
+            elif strict:
+                rendered_path = '.'.join(map(str, path + (item_key,)))
+                raise ValueError(f'Unknown configuration field at {rendered_path}')
+            else:
+                item_schema = None
+            cast[item_key] = cast_config(value, item_schema, path + (item_key,),
+                                         item_key, strict)
+        return cast
     if isinstance(schema, list):
         if len(schema) != 1:
             raise ValueError('A list schema must contain exactly one item schema')
         if not isinstance(config, (list, tuple)):
             rendered_path = '.'.join(map(str, path)) or '<root>'
             raise ValueError(f'Expected a list at {rendered_path}, got {config!r}')
-        return [cast_config(value, schema[0], path + (index,), index)
+        return [cast_config(value, schema[0], path + (index,), index, strict)
                 for index, value in enumerate(config)]
     if isinstance(schema, tuple):
         if not isinstance(config, (list, tuple)) or len(config) != len(schema):
             rendered_path = '.'.join(map(str, path)) or '<root>'
             raise ValueError(f'Expected {len(schema)} values at {rendered_path}, got {config!r}')
-        return [cast_config(value, item_schema, path + (index,), index)
+        return [cast_config(value, item_schema, path + (index,), index, strict)
                 for index, (value, item_schema) in enumerate(zip(config, schema))]
     raise TypeError(f'Unsupported type schema {schema!r}')
 
@@ -272,20 +288,86 @@ def build_run_id(config):
 def add_missing_thermodynamics_switch(config):
     import parameters
     pathway_keys = [k for k in config.keys() if not k == 'version']
-    default_values = parameters.default_model_parameters()
+    thermodynamics_defaults = {
+        parameter.name.removesuffix('_thermodynamics'): parameter.value
+        for parameter in parameters.default_model_parameters()
+        if parameter.name.endswith('_thermodynamics')
+    }
+    pathway_defaults = {
+        'Hydrolysis': False,
+        'Fermentation': False,
+        **thermodynamics_defaults,
+    }
 
     for pwy_name in pathway_keys:
         parameter_name = 'use_thermodynamics'
+        if pwy_name not in pathway_defaults:
+            raise ValueError(f'Unknown model pathway {pwy_name!r}')
+        if not isinstance(config[pwy_name], dict):
+            raise ValueError(f'Expected pathway configuration for {pwy_name!r}')
         if not parameter_name in config[pwy_name].keys():
-            idx = [p.name for p in default_values].index(pwy_name + '_thermodynamics')
-            default_p = default_values[idx]
-            config[pwy_name][parameter_name] = default_p.value
+            config[pwy_name][parameter_name] = pathway_defaults[pwy_name]
         config[pwy_name][parameter_name] = as_bool(config[pwy_name][parameter_name])
 
-def build_model_id(config):
-    cp = copy.deepcopy(config)
+
+def _stringify_model_keys(config, path=()):
+    """Canonicalise semantic model names and reject ambiguous key collisions."""
+    if isinstance(config, dict):
+        out = {}
+        for key, value in config.items():
+            canonical_key = str(_scalar(key))
+            if canonical_key in out:
+                rendered_path = '.'.join(map(str, path)) or '<root>'
+                raise ValueError(f'Conflicting model keys at {rendered_path}: {canonical_key!r}')
+            out[canonical_key] = _stringify_model_keys(value, path + (canonical_key,))
+        return out
+    if isinstance(config, (list, tuple)):
+        return [_stringify_model_keys(value, path + (index,))
+                for index, value in enumerate(config)]
+    return config
+
+
+def normalize_model_config(config):
+    """Create the complete, typed representation used for model identity.
+
+    The defaults below are the constructor defaults of ``Microbe`` and
+    ``Substance``.  Collection order is deliberately retained for lists, but
+    every mapping key is canonicalised and later sorted by ``freeze``.
+    """
+    cp = _stringify_model_keys(copy.deepcopy(config))
     add_missing_thermodynamics_switch(cp)
-    return 'model-' + build_id(cp, 4, 2, MODEL_CONFIG_SCHEMA)
+
+    for pathway_name, pathway in cp.items():
+        if pathway_name == 'version':
+            continue
+        if not isinstance(pathway, dict):
+            continue
+        pathway.setdefault('educts', {})
+        pathway.setdefault('products', {})
+
+        microbe = pathway.get('microbe')
+        if isinstance(microbe, dict):
+            microbe.setdefault('death_rate', 0)
+            microbe.setdefault('Kmb', 0)
+            microbe.setdefault('CUE', 0)
+            microbe.setdefault('C_source', None)
+
+        for side in ('educts', 'products'):
+            substances = pathway[side]
+            if not isinstance(substances, dict):
+                continue
+            for substance in substances.values():
+                if isinstance(substance, dict):
+                    if substance.get('Km') is None:
+                        substance['Km'] = 0
+                    if substance.get('inhibition') is None:
+                        substance['inhibition'] = float('inf')
+
+    return cast_config(cp, MODEL_CONFIG_SCHEMA, strict=True)
+
+
+def build_model_id(config):
+    return 'model-' + build_id(normalize_model_config(config), 4, 2)
 
 def build_loss_id(config):
     return 'loss-' + build_id(config, 4, 2, OBJECTIVE_CONFIG_SCHEMA)
