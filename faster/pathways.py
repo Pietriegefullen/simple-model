@@ -17,14 +17,19 @@ def pathway_by_name(name):
             'Fermentation': Fermentation}
     return pwys[name]
 
+PATHWAY_COLORS = {
+    'Homo': 'tab:pink',
+    'Fe3': 'tab:red',
+    'Fermentation': 'tab:brown',
+    'Hydro': 'tab:cyan',
+    'Hydrolysis': 'tab:olive',
+    'Aceto': 'tab:purple',
+}
+
+
 def pathway_color(name):
-    pwys = {'Homo': 'tab:pink', 
-            'Fe3': 'tab:red',
-            'Fermentation': 'tab:brown', 
-            'Hydro': 'tab:cyan',
-            'Hydrolysis': 'tab:olive',
-            'Aceto': 'tab:purple'}
-    return pwys[name]
+    """Return the project-wide color assigned to a biological pathway."""
+    return PATHWAY_COLORS[name]
 
 class Pathway():
     def __init__(self, microbe, educts, products, use_thermodynamics):        

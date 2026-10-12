@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 import checkpoint
+import hashing
 from test_hashing import checkpoint_with
 
 
@@ -114,6 +115,35 @@ class ExistingCheckpointTest(unittest.TestCase):
                            if not name.startswith('.')]
             self.assertEqual(len(checkpoints), 1)
             self.assertNotEqual(checkpoints[0], 'old-checkpoint')
+
+    def test_new_checkpoint_payload_and_filename_are_canonical(self):
+        raw_run_config = checkpoint_with({
+            'run_config.model.Hydro.use_thermodynamics': 'np._true',
+            'run_config.model.Hydro.microbe.death_rate': '-0',
+            'run_config.chosen.sample': '1351.0',
+            'run_config.chosen.validation_replica': '4.0',
+        })['run_config']
+        with tempfile.TemporaryDirectory() as directory:
+            callback = checkpoint.CheckpointCallback(raw_run_config, target=directory)
+            callback.set_objective(_Objective(2.0))
+            callback()
+
+            checkpoint_files = [name for name in os.listdir(directory)
+                                if not name.startswith('.')]
+            self.assertEqual(len(checkpoint_files), 1)
+            self.assertIn('_1351_4_split_', checkpoint_files[0])
+            with open(os.path.join(directory, checkpoint_files[0])) as handle:
+                contents = json.load(handle)
+
+            expected = hashing.normalize_checkpoint_config({
+                'parameters': _Parameters().get_values(),
+                'total_loss': 2.0,
+                'run_config': raw_run_config,
+            })
+            self.assertEqual(contents, expected)
+            self.assertIs(contents['run_config']['model']['Hydro']['use_thermodynamics'], True)
+            self.assertEqual(
+                contents['run_config']['model']['Hydro']['microbe']['death_rate'], 0.0)
 
     def test_print_callback_keeps_r2_from_the_best_loss_evaluation(self):
         objective = _PrintObjective(((3.0, 0.1), (4.0, 0.9), (2.0, 0.2)))

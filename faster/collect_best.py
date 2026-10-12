@@ -20,7 +20,10 @@ import hashing
 import optimizer
 import parameters
 import plot
+import system
+from chemistry import GIBBS_MINIMUM
 from fit_sample import run
+from pathways import pathway_color
 from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
@@ -274,6 +277,127 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     figure.tight_layout(rect=(0, 0, 1, 0.85))
     return figure, axis
 
+
+def _pathway_from_model(pathway_model, pathway_name):
+    """Return a named pathway object from a built model."""
+    pathway = next(
+        (candidate for candidate in pathway_model.contributing_pathways
+         if candidate.__class__.__name__ == pathway_name),
+        None,
+    )
+    if pathway is None:
+        raise ValueError(f'Model does not contain the {pathway_name} pathway.')
+    return pathway
+
+
+def pathway_substrate_consumption_rate(pathway_model, run_log, pathway_name,
+                                       substrate):
+    """Return a pathway's positive net consumption rate of one substrate.
+
+    ``pathway_vector`` includes both reaction stoichiometry and the carbon
+    assimilated into biomass, so acetate uptake is reported as the total model
+    consumption attributed to that pathway.
+    """
+    pathway = _pathway_from_model(pathway_model, pathway_name)
+    coefficient = -float(pathway.pathway_vector[system.index(substrate)])
+    if coefficient <= 0:
+        raise ValueError(f'{pathway_name} does not consume {substrate}.')
+
+    microbe_pool = PATHWAY_MICROBE_POOL[pathway_name]
+    try:
+        time, specific_rate = run_log[f'{pathway_name}_v']
+        biomass_time, biomass = run_log[microbe_pool]
+    except KeyError as error:
+        raise ValueError(
+            f'Model did not log the values required for {pathway_name} '
+            f'{substrate} consumption.') from error
+
+    time = np.asarray(time, dtype=float)
+    specific_rate = np.asarray(specific_rate, dtype=float)
+    biomass_time = np.asarray(biomass_time, dtype=float)
+    biomass = np.asarray(biomass, dtype=float)
+    order = np.argsort(biomass_time)
+    biomass_on_rate_grid = np.interp(time, biomass_time[order], biomass[order])
+    return time, coefficient * biomass_on_rate_grid * specific_rate
+
+
+def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
+                      gibbs_minimum=False, factor_limits=False):
+    """Plot two pathway diagnostics with shared styling and TeX labels."""
+    figure, axes = plot.create_figure(plot.FigureSpec(
+        axis_names=('diagnostic',), figsize=(4, 4)))
+    axis = axes['diagnostic']
+    for pathway, time, values in curves:
+        axis.plot(time, values, color=pathway_color(pathway), linewidth=1.5,
+                  label=rf'$\mathrm{{{pathway}\ pathway}}$')
+    if gibbs_minimum:
+        axis.axhline(GIBBS_MINIMUM, color='k', linestyle='--', linewidth=1,
+                     label=r'$\mathrm{Gibbs\ minimum}$')
+    axis.set_title(title)
+    axis.set_xlabel(r'$\mathrm{time\ [d]}$')
+    axis.set_ylabel(ylabel)
+    if factor_limits:
+        axis.set_ylim(0, 1)
+    plot.format_ax(axis)
+    axis.legend(fancybox=False, edgecolor='k', loc='best')
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.subplots_adjust(left=.24, right=.95, bottom=.16, top=.80)
+    return figure, axis
+
+
+def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
+    """Return shared-axis Fe3/Aceto pathway diagnostics when both are active."""
+    pathway_model, _, run_log = model_run
+    keys = _run_log_keys(run_log)
+    pathways = ('Fe3', 'Aceto')
+    figures = []
+
+    microbe_keys = tuple(PATHWAY_MICROBE_POOL[pathway] for pathway in pathways)
+    if all(name in keys for name in microbe_keys):
+        figures.append(('Fe3_Aceto_microbes', plot_pathway_pair(
+            checkpoint,
+            [(pathway, *run_log[PATHWAY_MICROBE_POOL[pathway]])
+             for pathway in pathways],
+            r'$\mathrm{living\ microbes}$',
+            r'$\mathrm{microbial\ biomass\ [\mu mol/g\ dry\ weight]}$',
+            suptitle=suptitle)))
+
+    delta_g_keys = tuple(f'{pathway}_deltaG_r' for pathway in pathways)
+    if all(name in keys for name in delta_g_keys):
+        figures.append(('Fe3_Aceto_deltaG_r', plot_pathway_pair(
+            checkpoint,
+            [(pathway, *run_log[f'{pathway}_deltaG_r']) for pathway in pathways],
+            r'$\Delta G_\mathrm{r}$',
+            r'$\Delta G_\mathrm{r}\ [\mathrm{J/mol}]$',
+            suptitle=suptitle,
+            gibbs_minimum=True)))
+
+    try:
+        acetate_curves = [
+            (pathway, *pathway_substrate_consumption_rate(
+                pathway_model, run_log, pathway, 'Acetate'))
+            for pathway in pathways
+        ]
+    except ValueError:
+        acetate_curves = []
+    if acetate_curves:
+        figures.append(('Fe3_Aceto_Acetate_consumption', plot_pathway_pair(
+            checkpoint, acetate_curves,
+            r'$\mathrm{Acetate\ consumption}$',
+            r'$\mathrm{Acetate\ consumption\ [\mu mol/g\ dry\ weight/d]}$',
+            suptitle=suptitle)))
+
+    mm_keys = tuple(f'{pathway}_MM' for pathway in pathways)
+    if all(name in keys for name in mm_keys):
+        figures.append(('Fe3_Aceto_MM', plot_pathway_pair(
+            checkpoint,
+            [(pathway, *run_log[f'{pathway}_MM']) for pathway in pathways],
+            r'$\mathrm{Michaelis\! -\! Menten\ factor}$',
+            r'$\mathrm{factor}$',
+            suptitle=suptitle,
+            factor_limits=True)))
+    return figures
+
 def model_variant(cp):
     variant = model_variant_from_id(cp.model_id)
     if variant is not None:
@@ -357,7 +481,7 @@ def plot_fit_measurements(checkpoint, dataset, axes):
 
 def fit_score_label(checkpoint, objective, validation_objective, run_log,
                     model_label=None):
-    """Return the R² label used for a model line in a fit comparison."""
+    """Return the TeX R-squared label used for a model line in a fit plot."""
     r2_values = [(objective.R2(run_log), 'fit')]
     if checkpoint.fit_mode != 'single':
         r2_values.append((validation_objective.R2(run_log), 'val'))
@@ -454,6 +578,15 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
             _, filename = plot_target(checkpoint, number, quantity)
             path = os.path.join(directory, filename)
             # print('saving to  ', os.path.split(directory)[-1], filename)
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
+
+        for number, (quantity, (figure, _)) in enumerate(
+                fe3_aceto_diagnostic_figures(
+                    checkpoint, model_run, suptitle=suptitle), start=90):
+            _, filename = plot_target(checkpoint, number, quantity)
+            path = os.path.join(directory, filename)
             figure.savefig(path, dpi=300)
             plt.close(figure)
             paths.append(path)

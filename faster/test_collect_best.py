@@ -1,6 +1,8 @@
 import unittest
 
 import collect_best
+import matplotlib.pyplot as plt
+import system
 
 
 class SampleYLimitsTest(unittest.TestCase):
@@ -48,6 +50,50 @@ class CheckpointFilterTest(unittest.TestCase):
             checkpoints, samples=['1351'], model_ids=['model-A'],
             fit_modes=['split'], replicas=['5'], loss_ids=['loss-1'])
         self.assertEqual(selected, [checkpoints[1]])
+
+
+class Fe3AcetoDiagnosticsTest(unittest.TestCase):
+    def tearDown(self):
+        plt.close('all')
+
+    def test_diagnostics_combine_the_two_pathways_and_acetate_uptake(self):
+        def pathway(name, acetate_coefficient):
+            instance = type(name, (), {})()
+            instance.pathway_vector = [0.0] * len(system.SYSTEM)
+            instance.pathway_vector[system.index('Acetate')] = acetate_coefficient
+            return instance
+
+        pathway_model = type('Model', (), {
+            'contributing_pathways': [
+                pathway('Fe3', -1.5),
+                pathway('Aceto', -1.25),
+            ],
+        })()
+        run_log = {
+            'M_Fe3': ([0, 1], [2, 3]),
+            'M_Ac': ([0, 1], [4, 5]),
+            'Fe3_deltaG_r': ([0, 1], [-20, -21]),
+            'Aceto_deltaG_r': ([0, 1], [-22, -23]),
+            'Fe3_v': ([0, 1], [.5, .5]),
+            'Aceto_v': ([0, 1], [.2, .2]),
+            'Fe3_MM': ([0, 1], [.3, .4]),
+            'Aceto_MM': ([0, 1], [.5, .6]),
+        }
+
+        figures = dict(collect_best.fe3_aceto_diagnostic_figures(
+            None, (pathway_model, None, run_log), suptitle='test'))
+
+        self.assertEqual(set(figures), {
+            'Fe3_Aceto_microbes',
+            'Fe3_Aceto_deltaG_r',
+            'Fe3_Aceto_Acetate_consumption',
+            'Fe3_Aceto_MM',
+        })
+        acetate_axis = figures['Fe3_Aceto_Acetate_consumption'][1]
+        self.assertEqual(acetate_axis.lines[0].get_ydata().tolist(), [1.5, 2.25])
+        self.assertEqual(acetate_axis.lines[1].get_ydata().tolist(), [1.0, 1.25])
+        self.assertEqual(figures['Fe3_Aceto_deltaG_r'][1].lines[-1].get_linestyle(), '--')
+        self.assertEqual(figures['Fe3_Aceto_MM'][1].get_ylim(), (0.0, 1.0))
 
 
 if __name__ == '__main__':

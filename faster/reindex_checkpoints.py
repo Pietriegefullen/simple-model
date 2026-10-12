@@ -1,8 +1,8 @@
-"""Rebuild checkpoint IDs after configuration type canonicalisation.
+"""Canonicalise stored checkpoints and rebuild their IDs and locations.
 
 Run without ``--execute`` first.  The dry run loads every checkpoint, validates
 that it can be canonicalised, and reports how many files will move.  An execute
-run copies canonical checkpoint JSON to the current results tree and moves every
+run writes canonical checkpoint JSON to the current results tree and moves every
 original to a timestamped sibling archive; no original is deleted.
 """
 
@@ -56,8 +56,8 @@ def checkpoint_destination(source_root, checkpoint):
 
 
 def canonical_checkpoint(checkpoint):
-    """Cast known checkpoint configuration fields without dropping unknown ones."""
-    return hashing.cast_config(checkpoint, hashing.CHECKPOINT_CONFIG_SCHEMA)
+    """Use the same canonical payload representation as future checkpoints."""
+    return hashing.normalize_checkpoint_config(checkpoint)
 
 
 def _same_checkpoint(left, right):
@@ -132,7 +132,7 @@ def _write_checkpoint(destination, contents):
     with tempfile.NamedTemporaryFile('w', dir=destination.parent,
                                      prefix='.reindex-', delete=False) as handle:
         temporary = Path(handle.name)
-        json.dump(contents, handle, indent=4, allow_nan=True)
+        json.dump(contents, handle, indent=4, sort_keys=True, allow_nan=True)
         handle.write('\n')
     temporary.replace(destination)
 
@@ -205,7 +205,7 @@ def main(argv=None):
         return 0
 
     removed_directories = execute_migration(migrations, source_root)
-    print(f'Reindexed {len(migrations)} checkpoint(s); removed '
+    print(f'Canonicalised and reindexed {len(migrations)} checkpoint(s); removed '
           f'{removed_directories} empty folder(s). Originals are in {archive_root}.')
     return 0
 

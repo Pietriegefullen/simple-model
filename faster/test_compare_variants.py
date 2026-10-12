@@ -2,7 +2,9 @@ import unittest
 from unittest import mock
 
 import compare_variants
+import matplotlib.pyplot as plt
 import parameters
+import system
 
 
 class Checkpoint:
@@ -71,6 +73,74 @@ class ComparisonGroupsTest(unittest.TestCase):
         self.assertIsNot(c_values, a.parameters)
         self.assertEqual(runs['A'][1].get_values(), a.parameters.get_values())
         self.assertEqual(runs['B'][1].get_values(), b.parameters.get_values())
+
+
+class H2ConsumptionTest(unittest.TestCase):
+    def test_pathway_rate_includes_biomass_and_h2_stoichiometry(self):
+        pathway_type = type('Homo', (), {})
+        pathway = pathway_type()
+        pathway.stoichiometry = [0.0] * len(system.SYSTEM)
+        pathway.stoichiometry[system.index('H2')] = -4.0
+        pathway_model = type('Model', (), {
+            'contributing_pathways': [pathway],
+        })()
+        run_log = {
+            'Homo_v': ([0, 1, 2], [.5, .5, .5]),
+            'M_Homo': ([0, 1, 2], [1, 2, 3]),
+        }
+
+        time, consumption = compare_variants.pathway_h2_consumption_rate(
+            pathway_model, run_log, 'Homo')
+
+        self.assertEqual(time.tolist(), [0.0, 1.0, 2.0])
+        self.assertEqual(consumption.tolist(), [2.0, 4.0, 6.0])
+
+
+class ABDifferenceTest(unittest.TestCase):
+    def test_co2_difference_is_percent_relative_to_model_a(self):
+        difference = compare_variants.relative_percent_difference(
+            [100, 50], [125, 25])
+        self.assertEqual(difference.tolist(), [25.0, -50.0])
+
+    def test_methane_log_change_is_symmetric_for_equal_fold_changes(self):
+        difference = compare_variants.methane_log_relative_change(
+            [1, 1], [2, .5])
+        self.assertAlmostEqual(difference[0], -difference[1])
+        self.assertAlmostEqual(difference[0], 100 * __import__('math').log(2))
+
+    def test_shared_limits_expand_only_the_outlying_replica(self):
+        def detail(co2, ch4):
+            return {'differences': {
+                'CO2': ([0, 1], co2),
+                'CH4': ([0, 1], ch4),
+            }}
+
+        typical = detail([1, -2], [3, -4])
+        outlier = detail([2, -3], [5, -100])
+        shared = compare_variants.shared_difference_limits([typical, outlier])
+
+        self.assertEqual(
+            compare_variants.replica_difference_limits(typical, shared)['CO2'],
+            (-shared['CO2'], shared['CO2']))
+        self.assertGreater(
+            compare_variants.replica_difference_limits(outlier, shared)['CH4'][1],
+            shared['CH4'])
+
+
+class ABScoreScatterTest(unittest.TestCase):
+    def tearDown(self):
+        plt.close('all')
+
+    def test_scatter_has_equal_axes_and_an_equality_diagonal(self):
+        figure = compare_variants.plot_ab_r2_scatter([
+            {'fit_mode': 'single', 'r2_a': .7, 'r2_b': .8},
+            {'fit_mode': 'split', 'r2_a': .9, 'r2_b': .85},
+        ])
+        axis = figure.axes[0]
+
+        self.assertEqual(axis.get_xlim(), axis.get_ylim())
+        diagonal = axis.lines[0]
+        self.assertEqual(diagonal.get_xdata().tolist(), diagonal.get_ydata().tolist())
 
 
 if __name__ == '__main__':

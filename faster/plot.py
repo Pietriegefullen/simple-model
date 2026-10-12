@@ -37,6 +37,13 @@ from pathways import pathway_color
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
 POOL_NAMES = ('CO2', 'CH4')
+# Model identity is always encoded by line style in variant-comparison plots.
+# Pathway identity is encoded by ``pathways.pathway_color``.
+MODEL_VARIANT_LINESTYLES = {
+    'A': '-',
+    'B': '--',
+    'C': ':',
+}
 
 
 @dataclass(frozen=True)
@@ -277,7 +284,7 @@ def plot_Gibbs(log, pathway, ax = None):
     ax = design(ax)
     xaxis_time(ax)
     
-    ax.set_ylabel('ΔG [J/mol]', rotation = 0, loc = 'top', labelpad = -30)
+    ax.set_ylabel(r'$\Delta G\ [\mathrm{J/mol}]$', rotation = 0, loc = 'top', labelpad = -30)
     
     ax = title(ax, log, pathway)
 
@@ -321,12 +328,13 @@ def plot_fit2(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False,
         plot_data(t, data, ax = ax, color = CO2_COLOR)
         ylim = ax.get_ylim()
         r2 = log.R2('CO2', log_fit = log_co2)
-        plot_model(*log['CO2'], ax = ax, color = CO2_COLOR, label = f'R² = {r2:.2f}')
+        plot_model(*log['CO2'], ax = ax, color = CO2_COLOR,
+                   label = rf'$R^2 = {r2:.2f}$')
         ax.set_ylim(ylim)
         design(ax)
         axs.append(ax)
         
-        ax.set_ylabel(f'CO2 [μmol]')
+        ax.set_ylabel(r'$\mathrm{CO_2\ [\mu mol]}$')
 
     if plot_CH4:
         if plot_CO2:
@@ -335,10 +343,11 @@ def plot_fit2(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False,
         ax = plot_data(t, data, ax = ax, color = CH4_COLOR)
         ylim = ax.get_ylim()
         r2 = log.R2('CH4', log_fit = log_ch4)
-        plot_model(*log['CH4'], ax = ax, color = CH4_COLOR, label = f'R² = {r2:.2f}')
+        plot_model(*log['CH4'], ax = ax, color = CH4_COLOR,
+                   label = rf'$R^2 = {r2:.2f}$')
         ax.set_ylim(ylim)
 
-        ax.set_ylabel(f'CH4 [μmol]')
+        ax.set_ylabel(r'$\mathrm{CH_4\ [\mu mol]}$')
 
         ax.set_yscale('log')
         design(ax)

@@ -39,9 +39,10 @@ class Callback():
     def __init__(self, run_config):
         self.objective = None
         self._target_directory = None
-        self.run_config = run_config
+        self.run_config = (None if run_config is None
+                           else hashing.normalize_run_config(run_config))
 
-        self.run_id = None if run_config is None else hashing.build_run_id(run_config)
+        self.run_id = None if self.run_config is None else hashing.build_run_id(self.run_config)
 
     def set_objective(self, objective):
         self.objective = objective
@@ -218,7 +219,9 @@ class CheckpointCallback(Callback):
                                 'total_loss': last_loss,
                                 'run_config': self.run_config,
                                }
+            checkpoint_data = hashing.normalize_checkpoint_config(checkpoint_data)
             cp_id = hashing.build_checkpoint_id(checkpoint_data)
+            last_loss = checkpoint_data['total_loss']
 
             f_loss = f'{last_loss:.6f}'.replace('.', '')
             if len(f_loss) > 8:
@@ -233,7 +236,8 @@ class CheckpointCallback(Callback):
                 dir = save_dir, prefix = '.checkpoint-', text = True)
             try:
                 with os.fdopen(file_descriptor, 'w') as checkpoint:
-                    json.dump(checkpoint_data, checkpoint, indent = 4)
+                    json.dump(checkpoint_data, checkpoint, indent = 4,
+                              sort_keys = True)
                 os.replace(temporary_file, checkpoint_file)
             finally:
                 if os.path.exists(temporary_file):

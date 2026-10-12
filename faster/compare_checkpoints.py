@@ -19,6 +19,7 @@ resolves to exactly one checkpoint. By default, each figure is written beneath
 import argparse
 import contextlib
 import io
+import os
 import json
 import re
 from pathlib import Path
@@ -34,6 +35,9 @@ import optimizer
 from fit_sample import run
 from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
+# Importing the shared plotting module applies the project's TeX-based
+# Matplotlib configuration when this module is run as a standalone command.
+import plot
 
 LOSS_PATTERN = re.compile(r"loss[-_]\s*([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?\d+)?)")
 CHECKPOINT_ID_PATTERN = re.compile(r"(?:^|[_-])cp-([a-z0-9-]+)$", re.IGNORECASE)
@@ -144,7 +148,7 @@ def variant_from_checkpoint(path):
 
 
 def r2_from_checkpoint(path):
-    """Recreate a checkpoint run and return its fit and validation R² values."""
+    """Recreate a checkpoint run and return its fit and validation R-squared values."""
     with Path(path).open() as handle:
         checkpoint = json.load(handle)
     if "run_config" not in checkpoint or "parameters" not in checkpoint:
@@ -171,7 +175,7 @@ def r2_from_checkpoint(path):
                 validation_r2 = validation_objective.R2(run_log)
         return fit_r2, validation_r2
     except Exception as error:
-        print(f"Warning: could not calculate R² for {Path(path).name}: {error}")
+        print(f"Warning: could not calculate R-squared for {Path(path).name}: {error}")
         return None, None
 
 
@@ -215,7 +219,9 @@ def default_output_path(paths):
 
 
 def load_rows(paths, show_constant):
-    fitted = [read_checkpoint(path) for path in paths]
+    fitted = [read_checkpoint(path)
+              for path in paths
+              if os.path.isfile(path)]
     names = set().union(*[values.keys() for values in fitted])
     rows = []
     for name in names:
@@ -281,7 +287,7 @@ def add_group_separators(axis, rows, row_offset=0):
 
 
 def annotate_r2_rows(axis, values):
-    """Print exact R² values in the first rows of a checkpoint-aligned grid."""
+    """Print exact R-squared values in the first rows of a checkpoint grid."""
     for row_index, row_values in enumerate(values):
         for column_index, value in enumerate(row_values):
             text = "—" if not np.isfinite(value) else f"{value:.2f}"
@@ -300,9 +306,9 @@ def annotate_zero_ratio_cells(axis, rows, reference_index, row_offset):
             if not np.isfinite(value) or value == reference_value:
                 continue
             if reference_value == 0 and value > 0:
-                text = "∞"
+                text = r'$\infty$'
             elif reference_value > 0 and value == 0:
-                text = "−∞"
+                text = r'$-\infty$'
             else:
                 continue
             axis.text(column_index, row_index, text, ha="center", va="center",
@@ -324,7 +330,7 @@ def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2
                  for values in r2_values for value in values)
 
     r2_row_count = 3 if has_r2 else 0  # fit, validation, then a visual divider
-    r2_labels = ["R² fit", "R² validation", ""] if has_r2 else []
+    r2_labels = [r'$R^2$ fit', r'$R^2$ validation', ""] if has_r2 else []
     if has_r2:
         fit_r2 = np.asarray([values[0] for values in r2_values], dtype=float)
         validation_r2 = np.asarray([values[1] for values in r2_values], dtype=float)
@@ -358,8 +364,9 @@ def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2
         annotate_r2_rows(axis, r2_data[:2])
     annotate_zero_ratio_cells(axis, rows, reference_index, r2_row_count)
     figure.colorbar(relative_image, ax=axis, fraction=.035, pad=.03,
-                    label=f"log₁₀(parameter / {reference_name})")
-    figure.text(.5, .025, "Grey: unavailable comparison; ±∞: zero-reference change",
+                    label=r'$\log_{10}(\mathrm{parameter/reference})$')
+    figure.text(.5, .025,
+                r'Grey: unavailable comparison; $\pm\infty$: zero-reference change',
                 ha="center", va="center")
     figure.subplots_adjust(left=.28, bottom=.25, top=.92)
     Path(output).parent.mkdir(parents=True, exist_ok=True)
@@ -383,7 +390,7 @@ def main():
     parser.add_argument("--include-constant", action="store_true",
                         help="also show parameters identical across the selected checkpoints")
     parser.add_argument("--no-r2", action="store_true",
-                        help="skip checkpoint replays and omit the R² summary")
+                        help="skip checkpoint replays and omit the R-squared summary")
     args = parser.parse_args()
     if not 0 <= args.reference < len(args.checkpoint_ids):
         parser.error("--reference must index one of the supplied checkpoint IDs")

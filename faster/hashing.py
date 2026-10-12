@@ -1,6 +1,7 @@
 import hashlib
 import base64
 import copy
+from functools import lru_cache
 import json
 import math
 import numbers
@@ -280,14 +281,14 @@ def build_id(config, group_length = 3, length = 3, schema=None):
     return identifier
 
 def build_run_id(config):
-    cp = copy.deepcopy(config)
+    cp = normalize_run_config(config)
     ignore = ['legacy', 'legacy_file', ]
     _ = [cp.pop(i,None) for i in ignore]
-    return 'run-' + build_id(cp, 3, 2, RUN_CONFIG_SCHEMA)
+    return 'run-' + build_id(cp, 3, 2)
 
-def add_missing_thermodynamics_switch(config):
+@lru_cache(maxsize=1)
+def _pathway_thermodynamics_defaults():
     import parameters
-    pathway_keys = [k for k in config.keys() if not k == 'version']
     thermodynamics_defaults = {
         parameter.name.removesuffix('_thermodynamics'): parameter.value
         for parameter in parameters.default_model_parameters()
@@ -298,6 +299,12 @@ def add_missing_thermodynamics_switch(config):
         'Fermentation': False,
         **thermodynamics_defaults,
     }
+    return pathway_defaults
+
+
+def add_missing_thermodynamics_switch(config):
+    pathway_keys = [k for k in config.keys() if not k == 'version']
+    pathway_defaults = _pathway_thermodynamics_defaults()
 
     for pwy_name in pathway_keys:
         parameter_name = 'use_thermodynamics'
@@ -366,6 +373,22 @@ def normalize_model_config(config):
     return cast_config(cp, MODEL_CONFIG_SCHEMA, strict=True)
 
 
+def normalize_run_config(config):
+    """Return the canonical stored form of a run configuration."""
+    cp = cast_config(config, RUN_CONFIG_SCHEMA)
+    if isinstance(cp.get('model'), dict):
+        cp['model'] = normalize_model_config(cp['model'])
+    return cp
+
+
+def normalize_checkpoint_config(config):
+    """Return the canonical stored form of a checkpoint without dropping data."""
+    cp = cast_config(config, CHECKPOINT_CONFIG_SCHEMA)
+    if isinstance(cp.get('run_config'), dict):
+        cp['run_config'] = normalize_run_config(cp['run_config'])
+    return cp
+
+
 def build_model_id(config):
     return 'model-' + build_id(normalize_model_config(config), 4, 2)
 
@@ -373,7 +396,7 @@ def build_loss_id(config):
     return 'loss-' + build_id(config, 4, 2, OBJECTIVE_CONFIG_SCHEMA)
 
 def build_checkpoint_id(config):
-    return 'cp-' + build_id(config, 4, 2, CHECKPOINT_CONFIG_SCHEMA)
+    return 'cp-' + build_id(normalize_checkpoint_config(config), 4, 2)
 
 if __name__ == '__main__':
     d = {'b': 456, 'a': 123, 'c': set([1,2,4])}

@@ -172,6 +172,7 @@ class HashingTest(unittest.TestCase):
         alternate = checkpoint_with({
             'parameters.Hydro_thermodynamics': 'false',
             'run_config.model.Hydro.use_thermodynamics': '0',
+            'run_config.model.Hydro.microbe.death_rate': '-0',
             'run_config.chosen.normalized_parameters': 'true',
         })
         with tempfile.TemporaryDirectory() as temporary:
@@ -196,6 +197,8 @@ class HashingTest(unittest.TestCase):
                 written = json.load(handle)
             self.assertIs(written['parameters']['Hydro_thermodynamics'], False)
             self.assertIs(written['run_config']['chosen']['normalized_parameters'], True)
+            self.assertEqual(
+                written['run_config']['model']['Hydro']['microbe']['death_rate'], 0.0)
 
 
 if __name__ == '__main__':
