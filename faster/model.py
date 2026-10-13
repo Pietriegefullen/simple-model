@@ -13,12 +13,14 @@ import pathways
 import parameters
 
 import USER_VARIABLES
+import CONSTANTS
+from CONSTANTS import EPS
 
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
 
 version_major = '0'
-version_minor = '1'
+version_minor = '2' # minor 2: Henry's law adjusted
 __version__ = '.'.join([version_major, version_minor])
 
 
@@ -108,6 +110,7 @@ class Model():
         self.build(quiet = True)
 
         self.t = None
+        self.replica = None
     
     def get_config(self, only_structure = False):
         cfg = {}
@@ -125,10 +128,27 @@ class Model():
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
                
+    def compute_dissolved(self, S):
+        dissolved_S = S.copy()
+        rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
+        m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
+        total_gas_volume = self.replica.total_gas_volume # ml
+        sample_weight = self.replica.dry_weight # g
+        gas_volume = 1e-3 * total_gas_volume/sample_weight # L/gdw
+
+        water_volume = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
+        lam =  system.HCC_s * water_volume/gas_volume
+        dissolved_fractions = lam/(1+lam)
+        for pool in ['CO2', 'CH4', 'H2']:
+            i = system.index(pool)
+            dissolved_S[i] = dissolved_fractions[i] * S[i]
+        return dissolved_S
+
     def __call__(self, t, S):
-        S = np.where(S < 1e-40, 0, S)
-        
-        dSj_dt = np.stack([pathway_j(t, S)
+        S = np.maximum(S, EPS)
+
+        dissolved_S = self.compute_dissolved(S)
+        dSj_dt = np.stack([pathway_j(t, dissolved_S)
                             for pathway_j in self.contributing_pathways], axis = -1)
         
         dS_dt = np.sum(dSj_dt, axis = -1)
@@ -147,6 +167,25 @@ class Model():
         
     def _clean_t(self):
         self.t = np.sort(list(set(self.t)))
+
+    def log_accepted_thermodynamics(self, t, states):
+        """Log reaction Gibbs energies on accepted solver states only.
+
+        Pathway calls occur at LSODA trial states as well as accepted states.
+        Those trial states must not appear in diagnostic time series because
+        they can yield nonphysical reaction quotients.
+        """
+        # ``solve_ivp`` stores state as ``(pool, time)``.  Convert each time
+        # column independently, then rebuild the same layout for ``deltaG_r``.
+        dissolved_states = np.column_stack([
+            self.compute_dissolved(state) for state in states.T
+        ])
+        for pathway in self.contributing_pathways:
+            if float(pathway.use_thermodynamics) == 1:
+                self.system_state_log.log(
+                    pathway.__class__.__name__ + '_deltaG_r',
+                    t,
+                    pathway.deltaG_r(dissolved_states))
         
     def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False, 
                 reset_Fe3 = None, days_beyond_reset = 1000,
@@ -167,6 +206,7 @@ class Model():
         # prepare for solving
         self.build(quiet = quiet)
         S0 = system.initial_state(replica, self.parameters(), initial_mean_days)
+        self.replica = replica
         self.parameters().check()
         self.system_state_log.reset(replica)
         self.system_change_log.reset(replica)
@@ -199,6 +239,8 @@ class Model():
         # add pool values to log
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
+
+        self.log_accepted_thermodynamics(solver_result.t, solver_result.y)
         
         #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
         #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
@@ -494,4 +536,3 @@ def get_best_loss_parameters(parameter_source):
         raise Exception('loading parameters failed')
     best_loss, best_parameters = list(sorted(all_files))[0]
     return best_loss, best_parameters
-

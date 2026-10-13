@@ -374,6 +374,7 @@ class KnoblauchData():
                 new_replica = Replica(replica_name[-1])
                 new_replica.events = {event:day for (day, event) in replica_data['events']}
                 new_replica.dry_weight = replica_data['dry weight']
+                new_replica.total_gas_volume = replica_data['total_gas_volume']
                 new_replica.incubation = {'days': np.reshape(replica_data['days'], (-1,)),
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
                                           'CH4': np.reshape(replica_data['CH4'], (-1,))}
@@ -390,6 +391,7 @@ class KnoblauchData():
                     subreplica = Replica(replica_name[-1])
                     subreplica.water_content = new_replica.water_content
                     subreplica.dry_weight = new_replica.dry_weight
+                    subreplica.total_gas_volume = new_replica.total_gas_volume
                     inoc_data = self.inocculation_days[str(replica_name)]
                     inoc_day = inoc_data['day']
                     inoc_index = np.nonzero(new_replica.incubation['days'] >= inoc_day)[0][0]
@@ -581,11 +583,13 @@ class Replica():
                  temperature = None,
                  events = None,
                  incubation = None,
-                 last_day = None):
+                 last_day = None, 
+                 total_gas_volume = None):
         self.sample = None
         self.replica_number = replica_number
         
         self.dry_weight = dry_weight # directly from Knoblauch, unit is g
+        self.total_gas_volume = total_gas_volume # ml
         self.water_content = water_content # directly from Knoblauch, ml 
         if temperature is None:
             temperature = CONSTANTS.SPECIMEN_TEMPERATURE
@@ -688,8 +692,9 @@ class Replica():
         
         if 'CH4' in measurements:
             ax.plot(*self.CH4(rate = rate),'b' + marker, label = f'CH4 {rt}({str(self.replica_number)})' + label, color = 'orange')
-            ax.set_yscale('log')
             ax.set_ylabel('gas (CH4)')
+        if log: 
+            ax.set_yscale('log')
 
         ax.set_title(f'{str(self)} {self.sample.site} ({self.sample.origin})')
         
@@ -769,6 +774,7 @@ class Replica():
     def get_config(self):
         cfg = {'replica_number': self.replica_number,
                'dry_weight': self.dry_weight,
+               'total_gas_volume': self.total_gas_volume,
                'water_content': self.water_content,
                'temperature': self.temperature,
                'events': self.events,
@@ -842,6 +848,8 @@ def check_replica(replica):
     
     assert isinstance(replica.water_content, (int, float))
     assert replica.water_content > 0
+
+    assert replica.total_gas_volume > 0, str(replica)
     
     assert replica.temperature == 277.15
 
@@ -853,10 +861,22 @@ def save_data(d):
 if __name__ == '__main__':
     d = get_data_before_day()
     
-    
-    for sample in d.samples:
-        print(sample)
-    1/0
+    import os
+    home = os.getenv('HOME')
+   
+    for log in [True, False]:
+        for sample in d.samples:
+            print(sample)
+            plt.close('all')
+            plt.figure()
+            sample.plot( log = log)
+            figure_name = str(sample).replace(' ','_')
+            di = os.path.join(home, 'Desktop', 'data')
+            if not os.path.isdir(di):
+                os.makedirs(di)
+            f = os.path.join(di, figure_name + ('_log' if log else '_lin'))
+            plt.savefig(f)
+    input()
     
     ax = None
     for sample in d.samples:

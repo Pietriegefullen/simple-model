@@ -132,7 +132,8 @@ def fit(chosen, objective_config, algo_config, init_config,
         cp_target = None,
         checkpoint_source = None,
         overwrite_existing_checkpoints = False,
-        checkpoint_confirmation = None):
+        checkpoint_confirmation = None, 
+        call_limit = None):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
@@ -237,6 +238,9 @@ def fit(chosen, objective_config, algo_config, init_config,
                            else float(existing_best[1]['total_loss'])),
         initial_best_r2=existing_best_r2))
 
+    if not call_limit is None:
+        total_objective.add_callback(checkpoint.Interrupt(call_limit))
+
     if not minimize:
         total_objective(initial_parameters, transformed = False)
         print()
@@ -282,7 +286,7 @@ if __name__ == '__main__':
             }
     
     algo_config = {
-            'differential_evolution':   {'workers' : -1}, # empty dict uses default
+            'differential_evolution':   {'workers' : args.workers if not args.workers is None else -1}, # empty dict uses default
             'powell':                   {}
                 }
     

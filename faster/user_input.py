@@ -38,6 +38,7 @@ def parse_args_fit():
     parser.add_argument('--p', nargs = '+')
     parser.add_argument('--local', action = 'store_true')
     parser.add_argument('--best', default = None)
+    parser.add_argument('--workers', default = -1)
     parser.add_argument('--dry', action = 'store_true')
     parser.add_argument('--overwrite-checkpoints', '--overwrite', action = 'store_true',
                         help = 'replace checkpoints already stored for this run')
@@ -67,6 +68,8 @@ def parse_args_fit():
     setattr(args, 't_end', t_end)
    
     setattr(args, 'override', parse_override(args.p))
+    setattr(args, 'workers', int(args.workers))
+
 
     return args
 

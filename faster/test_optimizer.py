@@ -177,6 +177,39 @@ class InitialSamplingTest(unittest.TestCase):
         self.assertEqual(algorithm.best_fun, min(losses))
 
 
+class DifferentialEvolutionBudgetTest(unittest.TestCase):
+    def test_ignores_and_warns_for_unsupported_configuration_keys(self):
+        algorithm = optimizer.DifferentialEvolution()
+
+        with self.assertWarnsRegex(RuntimeWarning, 'ignored unsupported.*name'):
+            algorithm.configure({'name': 'explore', 'tol': 0.01})
+
+        self.assertNotIn('name', algorithm.get_config())
+        self.assertEqual(algorithm.get_config()['tol'], 0.01)
+
+    def test_generation_callback_stops_at_the_requested_evaluation_budget(self):
+        algorithm = optimizer.DifferentialEvolution()
+        algorithm._max_evaluations = 5
+        algorithm._objective = type(
+            'Objective', (), {'call_count': lambda self: 5,
+                              'set_generation': lambda self, value: None})()
+        algorithm._shared_generation = None
+        algorithm.generation = 1
+
+        self.assertTrue(algorithm.generation_counter())
+
+
+class CombinedObjectiveTest(unittest.TestCase):
+    def test_combined_objective_delegates_parameter_updates_to_a_leaf(self):
+        receiver = mock.Mock()
+        combined = optimizer.Addable(receiver, None)
+
+        combined.set_parameters(['parameter'], [0.5], transformed=True)
+
+        receiver.set_parameters.assert_called_once_with(
+            ['parameter'], [0.5], True)
+
+
 class NonFiniteLossTest(unittest.TestCase):
     def test_empty_or_infinite_mse_is_classified_as_non_finite_loss(self):
         loss = optimizer.Loss('CH4', optimizer.mse)

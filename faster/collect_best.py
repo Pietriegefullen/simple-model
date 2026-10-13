@@ -131,7 +131,11 @@ def collect_best(results_directory=RESULTS_DIRECTORY):
 
 def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None,
                        replicas=None, loss_ids=None):
-    """Keep checkpoints matching every supplied command-line filter."""
+    """Keep checkpoints matching every supplied command-line filter.
+
+    Model-ID filters are substrings, so a short model hash can select all of
+    its checkpoints without requiring the full generated identifier.
+    """
     filters = {
         'sample': None if samples is None else set(map(str, samples)),
         'model_id': None if model_ids is None else set(model_ids),
@@ -144,8 +148,9 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
         sample, replica = checkpoint.replica
         if filters['sample'] is not None and sample not in filters['sample']:
             continue
-        if (filters['model_id'] is not None and
-                checkpoint.model_id not in filters['model_id']):
+        if (filters['model_id'] is not None and not any(
+                model_id in checkpoint.model_id
+                for model_id in filters['model_id'])):
             continue
         if (filters['fit_mode'] is not None and
                 checkpoint.fit_mode not in filters['fit_mode']):
@@ -266,11 +271,17 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     axis.plot(time, values, '-', color='k', label=name)
     if v_max is not None:
         axis.axhline(v_max, color='k', linestyle='--', label='v_max')
+        if name.endswith('_v'):
+            axis.set_ylim(0, v_max * 1.05)
+        axis.legend(fancybox=False, edgecolor='k', loc='best')
+    if name.endswith('_deltaG_r'):
+        axis.axhline(GIBBS_MINIMUM, color='k', linestyle='--', linewidth=1,
+                     label=r'$\mathrm{Gibbs\ minimum}$')
         axis.legend(fancybox=False, edgecolor='k', loc='best')
     axis.set_title(name)
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
     axis.set_ylabel(quantity_ylabel(name))
-    if name.endswith(('_thermodynamic_factor', '_MM')):
+    if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
         axis.set_ylim(0, 1)
     plot.format_ax(axis)
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
@@ -321,8 +332,81 @@ def pathway_substrate_consumption_rate(pathway_model, run_log, pathway_name,
     return time, coefficient * biomass_on_rate_grid * specific_rate
 
 
+def cumulative_pathway_production(time, rate):
+    """Integrate a pathway production rate after consolidating solver times."""
+    time = np.asarray(time, dtype=float)
+    rate = np.asarray(rate, dtype=float)
+    valid = np.isfinite(time) & np.isfinite(rate)
+    time, rate = time[valid], rate[valid]
+    order = np.argsort(time)
+    time, rate = time[order], rate[order]
+    time, inverse = np.unique(time, return_inverse=True)
+    rate_sum = np.bincount(inverse, weights=rate)
+    rate_count = np.bincount(inverse)
+    rate = np.maximum(rate_sum / rate_count, 0.)
+    if len(time) < 2:
+        return time, np.zeros_like(time)
+    increments = np.diff(time) * (rate[:-1] + rate[1:]) / 2
+    return time, np.concatenate(([0.], np.cumsum(increments)))
+
+
+def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None):
+    """Stack cumulative methane production by pathway against total methane.
+
+    Each area is the cumulative methane produced by an active CH4-producing
+    pathway. The legend reports each pathway's final cumulative production,
+    while the dashed line is the modeled total CH4 pool increase.
+    """
+    keys = _run_log_keys(run_log)
+    curves = []
+    for pathway in PATHWAY_PLOT_ORDER:
+        key = f'{pathway}_CH4 from {PATHWAY_MICROBE_POOL[pathway]}'
+        if key in keys:
+            time, cumulative = cumulative_pathway_production(*run_log[key])
+            if len(time):
+                curves.append((pathway, time, cumulative))
+    if not curves or 'CH4' not in keys:
+        return None
+
+    time = np.unique(np.concatenate([curve_time for _, curve_time, _ in curves]))
+    contributions = [
+        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
+        for _, curve_time, cumulative in curves
+    ]
+    figure, axes = plot.create_figure(plot.FigureSpec(
+        axis_names=('diagnostic',), figsize=(5, 4)))
+    axis = axes['diagnostic']
+    labels = [
+        rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
+        for (pathway, _, _), contribution in zip(curves, contributions)
+    ]
+    axis.stackplot(
+        time, *contributions,
+        labels=labels,
+        colors=[pathway_color(pathway) for pathway, _, _ in curves],
+        alpha=.75,
+    )
+    total_time, total_ch4 = run_log['CH4']
+    total_ch4 = np.asarray(total_ch4, dtype=float)
+    total_production = total_ch4 - total_ch4[0]
+    axis.plot(total_time, total_production, 'k--', linewidth=1.5,
+              label=(r'$\mathrm{total CH_4 produced}$'
+                     f': {total_production[-1]:.3g}'))
+    axis.set_title(r'$\mathrm{cumulative CH_4 production}$')
+    axis.set_xlabel(r'$\mathrm{time [d]}$')
+    axis.set_ylabel(r'$\mathrm{cumulative CH_4 [\mu mol/g dry weight]}$')
+    plot.format_ax(axis)
+    axis.legend(
+        title=r'$\mathrm{final cumulative CH_4 [\mu mol/g]}$',
+        fancybox=False, edgecolor='k', loc='best')
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
+    return figure, axis
+
+
 def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
-                      gibbs_minimum=False, factor_limits=False):
+                      gibbs_minimum=False, factor_limits=False,
+                      secondary_curve=None, secondary_ylabel=None):
     """Plot two pathway diagnostics with shared styling and TeX labels."""
     figure, axes = plot.create_figure(plot.FigureSpec(
         axis_names=('diagnostic',), figsize=(4, 4)))
@@ -339,9 +423,23 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
     if factor_limits:
         axis.set_ylim(0, 1)
     plot.format_ax(axis)
-    axis.legend(fancybox=False, edgecolor='k', loc='best')
+
+    handles, labels = axis.get_legend_handles_labels()
+    if secondary_curve is not None:
+        time, values, label = secondary_curve
+        secondary_axis = axis.twinx()
+        secondary_axis.plot(time, values, color='k', linestyle='--',
+                            linewidth=1.5, label=label)
+        secondary_axis.set_ylabel(secondary_ylabel)
+        secondary_axis.spines['top'].set_visible(False)
+        extra_handles, extra_labels = secondary_axis.get_legend_handles_labels()
+        handles.extend(extra_handles)
+        labels.extend(extra_labels)
+    axis.legend(handles, labels, fancybox=False, edgecolor='k', loc='best')
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
-    figure.subplots_adjust(left=.24, right=.95, bottom=.16, top=.80)
+    figure.subplots_adjust(
+        left=.24, right=.76 if secondary_curve is not None else .95,
+        bottom=.16, top=.80)
     return figure, axis
 
 
@@ -381,11 +479,17 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
     except ValueError:
         acetate_curves = []
     if acetate_curves:
+        acetate_pool = None
+        if 'Acetate' in keys:
+            acetate_pool = (*run_log['Acetate'],
+                            r'$\mathrm{total\ Acetate\ pool}$')
         figures.append(('Fe3_Aceto_Acetate_consumption', plot_pathway_pair(
             checkpoint, acetate_curves,
             r'$\mathrm{Acetate\ consumption}$',
             r'$\mathrm{Acetate\ consumption\ [\mu mol/g\ dry\ weight/d]}$',
-            suptitle=suptitle)))
+            suptitle=suptitle,
+            secondary_curve=acetate_pool,
+            secondary_ylabel=r'$\mathrm{total\ Acetate\ [\mu mol/g\ dry\ weight]}$')))
 
     mm_keys = tuple(f'{pathway}_MM' for pathway in pathways)
     if all(name in keys for name in mm_keys):
@@ -590,6 +694,17 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
             figure.savefig(path, dpi=300)
             plt.close(figure)
             paths.append(path)
+
+        ch4_production = ch4_pathway_production_figure(
+            checkpoint, run_log, suptitle=suptitle)
+        if ch4_production is not None:
+            quantity = 'CH4_pathway_production'
+            figure, _ = ch4_production
+            _, filename = plot_target(checkpoint, 94, quantity)
+            path = os.path.join(directory, filename)
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
     return paths
 
 
@@ -601,7 +716,7 @@ def parse_args():
     parser.add_argument('--sample', dest='samples', nargs='+', metavar='SAMPLE',
                         help='Only plot these sample IDs.')
     parser.add_argument('--model-id', dest='model_ids', nargs='+', metavar='MODEL_ID',
-                        help='Only plot these exact model IDs.')
+                        help='Only plot model IDs containing these values.')
     parser.add_argument('--fit-mode', dest='fit_modes', choices=('single', 'split'),
                         nargs='+', metavar='FIT_MODE',
                         help='Only plot these fit modes.')

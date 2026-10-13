@@ -4,9 +4,11 @@ import system
 import chemistry
 import CONSTANTS
 
-HENRYS_LAW = system.henrys_law()
 
 from parameters import flatten as flat
+
+
+from CONSTANTS import EPS
 
 def pathway_by_name(name):
     pwys = {'Homo': Homo,
@@ -102,50 +104,62 @@ class Pathway():
         if not self.state_logger is None:
             self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
  
-    def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
-        eps = 1e-12    
-    
+    def deltaG_r(self, S):
+        """Return reaction Gibbs energy for one state or an accepted state series.
+        ``S`` is either a single system-state vector or an array with system
+        pools along axis zero and time along axis one.  Keeping this calculation
+        free of logging allows diagnostics to be evaluated from the accepted
+        solver output rather than from LSODA's intermediate trial states.
+        """
         R = CONSTANTS.GAS_CONSTANT
         T = 4. + CONSTANTS.KELVIN
-                
+
         contributes = self.stoichiometry != 0
         contributes[system.index('H2O')] = False # water never contributes in thermodynamics
-    
-        dissolved_S = HENRYS_LAW*S # micromoles per g dry weight
 
         # substances are  in micromole per g dry weight of soil.
         # this is not a concentration but a normalized amount.
         # instead, use activities of dissolved species in mol/L
-        
         rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
         m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
-        
-        water_content = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
-        
-        activities = 10**-6 * dissolved_S/water_content # mol/L   
-        activities = np.clip(activities, eps, np.inf)
-        
-        log_Q = np.sum(self.stoichiometry[contributes]*np.log(activities[contributes]))
-        deltaG_r = self.deltaG_s + R*T*log_Q
+
+        # calculate in micro L/gdw, to match dissolved quantities' units: micro mol/gdw
+        water_content = S[system.index('H2O')]*m_H2O/rho_H2O #  micro L/gdw
+        activities = S/water_content # mol/L
+        activities = np.clip(activities, EPS, np.inf)
+
+        stoichiometry = self.stoichiometry[contributes]
+        log_activities = np.log(activities[contributes])
+        if log_activities.ndim == 1:
+            log_Q = np.sum(stoichiometry*log_activities)
+        else:
+            log_Q = np.sum(stoichiometry[:, np.newaxis]*log_activities, axis=0)
+        return self.deltaG_s + R*T*log_Q
+
+    def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
+        """
+        S is the dissolved species vector
+        """
+
+        R = CONSTANTS.GAS_CONSTANT
+        T = 4. + CONSTANTS.KELVIN
+        deltaG_r = self.deltaG_r(S)
         deltaG_rmin = chemistry.GIBBS_MINIMUM
         thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
-        
-        self.log('deltaG_r', t, deltaG_r)
+
         self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
     
     def __call__(self, t, S): # hier rechnen wir die MM Faktoren
-        eps = 1e-12
-        S = np.maximum(S, eps)
+        """
+        S is the dissolved species vector
+        """
         
         biomass = S[self.microbe_index]
-        biomass = np.maximum(biomass, eps) # why not 0?
-            
-        dissolved_S = HENRYS_LAW*S
 
         MM = np.where(self.Km == 0,
                        1.,
-                      dissolved_S/(self.Km + dissolved_S + eps))
+                      S/(self.Km + S + EPS))
 
         MM_factor = np.prod(MM)
         
@@ -153,7 +167,7 @@ class Pathway():
 
         if self.use_inhib:
             inhib = 1 - np.where(np.isinf(self.inhibition), 0, 
-                                 dissolved_S/(self.inhibition + dissolved_S + eps))
+                                 S/(self.inhibition + S + EPS))
             inhib_factor = np.prod(inhib)
             v *= inhib_factor
             self.log('inhib', t, inhib_factor)

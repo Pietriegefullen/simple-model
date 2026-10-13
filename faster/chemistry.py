@@ -4,17 +4,17 @@ import numpy as np
 import CONSTANTS
 
 
-HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*10e-4,
+HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*1e-4,
                          'H_cp_temp':    2400                  },
 
-               'CH4' : {'H_cp_Standard': 1.4*10e-5,
+               'CH4' : {'H_cp_Standard': 1.4*1e-5,
                             'H_cp_temp':    1700                },
 
-               'H2' : {'H_cp_Standard': 7.7*10e-6,
+               'H2' : {'H_cp_Standard': 7.7*1e-6,
                          'H_cp_temp':    500              },
                
-               'H2O': {'H_cp_Standard': 0, # bewirkt, dass dissolved system state immer Null für H2O -> kein Beitrag zu logQ
-                         'H_cp_temp':   0              }
+               #'H2O': {'H_cp_Standard': 0, 
+               #          'H_cp_temp':   0              }
                }
 
 GIBBS_FORMATION = {'Acetate' :  -369.46*1e3,    # Tabellenwerte üblicherweise in kJ /mol, hier J/mol
@@ -41,12 +41,12 @@ def henrys_law(substance):
     if not substance in HENRYS_DICT:
         return 1.0
 
-    T = CONSTANTS.SPECIMEN_TEMPERATURE# + 273.15
+    R = CONSTANTS.GAS_CONSTANT
+    T = CONSTANTS.SPECIMEN_TEMPERATURE
+    T_std = CONSTANTS.STANDARD_TEMPERATURE
 
-    H_cp_temp = HENRYS_DICT[substance]['H_cp_temp']
+    C_cp = HENRYS_DICT[substance]['H_cp_temp']
     H_cp_Standard = HENRYS_DICT[substance]['H_cp_Standard']
 
-    H_cp_temp_adjusted = H_cp_temp - T # Standard Temp Wert - actual Temp
-    H_cc = H_cp_Standard *  np.exp(H_cp_temp_adjusted * (1/T - 1/CONSTANTS.STANDARD_TEMPERATURE))
-
-    return H_cc/(H_cc+1)
+    H_cc = H_cp_Standard * R * T *  np.exp(C_cp * (1/T - 1/T_std))
+    return H_cc

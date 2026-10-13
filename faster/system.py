@@ -19,17 +19,17 @@ SYSTEM = [
             'H2O',
             ]
 
+
 def index(name):
     return SYSTEM.index(str(name))
 
-def henrys_law():
+def dimensionless_henry_solubility():
     henrys_values = []
     for pool in SYSTEM:
         value = chemistry.henrys_law(pool)
-   
         henrys_values.append(value)
-    henrys_law_vector = np.reshape(henrys_values, (-1,))
-    return henrys_law_vector
+    h_cc_vector = np.reshape(henrys_values, (-1,))
+    return h_cc_vector
 
 def vector(full, pool = None, value = None):
     _vector = np.full((len(SYSTEM), ), float(full))
@@ -87,4 +87,6 @@ def initial_state(replica, model_parameters, initial_mean_days = 0):
             initial_mean = np.mean(replica.CH4()[1][:d])
         S0[index('CH4')] = initial_mean
         
-    return S0
+    return S0 
+
+HCC_s = dimensionless_henry_solubility()

@@ -12,6 +12,9 @@ MODEL_ID_TO_VARIANT = {
     'EM33': 'B',
     '3NWE': 'B',         # equivalent to B
     'DXOO': 'C',
+
+    # model version 0.2
+    'ZCJ4': 'A',
 }
 
 

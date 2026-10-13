@@ -127,10 +127,12 @@ def _load_raw_incubation(source_directory):
             previous_day = None
             # extract replica constants (weight wet sample)
             dry_weight = row['dry weight (g)']
+            total_gas_volume = row['Volume  gasspace']
             water_content = row['Water content (ml)']
             samples[current_sample] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
+                                       'total_gas_volume': total_gas_volume,
                                        'water content': water_content}
             continue
         
@@ -196,15 +198,18 @@ def _load_raw_ergaenzung(source_directory):
             previous_day = None
             # extract replica constants (weight wet sample)
             dry_weight = row['dry weight (g)']
+            total_gas_volume = row['Volume  gasspace']
             water_content = row['Water content (ml)']
             
             if str(dry_weight) == 'nan' and str(water_content) == 'nan':
                 dry_weight = raw_ergaenzung.loc[i+1,:]['dry weight (g)']
                 water_content = raw_ergaenzung.loc[i+1,:]['Water content (ml)']
-            
+                total_gas_volume = raw_ergaenzung.loc[i+1,:]['Volume  gasspace']
+
             samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
+                                       'total_gas_volume': total_gas_volume,
                                        'water content': water_content}
             continue
         
@@ -277,23 +282,25 @@ def _load_bhz(source_directory):
                                                'origin': row['Soil_layer'].lower()}
     samples = {}
     for i, row in raw_bhz.iterrows():
-        sample_name = str(int(str(row['Sample'])[-4:]) +100*int(row['ID'])+3000)
+        sample_name = str(int(str(row['Sample'])[-4:]) + int(100*row['ID']+3000))
 
-        current_replica = sample_name + str(row['replica'])
+        current_replica = sample_name + str(int(row['replica']))
         
         if not current_replica in samples:
             # extract replica constants (weight wet sample)
             dry_weight = row['Total soil (wet)']/(row['Moisture'] + 1)
+            total_gas_volume = np.nan
             water_content = row['Moisture']*dry_weight/CONSTANTS.DENSITY_WATER_4_DEGC*1000# ml
             samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
+                                       'total_gas_volume': total_gas_volume,
                                        'water content': water_content}
 
         samples[current_replica]['days'].append(row['day'])
         samples[current_replica]['CO2'].append(row['CO2'])
         samples[current_replica]['CH4'].append(row['CH4'])
-    
+   
     for replica_name, v in samples.items():
         sample_name = replica_name[:-1]
         samples[replica_name].update(metadata_dict[sample_name])

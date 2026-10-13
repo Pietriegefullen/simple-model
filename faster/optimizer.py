@@ -2,6 +2,7 @@ import os
 import json
 import traceback
 import multiprocessing
+import warnings
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
@@ -396,6 +397,17 @@ class Addable():
         callback.set_objective(self)
         self._callbacks.append(callback)
 
+    def set_parameters(self, parameters, values, transformed = False):
+        """Delegate parameter updates through a combined objective tree.
+
+        A split fit is represented by ``Addable`` rather than an ``Objective``.
+        InitialSampling selects its final candidate through this method, so the
+        aggregate needs the same parameter-setting interface as a leaf.
+        """
+        if self._left is None:
+            raise AttributeError('objective has no parameter receiver')
+        self._left.set_parameters(parameters, values, transformed)
+
     def __str__(self):
         return ' + '.join([str(s) for s in [self._left, self._right]
                           if not s is None])
@@ -442,7 +454,6 @@ class Objective(Addable):
             weighted_total_mse += loss_weight*np.nanmean(s_total)
         return weighted_model_mse, weighted_total_mse
 
-
     def set_parameters(self, parameters, values, transformed = False):
         if transformed:
             values = [var.inverse_transform(p) 
@@ -478,6 +489,7 @@ class Objective(Addable):
             except Exception as ex:
                 ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
                 raise 
+
             replica_loss += loss_weight*loss_value
 
         # ``predict`` reuses the model's mutable run log.  Retain the derived
@@ -521,10 +533,31 @@ class Objective(Addable):
 
 class Algorithm(ABC):
     def __init__(self, **default_kwargs):
-        self._kwargs = default_kwargs
+        self._kwargs = dict(default_kwargs)
+        self._valid_kwargs = frozenset(default_kwargs)
 
     def configure(self, kwargs):
-        self._kwargs.update(kwargs)
+        """Apply supported algorithm settings and warn about ignored keys.
+
+        Callers commonly retain descriptive metadata alongside an algorithm
+        configuration (for example, a staged-fit ``name``).  Passing that
+        metadata through to SciPy produces an unhelpful ``unexpected keyword``
+        error.  Each algorithm declares its supported settings through the
+        defaults supplied to this base class, so only those keys are accepted.
+        """
+        if not isinstance(kwargs, dict):
+            raise TypeError('Algorithm configuration must be a dictionary.')
+
+        unused = sorted(set(kwargs) - self._valid_kwargs)
+        if unused:
+            warnings.warn(
+                f'{self.__class__.__name__} ignored unsupported '
+                f'configuration key(s): {", ".join(unused)}',
+                RuntimeWarning, stacklevel=2)
+        self._kwargs.update({
+            key: value for key, value in kwargs.items()
+            if key in self._valid_kwargs
+        })
     
     def get_bounds(self, variables):
         lower_bounds = np.reshape([v.transform(v.lower()) for v in variables], (-1,))
@@ -542,10 +575,14 @@ class Algorithm(ABC):
         print()
         print('Objective = ' + str(objective))
         print()
+        print('Callbacks:')
         for cb in objective._callbacks:
-            print()
-        print('\n'.join(set([os.path.join(*cb.target_directory().split(os.sep)[-2:])
-                        for cb in objective._callbacks])))
+            pth = cb.target_directory()
+            if not pth is None:
+                print('\n'.join(set([os.path.join(*pth.split(os.sep)[-2:])
+                                for cb in objective._callbacks])))
+            else:
+                print(cb.__class__.__name__)
         
         print()
         if len(objective.model().parameters().variables()) == 0:
@@ -569,7 +606,11 @@ class DifferentialEvolution(Algorithm):
                         'init': 'sobol',
                         'polish': False,
                         'recombination': .7, # CR
-                        'mutation': (.5,1.)  # F
+                        'mutation': (.5,1.), # F
+                        # SciPy has no per-evaluation budget.  The generation
+                        # callback below honours this cap after each completed
+                        # generation, which keeps staged restarts bounded.
+                        'max_evaluations': None,
                         }
         super().__init__(**defaults)
         self.generation = 0
@@ -578,6 +619,11 @@ class DifferentialEvolution(Algorithm):
         self.generation = 1
         self._objective = objective
         self._shared_generation = None
+        self._max_evaluations = self._kwargs.get('max_evaluations')
+        if self._max_evaluations is not None:
+            if (not isinstance(self._max_evaluations, (int, np.integer))
+                    or self._max_evaluations <= 0):
+                raise ValueError('max_evaluations must be a positive integer or None')
         variables = objective.model().parameters().variables()
         manager = None
         if self._kwargs['workers'] != 1:
@@ -592,13 +638,18 @@ class DifferentialEvolution(Algorithm):
             objective.set_generation(self.generation)
 
         try:
+            # ``max_evaluations`` is a repository-level control, not a SciPy
+            # differential_evolution keyword.
+            scipy_kwargs = dict(self._kwargs)
+            del scipy_kwargs['max_evaluations']
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = self.get_bounds(variables),
                                                       callback = self.generation_counter,
-                                                      **self._kwargs
+                                                      **scipy_kwargs
                                                       )
-        except KeyboardInterrupt:
-            return
+        #except KeyboardInterrupt:
+        #    return
+
         finally:
             if manager is not None:
                 objective.finalize_global_call_counter()
@@ -610,7 +661,8 @@ class DifferentialEvolution(Algorithm):
             self._objective.set_generation(self.generation)
         else:
             self._shared_generation.value = self.generation
-        return False
+        return (self._max_evaluations is not None
+                and self._objective.call_count() >= self._max_evaluations)
 
 
 class InitialSampling(Algorithm):

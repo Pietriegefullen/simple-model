@@ -97,6 +97,20 @@ class PrintCallback(Callback):
               f'loss value {loss_value:8.3g}, '
               f'best loss: {best_loss:8.3g}, best R2 = {r2_text}', end = '')
 
+
+class CallLimitInterrupt(Exception):
+    pass
+
+class Interrupt(Callback):
+    def __init__(self, call_limit):
+        super().__init__(None)
+        self.call_limit = call_limit
+
+    def __call__(self):
+        if self.objective.call_count() > self.call_limit:
+            raise CallLimitInterrupt('Call limit')
+
+
 class CheckpointCallback(Callback):
     def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
                  target = None, overwrite_existing = False):

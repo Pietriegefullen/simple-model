@@ -6,6 +6,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 12.803648802736603,
+                    "total_gas_volume": 106.86879513492968,
                     "water_content": 4.796351197263398,
                     "temperature": 277.15,
                     "events": {
@@ -229,6 +230,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 12.432633979475485,
+                    "total_gas_volume": 107.1623698213607,
                     "water_content": 4.657366020524515,
                     "temperature": 277.15,
                     "events": {
@@ -453,6 +455,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 10.242919042189282,
+                    "total_gas_volume": 108.89503610794375,
                     "water_content": 3.8370809578107186,
                     "temperature": 277.15,
                     "events": {
@@ -687,6 +690,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 7.258716,
+                    "total_gas_volume": 101.674251,
                     "water_content": 12.301283999999999,
                     "temperature": 277.15,
                     "events": {
@@ -882,6 +886,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 7.255004999999999,
+                    "total_gas_volume": 101.68208625,
                     "water_content": 12.294995000000002,
                     "temperature": 277.15,
                     "events": {
@@ -1087,6 +1092,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 9.8906,
+                    "total_gas_volume": 105.76951666666666,
                     "water_content": 7.109400000000001,
                     "temperature": 277.15,
                     "events": {
@@ -1306,6 +1312,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 10.146592000000002,
+                    "total_gas_volume": 105.47884533333334,
                     "water_content": 7.293408,
                     "temperature": 277.15,
                     "events": {
@@ -1535,6 +1542,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.28,
+                    "total_gas_volume": 13.803075,
                     "water_content": 45.25,
                     "temperature": 277.15,
                     "events": {
@@ -1677,6 +1685,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 19.72,
+                    "total_gas_volume": 13.421924999999998,
                     "water_content": 45.25,
                     "temperature": 277.15,
                     "events": {
@@ -1828,6 +1837,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 19.28,
+                    "total_gas_volume": 11.185774,
                     "water_content": 28.03,
                     "temperature": 277.15,
                     "events": {
@@ -1970,6 +1980,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.57,
+                    "total_gas_volume": 11.35402475,
                     "water_content": 28.03,
                     "temperature": 277.15,
                     "events": {
@@ -2122,6 +2133,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.01,
+                    "total_gas_volume": 12.708851250000002,
                     "water_content": 37.45,
                     "temperature": 277.15,
                     "events": {
@@ -2300,6 +2312,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 20.07,
+                    "total_gas_volume": 12.746958750000001,
                     "water_content": 37.45,
                     "temperature": 277.15,
                     "events": {
@@ -2475,6 +2488,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.01,
+                    "total_gas_volume": 12.708851250000002,
                     "water_content": 37.45,
                     "temperature": 277.15,
                     "events": {
@@ -2534,6 +2548,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 20.07,
+                    "total_gas_volume": 12.746958750000001,
                     "water_content": 37.45,
                     "temperature": 277.15,
                     "events": {
@@ -2592,6 +2607,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.15,
+                    "total_gas_volume": 11.400792916666667,
                     "water_content": 30.63,
                     "temperature": 277.15,
                     "events": {
@@ -2733,6 +2749,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 19.68,
+                    "total_gas_volume": 11.716324,
                     "water_content": 30.63,
                     "temperature": 277.15,
                     "events": {
@@ -2884,6 +2901,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 11.24,
+                    "total_gas_volume": 6.342170000000001,
                     "water_content": 25.3,
                     "temperature": 277.15,
                     "events": {
@@ -3076,6 +3094,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 11.16,
+                    "total_gas_volume": 6.29703,
                     "water_content": 25.3,
                     "temperature": 277.15,
                     "events": {
@@ -3263,6 +3282,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 11.24,
+                    "total_gas_volume": 6.342170000000001,
                     "water_content": 25.3,
                     "temperature": 277.15,
                     "events": {
@@ -3338,6 +3358,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 11.16,
+                    "total_gas_volume": 6.29703,
                     "water_content": 25.3,
                     "temperature": 277.15,
                     "events": {
@@ -3408,6 +3429,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.08,
+                    "total_gas_volume": 11.046677333333331,
                     "water_content": 22.88,
                     "temperature": 277.15,
                     "events": {
@@ -3585,6 +3607,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.86,
+                    "total_gas_volume": 10.925647999999999,
                     "water_content": 22.88,
                     "temperature": 277.15,
                     "events": {
@@ -3772,6 +3795,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.08,
+                    "total_gas_volume": 11.046677333333331,
                     "water_content": 22.88,
                     "temperature": 277.15,
                     "events": {
@@ -3832,6 +3856,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.86,
+                    "total_gas_volume": 10.925647999999999,
                     "water_content": 22.88,
                     "temperature": 277.15,
                     "events": {
@@ -3902,6 +3927,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20,
+                    "total_gas_volume": 11.747,
                     "water_content": 29.26,
                     "temperature": 277.15,
                     "events": {
@@ -4088,6 +4114,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20,
+                    "total_gas_volume": 11.747,
                     "water_content": 29.26,
                     "temperature": 277.15,
                     "events": {
@@ -4157,6 +4184,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 18.26,
+                    "total_gas_volume": 12.644441333333335,
                     "water_content": 47.28,
                     "temperature": 277.15,
                     "events": {
@@ -4298,6 +4326,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 15.6,
+                    "total_gas_volume": 10.80248,
                     "water_content": 47.28,
                     "temperature": 277.15,
                     "events": {
@@ -4462,6 +4491,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 19.63,
+                    "total_gas_volume": 11.712893833333332,
                     "water_content": 30.86,
                     "temperature": 277.15,
                     "events": {
@@ -4639,6 +4669,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 19.68,
+                    "total_gas_volume": 11.742728,
                     "water_content": 30.86,
                     "temperature": 277.15,
                     "events": {
@@ -4832,6 +4863,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 19.68,
+                    "total_gas_volume": 11.742728,
                     "water_content": 30.86,
                     "temperature": 277.15,
                     "events": {
@@ -4904,6 +4936,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 20.05,
+                    "total_gas_volume": 13.40978494623656,
                     "water_content": 43.225806451612904,
                     "temperature": 277.15,
                     "events": {
@@ -5081,6 +5114,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.43,
+                    "total_gas_volume": 12.995118279569894,
                     "water_content": 43.225806451612904,
                     "temperature": 277.15,
                     "events": {
@@ -5232,6 +5266,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 18.92,
+                    "total_gas_volume": 9.951604666666668,
                     "water_content": 18.74,
                     "temperature": 277.15,
                     "events": {
@@ -5422,6 +5457,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 18.52,
+                    "total_gas_volume": 9.741211333333332,
                     "water_content": 18.74,
                     "temperature": 277.15,
                     "events": {
@@ -5611,6 +5647,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 18.52,
+                    "total_gas_volume": 9.741211333333332,
                     "water_content": 18.74,
                     "temperature": 277.15,
                     "events": {
@@ -5683,6 +5720,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 19.78,
+                    "total_gas_volume": 14.075721710974781,
                     "water_content": 50.56237218813906,
                     "temperature": 277.15,
                     "events": {
@@ -5825,6 +5863,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 19.65,
+                    "total_gas_volume": 13.983211912065439,
                     "water_content": 50.56237218813906,
                     "temperature": 277.15,
                     "events": {
@@ -5967,6 +6006,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 21.5,
+                    "total_gas_volume": 15.299697511929105,
                     "water_content": 50.56237218813906,
                     "temperature": 277.15,
                     "events": {
@@ -6119,6 +6159,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 20.35,
+                    "total_gas_volume": 13.635856666666667,
                     "water_content": 43.44,
                     "temperature": 277.15,
                     "events": {
@@ -6260,6 +6301,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 19.18,
+                    "total_gas_volume": 12.851878666666668,
                     "water_content": 43.44,
                     "temperature": 277.15,
                     "events": {
@@ -6411,6 +6453,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 13.564684,
+                    "total_gas_volume": 104.64273233333333,
                     "water_content": 6.705315999999999,
                     "temperature": 277.15,
                     "events": {
@@ -6635,6 +6678,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 12.634495999999999,
+                    "total_gas_volume": 105.49012266666666,
                     "water_content": 6.2455039999999995,
                     "temperature": 277.15,
                     "events": {
@@ -6859,6 +6903,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 12.995864000000001,
+                    "total_gas_volume": 105.16092066666667,
                     "water_content": 6.424136,
                     "temperature": 277.15,
                     "events": {
@@ -7093,6 +7138,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 19.58,
+                    "total_gas_volume": 13.260311780190852,
                     "water_content": 44.669299111549854,
                     "temperature": 277.15,
                     "events": {
@@ -7241,6 +7287,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 22.34,
+                    "total_gas_volume": 15.129487495886806,
                     "water_content": 44.669299111549854,
                     "temperature": 277.15,
                     "events": {
@@ -7386,6 +7433,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 20.17,
+                    "total_gas_volume": 13.659881951299772,
                     "water_content": 44.669299111549854,
                     "temperature": 277.15,
                     "events": {
@@ -7544,6 +7592,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 12.171384,
+                    "total_gas_volume": 104.659974,
                     "water_content": 7.268616000000001,
                     "temperature": 277.15,
                     "events": {
@@ -7777,6 +7826,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 12.196428000000001,
+                    "total_gas_volume": 104.63458299999999,
                     "water_content": 7.283572,
                     "temperature": 277.15,
                     "events": {
@@ -8013,6 +8063,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 12.309126,
+                    "total_gas_volume": 104.5203235,
                     "water_content": 7.350874,
                     "temperature": 277.15,
                     "events": {
@@ -8253,6 +8304,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 13.499275,
+                    "total_gas_volume": 105.32457708333334,
                     "water_content": 6.050725,
                     "temperature": 277.15,
                     "events": {
@@ -8489,6 +8541,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 13.78238,
+                    "total_gas_volume": 105.07972166666667,
                     "water_content": 6.177620000000001,
                     "temperature": 277.15,
                     "events": {
@@ -8724,6 +8777,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 14.155249999999999,
+                    "total_gas_volume": 104.75722916666666,
                     "water_content": 6.34475,
                     "temperature": 277.15,
                     "events": {
@@ -8967,6 +9021,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 17.791904000000002,
+                    "total_gas_volume": 104.86861066666667,
                     "water_content": 4.718096,
                     "temperature": 277.15,
                     "events": {
@@ -9197,6 +9252,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 17.570592,
+                    "total_gas_volume": 105.01951199999999,
                     "water_content": 4.659408,
                     "temperature": 277.15,
                     "events": {
@@ -9427,6 +9483,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 17.957887999999997,
+                    "total_gas_volume": 104.75543466666667,
                     "water_content": 4.762112,
                     "temperature": 277.15,
                     "events": {
@@ -9667,6 +9724,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 14.429163,
+                    "total_gas_volume": 104.20701174999999,
                     "water_content": 6.780837,
                     "temperature": 277.15,
                     "events": {
@@ -9897,6 +9955,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 13.660423999999999,
+                    "total_gas_volume": 104.88858066666667,
                     "water_content": 6.419575999999999,
                     "temperature": 277.15,
                     "events": {
@@ -10130,6 +10189,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 14.592435,
+                    "total_gas_volume": 104.06225375,
                     "water_content": 6.857564999999999,
                     "temperature": 277.15,
                     "events": {
@@ -10371,6 +10431,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 8.109405999999998,
+                    "total_gas_volume": 99.04048683333333,
                     "water_content": 14.580594000000001,
                     "temperature": 277.15,
                     "events": {
@@ -10601,6 +10662,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 7.058649999999998,
+                    "total_gas_volume": 101.36754583333334,
                     "water_content": 12.69135,
                     "temperature": 277.15,
                     "events": {
@@ -10834,6 +10896,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 7.147999999999998,
+                    "total_gas_volume": 101.16966666666667,
                     "water_content": 12.852,
                     "temperature": 277.15,
                     "events": {
@@ -11077,6 +11140,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 9.470304,
+                    "total_gas_volume": 102.184344,
                     "water_content": 10.869696,
                     "temperature": 277.15,
                     "events": {
@@ -11307,6 +11371,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 9.786912000000001,
+                    "total_gas_volume": 101.689032,
                     "water_content": 11.233088,
                     "temperature": 277.15,
                     "events": {
@@ -11537,6 +11602,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 10.63896,
+                    "total_gas_volume": 100.35606,
                     "water_content": 12.21104,
                     "temperature": 277.15,
                     "events": {
@@ -11777,6 +11843,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 23.25,
+                    "total_gas_volume": 16.997687499999998,
                     "water_content": 53.9,
                     "temperature": 277.15,
                     "events": {
@@ -11924,6 +11991,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 20.63,
+                    "total_gas_volume": 15.082249166666667,
                     "water_content": 53.9,
                     "temperature": 277.15,
                     "events": {
@@ -12071,6 +12139,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 22.79,
+                    "total_gas_volume": 16.661389166666666,
                     "water_content": 53.9,
                     "temperature": 277.15,
                     "events": {
@@ -12228,6 +12297,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 9.360312,
+                    "total_gas_volume": 102.700182,
                     "water_content": 10.399688000000001,
                     "temperature": 277.15,
                     "events": {
@@ -12461,6 +12531,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 9.867170999999999,
+                    "total_gas_volume": 101.92584975,
                     "water_content": 10.962829,
                     "temperature": 277.15,
                     "events": {
@@ -12692,6 +12763,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 9.781904999999998,
+                    "total_gas_volume": 102.05611125,
                     "water_content": 10.868095,
                     "temperature": 277.15,
                     "events": {
@@ -12932,6 +13004,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 8.210517,
+                    "total_gas_volume": 101.31946825,
                     "water_content": 12.259483,
                     "temperature": 277.15,
                     "events": {
@@ -13165,6 +13238,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 9.141069,
+                    "total_gas_volume": 99.54229025000001,
                     "water_content": 13.648931,
                     "temperature": 277.15,
                     "events": {
@@ -13398,6 +13472,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 8.635683,
+                    "total_gas_volume": 100.50748175,
                     "water_content": 12.894317000000001,
                     "temperature": 277.15,
                     "events": {
@@ -13641,6 +13716,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 17.04,
+                    "total_gas_volume": 11.881139999999998,
                     "water_content": 48.1,
                     "temperature": 277.15,
                     "events": {
@@ -13786,6 +13862,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 17.3,
+                    "total_gas_volume": 12.062425000000001,
                     "water_content": 48.1,
                     "temperature": 277.15,
                     "events": {
@@ -13944,6 +14021,7 @@
                 {
                     "replica_number": "4",
                     "dry_weight": 22.81,
+                    "total_gas_volume": 11.132800666666665,
                     "water_content": 12.24,
                     "temperature": 277.15,
                     "events": {
@@ -14091,6 +14169,7 @@
                 {
                     "replica_number": "5",
                     "dry_weight": 20.47,
+                    "total_gas_volume": 9.990724666666667,
                     "water_content": 12.24,
                     "temperature": 277.15,
                     "events": {
@@ -14235,6 +14314,7 @@
                 {
                     "replica_number": "6",
                     "dry_weight": 20.24,
+                    "total_gas_volume": 9.878469333333333,
                     "water_content": 12.24,
                     "temperature": 277.15,
                     "events": {
@@ -14403,118 +14483,7 @@
         },
         {
             "sample_name": "3105",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 3.2119914346895078,
-                    "water_content": 11.788362216176978,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            15.0,
-                            20.0,
-                            25.0,
-                            29.0,
-                            36.0,
-                            42.0,
-                            49.0,
-                            55.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            8.39,
-                            16.0,
-                            20.7,
-                            31.7,
-                            50.9,
-                            55.6,
-                            59.8,
-                            63.9,
-                            98.4,
-                            91.5,
-                            109.0,
-                            133.0
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0634,
-                            0.0984,
-                            0.143,
-                            0.548,
-                            0.818,
-                            0.821,
-                            1.01,
-                            0.587,
-                            0.602,
-                            0.756,
-                            0.777
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 3.2119914346895078,
-                    "water_content": 11.788362216176978,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            15.0,
-                            20.0,
-                            25.0,
-                            29.0,
-                            36.0,
-                            42.0,
-                            49.0,
-                            55.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            8.57,
-                            17.8,
-                            22.9,
-                            34.7,
-                            57.5,
-                            62.7,
-                            68.2,
-                            72.8,
-                            104.0,
-                            114.0,
-                            117.0,
-                            131.0
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0394,
-                            0.0909,
-                            0.129,
-                            0.585,
-                            0.908,
-                            1.05,
-                            1.28,
-                            0.798,
-                            0.84,
-                            0.91,
-                            0.834
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "organic",
             "depth": null,
@@ -14523,173 +14492,7 @@
         },
         {
             "sample_name": "3205",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 8.620689655172415,
-                    "water_content": 6.3795017298794825,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            15.0,
-                            20.0,
-                            25.0,
-                            29.0,
-                            36.0,
-                            42.0,
-                            49.0,
-                            55.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            1.7,
-                            1.99,
-                            2.21,
-                            2.96,
-                            3.85,
-                            4.49,
-                            4.14,
-                            4.96,
-                            6.46,
-                            6.94,
-                            6.68,
-                            8.14
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0635,
-                            0.126,
-                            0.153,
-                            0.258,
-                            0.776,
-                            1.43,
-                            1.47,
-                            2.49,
-                            1.43,
-                            1.83,
-                            1.73,
-                            1.84
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 8.620689655172415,
-                    "water_content": 6.3795017298794825,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            15.0,
-                            20.0,
-                            25.0,
-                            29.0,
-                            36.0,
-                            42.0,
-                            49.0,
-                            55.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            1.09,
-                            1.34,
-                            1.55,
-                            2.13,
-                            2.85,
-                            3.42,
-                            2.87,
-                            3.85,
-                            4.88,
-                            5.5,
-                            5.19,
-                            6.95
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0535,
-                            0.0941,
-                            0.12,
-                            0.2,
-                            0.623,
-                            1.12,
-                            1.18,
-                            1.98,
-                            1.14,
-                            1.48,
-                            1.39,
-                            1.46
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "3",
-                    "dry_weight": 8.620689655172415,
-                    "water_content": 6.3795017298794825,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            15.0,
-                            20.0,
-                            25.0,
-                            29.0,
-                            36.0,
-                            42.0,
-                            49.0,
-                            55.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            0.315,
-                            1.74,
-                            2.12,
-                            2.91,
-                            4.12,
-                            4.89,
-                            4.56,
-                            5.69,
-                            7.62,
-                            8.09,
-                            7.98,
-                            10.3
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0471,
-                            0.0939,
-                            0.125,
-                            0.21,
-                            0.72,
-                            1.32,
-                            1.32,
-                            2.23,
-                            1.31,
-                            1.68,
-                            1.58,
-                            1.69
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "mineral",
             "depth": null,
@@ -14698,173 +14501,7 @@
         },
         {
             "sample_name": "3109",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 4.310344827586207,
-                    "water_content": 10.689975871689944,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            10.4,
-                            27.0,
-                            27.3,
-                            29.3,
-                            43.2,
-                            53.3,
-                            54.6,
-                            58.3,
-                            76.6,
-                            78.6,
-                            73.9,
-                            96.8
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.707,
-                            0.958,
-                            1.68,
-                            2.55,
-                            2.11,
-                            1.99,
-                            2.86,
-                            3.94,
-                            4.06,
-                            4.68
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 4.310344827586207,
-                    "water_content": 10.689975871689944,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            7.89,
-                            26.9,
-                            28.6,
-                            29.2,
-                            47.1,
-                            55.2,
-                            54.8,
-                            61.8,
-                            80.8,
-                            82.5,
-                            77.9,
-                            95.8
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.19,
-                            0.374,
-                            0.303,
-                            0.996,
-                            0.701,
-                            0.73,
-                            1.26,
-                            1.8,
-                            1.86,
-                            1.95
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "3",
-                    "dry_weight": 4.310344827586207,
-                    "water_content": 10.689975871689944,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            7.08,
-                            23.2,
-                            24.6,
-                            22.0,
-                            45.4,
-                            47.7,
-                            50.5,
-                            52.5,
-                            68.6,
-                            69.8,
-                            65.8,
-                            83.9
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.112,
-                            0.303,
-                            0.228,
-                            0.874,
-                            0.649,
-                            0.642,
-                            1.2,
-                            1.73,
-                            1.8,
-                            1.89
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "organic",
             "depth": null,
@@ -14873,182 +14510,7 @@
         },
         {
             "sample_name": "3209",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 8.379888268156424,
-                    "water_content": 6.62031034115381,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            2.61,
-                            3.68,
-                            3.78,
-                            3.63,
-                            4.93,
-                            7.5,
-                            8.38,
-                            7.96,
-                            8.58,
-                            11.4,
-                            12.1,
-                            9.59,
-                            14.8
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.0551,
-                            0.213,
-                            0.322,
-                            0.486,
-                            0.733,
-                            0.523,
-                            0.441,
-                            0.677,
-                            0.902,
-                            0.759,
-                            0.991
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 8.379888268156424,
-                    "water_content": 6.62031034115381,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            1.85,
-                            2.74,
-                            3.02,
-                            3.0,
-                            4.2,
-                            5.86,
-                            6.98,
-                            6.72,
-                            7.7,
-                            10.8,
-                            11.3,
-                            10.9,
-                            15.1
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.0311,
-                            0.184,
-                            0.287,
-                            0.235,
-                            0.498,
-                            0.309,
-                            0.267,
-                            0.457,
-                            0.62,
-                            0.617,
-                            0.647
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "3",
-                    "dry_weight": 8.379888268156424,
-                    "water_content": 6.62031034115381,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            1.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            17.0,
-                            21.0,
-                            26.0,
-                            30.0,
-                            37.0,
-                            44.0,
-                            51.0,
-                            57.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            1.61,
-                            2.5,
-                            2.71,
-                            2.86,
-                            4.02,
-                            6.53,
-                            6.48,
-                            6.22,
-                            8.25,
-                            8.86,
-                            10.2,
-                            9.9,
-                            13.4
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.0,
-                            0.00948,
-                            0.153,
-                            0.259,
-                            0.297,
-                            0.452,
-                            0.275,
-                            0.207,
-                            0.398,
-                            0.559,
-                            0.555,
-                            0.6
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "mineral",
             "depth": null,
@@ -15057,200 +14519,7 @@
         },
         {
             "sample_name": "3117",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 1.4124293785310735,
-                    "water_content": 13.58797826081675,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            29.2,
-                            39.5,
-                            84.8,
-                            141.0,
-                            167.0,
-                            167.0,
-                            170.0,
-                            175.0,
-                            178.0,
-                            170.0,
-                            174.0,
-                            242.0,
-                            246.0,
-                            231.0,
-                            292.0
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.957,
-                            1.84,
-                            4.1,
-                            14.7,
-                            20.0,
-                            22.6,
-                            23.9,
-                            42.5,
-                            45.9,
-                            46.1,
-                            46.6,
-                            48.7,
-                            61.0,
-                            61.4,
-                            58.1
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 1.4124293785310735,
-                    "water_content": 13.58797826081675,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            29.0,
-                            39.8,
-                            75.1,
-                            158.0,
-                            183.0,
-                            192.0,
-                            193.0,
-                            193.0,
-                            200.0,
-                            198.0,
-                            200.0,
-                            258.0,
-                            264.0,
-                            246.0,
-                            311.0
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.859,
-                            1.64,
-                            2.87,
-                            13.9,
-                            20.4,
-                            22.8,
-                            23.9,
-                            43.9,
-                            50.0,
-                            50.2,
-                            52.1,
-                            54.9,
-                            63.0,
-                            64.8,
-                            58.3
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "3",
-                    "dry_weight": 1.4124293785310735,
-                    "water_content": 13.58797826081675,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            20.5,
-                            28.2,
-                            62.1,
-                            136.0,
-                            153.0,
-                            157.0,
-                            162.0,
-                            162.0,
-                            163.0,
-                            163.0,
-                            163.0,
-                            217.0,
-                            219.0,
-                            208.0,
-                            261.0
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.834,
-                            1.43,
-                            2.26,
-                            6.47,
-                            10.0,
-                            13.0,
-                            14.7,
-                            28.1,
-                            31.8,
-                            32.3,
-                            33.2,
-                            33.8,
-                            39.9,
-                            41.0,
-                            39.1
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "organic",
             "depth": null,
@@ -15259,200 +14528,7 @@
         },
         {
             "sample_name": "3217",
-            "replicas": [
-                {
-                    "replica_number": "1",
-                    "dry_weight": 9.146341463414634,
-                    "water_content": 5.853834151609913,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            2.37,
-                            2.09,
-                            2.85,
-                            3.73,
-                            4.41,
-                            4.58,
-                            4.92,
-                            6.14,
-                            7.95,
-                            8.18,
-                            8.68,
-                            11.6,
-                            12.5,
-                            11.9,
-                            15.8
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0,
-                            0.114,
-                            0.133,
-                            0.153,
-                            0.161,
-                            0.196,
-                            0.205,
-                            0.352,
-                            0.464,
-                            0.485,
-                            0.52,
-                            0.472,
-                            0.571,
-                            0.603,
-                            0.7
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "2",
-                    "dry_weight": 9.146341463414634,
-                    "water_content": 5.853834151609913,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            1.76,
-                            2.01,
-                            2.21,
-                            4.26,
-                            4.67,
-                            5.22,
-                            6.29,
-                            7.38,
-                            8.07,
-                            8.01,
-                            8.74,
-                            11.5,
-                            12.4,
-                            12.4,
-                            15.3
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.0961,
-                            0.116,
-                            0.133,
-                            0.134,
-                            0.179,
-                            0.19,
-                            0.212,
-                            0.336,
-                            0.394,
-                            0.42,
-                            0.452,
-                            0.421,
-                            0.492,
-                            0.507,
-                            0.507
-                        ]
-                    },
-                    "last_day": null
-                },
-                {
-                    "replica_number": "3",
-                    "dry_weight": 9.146341463414634,
-                    "water_content": 5.853834151609913,
-                    "temperature": 277.15,
-                    "events": {},
-                    "incubation": {
-                        "days": [
-                            0.0,
-                            2.0,
-                            3.0,
-                            5.0,
-                            7.0,
-                            9.0,
-                            11.0,
-                            13.0,
-                            21.0,
-                            26.0,
-                            31.0,
-                            35.0,
-                            42.0,
-                            49.0,
-                            56.0,
-                            62.0
-                        ],
-                        "CO2": [
-                            -9999.0,
-                            5.27,
-                            4.0,
-                            6.33,
-                            8.06,
-                            8.59,
-                            9.1,
-                            10.4,
-                            11.3,
-                            12.3,
-                            12.1,
-                            12.4,
-                            17.0,
-                            17.4,
-                            16.3,
-                            20.9
-                        ],
-                        "CH4": [
-                            -9999.0,
-                            0.129,
-                            0.142,
-                            0.143,
-                            0.128,
-                            0.141,
-                            0.185,
-                            0.241,
-                            0.241,
-                            0.323,
-                            0.357,
-                            0.421,
-                            0.394,
-                            0.408,
-                            0.425,
-                            0.466
-                        ]
-                    },
-                    "last_day": null
-                }
-            ],
+            "replicas": [],
             "site": "bhz",
             "origin": "mineral",
             "depth": null,
