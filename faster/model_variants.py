@@ -15,6 +15,9 @@ MODEL_ID_TO_VARIANT = {
 
     # model version 0.2
     'ZCJ4': 'A',
+    'LDHK': 'B',
+    '6V72': 'E', # carbon use efficiency constant at 0.5 for all pathways.
+    'O26L': 'F', # like E CUE = 0.5 for all AND all _v_max = 1.0
 }
 
 

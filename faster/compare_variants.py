@@ -6,12 +6,12 @@ were calibrated against the same data split and objective.
 
 Examples
 --------
-Generate every available A/B(/C) fit comparison and the focused A/C hydrogen
+Generate every available A/B plus A-derived C/D fit comparison and the focused A/C hydrogen
 consumption comparison::
 
     python compare_variants.py
 
-Limit output to the one currently complete A/B/C comparison group::
+Limit output to the one currently complete A/B/C/D comparison group::
 
     python compare_variants.py --sample 1351 --fit-mode split --replica 4
 """
@@ -41,7 +41,7 @@ from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
 
-DEFAULT_VARIANTS = ('A', 'B', 'C')
+DEFAULT_VARIANTS = ('A', 'B', 'C', 'D')
 
 
 @dataclass(frozen=True)
@@ -55,9 +55,11 @@ class VariantRunSpec:
 
 
 def variant_legend_label(variant):
-    """Label C as the fixed-parameter A counterfactual, not a refit."""
+    """Label A-derived counterfactuals as replays, rather than refits."""
     if variant == 'C':
         return r'$\mathrm{model\ {C}\ (A\ parameters)}$'
+    if variant == 'D':
+        return r'$\mathrm{model\ {D}\ (A\ parameters,\ no\ thermodynamics)}$'
     return rf'$\mathrm{{model\ {{{variant}}}}}$'
 
 
@@ -112,16 +114,54 @@ def counterfactual_c_spec(a_checkpoint):
     return VariantRunSpec('C', a_checkpoint, run_config, parameter_values)
 
 
+def counterfactual_d_spec(a_checkpoint):
+    """Build no-thermodynamics model D from A's fitted parameters.
+
+    D retains every pathway and fitted biological parameter from model A. Its
+    thermodynamics switches alone are fixed to ``False``, causing pathway
+    rates to be evaluated without their thermodynamic multiplier.
+    """
+    run_config = copy.deepcopy(a_checkpoint.run_config)
+    parameter_values = parameters.ModelParameters(
+        a_checkpoint.parameters.get_config())
+    thermodynamics = [
+        name for name in parameter_values.get_values()
+        if name.endswith('_thermodynamics')
+    ]
+    if not thermodynamics:
+        raise ValueError('Model A has no thermodynamics switches to disable.')
+    for name in thermodynamics:
+        parameter_values[name].constant(False)
+        pathway = name.removesuffix('_thermodynamics')
+        if pathway in run_config['model']:
+            run_config['model'][pathway]['use_thermodynamics'] = False
+    run_config['chosen'].setdefault('parameter_override', {}).update({
+        name: False for name in thermodynamics
+    })
+    return VariantRunSpec('D', a_checkpoint, run_config, parameter_values)
+
+
 def variant_run_specs(by_variant, variants=DEFAULT_VARIANTS):
-    """Return replay specifications, always deriving C from A when present."""
+    """Return exactly the requested replay specifications.
+
+    C and D are counterfactual replays rather than fitted checkpoint variants,
+    so they are constructed from A only when their names were explicitly
+    requested.  This makes ``--variants`` an exact selection rather than a
+    suggestion.
+    """
     specs = []
     for variant in variants:
         checkpoint = by_variant.get(variant)
-        if variant != 'C' and checkpoint is not None:
+        if variant not in ('C', 'D') and checkpoint is not None:
             specs.append(VariantRunSpec(
                 variant, checkpoint, checkpoint.run_config, checkpoint.parameters))
     if 'A' in by_variant:
-        specs.append(counterfactual_c_spec(by_variant['A']))
+        if 'C' in variants:
+            specs.append(counterfactual_c_spec(by_variant['A']))
+        if ('D' in variants
+                and any(name.endswith('_thermodynamics')
+                        for name in by_variant['A'].parameters.get_values())):
+            specs.append(counterfactual_d_spec(by_variant['A']))
     return specs
 
 

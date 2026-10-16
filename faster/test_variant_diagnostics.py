@@ -1,6 +1,7 @@
 import unittest
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 import system
 import variant_diagnostics
@@ -93,6 +94,67 @@ class VariantDiagnosticsTest(unittest.TestCase):
         self.assertEqual(hydro_a.get_color(), 'tab:cyan')
         self.assertEqual(homo_a.get_linestyle(), '-')
         self.assertEqual(homo_b.get_linestyle(), '--')
+
+    def test_d_is_included_in_the_selected_diagnostics(self):
+        specification = lambda variant: type('Specification', (), {'variant': variant})()
+        specifications = [specification(variant) for variant in ('A', 'D')]
+        model_runs = {
+            'A': (model(), None, run_log()),
+            'D': (model(), None, run_log(include_thermodynamic_factor=False)),
+        }
+
+        figures = dict(variant_diagnostics.diagnostic_figures(
+            specifications, model_runs, 'test'))
+
+        thermodynamic_effect = figures['06_ab_thermodynamic_effect']
+        self.assertTrue(any(line.get_linestyle() == '-.'
+                            for axis in thermodynamic_effect.axes
+                            for line in axis.lines))
+        counterfactual = figures['07_ac_pathway_removal_response']
+        self.assertTrue(any(line.get_linestyle() == '-.'
+                            for axis in counterfactual.axes
+                            for line in axis.lines))
+        fingerprint = figures['10_ab_limitation_fingerprint']
+        self.assertEqual(fingerprint.axes[1].get_title(), r'$\mathrm{model\ D}$')
+
+    def test_missing_logged_factor_is_marked_unavailable_in_diagnostics(self):
+        specification = lambda variant: type('Specification', (), {'variant': variant})()
+        specifications = [specification(variant) for variant in ('A', 'B')]
+        model_runs = {
+            'A': (model(), None, run_log()),
+            'B': (model(), None, run_log(include_thermodynamic_factor=False)),
+        }
+
+        self.assertIsNone(variant_diagnostics._thermodynamic_factor(
+            model_runs['B'][2], 'Homo'))
+
+        effect = variant_diagnostics.plot_ab_thermodynamic_effect(
+            specifications, model_runs, 'test')
+        self.assertTrue(any('not logged' in text.get_text()
+                            for text in effect.axes[0].texts))
+
+        fingerprint = variant_diagnostics.plot_ab_limitation_fingerprint(
+            specifications, model_runs, 'test')
+        missing_factor_cells = fingerprint.axes[1].images[0].get_array()[0]
+        self.assertTrue(np.ma.getmaskarray(missing_factor_cells).all())
+        self.assertIn('not', fingerprint.axes[-1].get_ylabel())
+
+    def test_fingerprint_preserves_a_constant_factor_of_one(self):
+        log = run_log()
+        for key, (time, _) in tuple(log.items()):
+            if key.endswith('_thermodynamic_factor'):
+                log[key] = time, [1., 1., 1.]
+        specification = lambda variant: type('Specification', (), {'variant': variant})()
+        specifications = [specification(variant) for variant in ('A', 'B')]
+        model_runs = {
+            'A': (model(), None, log),
+            'B': (model(), None, log),
+        }
+
+        fingerprint = variant_diagnostics.plot_ab_limitation_fingerprint(
+            specifications, model_runs, 'test')
+        homo_thermodynamic_factor = fingerprint.axes[0].images[0].get_array()[0]
+        np.testing.assert_allclose(homo_thermodynamic_factor, 1.)
 
 
 if __name__ == '__main__':

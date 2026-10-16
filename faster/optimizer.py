@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from data import compute_rate
 import parameters
 import USER_VARIABLES
+import checkpoint
 
 
 # Optimisers require finite objective values.  This penalty is large enough
@@ -22,6 +23,17 @@ INVALID_OBJECTIVE_PENALTY = 1e100
 
 class NonFiniteLoss(ValueError):
     """A single candidate produced no usable finite loss value."""
+
+
+class _IndexedObjective:
+    """Return a candidate index with its loss from a pool worker."""
+
+    def __init__(self, objective):
+        self.objective = objective
+
+    def __call__(self, indexed_candidate):
+        index, candidate = indexed_candidate
+        return index, self.objective(candidate)
 
 
 def r2(predicted, measured, log = False):
@@ -579,7 +591,7 @@ class Algorithm(ABC):
         for cb in objective._callbacks:
             pth = cb.target_directory()
             if not pth is None:
-                print('\n'.join(set([os.path.join(*pth.split(os.sep)[-2:])
+                print('\n'.join(set([cb.__class__.__name__ + ': ' + os.path.join(*pth.split(os.sep)[-2:])
                                 for cb in objective._callbacks])))
             else:
                 print(cb.__class__.__name__)
@@ -678,7 +690,8 @@ class InitialSampling(Algorithm):
     _SAMPLERS = ('sobol', 'latinhypercube', 'halton', 'random')
 
     def __init__(self):
-        super().__init__(init='sobol', samples=128, seed=None, workers=1)
+        super().__init__(init='sobol', samples=128, seed=None, workers=1,
+                         stall_timeout=None)
         self.best_x = None
         self.best_fun = None
 
@@ -717,7 +730,10 @@ class InitialSampling(Algorithm):
         # means the call count is exactly ``samples`` and no mutation or
         # crossover is performed.
         workers = self._kwargs['workers']
-        if workers == 1:
+        stall_timeout = self._kwargs['stall_timeout']
+        if stall_timeout is not None and stall_timeout <= 0:
+            raise ValueError('initial_sampling stall_timeout must be positive or None')
+        if workers == 1 and stall_timeout is None:
             losses = np.asarray([objective(candidate) for candidate in population])
         else:
             if not isinstance(workers, (int, np.integer)) or workers == 0 or workers < -1:
@@ -728,10 +744,33 @@ class InitialSampling(Algorithm):
                 manager.Value('d', float('inf')),
                 manager.Value('d', float('nan')))
             pool = multiprocessing.Pool(None if workers == -1 else workers)
+            losses = np.empty(len(population), dtype=float)
             try:
-                losses = np.asarray(pool.map(objective, population))
-            finally:
+                # ``map`` queues the entire population and then waits for all
+                # workers.  That made Ctrl-C and a stuck model evaluation look
+                # like a frozen exploration stage.  Consume one completion at
+                # a time instead, so a timeout can terminate the pool promptly.
+                indexed_objective = _IndexedObjective(objective)
+                results = pool.imap_unordered(
+                    indexed_objective, enumerate(population), chunksize=1)
+                for _ in range(len(population)):
+                    try:
+                        if stall_timeout is None:
+                            index, loss = next(results)
+                        else:
+                            index, loss = results.next(timeout=stall_timeout)
+                    except multiprocessing.TimeoutError as error:
+                        raise checkpoint.StalledEvaluationInterrupt(
+                            stall_timeout) from error
+                    losses[index] = loss
+            except BaseException:
+                # Do not close-and-join here: that drains every queued task and
+                # is the source of the apparent post-interrupt stall.
+                pool.terminate()
+                raise
+            else:
                 pool.close()
+            finally:
                 pool.join()
                 objective.finalize_global_call_counter()
                 manager.shutdown()

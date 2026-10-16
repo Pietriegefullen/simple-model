@@ -101,13 +101,22 @@ class PrintCallback(Callback):
 class CallLimitInterrupt(Exception):
     pass
 
+
+class StalledEvaluationInterrupt(CallLimitInterrupt):
+    """No initial-sampling worker completed an evaluation in time."""
+
+    def __init__(self, timeout):
+        self.timeout = timeout
+        super().__init__(f'No objective evaluation completed within {timeout:g} seconds')
+
+
 class Interrupt(Callback):
     def __init__(self, call_limit):
         super().__init__(None)
         self.call_limit = call_limit
 
     def __call__(self):
-        if self.objective.call_count() > self.call_limit:
+        if self.objective.call_count() >= self.call_limit:
             raise CallLimitInterrupt('Call limit')
 
 

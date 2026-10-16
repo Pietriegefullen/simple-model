@@ -1,0 +1,12 @@
+
+anabolism_fraction = C_source_stoich*(CUE/(1-CUE))
+microbe_growth = anabolism_fraciton * C_atoms*Molar_mass_C
+anabolism = microbe growth - anabolism_fraction
+anabolism = anabolism_fraction * (C_atoms*Molar_mass_C - 1)
+pathway_vector = stoichiometry + anabolism
+
+
+dS_dt = M * v * pathway_vector - M * death_rate
+      = M * (v * stoichiometry + v* anabolism - death_rate)
+      = M * (v * (stoichiometry + anabolism) - death_rate)
+      = M * v * (stoichiometry + anabolism) - M * death_rate

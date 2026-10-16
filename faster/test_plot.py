@@ -55,7 +55,7 @@ class FigureSpecTest(unittest.TestCase):
 
     def test_model_variant_line_styles_are_centralized(self):
         self.assertEqual(plot.MODEL_VARIANT_LINESTYLES,
-                         {'A': '-', 'B': '--', 'C': ':'})
+                         {'A': '-', 'B': '--', 'C': ':', 'D': '-.'})
 
 
 if __name__ == '__main__':

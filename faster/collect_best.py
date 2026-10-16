@@ -27,6 +27,9 @@ from pathways import pathway_color
 from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
+GIBBS_ENERGY_SCALE = 1e-3  # Internal reaction energies are J/mol; plots use kJ/mol.
+GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
+
 # ``00`` is reserved for the data/model fit (CO2 and CH4).  The remaining
 # system pools are grouped with the pathway diagnostics below, rather than
 # duplicating the gases or a microbe pool in a separate group.
@@ -241,10 +244,51 @@ def pathway_v_max_values(run_log):
     }
 
 
+def pathway_reaction_rate_curves(run_log, v_max_values):
+    """Yield actual and maximum biomass-scaled rates for each pathway.
+
+    ``<pathway>_v`` is a specific rate, whereas the reaction rate affecting
+    the model pools is the specific rate multiplied by the pathway's microbial
+    biomass. Pathway and pool logs can have different time grids, so biomass
+    is interpolated onto the specific-rate grid before both curves are made.
+    """
+    keys = _run_log_keys(run_log)
+    for pathway in PATHWAY_PLOT_ORDER:
+        specific_rate_key = f'{pathway}_v'
+        microbe_pool = PATHWAY_MICROBE_POOL[pathway]
+        if (specific_rate_key not in keys or microbe_pool not in keys or
+                pathway not in v_max_values):
+            continue
+
+        time, specific_rate = run_log[specific_rate_key]
+        biomass_time, biomass = run_log[microbe_pool]
+        time = np.asarray(time, dtype=float)
+        specific_rate = np.asarray(specific_rate, dtype=float)
+        biomass_time = np.asarray(biomass_time, dtype=float)
+        biomass = np.asarray(biomass, dtype=float)
+
+        valid_biomass = np.isfinite(biomass_time) & np.isfinite(biomass)
+        if not np.any(valid_biomass):
+            continue
+        biomass_time = biomass_time[valid_biomass]
+        biomass = biomass[valid_biomass]
+        order = np.argsort(biomass_time)
+        biomass_time = biomass_time[order]
+        biomass = biomass[order]
+        biomass_time, unique_indices = np.unique(biomass_time,
+                                                  return_index=True)
+        biomass = biomass[unique_indices]
+
+        biomass_on_rate_grid = np.interp(time, biomass_time, biomass)
+        actual_rate = biomass_on_rate_grid * specific_rate
+        maximum_rate = biomass_on_rate_grid * v_max_values[pathway]
+        yield pathway, time, actual_rate, maximum_rate
+
+
 def quantity_ylabel(name):
     """Return a compact, quantity-appropriate y-axis label."""
     if name.endswith('_deltaG_r'):
-        return r'$\Delta G_\mathrm{r}\ [J/mol]$'
+        return rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$'
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
         return r'$\mathrm{factor}$'
     if name.endswith('_v') or name.endswith('_v_max'):
@@ -268,6 +312,8 @@ def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
 def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     """Plot one modeled pool or pathway quantity in the fit-plot style."""
     figure, axis = plt.subplots(figsize=(4, 4))
+    if name.endswith('_deltaG_r'):
+        values = np.asarray(values, dtype=float) * GIBBS_ENERGY_SCALE
     axis.plot(time, values, '-', color='k', label=name)
     if v_max is not None:
         axis.axhline(v_max, color='k', linestyle='--', label='v_max')
@@ -275,7 +321,8 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
             axis.set_ylim(0, v_max * 1.05)
         axis.legend(fancybox=False, edgecolor='k', loc='best')
     if name.endswith('_deltaG_r'):
-        axis.axhline(GIBBS_MINIMUM, color='k', linestyle='--', linewidth=1,
+        axis.axhline(GIBBS_MINIMUM * GIBBS_ENERGY_SCALE,
+                     color='k', linestyle='--', linewidth=1,
                      label=r'$\mathrm{Gibbs\ minimum}$')
         axis.legend(fancybox=False, edgecolor='k', loc='best')
     axis.set_title(name)
@@ -287,6 +334,116 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.tight_layout(rect=(0, 0, 1, 0.85))
     return figure, axis
+
+
+def plot_reaction_rate(pathway, time, actual_rate, maximum_rate, checkpoint,
+                       *, suptitle=None):
+    """Plot a pathway's biomass-scaled rate and its biomass-scaled maximum."""
+    figure, axis = plt.subplots(figsize=(4, 4))
+    axis.plot(time, actual_rate, '-', color='k', label=r'$M(t)\,v(t)$')
+    axis.plot(time, maximum_rate, '--', color='k',
+              label=r'$M(t)\,v_{\max}$')
+    axis.set_title(f'{pathway} reaction rate')
+    axis.set_xlabel(r'$\mathrm{time\ [d]}$')
+    axis.set_ylabel(r'$\mathrm{reaction\ rate\ [\mu mol/g\ dry\ weight/d]}$')
+    axis.legend(fancybox=False, edgecolor='k', loc='best')
+    plot.format_ax(axis)
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.tight_layout(rect=(0, 0, 1, 0.85))
+    return figure, axis
+
+
+def _factor_product(factor_series):
+    """Return the product of factor series on the first series' time grid."""
+    time = np.asarray(factor_series[0][0], dtype=float)
+    product = np.ones_like(time)
+    for factor_time, factor_values in factor_series:
+        factor_time = np.asarray(factor_time, dtype=float)
+        factor_values = np.asarray(factor_values, dtype=float)
+        valid = np.isfinite(factor_time) & np.isfinite(factor_values)
+        if not np.any(valid):
+            return time, np.full_like(time, np.nan)
+        factor_time = factor_time[valid]
+        factor_values = factor_values[valid]
+        order = np.argsort(factor_time)
+        factor_time = factor_time[order]
+        factor_values = factor_values[order]
+        factor_time, unique_indices = np.unique(factor_time,
+                                                 return_index=True)
+        factor_values = factor_values[unique_indices]
+        product *= np.interp(time, factor_time, factor_values)
+    return time, product
+
+
+def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
+                                    inhibition_series, checkpoint, *, suptitle=None):
+    """Plot all active limitation factors and their product for one pathway."""
+    figure, axis = plt.subplots(figsize=(4, 4))
+    if mm_series is None:
+        axis.text(.02, .96, 'Michaelis-Menten factor not logged', color='0.45',
+                  transform=axis.transAxes, ha='left', va='top', fontsize=8)
+    else:
+        time, values = mm_series
+        axis.plot(time, values, color='tab:blue', linewidth=1.5,
+                  label=r'$\mathrm{Michaelis\! -\! Menten}$')
+    if thermodynamic_series is None:
+        axis.text(.02, .84, 'Thermodynamic factor not logged', color='0.45',
+                  transform=axis.transAxes, ha='left', va='top', fontsize=8)
+    else:
+        time, values = thermodynamic_series
+        axis.plot(time, values, color='tab:orange', linestyle='--', linewidth=1.5,
+                  label=r'$\mathrm{thermodynamic}$')
+    if inhibition_series is not None:
+        time, values = inhibition_series
+        axis.plot(time, values, color='tab:purple', linestyle='-.', linewidth=1.5,
+                  label=r'$\mathrm{inhibition}$')
+    if mm_series is None:
+        axis.text(.02, .72, 'Total factor not available', color='0.45',
+                  transform=axis.transAxes, ha='left', va='top', fontsize=8)
+    else:
+        # Missing inhibition or thermodynamic logs mean that mechanism was not
+        # active in the model, i.e. its factor is one. The product is therefore
+        # v / v_max, equivalently M(t)v(t) / [M(t)v_max].
+        active_factors = [mm_series]
+        if thermodynamic_series is not None:
+            active_factors.append(thermodynamic_series)
+        if inhibition_series is not None:
+            active_factors.append(inhibition_series)
+        time, total_factor = _factor_product(active_factors)
+        axis.plot(time, total_factor, color='k', linewidth=2,
+                  label=r'$\mathrm{all\ factors}\ [M(t)v(t)]/[M(t)v_{\max}]$')
+    axis.axhline(1, color='0.65', linestyle=':', linewidth=1,
+                 label=r'$\mathrm{no\ limitation}$')
+    axis.set_title(f'{pathway} limitation factors')
+    axis.set_xlabel(r'$\mathrm{time\ [d]}$')
+    axis.set_ylabel(r'$\mathrm{factor}$')
+    axis.set_ylim(0, 1.05)
+    plot.format_ax(axis)
+    axis.legend(fancybox=False, edgecolor='k', loc='best')
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.tight_layout(rect=(0, 0, 1, 0.85))
+    return figure, axis
+
+
+def pathway_limitation_factor_figures(checkpoint, run_log, *, suptitle=None):
+    """Return one all-factor limitation plot for each active pathway."""
+    keys = _run_log_keys(run_log)
+    figures = []
+    for pathway in PATHWAY_PLOT_ORDER:
+        if f'{pathway}_v' not in keys:
+            continue
+        mm_key = f'{pathway}_MM'
+        thermodynamic_key = f'{pathway}_thermodynamic_factor'
+        inhibition_key = f'{pathway}_inhib'
+        figures.append((f'{pathway}_limitation_factors',
+                        plot_pathway_limitation_factors(
+                            pathway,
+                            run_log[mm_key] if mm_key in keys else None,
+                            (run_log[thermodynamic_key]
+                             if thermodynamic_key in keys else None),
+                            run_log[inhibition_key] if inhibition_key in keys else None,
+                            checkpoint, suptitle=suptitle)))
+    return figures
 
 
 def _pathway_from_model(pathway_model, pathway_name):
@@ -412,10 +569,13 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
         axis_names=('diagnostic',), figsize=(4, 4)))
     axis = axes['diagnostic']
     for pathway, time, values in curves:
+        if gibbs_minimum:
+            values = np.asarray(values, dtype=float) * GIBBS_ENERGY_SCALE
         axis.plot(time, values, color=pathway_color(pathway), linewidth=1.5,
                   label=rf'$\mathrm{{{pathway}\ pathway}}$')
     if gibbs_minimum:
-        axis.axhline(GIBBS_MINIMUM, color='k', linestyle='--', linewidth=1,
+        axis.axhline(GIBBS_MINIMUM * GIBBS_ENERGY_SCALE,
+                     color='k', linestyle='--', linewidth=1,
                      label=r'$\mathrm{Gibbs\ minimum}$')
     axis.set_title(title)
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
@@ -466,7 +626,7 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
             checkpoint,
             [(pathway, *run_log[f'{pathway}_deltaG_r']) for pathway in pathways],
             r'$\Delta G_\mathrm{r}$',
-            r'$\Delta G_\mathrm{r}\ [\mathrm{J/mol}]$',
+            rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$',
             suptitle=suptitle,
             gibbs_minimum=True)))
 
@@ -673,6 +833,7 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
         suptitle = figure_suptitle(
             checkpoint, fit_replicas, getattr(run_log, 'replica', None))
         v_max_values = pathway_v_max_values(run_log)
+        last_number = 0
         for number, (quantity, time, values) in enumerate(
                 pathway_plot_quantities(run_log), start=1):
             pathway = quantity[:-2] if quantity.endswith('_v') else None
@@ -682,6 +843,29 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
             _, filename = plot_target(checkpoint, number, quantity)
             path = os.path.join(directory, filename)
             # print('saving to  ', os.path.split(directory)[-1], filename)
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
+            last_number = number
+
+        for number, (pathway, time, actual_rate, maximum_rate) in enumerate(
+                pathway_reaction_rate_curves(run_log, v_max_values),
+                start=last_number + 1):
+            quantity = f'{pathway}_reaction_rate'
+            figure, _ = plot_reaction_rate(
+                pathway, time, actual_rate, maximum_rate, checkpoint,
+                suptitle=suptitle)
+            _, filename = plot_target(checkpoint, number, quantity)
+            path = os.path.join(directory, filename)
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
+
+        for number, (quantity, (figure, _)) in enumerate(
+                pathway_limitation_factor_figures(
+                    checkpoint, run_log, suptitle=suptitle), start=80):
+            _, filename = plot_target(checkpoint, number, quantity)
+            path = os.path.join(directory, filename)
             figure.savefig(path, dpi=300)
             plt.close(figure)
             paths.append(path)

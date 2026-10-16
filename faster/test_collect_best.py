@@ -2,6 +2,7 @@ import unittest
 
 import collect_best
 import matplotlib.pyplot as plt
+import numpy as np
 import system
 from chemistry import GIBBS_MINIMUM
 
@@ -128,7 +129,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertEqual(len(axis.lines), 2)
         self.assertEqual(axis.lines[-1].get_linestyle(), '--')
         self.assertEqual(list(axis.lines[-1].get_ydata()),
-                         [GIBBS_MINIMUM, GIBBS_MINIMUM])
+                         [1e-3*GIBBS_MINIMUM, 1e-3*GIBBS_MINIMUM])
 
     def test_inhibition_factor_uses_a_zero_to_one_axis(self):
         _, axis = collect_best.plot_quantity(
@@ -141,6 +142,53 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'Hydro_v', [0, 1], [.2, .8], None, v_max=1., suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.05))
+
+    def test_reaction_rate_uses_biomass_on_the_specific_rate_grid(self):
+        run_log = {
+            'Hydro_v': ([0., .5, 1.5, 2.], [.1, .2, .4, .5]),
+            'M_Hydro': ([0., 1., 2.], [2., 4., 8.]),
+        }
+
+        pathway, time, actual_rate, maximum_rate = next(
+            collect_best.pathway_reaction_rate_curves(
+                run_log, {'Hydro': .5}))
+
+        self.assertEqual(pathway, 'Hydro')
+        np.testing.assert_allclose(time, [0., .5, 1.5, 2.])
+        np.testing.assert_allclose(actual_rate, [.2, .6, 2.4, 4.])
+        np.testing.assert_allclose(maximum_rate, [1., 1.5, 3., 4.])
+
+    def test_reaction_rate_plot_marks_biomass_scaled_v_max_as_dashed(self):
+        _, axis = collect_best.plot_reaction_rate(
+            'Hydro', [0, 1], [.2, .8], [1., 2.], None, suptitle='test')
+
+        self.assertEqual(len(axis.lines), 2)
+        self.assertEqual(axis.lines[0].get_ydata().tolist(), [.2, .8])
+        self.assertEqual(axis.lines[1].get_ydata().tolist(), [1., 2.])
+        self.assertEqual(axis.lines[1].get_linestyle(), '--')
+
+    def test_limitation_factor_plot_combines_kinetics_and_thermodynamics(self):
+        run_log = {
+            'Homo_v': ([0, 1], [.2, .3]),
+            'Homo_MM': ([0, 1], [.4, .8]),
+            'Homo_thermodynamic_factor': ([0, 1], [.7, .9]),
+            'Homo_inhib': ([0, 1], [.5, .25]),
+            'Hydro_v': ([0, 1], [.2, .3]),
+            'Hydro_MM': ([0, 1], [.5, .6]),
+        }
+
+        figures = dict(collect_best.pathway_limitation_factor_figures(
+            None, run_log, suptitle='test'))
+        homo_axis = figures['Homo_limitation_factors'][1]
+        hydro_axis = figures['Hydro_limitation_factors'][1]
+
+        self.assertEqual(homo_axis.get_ylim(), (0.0, 1.05))
+        self.assertEqual(homo_axis.lines[0].get_color(), 'tab:blue')
+        self.assertEqual(homo_axis.lines[1].get_linestyle(), '--')
+        self.assertEqual(homo_axis.lines[2].get_linestyle(), '-.')
+        np.testing.assert_allclose(homo_axis.lines[3].get_ydata(), [.14, .18])
+        self.assertTrue(any('not logged' in text.get_text()
+                            for text in hydro_axis.texts))
 
     def test_ch4_pathway_production_is_stacked_with_final_amounts(self):
         run_log = {

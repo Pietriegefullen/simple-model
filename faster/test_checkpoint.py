@@ -187,6 +187,13 @@ class ExistingCheckpointTest(unittest.TestCase):
         self.assertIn('best loss:        1, best R2 = 0.70', output.getvalue())
         self.assertIn('best loss:      0.5, best R2 = 0.20', output.getvalue())
 
+    def test_interrupt_fires_at_its_call_limit(self):
+        callback = checkpoint.Interrupt(1)
+        callback.set_objective(_PrintObjective(((1.0, 0.5),)))
+
+        with self.assertRaises(checkpoint.CallLimitInterrupt):
+            callback()
+
 
 if __name__ == '__main__':
     unittest.main()

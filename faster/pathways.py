@@ -67,7 +67,7 @@ class Pathway():
             C_source_stoich = [educt for educt in educts 
                                if str(educt) == C_source][0]['stoichiometry']
             CUE = microbe['CUE']
-            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + 1e-7)
+            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + EPS)
             microbe_growth = system.vector(0, microbe, anabolism_fraction*C_atoms*CONSTANTS.MOLAR_MASS_C)
             C_source_reduction = system.vector(0, microbe['C_source'], anabolism_fraction)
             self.anabolism = microbe_growth - C_source_reduction

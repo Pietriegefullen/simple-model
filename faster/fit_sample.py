@@ -9,6 +9,14 @@ import hashing
 import numpy as np
 
 
+class ExistingFitGoodEnough(Exception):
+    """A compatible saved fit already satisfies the requested R² threshold."""
+
+    def __init__(self, r2):
+        self.r2 = float(r2)
+        super().__init__(f'Existing fit has R2 {self.r2:.3f}')
+
+
 def _requested_checkpoint(path):
     """Load an annotated checkpoint selected explicitly on the command line."""
     try:
@@ -133,7 +141,8 @@ def fit(chosen, objective_config, algo_config, init_config,
         checkpoint_source = None,
         overwrite_existing_checkpoints = False,
         checkpoint_confirmation = None, 
-        call_limit = None):
+        call_limit = None,
+        skip_existing_r2 = None):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
@@ -230,6 +239,10 @@ def fit(chosen, objective_config, algo_config, init_config,
                   f'{os.path.basename(checkpoint_file)} '
                   f'(loss {float(checkpoint_data["total_loss"]):.6g}, '
                   f'R2 {existing_best_r2:.2f})')
+            if (skip_existing_r2 is not None
+                    and existing_best_r2 is not None
+                    and existing_best_r2 > skip_existing_r2):
+                raise ExistingFitGoodEnough(existing_best_r2)
 
         total_objective.add_callback(checkpoint_callback)
     total_objective.add_callback(checkpoint.PrintCallback(

@@ -99,12 +99,12 @@ def read_checkpoint(path):
 # much easier to scan a model change than grouping all parameters by type.
 PATHWAY_PARAMETER_ORDER = {
     "Initial pools": ("TOC", "DOC", "Acetate", "Fe3", "H2", "H2O", "Fe2"),
-    "Hydrolysis": ("Hydrolysis_v_max", "Hydrolysis_Kmb"),
-    "Fermentation": ("Ferm_v_max", "Ferm_Km", "Ferm_inhibition", "Ferm_CUE", "M_Ferm"),
-    "Fe3": ("Fe3_Km_Ac", "Fe3_Km_Fe3", "Fe3_v_max", "Fe3_CUE", "M_Fe3"),
-    "Aceto": ("Aceto_Km_Ac", "Ac_v_max", "Ac_CUE", "M_Ac"),
-    "Hydro": ("Hydro_Km_CO2", "Hydro_v_max", "Hydro_CUE", "Hydro_Km_H2", "M_Hydro"),
-    "Homo": ("Homo_Km_H2", "Homo_Km_CO2", "Homo_v_max", "Homo_CUE", "M_Homo"),
+    "Hydrolysis": ("Hydrolysis_v_max", "Hydrolysis_Kmb", "Hydrolysis_M0_v_max"),
+    "Fermentation": ("Ferm_v_max", "Ferm_Km", "Ferm_inhibition", "Ferm_CUE", "M_Ferm", "Fermentation_M0_v_max"),
+    "Fe3": ("Fe3_Km_Ac", "Fe3_Km_Fe3", "Fe3_v_max", "Fe3_CUE", "M_Fe3", "Fe3_M0_v_max"),
+    "Aceto": ("Aceto_Km_Ac", "Ac_v_max", "Ac_CUE", "M_Ac", "Aceto_M0_v_max"),
+    "Hydro": ("Hydro_Km_CO2", "Hydro_v_max", "Hydro_CUE", "Hydro_Km_H2", "M_Hydro", "Hydro_M0_v_max"),
+    "Homo": ("Homo_Km_H2", "Homo_Km_CO2", "Homo_v_max", "Homo_CUE", "M_Homo", "Homo_M0_v_max"),
     "Shared": ("death_rate",),
 }
 GROUP_ORDER = list(PATHWAY_PARAMETER_ORDER) + ["Other"]
@@ -119,6 +119,26 @@ PARAMETER_ORDER = {
         parameter for ordered_parameters in PATHWAY_PARAMETER_ORDER.values()
         for parameter in ordered_parameters
     )
+}
+
+# A pathway's initial biomass and maximum specific rate trade off during
+# fitting.  Their product is the comparable initial maximum reaction rate.
+RATE_PRODUCT_PARAMETERS = {
+    "Hydrolysis_M0_v_max": ("M_Ferm", "Hydrolysis_v_max"),
+    "Fermentation_M0_v_max": ("M_Ferm", "Ferm_v_max"),
+    "Fe3_M0_v_max": ("M_Fe3", "Fe3_v_max"),
+    "Aceto_M0_v_max": ("M_Ac", "Ac_v_max"),
+    "Hydro_M0_v_max": ("M_Hydro", "Hydro_v_max"),
+    "Homo_M0_v_max": ("M_Homo", "Homo_v_max"),
+}
+
+RATE_PRODUCT_LABELS = {
+    "Hydrolysis_M0_v_max": r"Hydrolysis: $M(0)\,v_{\max}$",
+    "Fermentation_M0_v_max": r"Fermentation: $M(0)\,v_{\max}$",
+    "Fe3_M0_v_max": r"Fe3: $M(0)\,v_{\max}$",
+    "Aceto_M0_v_max": r"Aceto: $M(0)\,v_{\max}$",
+    "Hydro_M0_v_max": r"Hydro: $M(0)\,v_{\max}$",
+    "Homo_M0_v_max": r"Homo: $M(0)\,v_{\max}$",
 }
 
 
@@ -244,6 +264,37 @@ def load_rows(paths, show_constant):
             "group": parameter_group(name),
             "values": numeric_values,
         })
+    rows.extend(rate_product_rows(fitted, show_constant))
+    return rows
+
+
+def rate_product_rows(fitted, show_constant):
+    """Return comparable rows for each pathway's ``M(0) * v_max`` product."""
+    rows = []
+    for name, (microbe_parameter, v_max_parameter) in RATE_PRODUCT_PARAMETERS.items():
+        values = []
+        for checkpoint in fitted:
+            microbe = checkpoint.get(microbe_parameter)
+            v_max = checkpoint.get(v_max_parameter)
+            if (isinstance(microbe, bool) or isinstance(v_max, bool) or
+                    not isinstance(microbe, (int, float)) or
+                    not isinstance(v_max, (int, float))):
+                values.append(np.nan)
+            else:
+                values.append(float(microbe) * float(v_max))
+        values = np.asarray(values, dtype=float)
+        finite = values[np.isfinite(values)]
+        if not len(finite):
+            continue
+        if (not show_constant and len(finite) == len(fitted)
+                and np.ptp(finite) < 1e-12):
+            continue
+        rows.append({
+            "name": name,
+            "label": RATE_PRODUCT_LABELS[name],
+            "group": parameter_group(name),
+            "values": values,
+        })
     return rows
 
 
@@ -358,7 +409,7 @@ def plot_comparison(paths, output, reference_index, sort, show_constant, show_r2
     if has_r2:
         axis.axhline(r2_row_count - .5, color="black", linewidth=1.1)
     axis.set_yticks(np.arange(len(rows) + r2_row_count),
-                    r2_labels + [row["name"] for row in rows])
+                    r2_labels + [row.get("label", row["name"]) for row in rows])
     axis.tick_params(axis="y", length=0, labelsize=8)
     if has_r2:
         annotate_r2_rows(axis, r2_data[:2])

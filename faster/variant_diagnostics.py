@@ -20,6 +20,7 @@ from pathways import pathway_color
 H2_PATHWAYS = ('Homo', 'Hydro')
 ACETATE_PATHWAYS = ('Fe3', 'Aceto')
 LIMITATION_PATHWAYS = ('Homo', 'Hydro', 'Aceto', 'Fe3')
+MISSING_DIAGNOSTIC_COLOR = '#d9d9d9'
 
 
 def _specification(specifications, variant):
@@ -118,37 +119,57 @@ def plot_flux_partition(specifications, model_runs, suptitle):
 
 
 def _thermodynamic_factor(run_log, pathway_name):
+    """Return a logged thermodynamic factor, or ``None`` when it is absent."""
     key = f'{pathway_name}_thermodynamic_factor'
     if key in run_log.keys():
         return run_log[key]
-    time, values = run_log[f'{pathway_name}_v']
-    return time, np.ones_like(np.asarray(values, dtype=float))
+    return None
+
+
+def _logged_series(run_log, key):
+    """Return one logged series, distinguishing missing values from zero."""
+    return run_log[key] if key in run_log.keys() else None
+
+
+def _missing_diagnostic_note(axis, variant):
+    """Annotate a line diagnostic whose series was not written to the log."""
+    count = sum(text.get_gid() == 'missing-diagnostic'
+                for text in axis.texts)
+    axis.text(.02, .96 - .12 * count,
+              f'model {variant}: not logged',
+              color='0.45', transform=axis.transAxes,
+              ha='left', va='top', fontsize=8, gid='missing-diagnostic')
 
 
 def plot_ab_thermodynamic_effect(specifications, model_runs, suptitle):
-    """Separate thermodynamic, kinetic, and biomass effects in A versus B."""
-    variants = {specification.variant for specification in specifications}
-    if not {'A', 'B'}.issubset(variants):
+    """Separate thermodynamic, kinetic, and biomass effects by selection."""
+    variants = [specification.variant for specification in specifications]
+    if len(variants) < 2:
         return None
-    a_model, _, _ = model_runs['A']
-    pathways = available_pathways(a_model, LIMITATION_PATHWAYS)
+    reference_variant = 'A' if 'A' in model_runs else variants[0]
+    reference_model, _, _ = model_runs[reference_variant]
+    pathways = available_pathways(reference_model, LIMITATION_PATHWAYS)
     if not pathways:
         return None
     figure, axes = plt.subplots(3, len(pathways), figsize=(3 * len(pathways), 8),
                                 sharex='col', squeeze=False)
     row_titles = (r'$f_\mathrm{thermo}$', r'$v$', r'$M v$')
     for column, pathway in enumerate(pathways):
-        for variant in ('A', 'B'):
+        for variant in variants:
             pathway_model, _, run_log = model_runs[variant]
             if pathway not in available_pathways(pathway_model, (pathway,)):
                 continue
-            factor_time, factor_values = _thermodynamic_factor(run_log, pathway)
+            factor_series = _thermodynamic_factor(run_log, pathway)
             v_time, v_values = run_log[f'{pathway}_v']
             activity_time, activity_values = pathway_activity(
                 pathway_model, run_log, pathway)
-            for axis, time, values in zip(axes[:, column],
-                                          (factor_time, v_time, activity_time),
-                                          (factor_values, v_values, activity_values)):
+            series = (factor_series, (v_time, v_values),
+                      (activity_time, activity_values))
+            for axis, values in zip(axes[:, column], series):
+                if values is None:
+                    _missing_diagnostic_note(axis, variant)
+                    continue
+                time, values = values
                 axis.plot(time, values, color=pathway_color(pathway),
                           linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.3,
                           label=rf'$\mathrm{{model\ {variant}}}$')
@@ -173,25 +194,30 @@ def _relative_percent(reference, comparison):
 
 
 def plot_ac_pathway_removal_response(specifications, model_runs, suptitle):
-    """Show how removal of Hydro redistributes A's pools and Homo activity."""
-    variants = {specification.variant for specification in specifications}
-    if not {'A', 'C'}.issubset(variants):
+    """Show the selected A-derived counterfactual responses to model A."""
+    variants = [specification.variant for specification in specifications]
+    counterfactuals = [variant for variant in ('C', 'D') if variant in variants]
+    if 'A' not in variants or not counterfactuals:
         return None
     figure, axes = plt.subplots(2, 2, figsize=(8, 7), sharex=True)
     a_model, _, a_log = model_runs['A']
-    c_model, _, c_log = model_runs['C']
     for axis, pool in zip(axes.flat[:3], ('H2', 'CO2', 'Acetate')):
         time, a_values = a_log[pool]
-        c_time, c_values = c_log[pool]
-        c_on_a_grid = np.interp(time, c_time, c_values)
-        axis.plot(time, _relative_percent(a_values, c_on_a_grid),
-                  color='k', linestyle=plot.MODEL_VARIANT_LINESTYLES['C'], linewidth=1.5)
+        for variant in counterfactuals:
+            _, _, counterfactual_log = model_runs[variant]
+            comparison_time, comparison_values = counterfactual_log[pool]
+            comparison_on_a_grid = np.interp(
+                time, comparison_time, comparison_values)
+            axis.plot(
+                time, _relative_percent(a_values, comparison_on_a_grid),
+                color='k', linestyle=plot.MODEL_VARIANT_LINESTYLES[variant],
+                linewidth=1.5, label=rf'$\mathrm{{model\ {variant}}}$')
         axis.axhline(0, color='k', linestyle='--', linewidth=1)
-        axis.set_title(rf'$\mathrm{{{pool}:\ model\ C\ relative\ to\ A}}$')
-        axis.set_ylabel(r'$100(C-A)/A\ [\%]$')
+        axis.set_title(rf'$\mathrm{{{pool}:\ counterfactual\ relative\ to\ A}}$')
+        axis.set_ylabel(r'$100(X-A)/A\ [\%]$')
     axis = axes.flat[3]
-    for variant, pathway_model, run_log in (
-            ('A', a_model, a_log), ('C', c_model, c_log)):
+    for variant in ('A', *counterfactuals):
+        pathway_model, _, run_log = model_runs[variant]
         time, values = pathway_consumption_rate(pathway_model, run_log, 'Homo', 'H2')
         axis.plot(time, values, color=pathway_color('Homo'),
                   linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.5,
@@ -297,15 +323,17 @@ def _window_means(time, values, edges):
 
 
 def plot_ab_limitation_fingerprint(specifications, model_runs, suptitle):
-    """Compare normalized pathway limitation signatures for A and B."""
-    variants = {specification.variant for specification in specifications}
-    if not {'A', 'B'}.issubset(variants):
+    """Compare selected models' normalized pathway limitation signatures."""
+    variants = [specification.variant for specification in specifications]
+    if len(variants) < 2:
         return None
-    a_model, _, a_log = model_runs['A']
-    pathways = available_pathways(a_model, LIMITATION_PATHWAYS)
+    reference_variant = 'A' if 'A' in model_runs else variants[0]
+    reference_model, _, reference_log = model_runs[reference_variant]
+    pathways = available_pathways(reference_model, LIMITATION_PATHWAYS)
     if not pathways:
         return None
-    max_time = max(float(np.max(a_log[pathway + '_v'][0])) for pathway in pathways)
+    max_time = max(float(np.max(reference_log[pathway + '_v'][0]))
+                   for pathway in pathways)
     edges = np.linspace(0, max_time, 7)
     diagnostics = []
     labels = []
@@ -314,35 +342,63 @@ def plot_ab_limitation_fingerprint(specifications, model_runs, suptitle):
             diagnostics.append((pathway, diagnostic))
             labels.append(rf'$\mathrm{{{pathway}:\ {diagnostic}}}$')
 
-    values = {variant: [] for variant in ('A', 'B')}
+    values = {variant: [] for variant in variants}
     for pathway, diagnostic in diagnostics:
-        for variant in ('A', 'B'):
+        for variant in variants:
             pathway_model, _, run_log = model_runs[variant]
-            if diagnostic == 'thermodynamic factor':
-                time, series = _thermodynamic_factor(run_log, pathway)
+            if pathway not in available_pathways(pathway_model, (pathway,)):
+                logged_series = None
+            elif diagnostic == 'thermodynamic factor':
+                logged_series = _thermodynamic_factor(run_log, pathway)
             elif diagnostic == 'MM factor':
-                time, series = run_log[f'{pathway}_MM']
+                logged_series = _logged_series(run_log, f'{pathway}_MM')
             elif diagnostic == 'biomass':
-                time, series = run_log[_microbe_pool(pathway)]
+                logged_series = _logged_series(run_log, _microbe_pool(pathway))
             else:
-                time, series = pathway_activity(pathway_model, run_log, pathway)
-            values[variant].append(_window_means(time, series, edges))
+                try:
+                    logged_series = pathway_activity(
+                        pathway_model, run_log, pathway)
+                except KeyError:
+                    logged_series = None
+            if logged_series is None:
+                values[variant].append(np.full(len(edges) - 1, np.nan))
+            else:
+                time, series = logged_series
+                values[variant].append(_window_means(time, series, edges))
 
     normalized = {}
-    for variant in ('A', 'B'):
+    for variant in variants:
         normalized[variant] = np.asarray(values[variant], dtype=float)
-    combined = np.stack((normalized['A'], normalized['B']))
-    lower = np.nanmin(combined, axis=(0, 2))[:, None]
-    upper = np.nanmax(combined, axis=(0, 2))[:, None]
-    scale = np.where(upper > lower, upper - lower, 1)
-    for variant in ('A', 'B'):
-        normalized[variant] = (normalized[variant] - lower) / scale
+    combined = np.stack([normalized[variant] for variant in variants])
+    finite = np.isfinite(combined)
+    valid_diagnostics = np.any(finite, axis=(0, 2))
+    lower = np.min(np.where(finite, combined, np.inf), axis=(0, 2))
+    upper = np.max(np.where(finite, combined, -np.inf), axis=(0, 2))
+    lower[~valid_diagnostics] = np.nan
+    upper[~valid_diagnostics] = np.nan
+    # Thermodynamic and Michaelis--Menten factors are already normalized to
+    # the physical [0, 1] interval.  Preserve that scale so a constant factor
+    # of one is displayed as one, rather than as zero after min--max scaling.
+    factor_rows = np.asarray([
+        diagnostic in ('thermodynamic factor', 'MM factor')
+        for _, diagnostic in diagnostics
+    ])
+    lower[factor_rows & valid_diagnostics] = 0.
+    upper[factor_rows & valid_diagnostics] = 1.
+    scale = np.where(upper > lower, upper - lower, 1)[:, None]
+    for variant in variants:
+        normalized[variant] = (normalized[variant] - lower[:, None]) / scale
 
-    figure, axes = plt.subplots(1, 2, figsize=(10, max(5, .36 * len(labels) + 2)),
-                                sharey=True)
-    for axis, variant in zip(axes, ('A', 'B')):
+    figure, axes = plt.subplots(
+        1, len(variants),
+        figsize=(5 * len(variants), max(5, .36 * len(labels) + 2)),
+        sharey=True, squeeze=False)
+    axes = axes[0]
+    diagnostic_map = plt.get_cmap('viridis').copy()
+    diagnostic_map.set_bad(MISSING_DIAGNOSTIC_COLOR)
+    for axis, variant in zip(axes, variants):
         image = axis.imshow(normalized[variant], aspect='auto', vmin=0, vmax=1,
-                            cmap='viridis', interpolation='nearest')
+                            cmap=diagnostic_map, interpolation='nearest')
         axis.set_title(rf'$\mathrm{{model\ {variant}}}$')
         axis.set_xticks(np.arange(len(edges) - 1),
                          [f'{left:.0f}-{right:.0f}'
@@ -351,8 +407,9 @@ def plot_ab_limitation_fingerprint(specifications, model_runs, suptitle):
         axis.set_xlabel(r'$\mathrm{time\ window\ [d]}$')
         plot.format_ax(axis)
     axes[0].set_yticks(np.arange(len(labels)), labels, fontsize=8)
-    colorbar = figure.colorbar(image, ax=axes, fraction=.04, pad=.03)
-    colorbar.set_label(r'$\mathrm{within\ diagnostic\ normalized\ value}$')
+    colorbar = figure.colorbar(image, ax=axes.tolist(), fraction=.04, pad=.03)
+    colorbar.set_label(
+        r'$\mathrm{factor\ value\ or\ within\ diagnostic\ normalized\ value;\ grey:\ not\ logged}$')
     figure.suptitle(suptitle)
     figure.subplots_adjust(left=.30, right=.94, bottom=.20, top=.88, wspace=.08)
     return figure

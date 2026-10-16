@@ -34,6 +34,9 @@ import matplotlib.ticker as ticker
 from chemistry import GIBBS_MINIMUM as DGmin
 from pathways import pathway_color
 
+GIBBS_ENERGY_SCALE = 1e-3  # Internal reaction energies are J/mol; plots use kJ/mol.
+GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
+
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
 POOL_NAMES = ('CO2', 'CH4')
@@ -43,6 +46,7 @@ MODEL_VARIANT_LINESTYLES = {
     'A': '-',
     'B': '--',
     'C': ':',
+    'D': '-.',
 }
 
 
@@ -274,17 +278,19 @@ def plot_Gibbs(log, pathway, ax = None):
        fig, ax = plt.subplots()
     
     t, DGr = log[f'{pathway}_deltaG_r']
+    DGr = np.asarray(DGr, dtype=float) * GIBBS_ENERGY_SCALE
+    gibbs_minimum = DGmin * GIBBS_ENERGY_SCALE
     
     ax.plot(t, DGr)
     
-    ax.plot([min(t), max(t)], [DGmin, DGmin], 'k--')
-    ax.annotate('Gibbs minimum', xy = (max(t), DGmin), ha = 'right', va = 'top',
+    ax.plot([min(t), max(t)], [gibbs_minimum, gibbs_minimum], 'k--')
+    ax.annotate('Gibbs minimum', xy = (max(t), gibbs_minimum), ha = 'right', va = 'top',
                 xytext = (0, -6), textcoords = 'offset points')
         
     ax = design(ax)
     xaxis_time(ax)
     
-    ax.set_ylabel(r'$\Delta G\ [\mathrm{J/mol}]$', rotation = 0, loc = 'top', labelpad = -30)
+    ax.set_ylabel(rf'$\Delta G\ [{GIBBS_ENERGY_UNIT}]$', rotation = 0, loc = 'top', labelpad = -30)
     
     ax = title(ax, log, pathway)
 

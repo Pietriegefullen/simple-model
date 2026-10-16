@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
 
+import compare_checkpoints
 import compare_variants
 import matplotlib.pyplot as plt
 import parameters
@@ -57,7 +58,8 @@ class ComparisonGroupsTest(unittest.TestCase):
         a = Checkpoint('model-FA75-a', 1.0, parameter_value=2.0)
         b = Checkpoint('model-EM33-b', 1.0, parameter_value=3.0)
         a.parameters['Hydro_v_max'].set(7.0)
-        specs = compare_variants.variant_run_specs({'A': a, 'B': b}, ('A', 'B'))
+        specs = compare_variants.variant_run_specs(
+            {'A': a, 'B': b}, ('A', 'B', 'C'))
         self.assertEqual([spec.variant for spec in specs], ['A', 'B', 'C'])
 
         with mock.patch.object(compare_variants, 'run',
@@ -73,6 +75,52 @@ class ComparisonGroupsTest(unittest.TestCase):
         self.assertIsNot(c_values, a.parameters)
         self.assertEqual(runs['A'][1].get_values(), a.parameters.get_values())
         self.assertEqual(runs['B'][1].get_values(), b.parameters.get_values())
+
+    def test_d_is_derived_from_a_parameters_with_thermodynamics_disabled(self):
+        a = Checkpoint('model-FA75-a', 1.0, parameter_value=2.0)
+        a.parameters['Hydro_v_max'].set(7.0)
+        for pathway in ('Hydro', 'Homo', 'Aceto', 'Fe3'):
+            a.parameters[f'{pathway}_thermodynamics'].constant(True)
+
+        specifications = compare_variants.variant_run_specs({'A': a}, ('A', 'D'))
+        self.assertEqual([specification.variant for specification in specifications],
+                         ['A', 'D'])
+        d = specifications[-1]
+
+        self.assertEqual(d.variant, 'D')
+        self.assertEqual(d.run_config['chosen']['pathways'],
+                         a.run_config['chosen']['pathways'])
+        self.assertEqual(set(d.run_config['model']), set(a.run_config['model']))
+        self.assertEqual(d.run_config['range'], a.run_config['range'])
+        self.assertEqual(d.parameter_values.get_values()['Hydro_v_max'], 7.0)
+        self.assertEqual(d.parameter_values.get_values()['Homo_v_max'], 2.0)
+        disabled = {
+            name: value for name, value in d.parameter_values.get_values().items()
+            if name.endswith('_thermodynamics')
+        }
+        self.assertEqual(disabled, {
+            'Hydro_thermodynamics': False,
+            'Homo_thermodynamics': False,
+            'Aceto_thermodynamics': False,
+            'Fe3_thermodynamics': False,
+        })
+        self.assertEqual(d.run_config['chosen']['parameter_override'], disabled)
+        self.assertEqual(
+            {name: config['use_thermodynamics']
+             for name, config in d.run_config['model'].items()},
+            {'Hydro': False, 'Homo': False})
+
+    def test_variant_selection_derives_only_the_requested_counterfactual(self):
+        a = Checkpoint('model-FA75-a', 1.0)
+        b = Checkpoint('model-EM33-b', 1.0)
+        for pathway in ('Hydro', 'Homo', 'Aceto', 'Fe3'):
+            a.parameters[f'{pathway}_thermodynamics'].constant(True)
+
+        specifications = compare_variants.variant_run_specs(
+            {'A': a, 'B': b}, ('A', 'D'))
+
+        self.assertEqual([specification.variant for specification in specifications],
+                         ['A', 'D'])
 
 
 class H2ConsumptionTest(unittest.TestCase):
@@ -94,6 +142,27 @@ class H2ConsumptionTest(unittest.TestCase):
 
         self.assertEqual(time.tolist(), [0.0, 1.0, 2.0])
         self.assertEqual(consumption.tolist(), [2.0, 4.0, 6.0])
+
+
+class ParameterComparisonTest(unittest.TestCase):
+    def test_rate_product_rows_combine_initial_biomass_and_v_max(self):
+        rows = compare_checkpoints.rate_product_rows([
+            {'M_Hydro': 2., 'Hydro_v_max': .5},
+            {'M_Hydro': 4., 'Hydro_v_max': .25},
+        ], show_constant=True)
+
+        row = next(row for row in rows if row['name'] == 'Hydro_M0_v_max')
+        self.assertEqual(row['group'], 'Hydro')
+        self.assertEqual(row['values'].tolist(), [1., 1.])
+        self.assertIn('M(0)', row['label'])
+
+    def test_rate_product_rows_respect_constant_row_filtering(self):
+        rows = compare_checkpoints.rate_product_rows([
+            {'M_Hydro': 2., 'Hydro_v_max': .5},
+            {'M_Hydro': 4., 'Hydro_v_max': .25},
+        ], show_constant=False)
+
+        self.assertFalse(any(row['name'] == 'Hydro_M0_v_max' for row in rows))
 
 
 class ABDifferenceTest(unittest.TestCase):
