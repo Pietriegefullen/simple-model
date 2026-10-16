@@ -619,6 +619,7 @@ class DifferentialEvolution(Algorithm):
                         'polish': False,
                         'recombination': .7, # CR
                         'mutation': (.5,1.), # F
+                        'seed': None,
                         # SciPy has no per-evaluation budget.  The generation
                         # callback below honours this cap after each completed
                         # generation, which keeps staged restarts bounded.

@@ -3,6 +3,7 @@ import unittest
 import collect_best
 import matplotlib.pyplot as plt
 import numpy as np
+import parameters
 import system
 from chemistry import GIBBS_MINIMUM
 
@@ -142,6 +143,42 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'Hydro_v', [0, 1], [.2, .8], None, v_max=1., suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.05))
+
+    def test_unit_constant_v_max_labels_m_pool_as_pathway_capacity(self):
+        _, axis = collect_best.plot_quantity(
+            'M_Hydro', [0, 1], [.2, .8], None, suptitle='test',
+            capacity_pathway='Hydro')
+
+        axis.figure.canvas.draw()
+        self.assertEqual(axis.get_title(), 'Hydro pathway capacity (M_Hydro)')
+        ylabel = axis.get_ylabel().replace('\\', '')
+        self.assertIn('pathway capacity', ylabel)
+        self.assertIn('dry', ylabel)
+        self.assertTrue(any('$v_{\\max} = 1$ (constant)' in text.get_text()
+                            for text in axis.texts))
+
+    def test_only_a_fixed_unit_v_max_marks_m_as_capacity(self):
+        class RunLog(dict):
+            pass
+
+        run_log = RunLog({
+            'Hydro_v': ([0, 1], [.2, .8]),
+            'M_Hydro': ([0, 1], [.2, .8]),
+        })
+        run_log._parameters = parameters.ModelParameters({
+            'Hydro_v_max': parameters.Parameter('Hydro_v_max', 1.).constant(1.),
+        })
+
+        quantities = list(
+            collect_best.pathway_plot_quantities(run_log, include_pathway=True))
+        microbe_quantity = next(item for item in quantities if item[0] == 'M_Hydro')
+        self.assertEqual(microbe_quantity[-1], 'Hydro')
+        self.assertTrue(
+            collect_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
+
+        run_log._parameters['Hydro_v_max'].variable(1., (.5, 1.5))
+        self.assertFalse(
+            collect_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
 
     def test_reaction_rate_uses_biomass_on_the_specific_rate_grid(self):
         run_log = {

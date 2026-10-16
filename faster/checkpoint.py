@@ -70,13 +70,14 @@ class SetAllConstant(Callback):
 
 class PrintCallback(Callback):
     def __init__(self, run_config, initial_best_loss = None,
-                 initial_best_r2 = None):
+                 initial_best_r2 = None, header = None):
         super().__init__(run_config)
         # A fit can resume in a directory that already contains results.  The
         # stored loss is an incumbent too, even though it is not part of this
         # Objective's call log.
         self.initial_best_loss = initial_best_loss
         self.initial_best_r2 = initial_best_r2
+        self.header = header
         
     def __call__(self):
         args, kwargs, loss_value = self.objective.last_call()
@@ -93,7 +94,8 @@ class PrintCallback(Callback):
             # checkpoint's run log before supplying this value.
             best_r2 = self.initial_best_r2
         r2_text = 'n/a' if best_r2 is None else f'{best_r2:.2f}'
-        print(f'\rgeneration {generation_text}: call {cnt:6d}: '
+        header = '' if self.header is None else self.header + ' '
+        print(f'\r{header}generation {generation_text}: call {cnt:6d}: '
               f'loss value {loss_value:8.3g}, '
               f'best loss: {best_loss:8.3g}, best R2 = {r2_text}', end = '')
 
@@ -242,6 +244,13 @@ class CheckpointCallback(Callback):
                                 'total_loss': last_loss,
                                 'run_config': self.run_config,
                                }
+            # Some compound objectives have useful per-evaluation state that
+            # is not represented by a single model's parameter collection.
+            # Let those objectives persist that state without making ordinary
+            # single-model checkpoints any larger or changing their format.
+            metadata = getattr(self.objective, 'checkpoint_metadata', None)
+            if callable(metadata):
+                checkpoint_data.update(metadata())
             checkpoint_data = hashing.normalize_checkpoint_config(checkpoint_data)
             cp_id = hashing.build_checkpoint_id(checkpoint_data)
             last_loss = checkpoint_data['total_loss']

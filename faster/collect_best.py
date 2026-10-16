@@ -190,18 +190,25 @@ def _run_log_keys(run_log):
     return set(run_log.keys())
 
 
-def pathway_plot_quantities(run_log):
-    """Yield ``(name, time, values)`` in the required plot-file order.
+def pathway_plot_quantities(run_log, include_pathway=False):
+    """Yield modeled quantities in the required plot-file order.
 
     Quantities added to a pathway log in the future are appended after the
     specified diagnostics for that pathway.  ``v_max`` is shown as a dashed
     reference line on the corresponding ``v`` plot, not as its own plot.
+    With ``include_pathway=True``, each result also carries the pathway that
+    owns it.  This distinguishes the shared ``M_Ferm`` pool when it represents
+    a capacity for Hydrolysis versus Fermentation.
     """
+    def emitted_quantity(name, time, values, pathway=None):
+        result = (name, time, values)
+        return result + (pathway,) if include_pathway else result
+
     keys = _run_log_keys(run_log)
 
     for pool in POOL_PLOT_ORDER:
         if pool in keys:
-            yield pool, *run_log[pool]
+            yield emitted_quantity(pool, *run_log[pool])
 
     for pathway in PATHWAY_PLOT_ORDER:
         prefix = f'{pathway}_'
@@ -213,11 +220,12 @@ def pathway_plot_quantities(run_log):
             if quantity == 'microbe_pool':
                 microbe_pool = PATHWAY_MICROBE_POOL[pathway]
                 if microbe_pool in keys:
-                    yield microbe_pool, *run_log[microbe_pool]
+                    yield emitted_quantity(
+                        microbe_pool, *run_log[microbe_pool], pathway)
             else:
                 name = prefix + quantity
                 if name in pathway_keys:
-                    yield name, *run_log[name]
+                    yield emitted_quantity(name, *run_log[name], pathway)
 
         handled = {
             prefix + quantity
@@ -227,7 +235,7 @@ def pathway_plot_quantities(run_log):
         # Add every remaining pathway diagnostic (for example ``v``,
         # inhibition, and methane production) in a stable order.
         for name in sorted(pathway_keys - handled):
-            yield name, *run_log[name]
+            yield emitted_quantity(name, *run_log[name], pathway)
 
 
 def pathway_v_max_values(run_log):
@@ -242,6 +250,23 @@ def pathway_v_max_values(run_log):
         for pathway in PATHWAY_PLOT_ORDER
         if any(key.startswith(f'{pathway}_') for key in keys)
     }
+
+
+def pathway_uses_capacity_parameter(run_log, pathway):
+    """Whether a pathway's ``M`` value is a capacity rather than biomass.
+
+    When ``v_max`` has been removed from the fit and fixed at one, multiplying
+    it by ``M`` leaves ``M`` as the pathway capacity for that pathway's
+    configured reactant/product stoichiometry.  A fitted value of one does not
+    have that interpretation, so both the value and constant status matter.
+    """
+    model_parameters = getattr(run_log, '_parameters', None)
+    parameter_name = PATHWAY_V_MAX_PARAMETER[pathway]
+    if model_parameters is None or parameter_name not in model_parameters:
+        return False
+
+    v_max = model_parameters[parameter_name]
+    return v_max.is_constant() and np.isclose(float(v_max), 1.)
 
 
 def pathway_reaction_rate_curves(run_log, v_max_values):
@@ -285,8 +310,11 @@ def pathway_reaction_rate_curves(run_log, v_max_values):
         yield pathway, time, actual_rate, maximum_rate
 
 
-def quantity_ylabel(name):
+def quantity_ylabel(name, capacity_pathway=None):
     """Return a compact, quantity-appropriate y-axis label."""
+    if capacity_pathway is not None:
+        return (r'$\mathrm{pathway\ capacity\ '
+                r'[\mu mol/g\ dry\ weight/d]}$')
     if name.endswith('_deltaG_r'):
         return rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$'
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
@@ -309,7 +337,8 @@ def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
     return first_line
 
 
-def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
+def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None,
+                  capacity_pathway=None):
     """Plot one modeled pool or pathway quantity in the fit-plot style."""
     figure, axis = plt.subplots(figsize=(4, 4))
     if name.endswith('_deltaG_r'):
@@ -325,9 +354,20 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None):
                      color='k', linestyle='--', linewidth=1,
                      label=r'$\mathrm{Gibbs\ minimum}$')
         axis.legend(fancybox=False, edgecolor='k', loc='best')
-    axis.set_title(name)
+    if capacity_pathway is not None:
+        axis.set_title(f'{capacity_pathway} pathway capacity ({name})')
+        axis.text(
+            .02, .96,
+            '$v_{\\max} = 1$ (constant)\n'
+            'M represents capacity for this\n'
+            'pathway stoichiometry',
+            transform=axis.transAxes, ha='left', va='top', fontsize=8,
+            bbox={'facecolor': 'white', 'edgecolor': '0.7', 'alpha': .9},
+        )
+    else:
+        axis.set_title(name)
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
-    axis.set_ylabel(quantity_ylabel(name))
+    axis.set_ylabel(quantity_ylabel(name, capacity_pathway))
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
         axis.set_ylim(0, 1)
     plot.format_ax(axis)
@@ -834,13 +874,23 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
             checkpoint, fit_replicas, getattr(run_log, 'replica', None))
         v_max_values = pathway_v_max_values(run_log)
         last_number = 0
-        for number, (quantity, time, values) in enumerate(
-                pathway_plot_quantities(run_log), start=1):
+        for number, (quantity, time, values, pathway_context) in enumerate(
+                pathway_plot_quantities(run_log, include_pathway=True), start=1):
             pathway = quantity[:-2] if quantity.endswith('_v') else None
+            capacity_pathway = (
+                pathway_context if quantity.startswith('M_')
+                and pathway_context is not None
+                and pathway_uses_capacity_parameter(run_log, pathway_context)
+                else None
+            )
             figure, _ = plot_quantity(
                 quantity, time, values, checkpoint,
-                v_max=v_max_values.get(pathway), suptitle=suptitle)
-            _, filename = plot_target(checkpoint, number, quantity)
+                v_max=v_max_values.get(pathway), suptitle=suptitle,
+                capacity_pathway=capacity_pathway)
+            filename_quantity = (
+                f'{capacity_pathway}_{quantity}'
+                if capacity_pathway is not None else quantity)
+            _, filename = plot_target(checkpoint, number, filename_quantity)
             path = os.path.join(directory, filename)
             # print('saving to  ', os.path.split(directory)[-1], filename)
             figure.savefig(path, dpi=300)

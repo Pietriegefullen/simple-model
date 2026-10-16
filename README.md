@@ -31,3 +31,17 @@ low-loss parameter basins.  Its reports are written separately below
 python faster/analyze_checkpoint_basins.py --sample 1366 --replica 6 \
   --fit-mode split --run-name 1366-6-existing
 ```
+
+## Parameter distributions for successful single fits
+
+`faster/plot_single_parameter_distributions.py` retains the best (lowest-loss)
+checkpoint for every single-replica fit, replays it, and plots each fitted
+parameter grouped by generated model ID.  Only checkpoints whose combined fit
+R² is strictly above the threshold are included; the default is `R² > 0.8`.
+It writes a paginated PDF plus a CSV containing every plotted value and its
+checkpoint metadata.
+
+```sh
+python faster/plot_single_parameter_distributions.py
+python faster/plot_single_parameter_distributions.py --r2-threshold 0.9
+```
