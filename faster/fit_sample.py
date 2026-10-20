@@ -187,7 +187,9 @@ def fit(chosen, objective_config, algo_config, init_config,
     
     total_objective = optimizer.build_objective_function(pathway_model,
                                                          split['fit'],
-                                                         objective_config)
+                                                         objective_config,
+                                                         t_start=chosen.get('t_start'),
+                                                         t_end=chosen.get('t_end'))
 
     # make replica-provided parameters nan
     for name in ['H2O', 'CH4', 'CO2', 'TOC', 'DOC']:
@@ -255,7 +257,14 @@ def fit(chosen, objective_config, algo_config, init_config,
         total_objective.add_callback(checkpoint.Interrupt(call_limit))
 
     if not minimize:
-        total_objective(initial_parameters, transformed = False)
+        t_start = chosen.get('t_start')
+        t_end = chosen.get('t_end')
+        t_eval = None
+        if t_start is None:
+            t_start = 0
+        if not t_end is None:
+            t_eval = np.arange(t_start, t_end)
+        total_objective(initial_parameters, transformed = False, t_eval = t_eval)
         print()
 
     else:    

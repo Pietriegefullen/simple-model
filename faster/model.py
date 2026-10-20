@@ -591,6 +591,10 @@ class ModelRun():
         run_string += '\n' + '='*len(run_string) + '\n'
         run_string += '\n'.join([name + ' ' + str(self._log[name])
                           for name in sorted(self._log.keys())])
+        ts, _ = self._log[next(iter(self._log.keys()))]
+        t_start = np.min(ts)
+        t_end = np.max(ts)
+        run_string += '\n' + f't in [{t_start:.2f}, {t_end:.2f}]'
         return run_string
     
 

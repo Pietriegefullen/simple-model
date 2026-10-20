@@ -131,6 +131,31 @@ class _FailedIntegrationModel(_NoParameterModel):
         raise optimizer.IntegrationFailure('Integration exceeded 5 seconds')
 
 
+class _TwoPointGasReplica:
+    def __init__(self):
+        self.incubation = {'days': np.array([0.0, 5.0])}
+
+    def CO2(self):
+        return self.incubation['days'], np.array([1.0, 2.0])
+
+    def __getitem__(self, pool):
+        if pool == 'CO2':
+            return self.CO2()[1]
+        raise KeyError(pool)
+
+
+class LossTimeWindowTest(unittest.TestCase):
+    def test_single_observation_window_remains_an_array(self):
+        replica = _TwoPointGasReplica()
+        loss = optimizer.get_loss_function('CO2', t_start=5, t_end=5)
+
+        predicted, measured = loss.get_values(
+            replica, {'CO2': (np.array([0.0, 5.0]), np.array([1.1, 2.1]))})
+
+        self.assertTrue(np.array_equal(predicted, np.array([2.1])))
+        self.assertTrue(np.array_equal(measured, np.array([2.0])))
+
+
 class GlobalBestLossTest(unittest.TestCase):
     def test_callbacks_share_the_best_loss_across_workers(self):
         counter = SharedValue(0)

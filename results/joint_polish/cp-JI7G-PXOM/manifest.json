@@ -1,0 +1,13 @@
+{
+  "algorithm": "cma_es",
+  "completed_replicas": [],
+  "max_evaluations": 3000,
+  "popsize": 15,
+  "replicas_requested": [
+    "13514"
+  ],
+  "seed": null,
+  "sigma0": 0.05,
+  "source_checkpoint": "/Users/martinlegeland/Code/soil/simple-model/results/joint_multi/run-UCO-3YO/loss-KC7Z-ZD6L_model-ZCJ4-I6OG_0_0_multi_loss-00077805_run-UCO-3YO_cp-JI7G-PXOM",
+  "source_checkpoint_id": "JI7G-PXOM"
+}

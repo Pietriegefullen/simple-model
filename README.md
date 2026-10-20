@@ -1,5 +1,30 @@
 simple model
 
+## Replaying a checkpoint
+
+`faster/run_checkpoint.py` evaluates a saved annotated checkpoint once.  It
+uses the model structure, fitting split, objective, and parameter ranges stored
+in the checkpoint; it does not launch an optimiser or modify the checkpoint.
+
+```sh
+python faster/run_checkpoint.py KRQY-LMRT --output-dir replay_results/KRQY-LMRT
+python faster/run_checkpoint.py KRQY --output-dir replay_results/KRQY-override \
+  --p Hydro_v_max 0.02 Homo_thermodynamics false
+python faster/run_checkpoint.py KRQY --output-dir replay_results/KRQY-window --t 5 40
+```
+
+`--p` values replace (and fix) the corresponding saved parameter values for
+that one replay.  `--t` replaces the checkpoint's observation window; use `0`
+as its first value to begin from the start of the experiment.
+The checkpoint argument accepts a file path or a full/partial `cp-` identifier;
+an ID must identify exactly one file below `results/`.
+The target directory receives the standard fit and pathway diagnostic plots
+from `collect_best`, along with `metadata.json` containing the source
+checkpoint parameters, effective run configuration, requested overrides, and
+result metrics.  It must be new or empty.
+Relative `--output-dir` paths are rooted at this project directory (not
+`faster/`), so the examples above write below `simple_model/replay_results/`.
+
 ## Resuming nested CMA-ES fits
 
 `faster/fit_replicas.py` checkpoints both the outer and per-replica CMA-ES
@@ -8,6 +33,27 @@ checkpoint directory; rerun the identical command (the default `--resume`)
 to continue with the saved covariance, evolution paths, random state, and any
 already completed candidates in an interrupted population.  Use
 `--no-resume` to deliberately begin a fresh search.
+
+## Polishing replicas from a multi fit
+
+`faster/polish_replicas.py` takes an annotated multi-fit checkpoint (a path or
+a unique full/partial `cp-` ID), freezes its saved shared parameter values, and
+then refines each selected replica's local parameters with CMA-ES. It seeds
+each search from the incumbent stored in the multi checkpoint and leaves the
+source fit untouched. The default unit-bound `sigma0` is `0.10`, deliberately
+smaller than the `0.30` exploratory default used by a fresh CMA-ES fit.
+
+```sh
+python faster/polish_replicas.py JI7G
+python faster/polish_replicas.py JI7G --replicas 13514 13526 --max-evaluations 2000
+python faster/polish_replicas.py JI7G --sigma 0.05 --popsize 16
+```
+
+Replica IDs are the full sample+replica IDs recorded by the multi fit (for
+example `13514` or `1351/4` means sample `1351`, replica `4`); omitting
+`--replicas` polishes every replica in that checkpoint. Results are stored under
+`results/joint_polish/cp-<source-id>/`, alongside a `manifest.json` recording
+the source checkpoint and CMA-ES settings.
 
 ## Finding alternative local minima
 

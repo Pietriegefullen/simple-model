@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.18)  19 OCT 2026 13:17
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.3.18)  20 OCT 2026 13:19
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -244,6 +244,16 @@ ty
 Package: glossary-tree 2025/03/03 v4.56 (NLCT)
 \glstreeindent=\skip66
 ))
+\glswrite=\write3
+\glo@main@file=\write4
+\openout4 = `formulae.glo'.
+
+Package glossaries Info: Writing glossary file formulae.glo on input line 7.
+\glo@symbols@file=\write5
+\openout5 = `formulae.slo'.
+
+Package glossaries Info: Writing glossary file formulae.slo on input line 7.
+
 (/usr/local/texlive/2025/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
 File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count316
@@ -266,27 +276,28 @@ LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 39.
 LaTeX Font Info:    ... okay on input line 39.
 LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 39.
 LaTeX Font Info:    ... okay on input line 39.
-
-No file formulae.sls.
-
+ (./formulae.sls)
 
 [1
 
+\openout3 = `formulae.ist'.
+
 {/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
-(./formulae.aux)
+
+[2] (./formulae.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 8319 strings out of 473190
- 171625 string characters out of 5715800
- 612594 words of memory out of 5000000
- 31548 multiletter control sequences out of 15000+600000
+ 8335 strings out of 473190
+ 171887 string characters out of 5715800
+ 616327 words of memory out of 5000000
+ 31558 multiletter control sequences out of 15000+600000
  563258 words of font info for 51 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 78i,5n,79p,2350b,131s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 78i,6n,79p,2365b,310s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb>
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><
@@ -298,10 +309,10 @@ l/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/t
 exlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/te
 xlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy5.pfb></usr/local/texl
 ive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb>
-Output written on formulae.pdf (1 page, 111714 bytes).
+Output written on formulae.pdf (2 pages, 122459 bytes).
 PDF statistics:
- 63 PDF objects out of 1000 (max. 8388607)
- 37 compressed objects within 1 object stream
+ 66 PDF objects out of 1000 (max. 8388607)
+ 39 compressed objects within 1 object stream
  0 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 

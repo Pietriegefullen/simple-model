@@ -146,6 +146,12 @@ class Loss():
         else:
             raise NotImplementedError()
 
+        #if not self.t_end is None:
+        #    t = np.unique(np.concatenate([t, np.arange(np.floor(np.max(t)), self.t_end)], axis = 0))
+        #if not self.t_start is None:
+        #    t = np.unique(np.concatenate([np.arange(0, self.t_start), t], axis = 0))
+        #t = np.sort(t)
+
         usable = np.isfinite(t)
         if callable(self.transform):
             usable &= np.isfinite(self.transform(values))
@@ -172,13 +178,21 @@ class Loss():
             
         assert pool_true.size == t_true.size
         
-        ind = np.array([np.nonzero(np.isclose(t_pred,t))[0].item() for t in t_true
-                        if np.any(np.isclose(t,t_pred))]).squeeze()
+        # Keep singleton selections one-dimensional.  A narrow replay window
+        # can legitimately contain one observation; ``squeeze`` would turn
+        # its index into a scalar and make the subsequent time filtering try
+        # to iterate over a numpy float.
+        ind = np.asarray([
+            np.nonzero(np.isclose(t_pred, t))[0].item()
+            for t in t_true if np.any(np.isclose(t, t_pred))
+        ], dtype=int)
         t_pred = t_pred[ind]
         pool_pred = pool_pred[ind]
 
-        ind = np.array([np.nonzero(np.isclose(t_true,t))[0].item()
-                        for t in t_pred if np.any(np.isclose(t,t_true))]).squeeze()
+        ind = np.asarray([
+            np.nonzero(np.isclose(t_true, t))[0].item()
+            for t in t_pred if np.any(np.isclose(t, t_true))
+        ], dtype=int)
 
         t_true = t_true[ind]
         pool_true = pool_true[ind]
@@ -482,7 +496,7 @@ class Objective(Addable):
         _ = [v.set(p) for v, p in zip(parameters, np.atleast_1d(values))]
         
         
-    def _call(self, transformed_parameters, transformed = True):
+    def _call(self, transformed_parameters, transformed = True, t_eval = None):
         if isinstance(transformed_parameters, parameters.ModelParameters):
             p_dict = transformed_parameters.as_dict()
             p_values = list(p_dict.values())
@@ -496,12 +510,15 @@ class Objective(Addable):
                                 transformed = transformed)
 
         try:
-            run_log = self._model.predict(self._replica, t_eval = self.t_eval())
+            compute_loss = t_eval is None
+            t_eval = self.t_eval() if t_eval is None else t_eval
+            run_log = self._model.predict(self._replica, t_eval = t_eval)
 
             replica_loss = 0
-            for loss_function, loss_weight in self.loss_contributions():
-                loss_value = loss_function(self._replica, run_log)
-                replica_loss += loss_weight*loss_value
+            if compute_loss:
+                for loss_function, loss_weight in self.loss_contributions():
+                    loss_value = loss_function(self._replica, run_log)
+                    replica_loss += loss_weight*loss_value
         except NonFiniteLoss as error:
             print(f'\nWARNING: Replica {self._replica}: {error}; '
                   f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')

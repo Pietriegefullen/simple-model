@@ -4,7 +4,7 @@
 
 
 \usepackage[symbols]{glossaries}
-
+\makeglossaries
 \newglossaryentry{chemical_species}{%
   name={\ensuremath{S_i}},
   description={chemical species},
@@ -73,18 +73,36 @@ f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{inhib,
 If the $i$-th pool is irrelevant for the $j$-th pathway, $K_{m,ij} = 0$.
 Numerics: Add $\varepsilon = 10^{-12}$ in the denominator, to avoid division by zero.
 
+\newcommand{\Sdis}{S^{\mathrm{dis}}}
 
 \begin{equation}
-S^{\mathrm{dis}}_i = 
+ H_{cc,i} = H_{cp}^{\circ} \cdot R\cdot T \cdot e^{C_{cp} \cdot \left(\frac{1}{T} - \frac{1}{T^{\circ}}\right)}
 \end{equation}
 
 \begin{equation}
-\log Q = \sum_
+\lambda_i = H_{cc,i} \frac{V_{\mathrm{aq}}}{V_{\mathrm{gas}}}
 \end{equation}
 
 \begin{equation}
-\Delta G_{r,j} = \Delta G_{s,j} + R T \log Q
+\Sdis_i = \frac{\lambda_i}{1+\lambda_i} \cdot S_i
 \end{equation}
+
+\begin{equation}
+a_i = \frac{\Sdis_i}{w}
+\end{equation}
+
+\begin{equation}
+Q_j = \prod_{i =1}^{N_P} a_{i}^{\gamma_{ij}}
+\end{equation}
+
+\begin{equation}
+\Delta G_{s,j} = \sum_{i = 1}^{N_P} \gamma_{ij}\Delta G_{f,i}
+\end{equation}
+
+\begin{equation}
+\Delta G_{r,j} = \Delta G_{s,j} + R T \log Q_j
+\end{equation}
+
 
 \begin{equation}
 f_{\mathrm{thermo},j} = 1 - e^{\frac{\min(0, \Delta G_{r,j} - \Delta G_{r,\min})}{RT}}
