@@ -1,5 +1,6 @@
 import os
 import multiprocessing
+import queue
 
 import numpy as np
 import scipy.integrate
@@ -18,6 +19,16 @@ from CONSTANTS import EPS
 
 OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differential_evolution' #'direct' # 'gradient' # 'PSO'
 
+# A candidate that cannot be integrated within this budget is not useful to
+# the optimiser.  ``solve_ivp`` runs in a child process so this is a hard
+# deadline, including for LSODA's Fortran internals.
+INTEGRATION_TIMEOUT_SECONDS = 5.0
+
+# Stop only trajectories that are wildly outside the scale of the particular
+# replica.  The floor avoids a zero limit for all-zero gas measurements.
+GAS_RUNAWAY_MULTIPLIER = 100.0
+GAS_RUNAWAY_FLOOR = 1.0
+
 
 version_major = '0'
 version_minor = '2' # minor 2: Henry's law adjusted
@@ -29,8 +40,67 @@ def build_model(pathways, normalized):
     pathway_model.parameters().set('default', normalized = normalized)
     return pathway_model
 
-def integrate(f, t, S0, solver_result, reset_Fe3):
+
+def gas_upper_limits(replica, initial_state):
+    """Return conservative, replica-specific CO2 and CH4 abort limits."""
+    limits = {}
+    for pool in ('CO2', 'CH4'):
+        _, measured = getattr(replica, pool)()
+        measured = np.asarray(measured, dtype=float)
+        finite_measured = measured[np.isfinite(measured)]
+        observed_peak = (np.max(np.abs(finite_measured))
+                         if finite_measured.size else 0.0)
+        initial_value = initial_state[system.index(pool)]
+        scale = max(GAS_RUNAWAY_FLOOR, observed_peak, abs(initial_value))
+        limits[pool] = GAS_RUNAWAY_MULTIPLIER * scale
+    return limits
+
+
+def gas_runaway_events(limits):
+    """Build terminal solve_ivp events for excessive gas concentrations."""
+    events = []
+    for pool in ('CO2', 'CH4'):
+        pool_index = system.index(pool)
+        upper_limit = limits[pool]
+
+        def event(_time, state, index=pool_index, limit=upper_limit):
+            return limit - state[index]
+
+        event.terminal = True
+        event.direction = -1
+        events.append(event)
+    return events
+
+
+def _solve_segment(f, t_span, initial_state, t_eval, events):
+    """Solve one continuous segment and translate every abnormal exit."""
+    try:
+        result = scipy.integrate.solve_ivp(
+            f, t_span, initial_state,
+            t_eval=t_eval,
+            events=events,
+            method='LSODA',
+            max_step=10,
+            first_step=1e-6,
+        )
+    except optimizer.IntegrationFailure:
+        raise
+    except Exception as error:
+        raise optimizer.IntegrationFailure(
+            f'Integration raised {type(error).__name__}: {error}') from error
+
+    if not result.success:
+        raise optimizer.IntegrationFailure(f'Integration failed: {result.message}')
+    if any(event_times.size for event_times in result.t_events):
+        triggered = 'CO2' if result.t_events[0].size else 'CH4'
+        raise optimizer.IntegrationFailure(
+            f'Integration stopped because {triggered} exceeded its runaway limit')
+    return result
+
+
+def integrate(f, t, S0, solver_result, reset_Fe3, gas_limits):
     #print('solving IVP')
+    events = gas_runaway_events(gas_limits)
     
     t_after = None
     if isinstance(reset_Fe3, int):
@@ -45,14 +115,7 @@ def integrate(f, t, S0, solver_result, reset_Fe3):
     else:
         t_before = t
 
-    result = scipy.integrate.solve_ivp(f, (0, max(t_before)),
-                                                  S0, 
-                                                  t_eval = t_before,#np.arange(0, max(t_before)+1),
-                                                  method = 'LSODA',
-                                                  max_step = 10,
-                                                  first_step = 1e-6, 
-                                                  #min_step = 1e-4
-                                                  )
+    result = _solve_segment(f, (0, max(t_before)), S0, t_before, events)
 
     solver_result.append(result)
 
@@ -64,12 +127,8 @@ def integrate(f, t, S0, solver_result, reset_Fe3):
         print('solving IVP after reset')
         t_eval = np.sort(np.unique(np.concatenate([t_after,
                                                    np.arange(min(t_after), max(t_after), 10) ])))
-        result_after = scipy.integrate.solve_ivp(f, (min(t_after), max(t_after)),
-                                                 S1,
-                                                 t_eval = t_eval,
-                                                 method = 'LSODA',
-                                                 max_step = 10,
-                                                 first_step = 1e-6)
+        result_after = _solve_segment(
+            f, (min(t_after), max(t_after)), S1, t_eval, events)
 
         solver_result[0].y = np.concatenate([solver_result[0].y,
                                              result_after.y], axis = -1)
@@ -78,6 +137,16 @@ def integrate(f, t, S0, solver_result, reset_Fe3):
                                              result_after.t])
     
     return solver_result
+
+
+def _integration_worker(f, t, S0, result_queue, reset_Fe3, gas_limits):
+    """Return integration failures to the parent instead of printing a traceback."""
+    try:
+        solver_result = []
+        integrate(f, t, S0, solver_result, reset_Fe3, gas_limits)
+        result_queue.put(solver_result[0])
+    except optimizer.IntegrationFailure as error:
+        result_queue.put(error)
         
 
 # obsolete?
@@ -210,28 +279,35 @@ class Model():
         self.parameters().check()
         self.system_state_log.reset(replica)
         self.system_change_log.reset(replica)
+        gas_limits = gas_upper_limits(replica, S0)
 
-        # solve initial value problem
-        if parallel:
-            manager = multiprocessing.Manager()
-            solver_result = manager.list()
-            p = multiprocessing.Process(target = integrate,
-                                        args = (self, t_eval, S0, solver_result, reset_Fe3))
-            p.daemon = True
-            p.start()
-            p.join(timeout = 10.)
-            if p.is_alive():
-                p.terminate()
-                p.join()
-        else:
-            solver_result = []
-            integrate(self, t_eval, S0, solver_result, reset_Fe3)
+        # A process watchdog is necessary because LSODA offers neither a
+        # wall-clock nor a function-evaluation limit.  The ``parallel``
+        # argument is retained for API compatibility; every prediction now
+        # receives the same five-second protection.
+        result_queue = multiprocessing.Queue(maxsize=1)
+        try:
+            process = multiprocessing.Process(
+                target=_integration_worker,
+                args=(self, t_eval, S0, result_queue, reset_Fe3, gas_limits))
+            process.daemon = True
+            process.start()
+            try:
+                solver_result = result_queue.get(timeout=INTEGRATION_TIMEOUT_SECONDS)
+            except queue.Empty:
+                process.terminate()
+                process.join()
+                raise optimizer.IntegrationFailure(
+                    f'Integration exceeded {INTEGRATION_TIMEOUT_SECONDS:g} seconds')
+            # Receipt from the queue means the solver has returned; joining
+            # now only reaps the completed worker.
+            process.join()
+        finally:
+            result_queue.close()
+            result_queue.join_thread()
 
-        if not len(solver_result) == 1:
-            print('o', end = '', flush = True)
-            raise Exception('timeout')
-            
-        solver_result = solver_result[0]
+        if isinstance(solver_result, optimizer.IntegrationFailure):
+            raise solver_result
         
         # prevent nonpositive pool values
         solver_result.y = np.maximum(solver_result.y, 1e-24) 

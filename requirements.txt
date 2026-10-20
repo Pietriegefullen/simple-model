@@ -1,0 +1,2 @@
+# Bounded CMA-ES backend used by faster/optimizer.py.
+cma>=4.5,<5

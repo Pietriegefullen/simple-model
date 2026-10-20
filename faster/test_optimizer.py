@@ -1,4 +1,5 @@
 import threading
+import tempfile
 from contextlib import redirect_stdout
 import io
 import unittest
@@ -7,6 +8,7 @@ from unittest import mock
 import numpy as np
 
 import optimizer
+import checkpoint
 
 
 class ValueObjective(optimizer.Addable):
@@ -42,6 +44,7 @@ class SamplingVariable:
     def __init__(self, lower, upper):
         self._lower = lower
         self._upper = upper
+        self.value = (lower + upper) / 2
 
     def lower(self):
         return self._lower
@@ -91,6 +94,17 @@ class SamplingObjective:
         self.selected_was_transformed = transformed
 
 
+class InterruptingSamplingObjective(SamplingObjective):
+    def __init__(self, interrupt_after):
+        super().__init__()
+        self.interrupt_after = interrupt_after
+
+    def __call__(self, candidate):
+        if len(self.evaluated) >= self.interrupt_after:
+            raise KeyboardInterrupt()
+        return super().__call__(candidate)
+
+
 class _NoVariables:
     def variables(self):
         return []
@@ -110,6 +124,11 @@ class _InvalidLoss:
 
     def __call__(self, replica, run_log):
         raise optimizer.NonFiniteLoss('mse(CH4) returned inf')
+
+
+class _FailedIntegrationModel(_NoParameterModel):
+    def predict(self, replica, t_eval):
+        raise optimizer.IntegrationFailure('Integration exceeded 5 seconds')
 
 
 class GlobalBestLossTest(unittest.TestCase):
@@ -199,6 +218,88 @@ class DifferentialEvolutionBudgetTest(unittest.TestCase):
         self.assertTrue(algorithm.generation_counter())
 
 
+class CMAEvolutionStrategyTest(unittest.TestCase):
+    def test_respects_budget_and_leaves_objective_at_best_candidate(self):
+        objective = SamplingObjective()
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'seed': 5, 'popsize': 8, 'sigma0': 0.35,
+                             'max_evaluations': 40})
+
+        algorithm._minimize(objective, None)
+
+        self.assertEqual(len(objective.evaluated), 40)
+        losses = [np.sum((candidate - np.array([0.2, 1.3])) ** 2)
+                  for candidate in objective.evaluated]
+        self.assertTrue(np.array_equal(
+            objective.selected, objective.evaluated[np.argmin(losses)]))
+        self.assertTrue(objective.selected_was_transformed)
+
+    def test_allows_a_budget_smaller_than_one_population(self):
+        objective = SamplingObjective()
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'seed': 2, 'popsize': 8, 'max_evaluations': 3})
+
+        algorithm._minimize(objective, None)
+
+        self.assertEqual(len(objective.evaluated), 3)
+
+    def test_continues_from_a_generation_state_checkpoint(self):
+        """A resumed CMA run has the same next populations as an intact run."""
+        with tempfile.TemporaryDirectory() as directory:
+            state = checkpoint.CMAStateCheckpoint(
+                {'model': {}, 'chosen': {}, 'objective': {}, 'algo': {}, 'range': {}},
+                target=directory)
+            first = SamplingObjective()
+            interrupted = optimizer.CMAEvolutionStrategy()
+            interrupted.configure({'seed': 11, 'popsize': 8, 'sigma0': 0.3,
+                                   'max_evaluations': 16})
+            interrupted.set_state_checkpoint(state)
+            interrupted._minimize(first, None)
+
+            continued = SamplingObjective()
+            resumed = optimizer.CMAEvolutionStrategy()
+            resumed.configure({'seed': 11, 'popsize': 8, 'sigma0': 0.3,
+                               'max_evaluations': 32})
+            resumed.set_state_checkpoint(state)
+            resumed._minimize(continued, None)
+
+            whole = SamplingObjective()
+            uninterrupted = optimizer.CMAEvolutionStrategy()
+            uninterrupted.configure({'seed': 11, 'popsize': 8, 'sigma0': 0.3,
+                                     'max_evaluations': 32})
+            uninterrupted._minimize(whole, None)
+
+        combined = np.vstack(first.evaluated + continued.evaluated)
+        self.assertEqual(combined.shape, np.vstack(whole.evaluated).shape)
+        self.assertTrue(np.array_equal(combined, np.vstack(whole.evaluated)))
+
+    def test_interrupt_within_a_population_preserves_completed_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = checkpoint.CMAStateCheckpoint(
+                {'model': {}, 'chosen': {}, 'objective': {}, 'algo': {}, 'range': {}},
+                target=directory)
+            interrupted_objective = InterruptingSamplingObjective(2)
+            interrupted = optimizer.CMAEvolutionStrategy()
+            interrupted.configure({'seed': 17, 'popsize': 8, 'max_evaluations': 32})
+            interrupted.set_state_checkpoint(state)
+            with self.assertRaises(KeyboardInterrupt):
+                interrupted._minimize(interrupted_objective, None)
+
+            resumed_objective = SamplingObjective()
+            resumed = optimizer.CMAEvolutionStrategy()
+            resumed.configure({'seed': 17, 'popsize': 8, 'max_evaluations': 32})
+            resumed.set_state_checkpoint(state)
+            resumed._minimize(resumed_objective, None)
+
+            whole = SamplingObjective()
+            uninterrupted = optimizer.CMAEvolutionStrategy()
+            uninterrupted.configure({'seed': 17, 'popsize': 8, 'max_evaluations': 32})
+            uninterrupted._minimize(whole, None)
+
+        combined = np.vstack(interrupted_objective.evaluated + resumed_objective.evaluated)
+        self.assertTrue(np.array_equal(combined, np.vstack(whole.evaluated)))
+
+
 class CombinedObjectiveTest(unittest.TestCase):
     def test_combined_objective_delegates_parameter_updates_to_a_leaf(self):
         receiver = mock.Mock()
@@ -233,6 +334,15 @@ class NonFiniteLossTest(unittest.TestCase):
         self.assertEqual(value, optimizer.INVALID_OBJECTIVE_PENALTY)
         self.assertIsNone(objective.last_R2())
         self.assertIn('WARNING: Replica', output.getvalue())
+
+    def test_failed_integration_receives_a_finite_penalty(self):
+        objective = optimizer.Objective(_FailedIntegrationModel(), object())
+        objective.add_loss(_InvalidLoss(), 1.0)
+
+        value = objective._call([], transformed=False)
+
+        self.assertEqual(value, optimizer.INVALID_OBJECTIVE_PENALTY)
+        self.assertIsNone(objective.last_R2())
 
 
 if __name__ == '__main__':

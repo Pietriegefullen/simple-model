@@ -74,9 +74,30 @@ class VariantDiagnosticsTest(unittest.TestCase):
             '08_substrate_flux_phase',
             '09_mass_balance_attribution',
             '10_ab_limitation_fingerprint',
+            '11_ac_homo_activity_delta_g',
         })
         self.assertEqual(len(figures['07_ac_pathway_removal_response'].axes), 4)
         self.assertEqual(len(figures['09_mass_balance_attribution'].axes), 4)
+
+    def test_ac_homo_activity_and_delta_g_share_a_variant_comparison_plot(self):
+        specification = lambda variant: type('Specification', (), {'variant': variant})()
+        specifications = [specification(variant) for variant in ('A', 'C')]
+        model_runs = {
+            'A': (model(), None, run_log()),
+            'C': (model(include_hydro=False), None, run_log()),
+        }
+
+        figure = variant_diagnostics.plot_ac_homo_activity_and_delta_g(
+            specifications, model_runs, 'test')
+        activity, delta_g = figure.axes
+
+        self.assertEqual([line.get_linestyle() for line in activity.lines], ['-', ':'])
+        self.assertEqual([line.get_linestyle() for line in delta_g.lines], ['-', ':'])
+        np.testing.assert_allclose(activity.lines[0].get_ydata(), [.2, .45, .8])
+        np.testing.assert_allclose(delta_g.lines[0].get_ydata(),
+                                   [-.02, -.021, -.022])
+        self.assertIn('M(t)v', activity.get_ylabel())
+        self.assertIn(r'\Delta G_\mathrm{r}', delta_g.get_ylabel())
 
     def test_flux_partition_uses_pathway_color_and_variant_line_style(self):
         specification = lambda variant: type('Specification', (), {'variant': variant})()

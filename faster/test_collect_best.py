@@ -180,6 +180,33 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertFalse(
             collect_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
 
+    def test_dissolved_h2_follows_total_h2_in_pool_plot_order(self):
+        class PathwayModel:
+            def compute_dissolved(self, states):
+                assert states.ndim == 1
+                dissolved = states.copy()
+                dissolved[system.index('H2')] *= .25
+                return dissolved
+
+        run_log = {
+            'H2': ([0, 1], [4., 8.]),
+            'H2O': ([0, 1], [10., 10.]),
+        }
+
+        quantities = list(collect_best.pathway_plot_quantities(
+            run_log, pathway_model=PathwayModel()))
+        self.assertEqual([quantity[0] for quantity in quantities],
+                         ['H2', 'H2_dissolved', 'H2O'])
+        dissolved_h2 = quantities[1]
+        np.testing.assert_allclose(dissolved_h2[1], [0, 1])
+        self.assertEqual(dissolved_h2[2].tolist(), [1., 2.])
+
+    def test_dissolved_h2_has_a_clear_plot_title(self):
+        _, axis = collect_best.plot_quantity(
+            'H2_dissolved', [0, 1], [.1, .2], None, suptitle='test')
+
+        self.assertEqual(axis.get_title(), 'Dissolved H2')
+
     def test_reaction_rate_uses_biomass_on_the_specific_rate_grid(self):
         run_log = {
             'Hydro_v': ([0., .5, 1.5, 2.], [.1, .2, .4, .5]),
@@ -236,8 +263,11 @@ class PathwayQuantityPlotTest(unittest.TestCase):
 
         figure, axis = collect_best.ch4_pathway_production_figure(
             None, run_log, suptitle='test')
+        _, log_axis = collect_best.ch4_pathway_production_figure(
+            None, run_log, suptitle='test', log_scale=True)
 
         self.assertEqual(axis.get_yscale(), 'linear')
+        self.assertEqual(log_axis.get_yscale(), 'log')
         self.assertEqual(len(axis.collections), 2)
         self.assertEqual(axis.lines[0].get_ydata().tolist(), [0, 3])
         labels = [text.get_text() for text in axis.get_legend().get_texts()]
@@ -245,6 +275,73 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertTrue(any('1' in label for label in labels))
         self.assertIn('3', labels[-1])
         self.assertIsNotNone(figure)
+
+    def test_co2_pathway_production_includes_all_producers_on_both_scales(self):
+        def pathway(name, co2_coefficient):
+            instance = type(name, (), {})()
+            instance.pathway_vector = [0.] * len(system.SYSTEM)
+            instance.pathway_vector[system.index('CO2')] = co2_coefficient
+            return instance
+
+        pathway_model = type('Model', (), {
+            'contributing_pathways': [
+                pathway('Fermentation', 3.),
+                pathway('Aceto', 1.),
+                pathway('Hydro', -1.),
+            ],
+        })()
+        run_log = {
+            'CO2': ([0, 1], [3., 6.]),
+            'Fermentation_v': ([0, 1], [.5, .5]),
+            'M_Ferm': ([0, 1], [2., 2.]),
+            'Aceto_v': ([0, 1], [1., 1.]),
+            'M_Ac': ([0, 1], [3., 3.]),
+            'Hydro_v': ([0, 1], [.5, .5]),
+            'M_Hydro': ([0, 1], [4., 4.]),
+        }
+
+        figure, axis = collect_best.co2_pathway_production_figure(
+            None, pathway_model, run_log, suptitle='test')
+        _, log_axis = collect_best.co2_pathway_production_figure(
+            None, pathway_model, run_log, suptitle='test', log_scale=True)
+
+        self.assertEqual(axis.get_yscale(), 'linear')
+        self.assertEqual(log_axis.get_yscale(), 'log')
+        self.assertEqual(len(axis.collections), 2)
+        labels = [text.get_text() for text in axis.get_legend().get_texts()]
+        self.assertTrue(any('Fermentation' in label for label in labels))
+        self.assertTrue(any('Aceto' in label for label in labels))
+        self.assertFalse(any('Hydro' in label for label in labels))
+        self.assertIn('3', labels[-1])
+        self.assertIsNotNone(figure)
+
+    def test_co2_production_uses_accepted_states_not_trial_rate_logs(self):
+        class Fermentation:
+            pathway_vector = np.zeros(len(system.SYSTEM))
+
+            def __call__(self, time, state):
+                return system.vector(0., 'CO2', state[system.index('DOC')])
+
+        Fermentation.pathway_vector[system.index('CO2')] = 1.
+        pathway_model = type('Model', (), {
+            'contributing_pathways': [Fermentation()],
+            'compute_dissolved': staticmethod(lambda state: state),
+        })()
+        run_log = {
+            pool: ([0., 1.], [1., 2.]) for pool in system.SYSTEM
+        }
+        run_log['CO2'] = ([0., 1.], [3., 4.5])
+        # Deliberately incompatible trial-state diagnostics: these must not
+        # influence the cumulative curve when full accepted states are logged.
+        run_log['Fermentation_v'] = ([0., 1.], [100., 100.])
+        run_log['M_Ferm'] = ([0., 1.], [100., 100.])
+
+        _, axis = collect_best.co2_pathway_production_figure(
+            None, pathway_model, run_log, suptitle='test')
+
+        np.testing.assert_allclose(axis.collections[0].get_paths()[0].vertices[:, 1].max(),
+                                   1.5)
+        np.testing.assert_allclose(axis.lines[0].get_ydata(), [0., 1.5])
 
 
 if __name__ == '__main__':

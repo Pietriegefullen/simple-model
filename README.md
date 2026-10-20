@@ -1,5 +1,14 @@
 simple model
 
+## Resuming nested CMA-ES fits
+
+`faster/fit_replicas.py` checkpoints both the outer and per-replica CMA-ES
+search state.  Pressing Ctrl-C leaves the latest state in the normal joint
+checkpoint directory; rerun the identical command (the default `--resume`)
+to continue with the saved covariance, evolution paths, random state, and any
+already completed candidates in an interrupted population.  Use
+`--no-resume` to deliberately begin a fresh search.
+
 ## Finding alternative local minima
 
 `faster/find_minima.py` performs independent, seeded differential-evolution

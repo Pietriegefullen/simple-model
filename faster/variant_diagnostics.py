@@ -230,6 +230,57 @@ def plot_ac_pathway_removal_response(specifications, model_runs, suptitle):
     return figure
 
 
+def plot_ac_homo_activity_and_delta_g(specifications, model_runs, suptitle):
+    """Compare Homo activity and reaction Gibbs energy for A and no-Hydro C.
+
+    Model C is intentionally derived from model A's fitted values, so these
+    curves isolate Homo's response to removing the competing Hydro pathway.
+    """
+    variants = {specification.variant for specification in specifications}
+    if not {'A', 'C'}.issubset(variants):
+        return None
+
+    figure, axes = plt.subplots(1, 2, figsize=(9, 4), sharex=True)
+    activity_axis, delta_g_axis = axes
+    for variant in ('A', 'C'):
+        pathway_model, _, run_log = model_runs[variant]
+        if 'Homo' not in available_pathways(pathway_model, ('Homo',)):
+            _missing_diagnostic_note(activity_axis, variant)
+            _missing_diagnostic_note(delta_g_axis, variant)
+            continue
+        try:
+            activity_time, activity = pathway_activity(
+                pathway_model, run_log, 'Homo')
+        except KeyError:
+            _missing_diagnostic_note(activity_axis, variant)
+        else:
+            activity_axis.plot(
+                activity_time, activity, color=pathway_color('Homo'),
+                linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.5,
+                label=rf'$\mathrm{{model\ {variant}}}$')
+
+        delta_g_series = _logged_series(run_log, 'Homo_deltaG_r')
+        if delta_g_series is None:
+            _missing_diagnostic_note(delta_g_axis, variant)
+            continue
+        delta_g_time, delta_g = delta_g_series
+        delta_g_axis.plot(
+            delta_g_time, np.asarray(delta_g, dtype=float) * plot.GIBBS_ENERGY_SCALE,
+            color=pathway_color('Homo'),
+            linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.5,
+            label=rf'$\mathrm{{model\ {variant}}}$')
+
+    activity_axis.set_title(r'$\mathrm{Homo\ pathway\ activity}$')
+    activity_axis.set_ylabel(
+        r'$M(t)v\ [\mu mol/g\ dry\ weight/d]$')
+    delta_g_axis.set_title(r'$\mathrm{Homo\ reaction\ Gibbs\ energy}$')
+    delta_g_axis.set_ylabel(
+        rf'$\Delta G_\mathrm{{r}}\ [{plot.GIBBS_ENERGY_UNIT}]$')
+    _finish(figure, axes, suptitle)
+    figure.subplots_adjust(left=.10, right=.98, bottom=.16, top=.80, wspace=.30)
+    return figure
+
+
 def plot_substrate_flux_phase(specifications, model_runs, suptitle):
     """Relate H2/acetate availability directly to each consuming pathway flux."""
     figure, axes = plt.subplots(1, 2, figsize=(9, 4))
@@ -425,6 +476,7 @@ def diagnostic_figures(specifications, model_runs, suptitle):
         ('08_substrate_flux_phase', plot_substrate_flux_phase),
         ('09_mass_balance_attribution', plot_mass_balance_attribution),
         ('10_ab_limitation_fingerprint', plot_ab_limitation_fingerprint),
+        ('11_ac_homo_activity_delta_g', plot_ac_homo_activity_and_delta_g),
     )
     for name, builder in optional:
         figure = builder(specifications, model_runs, suptitle)

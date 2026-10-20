@@ -23,7 +23,7 @@ def parse(value):
     
     return value
 
-def parse_args_fit():
+def parse_args_fit(argv=None):
     parser = argparse.ArgumentParser(
                         prog='fit_sample',
                         description='Fits a model to replica data.',
@@ -37,6 +37,16 @@ def parse_args_fit():
     parser.add_argument('--t', nargs = 2)
     parser.add_argument('--p', nargs = '+')
     parser.add_argument('--local', action = 'store_true')
+    parser.add_argument('--algorithm', choices=('de', 'cma-es'), default='de',
+                        help='Global optimiser; DE is the default.')
+    parser.add_argument('--popsize', type=int,
+                        help='Population size for DE or CMA-ES.')
+    parser.add_argument('--cma-sigma', type=float,
+                        help='Initial CMA-ES step size in unit-bound coordinates (default: 0.30).')
+    parser.add_argument('--cma-restarts', type=int, default=0,
+                        help='Number of CMA-ES restarts (default: 0).')
+    parser.add_argument('--max-evaluations', type=int,
+                        help='Maximum completed DE/CMA-ES evaluations.')
     parser.add_argument('--best', default = None)
     parser.add_argument('--workers', default = -1)
     parser.add_argument('--dry', action = 'store_true')
@@ -45,7 +55,7 @@ def parse_args_fit():
     parser.add_argument('--checkpoint', '--initial', dest='checkpoint', metavar='PATH',
                         help='checkpoint JSON to use as the initial parameters')
     
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.single is None and args.split is None:
         args.split = True
@@ -69,6 +79,17 @@ def parse_args_fit():
    
     setattr(args, 'override', parse_override(args.p))
     setattr(args, 'workers', int(args.workers))
+
+    if args.local and args.algorithm != 'de':
+        parser.error('--local (Powell) cannot be combined with --algorithm.')
+    if args.popsize is not None and args.popsize <= 0:
+        parser.error('--popsize must be positive.')
+    if args.cma_sigma is not None and args.cma_sigma <= 0:
+        parser.error('--cma-sigma must be positive.')
+    if args.cma_restarts < 0:
+        parser.error('--cma-restarts cannot be negative.')
+    if args.max_evaluations is not None and args.max_evaluations <= 0:
+        parser.error('--max-evaluations must be positive.')
 
 
     return args

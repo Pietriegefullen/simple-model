@@ -41,6 +41,13 @@ class SelectionTest(unittest.TestCase):
         self.assertEqual([fit_replicas.replica_identifier(replica)
                           for replica in selected], ['13515'])
 
+    def test_sample_glob_combines_with_site_filter(self):
+        selected = fit_replicas.select_replicas(
+            self.dataset, samples=['13*'], sites=['Samoylov'])
+
+        self.assertEqual([fit_replicas.replica_identifier(replica)
+                          for replica in selected], ['13514', '13515'])
+
     def test_split_selects_one_replica(self):
         selected = fit_replicas.select_replicas(self.dataset, split=('1352', '4'))
 
@@ -66,6 +73,15 @@ class SharedParameterParsingTest(unittest.TestCase):
     def test_rejects_unknown_name(self):
         with self.assertRaisesRegex(ValueError, 'matches no model parameter'):
             fit_replicas.expand_parameter_names(['missing'], ['Hydro_v_max'])
+
+    def test_shared_defaults_keep_the_declared_full_range(self):
+        reference = fit_replicas.build_parameter_template(
+            fit_replicas.PATHWAYS).parameters()
+        shared = fit_replicas.select_shared_default_parameters(
+            reference, ['Hydro_v_max'])
+
+        self.assertEqual(shared['Hydro_v_max'].lower(), 0.003)
+        self.assertEqual(shared['Hydro_v_max'].upper(), 1.0)
 
 
 class SetupSummaryTest(unittest.TestCase):
@@ -117,6 +133,57 @@ class LocalR2ThresholdTest(unittest.TestCase):
 
         self.assertEqual(args.local_r2_threshold, 0.7)
         self.assertEqual(args.local_workers, -1)
+
+    def test_loss_guard_aborts_only_after_a_large_loss(self):
+        callback = fit_replicas.StopWhenLocalLossExceeds(2.0)
+        callback.set_objective(type(
+            'Objective', (), {'last_call': lambda self: (None, None, 2.1)})())
+
+        with self.assertRaises(fit_replicas.LocalLossThresholdReached):
+            callback()
+
+    def test_parser_accepts_local_loss_threshold(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--local-loss-threshold', '0.5'])
+
+        self.assertEqual(args.local_loss_threshold, 0.5)
+
+    def test_interrupt_confirmation_continues_by_default_and_can_abort(self):
+        self.assertTrue(fit_replicas.confirm_continue_after_inner_interrupt(
+            lambda _: ''))
+        self.assertTrue(fit_replicas.confirm_continue_after_inner_interrupt(
+            lambda _: 'yes'))
+        self.assertFalse(fit_replicas.confirm_continue_after_inner_interrupt(
+            lambda _: 'n'))
+        self.assertTrue(fit_replicas.confirm_continue_after_inner_interrupt(
+            lambda _: (_ for _ in ()).throw(EOFError())))
+
+    def test_parser_resumes_by_default_and_can_disable_it(self):
+        default = fit_replicas.parse_args(['--shared', 'Hydro_v_max'])
+        disabled = fit_replicas.parse_args(['--shared', 'Hydro_v_max', '--no-resume'])
+
+        self.assertTrue(default.resume)
+        self.assertFalse(disabled.resume)
+
+    def test_checkpoint_shared_bounds_are_opt_in(self):
+        default = fit_replicas.parse_args(['--shared', 'Hydro_v_max'])
+        restricted = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--shared-checkpoint-bounds'])
+
+        self.assertFalse(default.shared_checkpoint_bounds)
+        self.assertTrue(restricted.shared_checkpoint_bounds)
+
+    def test_parser_selects_outer_and_local_algorithms_independently(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--outer-algorithm', 'cma-es',
+            '--local-algorithm', 'de', '--outer-cma-sigma', '0.2',
+            '--local-popsize', '12'])
+
+        self.assertEqual(args.outer_algorithm, 'cma-es')
+        self.assertEqual(args.local_algorithm, 'de')
+        self.assertEqual(args.outer_cma_sigma, 0.2)
+        self.assertEqual(args.local_popsize, 12)
+        self.assertTrue(args.local_warm_start)
 
 
 if __name__ == '__main__':

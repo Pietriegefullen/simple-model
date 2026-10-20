@@ -2,10 +2,12 @@ import os
 import json
 import traceback
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor, TimeoutError as FuturesTimeout
 import warnings
 import numpy as np
 import scipy.optimize
 import matplotlib.pyplot as plt
+import cma
 from datetime import datetime
 from abc import ABC, abstractmethod
 
@@ -23,6 +25,10 @@ INVALID_OBJECTIVE_PENALTY = 1e100
 
 class NonFiniteLoss(ValueError):
     """A single candidate produced no usable finite loss value."""
+
+
+class IntegrationFailure(NonFiniteLoss):
+    """The model trajectory terminated before it could produce a fit."""
 
 
 class _IndexedObjective:
@@ -54,6 +60,7 @@ def r2(predicted, measured, log = False):
 
 def get(algorithm_name):
     algo_classes = {'differential_evolution': DifferentialEvolution,
+            'cma_es': CMAEvolutionStrategy,
             'Powell': Powell,
             'initial_sampling': InitialSampling}
     chosen_class = algo_classes[algorithm_name]
@@ -207,8 +214,9 @@ class Loss():
         
         unusable_count = np.count_nonzero(np.logical_not(usable))
         if unusable_count > .5*sz:
-            print()
-            print('WARNING: less than 50% usable values!', replica, self.pool)
+            pass
+            #print()
+            #print('WARNING: less than 50% usable values!', replica, self.pool)
             
         pool_pred = pool_pred[usable]
         pool_true = pool_true[usable]
@@ -487,22 +495,21 @@ class Objective(Addable):
             self.set_parameters(self.variables(), transformed_parameters, 
                                 transformed = transformed)
 
-        run_log = self._model.predict(self._replica, t_eval = self.t_eval())
-        
-        replica_loss = 0
-        for loss_function, loss_weight in self.loss_contributions():
-            try:
-                loss_value = loss_function(self._replica, run_log)
-            except NonFiniteLoss as error:
-                print(f'\nWARNING: Replica {self._replica}: {error}; '
-                      f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')
-                self._last_weighted_mse = None, None
-                return self._replica_weight * INVALID_OBJECTIVE_PENALTY
-            except Exception as ex:
-                ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
-                raise 
+        try:
+            run_log = self._model.predict(self._replica, t_eval = self.t_eval())
 
-            replica_loss += loss_weight*loss_value
+            replica_loss = 0
+            for loss_function, loss_weight in self.loss_contributions():
+                loss_value = loss_function(self._replica, run_log)
+                replica_loss += loss_weight*loss_value
+        except NonFiniteLoss as error:
+            print(f'\nWARNING: Replica {self._replica}: {error}; '
+                  f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')
+            self._last_weighted_mse = None, None
+            return self._replica_weight * INVALID_OBJECTIVE_PENALTY
+        except Exception as ex:
+            ex.args = ('Replica ' + str(self._replica) + ': ' + ex.args[0], ) + ex.args[1:]
+            raise
 
         # ``predict`` reuses the model's mutable run log.  Retain the derived
         # metrics now, while they still belong to this replica evaluation.
@@ -541,7 +548,6 @@ class Objective(Addable):
         s_replica = format_subscript(replica)
         
         return s_weight + '[ '+ s_loss + ' ]' + s_replica
-        
 
 class Algorithm(ABC):
     def __init__(self, **default_kwargs):
@@ -577,26 +583,27 @@ class Algorithm(ABC):
         bounds = list(zip(lower_bounds, upper_bounds))
         return bounds
 
-    def minimize(self, objective, initial_parameters):
+    def minimize(self, objective, initial_parameters, verbose = True):
         objective.model().parameters().set(initial_parameters)
-        print('Fitting with ' + self.__class__.__name__)
-        print(objective.model())
-        print()
-        print('search space average fraction:', 
-              objective.model().parameters().search_space()[-1])
-        print()
-        print('Objective = ' + str(objective))
-        print()
-        print('Callbacks:')
-        for cb in objective._callbacks:
-            pth = cb.target_directory()
-            if not pth is None:
-                print('\n'.join(set([cb.__class__.__name__ + ': ' + os.path.join(*pth.split(os.sep)[-2:])
-                                for cb in objective._callbacks])))
-            else:
-                print(cb.__class__.__name__)
-        
-        print()
+        if verbose:
+            print('Fitting with ' + self.__class__.__name__)
+            print(objective.model())
+            print()
+            print('search space average fraction:',
+                  objective.model().parameters().search_space()[-1])
+            print()
+            print('Objective = ' + str(objective))
+            print()
+            print('Callbacks:')
+            for cb in objective._callbacks:
+                pth = cb.target_directory()
+                if not pth is None:
+                    print('\n'.join(set([cb.__class__.__name__ + ': ' + os.path.join(*pth.split(os.sep)[-2:])
+                                    for cb in objective._callbacks])))
+                else:
+                    print(cb.__class__.__name__)
+
+            print()
         if len(objective.model().parameters().variables()) == 0:
             raise Exception('Model has no variables. Check initial parameters.')
         self._minimize(objective, initial_parameters)
@@ -620,6 +627,9 @@ class DifferentialEvolution(Algorithm):
                         'recombination': .7, # CR
                         'mutation': (.5,1.), # F
                         'seed': None,
+                        # Optional transformed incumbent supplied by a
+                        # checkpoint-resume caller.
+                        'x0': None,
                         # SciPy has no per-evaluation budget.  The generation
                         # callback below honours this cap after each completed
                         # generation, which keeps staged restarts bounded.
@@ -627,6 +637,21 @@ class DifferentialEvolution(Algorithm):
                         }
         super().__init__(**defaults)
         self.generation = 0
+        self._process_manager = None
+        self._worker_map = None
+
+    def set_process_manager(self, manager):
+        """Reuse a caller-owned manager for repeated parallel DE runs.
+
+        Nested optimisation may invoke many short DE runs.  Starting a fresh
+        manager for every one leaks file descriptors on some multiprocessing
+        backends before the operating system can reclaim them.
+        """
+        self._process_manager = manager
+
+    def set_worker_map(self, worker_map):
+        """Use a caller-owned pool's ``map`` method for SciPy evaluation."""
+        self._worker_map = worker_map
         
     def _minimize(self, objective, initial_parameters):
         self.generation = 1
@@ -639,8 +664,18 @@ class DifferentialEvolution(Algorithm):
                 raise ValueError('max_evaluations must be a positive integer or None')
         variables = objective.model().parameters().variables()
         manager = None
-        if self._kwargs['workers'] != 1:
-            manager = multiprocessing.Manager()
+        owns_manager = False
+        # A caller-owned pool serialises the objective anew for every map
+        # request.  Manager lock proxies retain a per-process connection and
+        # can become stale across those repeated requests on Python 3.12.
+        # The counter is only progress reporting, so omit it for that stable
+        # reusable-pool path.  Checkpoints and stop callbacks remain local to
+        # each worker and do not need the manager.
+        if self._kwargs['workers'] != 1 and self._worker_map is None:
+            manager = self._process_manager
+            if manager is None:
+                manager = multiprocessing.Manager()
+                owns_manager = True
             objective.set_global_call_counter(
                 manager.Value('i', 0), manager.Lock(),
                 manager.Value('d', float('inf')),
@@ -655,6 +690,8 @@ class DifferentialEvolution(Algorithm):
             # differential_evolution keyword.
             scipy_kwargs = dict(self._kwargs)
             del scipy_kwargs['max_evaluations']
+            if self._worker_map is not None:
+                scipy_kwargs['workers'] = self._worker_map
             _ = scipy.optimize.differential_evolution(objective,
                                                       bounds = self.get_bounds(variables),
                                                       callback = self.generation_counter,
@@ -666,7 +703,8 @@ class DifferentialEvolution(Algorithm):
         finally:
             if manager is not None:
                 objective.finalize_global_call_counter()
-                manager.shutdown()
+                if owns_manager:
+                    manager.shutdown()
         
     def generation_counter(self, *args, **kwargs):
         self.generation += 1
@@ -676,6 +714,276 @@ class DifferentialEvolution(Algorithm):
             self._shared_generation.value = self.generation
         return (self._max_evaluations is not None
                 and self._objective.call_count() >= self._max_evaluations)
+
+class CMAEvolutionStrategy(Algorithm):
+    """Bounded CMA-ES backed by the maintained :mod:`pycma` package."""
+    def __init__(self):
+        super().__init__(popsize=None, sigma0=0.30, restarts=0,
+                         restart_multiplier=2, seed=None, workers=1,
+                         max_evaluations=None, x0=None, tolx=1e-8)
+        self._process_manager = None
+        self._worker_map = None
+        self._state_checkpoint = None
+
+    def set_process_manager(self, manager):
+        self._process_manager = manager
+
+    def set_worker_map(self, worker_map):
+        self._worker_map = worker_map
+
+    def set_state_checkpoint(self, state_checkpoint):
+        """Use ``state_checkpoint`` to resume complete CMA-ES generations.
+
+        The object intentionally has a tiny protocol (``load`` and ``save``)
+        so the optimiser remains independent of the on-disk checkpoint
+        implementation.  ``None`` disables state persistence.
+        """
+        self._state_checkpoint = state_checkpoint
+
+    def _minimize(self, objective, initial_parameters):
+        variables = objective.model().parameters().variables()
+        dimension = len(variables)
+        bounds = np.asarray(self.get_bounds(variables), dtype=float)
+        widths = bounds[:, 1] - bounds[:, 0]
+        if np.any(~np.isfinite(widths)) or np.any(widths <= 0):
+            raise ValueError('CMA-ES requires finite, non-zero parameter bounds')
+
+        max_evaluations = self._kwargs['max_evaluations']
+        if max_evaluations is not None:
+            if (not isinstance(max_evaluations, (int, np.integer))
+                    or max_evaluations <= 0):
+                raise ValueError('max_evaluations must be a positive integer')
+        restarts = self._kwargs['restarts']
+        if not isinstance(restarts, (int, np.integer)) or restarts < 0:
+            raise ValueError('restarts must be a non-negative integer')
+        restart_multiplier = self._kwargs['restart_multiplier']
+        if restart_multiplier < 1:
+            raise ValueError('restart_multiplier must be at least 1')
+        sigma0 = float(self._kwargs['sigma0'])
+        if not np.isfinite(sigma0) or sigma0 <= 0:
+            raise ValueError('sigma0 must be a finite positive number')
+        tolx = float(self._kwargs['tolx'])
+        if not np.isfinite(tolx) or tolx <= 0:
+            raise ValueError('tolx must be a finite positive number')
+        workers = self._kwargs['workers']
+        if not isinstance(workers, (int, np.integer)) or workers == 0 or workers < -1:
+            raise ValueError('CMA-ES workers must be 1, -1, or a positive integer')
+
+        configured_popsize = self._kwargs['popsize']
+        if configured_popsize is not None and (
+                not isinstance(configured_popsize, (int, np.integer))
+                or configured_popsize <= 0):
+            raise ValueError('popsize must be a positive integer')
+        base_popsize = (int(configured_popsize) if configured_popsize is not None
+                        else 4 + int(3 * np.log(dimension)))
+
+        transformed_initial = np.asarray(
+            [variable.transform(variable.value) for variable in variables], dtype=float)
+        x0 = self._kwargs['x0']
+        if x0 is not None:
+            x0 = np.asarray(x0, dtype=float).reshape(-1)
+            if x0.size != dimension or not np.all(np.isfinite(x0)):
+                raise ValueError('x0 must contain one finite transformed value per variable')
+            transformed_initial = x0
+        mean0 = np.clip((transformed_initial - bounds[:, 0]) / widths, 0.0, 1.0)
+
+        manager = None
+        owns_manager = False
+        # See DifferentialEvolution: do not send manager proxies through a
+        # reusable worker pool on every inner optimisation.
+        if workers != 1 and self._worker_map is None:
+            manager = self._process_manager
+            if manager is None:
+                manager = multiprocessing.Manager()
+                owns_manager = True
+            objective.set_global_call_counter(
+                manager.Value('i', 0), manager.Lock(),
+                manager.Value('d', float('inf')),
+                manager.Value('d', float('nan')))
+
+        best_loss = float('inf')
+        best_x = None
+        evaluations = 0
+        generation = 0
+        start_restart = 0
+        resumed_strategy = None
+        pending_population = None
+        pending_losses = None
+        pending_restart = None
+        if self._state_checkpoint is not None:
+            saved_state = self._state_checkpoint.load()
+            if isinstance(saved_state, dict):
+                expected_bounds = bounds.tolist()
+                if (saved_state.get('version') == 1
+                        and saved_state.get('dimension') == dimension
+                        and saved_state.get('bounds') == expected_bounds
+                        and saved_state.get('base_popsize') == base_popsize
+                        and saved_state.get('restart_multiplier') == restart_multiplier):
+                    resumed_strategy = saved_state.get('strategy')
+                    start_restart = saved_state.get('restart', 0)
+                    evaluations = saved_state.get('evaluations', 0)
+                    generation = saved_state.get('generation', 0)
+                    best_loss = saved_state.get('best_loss', best_loss)
+                    best_x = saved_state.get('best_x')
+                    pending_population = saved_state.get('pending_population')
+                    pending_losses = saved_state.get('pending_losses')
+                    pending_restart = saved_state.get('pending_restart')
+                    # pycma's default sampler uses NumPy's legacy global RNG.
+                    # Restoring it makes the next ``ask`` identical to an
+                    # uninterrupted run, rather than merely warm-started.
+                    random_state = saved_state.get('numpy_random_state')
+                    if random_state is not None:
+                        np.random.set_state(random_state)
+                    print('Resuming CMA-ES state at generation '
+                          + str(generation) + ', evaluation ' + str(evaluations))
+
+        def save_state(strategy, restart, pending=None, losses=None):
+            if self._state_checkpoint is None:
+                return
+            self._state_checkpoint.save({
+                'version': 1,
+                'dimension': dimension,
+                'bounds': bounds.tolist(),
+                'base_popsize': base_popsize,
+                'restart_multiplier': restart_multiplier,
+                'restart': restart,
+                'evaluations': evaluations,
+                'generation': generation,
+                'best_loss': best_loss,
+                'best_x': best_x,
+                'numpy_random_state': np.random.get_state(),
+                'strategy': strategy,
+                # ``strategy`` is saved after ``ask`` but before ``tell``
+                # when a population is in flight.  Its RNG has already
+                # advanced, so retaining the sampled points is essential:
+                # asking again would produce a different generation.
+                'pending_population': pending,
+                'pending_losses': losses,
+                'pending_restart': (restart if pending is not None else None),
+            })
+
+        try:
+            for restart in range(start_restart, restarts + 1):
+                if max_evaluations is not None and evaluations >= max_evaluations:
+                    break
+                population_size = int(base_popsize * (restart_multiplier ** restart))
+                options = {
+                    # pycma performs its own boundary transformation instead
+                    # of piling out-of-bounds samples onto box corners.
+                    'bounds': [0.0, 1.0],
+                    'popsize': population_size,
+                    'tolx': tolx,
+                    'verbose': -9,
+                    'verb_disp': 0,
+                    'verb_log': 0,
+                }
+                if self._kwargs['seed'] is not None and resumed_strategy is None:
+                    options['seed'] = int(self._kwargs['seed']) + restart
+                mean = best_x if best_x is not None else mean0
+                if resumed_strategy is not None:
+                    strategy = resumed_strategy
+                    resumed_strategy = None
+                else:
+                    strategy = cma.CMAEvolutionStrategy(mean, sigma0, options)
+
+                while not strategy.stop():
+                    continuing_pending = (
+                        pending_population is not None and pending_restart == restart)
+                    if (not continuing_pending and max_evaluations is not None
+                            and evaluations >= max_evaluations):
+                        break
+                    if not continuing_pending:
+                        generation += 1
+                    if hasattr(objective, 'set_generation'):
+                        objective.set_generation(generation)
+                    if continuing_pending:
+                        population = np.asarray(pending_population)
+                        losses = list(pending_losses)
+                        pending_population = None
+                        pending_losses = None
+                        pending_restart = None
+                    else:
+                        remaining = (max_evaluations - evaluations
+                                     if max_evaluations is not None else population_size)
+                        batch_size = min(population_size, remaining)
+                        # ``ask`` returns bounded points in the unit box.  A
+                        # partial final generation is evaluated but not fed
+                        # back: pycma correctly adapts only complete
+                        # populations.
+                        population = np.asarray(strategy.ask())[:batch_size]
+                        losses = [None] * batch_size
+                        # This makes even an interruption during the first
+                        # population resumable.  In a parallel map the whole
+                        # unfinished population is retried; serial evaluation
+                        # also retains each completed candidate below.
+                        if batch_size == population_size:
+                            save_state(strategy, restart, population, losses)
+                    batch_size = len(population)
+                    candidates = bounds[:, 0] + population * widths
+                    if workers == 1:
+                        for index, candidate in enumerate(candidates):
+                            if losses[index] is not None:
+                                continue
+                            loss = objective(candidate)
+                            losses[index] = loss
+                            evaluations += 1
+                            if np.isfinite(loss) and loss < best_loss:
+                                best_loss = float(loss)
+                                best_x = population[index].copy()
+                            if batch_size == population_size:
+                                save_state(strategy, restart, population, losses)
+                    elif self._worker_map is not None:
+                        missing = [index for index, loss in enumerate(losses)
+                                   if loss is None]
+                        mapped_losses = self._worker_map(
+                            objective, [candidates[index] for index in missing])
+                        for index, loss in zip(missing, mapped_losses):
+                            losses[index] = loss
+                        evaluations += len(missing)
+                        if batch_size == population_size:
+                            save_state(strategy, restart, population, losses)
+                    else:
+                        # ProcessPoolExecutor workers are non-daemonic, so a
+                        # model evaluation can run its short-lived integration
+                        # watchdog process.
+                        with ProcessPoolExecutor(
+                                max_workers=None if workers == -1 else workers) as pool:
+                            missing = [index for index, loss in enumerate(losses)
+                                       if loss is None]
+                            mapped_losses = pool.map(
+                                objective, [candidates[index] for index in missing])
+                        for index, loss in zip(missing, mapped_losses):
+                            losses[index] = loss
+                        evaluations += len(missing)
+                        if batch_size == population_size:
+                            save_state(strategy, restart, population, losses)
+                    losses = np.where(np.isfinite(losses), losses, INVALID_OBJECTIVE_PENALTY)
+                    chosen = int(np.argmin(losses))
+                    if losses[chosen] < best_loss:
+                        best_loss = float(losses[chosen])
+                        best_x = population[chosen].copy()
+                    if batch_size == population_size:
+                        strategy.tell(population, losses.tolist())
+                        # Objective callbacks only persist model results.  A
+                        # CMA state is persisted here, after ``tell`` updates
+                        # its distribution for the whole population.
+                        save_state(strategy, restart)
+                    else:
+                        # A partial final generation is intentionally not
+                        # told to pycma.  Keep the preceding complete state
+                        # checkpoint: a distribution after ``ask`` but before
+                        # ``tell`` cannot safely be resumed without a full
+                        # population of losses.
+                        break
+        finally:
+            if manager is not None:
+                objective.finalize_global_call_counter()
+                if owns_manager:
+                    manager.shutdown()
+
+        if best_x is not None:
+            best_transformed = bounds[:, 0] + best_x * widths
+            objective.set_parameters(variables, best_transformed, transformed=True)
 
 
 class InitialSampling(Algorithm):
@@ -744,35 +1052,31 @@ class InitialSampling(Algorithm):
                 manager.Value('i', 0), manager.Lock(),
                 manager.Value('d', float('inf')),
                 manager.Value('d', float('nan')))
-            pool = multiprocessing.Pool(None if workers == -1 else workers)
+            # Unlike multiprocessing.Pool, these workers may start the
+            # per-integration watchdog process used by Model.predict.
+            pool = ProcessPoolExecutor(
+                max_workers=None if workers == -1 else workers)
             losses = np.empty(len(population), dtype=float)
             try:
-                # ``map`` queues the entire population and then waits for all
-                # workers.  That made Ctrl-C and a stuck model evaluation look
-                # like a frozen exploration stage.  Consume one completion at
-                # a time instead, so a timeout can terminate the pool promptly.
                 indexed_objective = _IndexedObjective(objective)
-                results = pool.imap_unordered(
-                    indexed_objective, enumerate(population), chunksize=1)
-                for _ in range(len(population)):
+                futures = [pool.submit(indexed_objective, indexed_candidate)
+                           for indexed_candidate in enumerate(population)]
+                for future in futures:
                     try:
                         if stall_timeout is None:
-                            index, loss = next(results)
+                            index, loss = future.result()
                         else:
-                            index, loss = results.next(timeout=stall_timeout)
-                    except multiprocessing.TimeoutError as error:
+                            index, loss = future.result(timeout=stall_timeout)
+                    except FuturesTimeout as error:
                         raise checkpoint.StalledEvaluationInterrupt(
                             stall_timeout) from error
                     losses[index] = loss
             except BaseException:
-                # Do not close-and-join here: that drains every queued task and
-                # is the source of the apparent post-interrupt stall.
-                pool.terminate()
+                pool.shutdown(wait=False, cancel_futures=True)
                 raise
             else:
-                pool.close()
+                pool.shutdown()
             finally:
-                pool.join()
                 objective.finalize_global_call_counter()
                 manager.shutdown()
         best_index = int(np.argmin(losses))

@@ -1,10 +1,12 @@
 """Collect the best checkpoint for each model, replica, and fit mode.
 
 Running this module writes a data/model comparison plot for every selected
-checkpoint below ``best_<loss-id>_<model-id>_<fit-mode>``.
+checkpoint below ``best_<loss-id>_<model-id>_<fit-mode>``.  Joint fits are
+grouped by their full configuration below a ``best_*_multi_*`` directory.
 """
 
 import argparse
+import json
 import os
 from dataclasses import dataclass
 from functools import cached_property
@@ -23,6 +25,7 @@ import plot
 import system
 from chemistry import GIBBS_MINIMUM
 from fit_sample import run
+import fit_replicas as joint_fit
 from pathways import pathway_color
 from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
@@ -66,6 +69,7 @@ class Checkpoint:
     run_config: dict
     id: str
     source: str = None
+    metadata: dict = None
 
     @cached_property
     def model_id(self):
@@ -91,6 +95,32 @@ class Checkpoint:
     @cached_property
     def key(self):
         return '_'.join((self.loss_id, self.model_id))
+
+    @property
+    def is_multi_replica(self):
+        """Whether this checkpoint is an outer joint-replica fit."""
+        return self.fit_mode == 'multi'
+
+    @property
+    def multi_replica_results(self):
+        """Return the saved per-replica results for a joint fit.
+
+        These are written by :class:`fit_replicas.SharedReplicaObjective` at
+        the same outer evaluation as the checkpoint.  In particular, their
+        local parameter values belong to the outer shared parameter values in
+        this checkpoint.
+        """
+        if not self.is_multi_replica:
+            return ()
+        records = (self.metadata or {}).get('replicas', ())
+        if not isinstance(records, list):
+            return ()
+        return tuple(record for record in records if isinstance(record, dict))
+
+    @cached_property
+    def run_id(self):
+        """The full configuration identity, including the multi-fit setup."""
+        return hashing.build_run_id(self.run_config)
     
     def __str__(self):
         return self.key
@@ -116,8 +146,15 @@ def collect_all(results_directory=RESULTS_DIRECTORY):
             if not run_config:
                 raise ValueError(f'Run configuration missing from {file_path}')
 
+            # ``load_parameter_file`` deliberately exposes the common
+            # parameter/loss/config triple.  Joint fits additionally persist
+            # a per-replica solution in the annotated JSON, which is needed
+            # to reproduce every curve in the combined fit.
+            contents = parameters.load_file(file_path)
+            metadata = {'replicas': contents.get('replicas', [])} \
+                if isinstance(contents, dict) else {}
             collected.append(Checkpoint(loaded_parameters, loss, run_config,
-                                        checkpoint_ids[0], file_path))
+                                        checkpoint_ids[0], file_path, metadata))
     return collected
 
 
@@ -125,7 +162,12 @@ def collect_best(results_directory=RESULTS_DIRECTORY):
     """Return the lowest-loss checkpoint per model/loss/replica/fit-mode."""
     best_by_group = {}
     for checkpoint in collect_all(results_directory):
-        group = (checkpoint.key, checkpoint.fit_mode, checkpoint.replica)
+        # A multi fit's placeholder ``0/0`` replica is not an identity.  Its
+        # complete run configuration is: it includes selected replicas,
+        # shared parameters, parameter ranges, objective, and algorithms.
+        group = (checkpoint.key, checkpoint.fit_mode,
+                 checkpoint.run_id if checkpoint.is_multi_replica
+                 else checkpoint.replica)
         best = best_by_group.get(group)
         if best is None or checkpoint.loss < best.loss:
             best_by_group[group] = checkpoint
@@ -149,7 +191,18 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
     selected = []
     for checkpoint in checkpoints:
         sample, replica = checkpoint.replica
-        if filters['sample'] is not None and sample not in filters['sample']:
+        # Keep this public filtering helper usable with the lightweight
+        # checkpoint doubles used by callers and tests.
+        multi_records = getattr(checkpoint, 'multi_replica_results', ())
+        multi_samples = {str(record.get('sample')) for record in multi_records}
+        multi_replicas = {
+            str(value) for record in multi_records
+            for value in (record.get('replica_number'), record.get('replica'))
+            if value is not None
+        }
+        if filters['sample'] is not None and (
+                (not multi_records and sample not in filters['sample'])
+                or (multi_records and not multi_samples & filters['sample'])):
             continue
         if (filters['model_id'] is not None and not any(
                 model_id in checkpoint.model_id
@@ -158,7 +211,9 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
         if (filters['fit_mode'] is not None and
                 checkpoint.fit_mode not in filters['fit_mode']):
             continue
-        if filters['replica'] is not None and replica not in filters['replica']:
+        if filters['replica'] is not None and (
+                (not multi_records and replica not in filters['replica'])
+                or (multi_records and not multi_replicas & filters['replica'])):
             continue
         if filters['loss_id'] is not None and checkpoint.loss_id not in filters['loss_id']:
             continue
@@ -185,12 +240,153 @@ def plot_target(checkpoint, number=0, quantity=None):
     return directory, '_'.join(filename_parts)
 
 
+class ReplicaPlotCheckpoint:
+    """A single-replica view of a joint checkpoint for shared plot helpers."""
+
+    def __init__(self, checkpoint, replica):
+        self.checkpoint = checkpoint
+        self.replica = (str(replica.sample.sample_name),
+                        str(replica.replica_number))
+
+    @property
+    def parameters(self):
+        return self.checkpoint.parameters
+
+    @property
+    def run_config(self):
+        return self.checkpoint.run_config
+
+    @property
+    def model_id(self):
+        return self.checkpoint.model_id
+
+    @property
+    def loss_id(self):
+        return self.checkpoint.loss_id
+
+    @property
+    def id(self):
+        return self.checkpoint.id
+
+    @property
+    def fit_mode(self):
+        # Each curve is fitted directly to its corresponding replica.
+        return 'single'
+
+
+def multi_plot_directory(checkpoint):
+    """Return an unambiguous result directory for one joint checkpoint."""
+    return os.path.join(
+        PROJECT_DIRECTORY,
+        '_'.join(('best', checkpoint.key, 'multi', checkpoint.run_id,
+                  checkpoint.id)),
+    )
+
+
+def multi_plot_target(checkpoint, replica, number=0, quantity=None):
+    """Return a target below the joint-fit directory for one replica plot."""
+    replica_name = f'{replica.sample.sample_name}-{replica.replica_number}'
+    directory = os.path.join(multi_plot_directory(checkpoint), replica_name)
+    parts = [f'{number:02d}']
+    if quantity is not None:
+        parts.append(quantity)
+    parts.extend((replica_name, checkpoint.model_id, 'multi',
+                  checkpoint.run_id, checkpoint.id))
+    return directory, '_'.join(parts)
+
+
+def write_multi_fit_manifest(directory, checkpoint):
+    """Write human-readable provenance beside a joint fit's plots."""
+    records = checkpoint.multi_replica_results
+    lines = [
+        'JOINT MULTI-REPLICA FIT',
+        '=' * 24,
+        f'Outer checkpoint: {checkpoint.source}',
+        f'Checkpoint ID: {checkpoint.id}',
+        f'Run ID: {checkpoint.run_id}',
+        f'Model ID: {checkpoint.model_id}',
+        f'Loss ID: {checkpoint.loss_id}',
+        f'Total loss: {checkpoint.loss:.12g}',
+        '',
+        f'Replicas in fit ({len(records)}):',
+    ]
+    for record in records:
+        replica = record.get('replica',
+                             f"{record.get('sample', '?')}{record.get('replica_number', '?')}")
+        loss = record.get('loss')
+        r2 = record.get('r2')
+        lines.append(
+            f'  - {replica}: loss={loss!r}, R2={r2!r}; '
+            f"inner checkpoint: {record.get('checkpoint', 'not recorded')}")
+    lines.extend((
+        '',
+        'FULL FIT CONFIGURATION',
+        '-' * 22,
+        json.dumps(checkpoint.run_config, indent=2, sort_keys=True),
+        '',
+        'PER-REPLICA SAVED SOLUTIONS',
+        '-' * 27,
+        json.dumps(records, indent=2, sort_keys=True),
+        '',
+    ))
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, 'fit_metadata.txt')
+    with open(path, 'w') as handle:
+        handle.write('\n'.join(lines))
+    return path
+
+
 def _run_log_keys(run_log):
     """Return run-log keys without depending on its private storage."""
     return set(run_log.keys())
 
 
-def pathway_plot_quantities(run_log, include_pathway=False):
+def dissolved_h2_series(pathway_model, run_log):
+    """Return the dissolved-H2 series evaluated on the total-H2 time grid.
+
+    The system-state log stores gas pools as totals.  The pathway model uses
+    ``compute_dissolved`` internally to partition them between the gas and
+    water phases, so use that same calculation for the diagnostic instead of
+    duplicating its Henry-law implementation here.
+    """
+    if pathway_model is None or not hasattr(pathway_model, 'compute_dissolved'):
+        return None
+    keys = _run_log_keys(run_log)
+    if not {'H2', 'H2O'} <= keys:
+        return None
+
+    time, total_h2 = run_log['H2']
+    water_time, water = run_log['H2O']
+    time = np.asarray(time, dtype=float)
+    total_h2 = np.asarray(total_h2, dtype=float)
+    water_time = np.asarray(water_time, dtype=float)
+    water = np.asarray(water, dtype=float)
+    valid_water = np.isfinite(water_time) & np.isfinite(water)
+    if not np.any(valid_water):
+        return None
+    water_time = water_time[valid_water]
+    water = water[valid_water]
+    order = np.argsort(water_time)
+    water_time = water_time[order]
+    water = water[order]
+    water_time, unique_indices = np.unique(water_time, return_index=True)
+    water = water[unique_indices]
+
+    # Only H2 and H2O affect H2's dissolved fraction.  Supplying the full
+    # state vector keeps this calculation identical to the model's own use.
+    states = np.zeros((len(system.SYSTEM), len(time)))
+    states[system.index('H2')] = total_h2
+    states[system.index('H2O')] = np.interp(time, water_time, water)
+    # ``compute_dissolved`` accepts one state vector at a time: its Henry-law
+    # constants are one value per pool rather than per time point.
+    dissolved_states = np.column_stack([
+        pathway_model.compute_dissolved(state) for state in states.T
+    ])
+    dissolved_h2 = dissolved_states[system.index('H2')]
+    return time, dissolved_h2
+
+
+def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
     """Yield modeled quantities in the required plot-file order.
 
     Quantities added to a pathway log in the future are appended after the
@@ -209,6 +405,10 @@ def pathway_plot_quantities(run_log, include_pathway=False):
     for pool in POOL_PLOT_ORDER:
         if pool in keys:
             yield emitted_quantity(pool, *run_log[pool])
+            if pool == 'H2':
+                dissolved_h2 = dissolved_h2_series(pathway_model, run_log)
+                if dissolved_h2 is not None:
+                    yield emitted_quantity('H2_dissolved', *dissolved_h2)
 
     for pathway in PATHWAY_PLOT_ORDER:
         prefix = f'{pathway}_'
@@ -324,6 +524,15 @@ def quantity_ylabel(name, capacity_pathway=None):
     return r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$'
 
 
+def quantity_title(name, capacity_pathway=None):
+    """Return the plot title for one modeled quantity."""
+    if capacity_pathway is not None:
+        return f'{capacity_pathway} pathway capacity ({name})'
+    if name == 'H2_dissolved':
+        return 'Dissolved H2'
+    return name
+
+
 def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
     """Return shared metadata, including the data behind a model curve."""
     fit_replica_numbers = ', '.join(
@@ -355,7 +564,7 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None,
                      label=r'$\mathrm{Gibbs\ minimum}$')
         axis.legend(fancybox=False, edgecolor='k', loc='best')
     if capacity_pathway is not None:
-        axis.set_title(f'{capacity_pathway} pathway capacity ({name})')
+        axis.set_title(quantity_title(name, capacity_pathway))
         axis.text(
             .02, .96,
             '$v_{\\max} = 1$ (constant)\n'
@@ -365,7 +574,7 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None,
             bbox={'facecolor': 'white', 'edgecolor': '0.7', 'alpha': .9},
         )
     else:
-        axis.set_title(name)
+        axis.set_title(quantity_title(name))
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
     axis.set_ylabel(quantity_ylabel(name, capacity_pathway))
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
@@ -529,6 +738,70 @@ def pathway_substrate_consumption_rate(pathway_model, run_log, pathway_name,
     return time, coefficient * biomass_on_rate_grid * specific_rate
 
 
+def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
+                                      substance):
+    """Return a pathway's positive net production rate of one substance.
+
+    When complete system-state logs are available, rates are recalculated on
+    accepted solver states.  This matches the total-pool curve and avoids
+    integrating diagnostic rates from rejected solver trial states.
+    """
+    pathway = _pathway_from_model(pathway_model, pathway_name)
+    coefficient = float(pathway.pathway_vector[system.index(substance)])
+    if coefficient <= 0:
+        raise ValueError(f'{pathway_name} does not produce {substance}.')
+
+    keys = _run_log_keys(run_log)
+    if (hasattr(pathway_model, 'compute_dissolved') and
+            all(pool in keys for pool in system.SYSTEM)):
+        time = np.asarray(run_log[substance][0], dtype=float)
+        states = np.empty((len(system.SYSTEM), len(time)))
+        for index, pool in enumerate(system.SYSTEM):
+            pool_time, values = run_log[pool]
+            pool_time = np.asarray(pool_time, dtype=float)
+            values = np.asarray(values, dtype=float)
+            valid = np.isfinite(pool_time) & np.isfinite(values)
+            if not np.any(valid):
+                break
+            order = np.argsort(pool_time[valid])
+            pool_time = pool_time[valid][order]
+            values = values[valid][order]
+            pool_time, unique_indices = np.unique(pool_time,
+                                                  return_index=True)
+            states[index] = np.interp(time, pool_time, values[unique_indices])
+        else:
+            state_logger = getattr(pathway, 'state_logger', None)
+            try:
+                pathway.state_logger = None
+                rates = np.asarray([
+                    pathway(t, pathway_model.compute_dissolved(state))[
+                        system.index(substance)]
+                    for t, state in zip(time, states.T)
+                ])
+            finally:
+                pathway.state_logger = state_logger
+            return time, rates
+
+    # Lightweight logs used by older outputs and tests omit complete system
+    # states.  Retain the rate-log reconstruction as a compatibility fallback.
+    microbe_pool = PATHWAY_MICROBE_POOL[pathway_name]
+    try:
+        time, specific_rate = run_log[f'{pathway_name}_v']
+        biomass_time, biomass = run_log[microbe_pool]
+    except KeyError as error:
+        raise ValueError(
+            f'Model did not log the values required for {pathway_name} '
+            f'{substance} production.') from error
+
+    time = np.asarray(time, dtype=float)
+    specific_rate = np.asarray(specific_rate, dtype=float)
+    biomass_time = np.asarray(biomass_time, dtype=float)
+    biomass = np.asarray(biomass, dtype=float)
+    order = np.argsort(biomass_time)
+    biomass_on_rate_grid = np.interp(time, biomass_time[order], biomass[order])
+    return time, coefficient * biomass_on_rate_grid * specific_rate
+
+
 def cumulative_pathway_production(time, rate):
     """Integrate a pathway production rate after consolidating solver times."""
     time = np.asarray(time, dtype=float)
@@ -547,7 +820,8 @@ def cumulative_pathway_production(time, rate):
     return time, np.concatenate(([0.], np.cumsum(increments)))
 
 
-def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None):
+def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
+                                  log_scale=False):
     """Stack cumulative methane production by pathway against total methane.
 
     Each area is the cumulative methane produced by an active CH4-producing
@@ -592,7 +866,7 @@ def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None):
     axis.set_title(r'$\mathrm{cumulative CH_4 production}$')
     axis.set_xlabel(r'$\mathrm{time [d]}$')
     axis.set_ylabel(r'$\mathrm{cumulative CH_4 [\mu mol/g dry weight]}$')
-    plot.format_ax(axis)
+    plot.format_ax(axis, log_scale=log_scale)
     axis.legend(
         title=r'$\mathrm{final cumulative CH_4 [\mu mol/g]}$',
         fancybox=False, edgecolor='k', loc='best')
@@ -601,9 +875,66 @@ def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None):
     return figure, axis
 
 
+def co2_pathway_production_figure(checkpoint, pathway_model, run_log, *,
+                                  suptitle=None, log_scale=False):
+    """Stack cumulative CO2 production by every CO2-producing pathway.
+
+    The dashed curve is the net change in the total CO2 pool.  It can differ
+    from the stack because other pathways may consume CO2.
+    """
+    keys = _run_log_keys(run_log)
+    curves = []
+    for pathway in PATHWAY_PLOT_ORDER:
+        try:
+            rate_time, rate = pathway_substance_production_rate(
+                pathway_model, run_log, pathway, 'CO2')
+        except ValueError:
+            continue
+        time, cumulative = cumulative_pathway_production(rate_time, rate)
+        if len(time):
+            curves.append((pathway, time, cumulative))
+    if not curves or 'CO2' not in keys:
+        return None
+
+    time = np.unique(np.concatenate([curve_time for _, curve_time, _ in curves]))
+    contributions = [
+        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
+        for _, curve_time, cumulative in curves
+    ]
+    figure, axes = plot.create_figure(plot.FigureSpec(
+        axis_names=('diagnostic',), figsize=(5, 4)))
+    axis = axes['diagnostic']
+    labels = [
+        rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
+        for (pathway, _, _), contribution in zip(curves, contributions)
+    ]
+    axis.stackplot(
+        time, *contributions,
+        labels=labels,
+        colors=[pathway_color(pathway) for pathway, _, _ in curves],
+        alpha=.75,
+    )
+    total_time, total_co2 = run_log['CO2']
+    total_co2 = np.asarray(total_co2, dtype=float)
+    total_change = total_co2 - total_co2[0]
+    axis.plot(total_time, total_change, 'k--', linewidth=1.5,
+              label=(r'$\mathrm{net\ total\ CO_2\ change}$'
+                     f': {total_change[-1]:.3g}'))
+    axis.set_title(r'$\mathrm{cumulative\ CO_2\ production}$')
+    axis.set_xlabel(r'$\mathrm{time [d]}$')
+    axis.set_ylabel(r'$\mathrm{cumulative\ CO_2\ [\mu mol/g dry weight]}$')
+    plot.format_ax(axis, log_scale=log_scale)
+    axis.legend(
+        title=r'$\mathrm{final cumulative\ CO_2\ [\mu mol/g]}$',
+        fancybox=False, edgecolor='k', loc='best')
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
+    return figure, axis
+
+
 def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
                       gibbs_minimum=False, factor_limits=False,
-                      secondary_curve=None, secondary_ylabel=None):
+                      secondary_curve=None, secondary_ylabel=None, log_scale = False):
     """Plot two pathway diagnostics with shared styling and TeX labels."""
     figure, axes = plot.create_figure(plot.FigureSpec(
         axis_names=('diagnostic',), figsize=(4, 4)))
@@ -622,7 +953,7 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
     axis.set_ylabel(ylabel)
     if factor_limits:
         axis.set_ylim(0, 1)
-    plot.format_ax(axis)
+    plot.format_ax(axis, log_scale=log_scale)
 
     handles, labels = axis.get_legend_handles_labels()
     if secondary_curve is not None:
@@ -643,7 +974,7 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
     return figure, axis
 
 
-def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
+def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None, log_scale = False):
     """Return shared-axis Fe3/Aceto pathway diagnostics when both are active."""
     pathway_model, _, run_log = model_run
     keys = _run_log_keys(run_log)
@@ -658,7 +989,8 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
              for pathway in pathways],
             r'$\mathrm{living\ microbes}$',
             r'$\mathrm{microbial\ biomass\ [\mu mol/g\ dry\ weight]}$',
-            suptitle=suptitle)))
+            suptitle=suptitle,
+            log_scale = log_scale)))
 
     delta_g_keys = tuple(f'{pathway}_deltaG_r' for pathway in pathways)
     if all(name in keys for name in delta_g_keys):
@@ -668,7 +1000,8 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
             r'$\Delta G_\mathrm{r}$',
             rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$',
             suptitle=suptitle,
-            gibbs_minimum=True)))
+            gibbs_minimum=True,
+            log_scale = log_scale)))
 
     try:
         acetate_curves = [
@@ -689,7 +1022,8 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
             r'$\mathrm{Acetate\ consumption\ [\mu mol/g\ dry\ weight/d]}$',
             suptitle=suptitle,
             secondary_curve=acetate_pool,
-            secondary_ylabel=r'$\mathrm{total\ Acetate\ [\mu mol/g\ dry\ weight]}$')))
+            secondary_ylabel=r'$\mathrm{total\ Acetate\ [\mu mol/g\ dry\ weight]}$',
+            log_scale = log_scale)))
 
     mm_keys = tuple(f'{pathway}_MM' for pathway in pathways)
     if all(name in keys for name in mm_keys):
@@ -699,7 +1033,8 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None):
             r'$\mathrm{Michaelis\! -\! Menten\ factor}$',
             r'$\mathrm{factor}$',
             suptitle=suptitle,
-            factor_limits=True)))
+            factor_limits=True,
+            log_scale = log_scale)))
     return figures
 
 def model_variant(cp):
@@ -849,12 +1184,161 @@ def plot_fit(checkpoint, dataset, model_run=None):
     return figure, axes
 
 
+def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle):
+    """Save the non-fit plots shared by single, split, and multi fits.
+
+    ``target(number, quantity)`` supplies the filename while this function
+    retains the established ``collect_best`` diagnostic ordering and styling.
+    """
+    paths = []
+    pathway_model, _, run_log = model_run
+    v_max_values = pathway_v_max_values(run_log)
+    last_number = 0
+    for number, (quantity, time, values, pathway_context) in enumerate(
+            pathway_plot_quantities(
+                run_log, include_pathway=True, pathway_model=pathway_model),
+            start=1):
+        pathway = quantity[:-2] if quantity.endswith('_v') else None
+        capacity_pathway = (
+            pathway_context if quantity.startswith('M_')
+            and pathway_context is not None
+            and pathway_uses_capacity_parameter(run_log, pathway_context)
+            else None
+        )
+        figure, _ = plot_quantity(
+            quantity, time, values, checkpoint,
+            v_max=v_max_values.get(pathway), suptitle=suptitle,
+            capacity_pathway=capacity_pathway)
+        filename_quantity = (
+            f'{capacity_pathway}_{quantity}'
+            if capacity_pathway is not None else quantity)
+        path = target(number, filename_quantity)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+        last_number = number
+
+    for number, (pathway, time, actual_rate, maximum_rate) in enumerate(
+            pathway_reaction_rate_curves(run_log, v_max_values),
+            start=last_number + 1):
+        quantity = f'{pathway}_reaction_rate'
+        figure, _ = plot_reaction_rate(
+            pathway, time, actual_rate, maximum_rate, checkpoint,
+            suptitle=suptitle)
+        path = target(number, quantity)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+
+    for number, (quantity, (figure, _)) in enumerate(
+            pathway_limitation_factor_figures(
+                checkpoint, run_log, suptitle=suptitle), start=80):
+        path = target(number, quantity)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+
+    for log_scale in (False, True):
+        for number, (quantity, (figure, _)) in enumerate(
+                fe3_aceto_diagnostic_figures(
+                    checkpoint, model_run, suptitle=suptitle,
+                    log_scale=log_scale), start=90):
+            path = target(number, quantity + ('_log' if log_scale else ''))
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
+
+    for log_scale in (False, True):
+        ch4_production = ch4_pathway_production_figure(
+            checkpoint, run_log, suptitle=suptitle, log_scale=log_scale)
+        if ch4_production is None:
+            continue
+        figure, _ = ch4_production
+        quantity = 'CH4_pathway_production' + ('_log' if log_scale else '')
+        path = target(94, quantity)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+
+    for log_scale in (False, True):
+        co2_production = co2_pathway_production_figure(
+            checkpoint, pathway_model, run_log, suptitle=suptitle,
+            log_scale=log_scale)
+        if co2_production is None:
+            continue
+        figure, _ = co2_production
+        quantity = 'CO2_pathway_production' + ('_log' if log_scale else '')
+        path = target(95, quantity)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+    return paths
+
+
+def multi_replica_model_run(checkpoint, record, dataset):
+    """Recreate one saved local solution from a joint checkpoint."""
+    sample = dataset[str(record['sample'])]
+    replica = sample[str(record['replica_number'])]
+    chosen = checkpoint.run_config['chosen']
+    pathway_model = joint_fit.build_parameter_template(
+        chosen['pathways'], chosen['normalized_parameters'])
+    # The outer checkpoint contains shared values.  The record stores all
+    # remaining values from the same outer evaluation, including initial pools
+    # and per-replica local parameters.
+    pathway_model.parameters().set(checkpoint.parameters)
+    pathway_model.parameters().set(record['parameters'])
+    objective = optimizer.build_objective_function(
+        pathway_model, [replica], checkpoint.run_config['objective'])
+    objective._call(pathway_model.parameters(), transformed=False)
+    return replica, (pathway_model, objective, pathway_model.system_state_log)
+
+
+def plot_multi_checkpoint(checkpoint, dataset):
+    """Plot every replica in one joint fit beneath a shared provenance folder."""
+    if not checkpoint.multi_replica_results:
+        raise ValueError(
+            f'Joint checkpoint {checkpoint.source} has no saved replica solutions.')
+    root = multi_plot_directory(checkpoint)
+    paths = [write_multi_fit_manifest(root, checkpoint)]
+    replica_names = ', '.join(
+        str(record.get('replica', '?')) for record in checkpoint.multi_replica_results)
+    for record in checkpoint.multi_replica_results:
+        replica, model_run = multi_replica_model_run(checkpoint, record, dataset)
+        plot_checkpoint = ReplicaPlotCheckpoint(checkpoint, replica)
+        figure, _ = plot_fit(plot_checkpoint, dataset, model_run=model_run)
+        suptitle = ' | '.join((
+            f'joint multi fit ({replica_names})',
+            f'replica {replica.sample.sample_name}-{replica.replica_number}',
+            f'model {model_variant(plot_checkpoint)}',
+        ))
+        finish_fit_figure(figure, suptitle)
+        directory, filename = multi_plot_target(checkpoint, replica)
+        os.makedirs(directory, exist_ok=True)
+        path = os.path.join(directory, filename)
+        figure.savefig(path, dpi=300)
+        plt.close(figure)
+        paths.append(path)
+
+        def target(number, quantity):
+            _, diagnostic_filename = multi_plot_target(
+                checkpoint, replica, number, quantity)
+            return os.path.join(directory, diagnostic_filename)
+
+        paths.extend(_save_diagnostic_plots(
+            plot_checkpoint, model_run, directory, target, suptitle))
+    return paths
+
+
 def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
     """Generate plots for all best checkpoints and return their paths."""
     dataset = data.get_data_before_carex()
     paths = []
     checkpoints = filter_checkpoints(collect_best(results_directory), **filters)
     for checkpoint in checkpoints:
+        if checkpoint.is_multi_replica:
+            paths.extend(plot_multi_checkpoint(
+                checkpoint, data.get_data_before_day()))
+            continue
         model_run = run(checkpoint.run_config, checkpoint.parameters)
         figure, _ = plot_fit(checkpoint, dataset, model_run=model_run)
         directory, filename = plot_target(checkpoint)
@@ -866,79 +1350,17 @@ def plot_all(results_directory=RESULTS_DIRECTORY, **filters):
         plt.close(figure)
         paths.append(path)
 
-        _, _, run_log = model_run
         sample = dataset[checkpoint.replica[0]]
         fit_replicas = sample.get_split(
             checkpoint.replica[1], checkpoint.fit_mode)['fit']
         suptitle = figure_suptitle(
-            checkpoint, fit_replicas, getattr(run_log, 'replica', None))
-        v_max_values = pathway_v_max_values(run_log)
-        last_number = 0
-        for number, (quantity, time, values, pathway_context) in enumerate(
-                pathway_plot_quantities(run_log, include_pathway=True), start=1):
-            pathway = quantity[:-2] if quantity.endswith('_v') else None
-            capacity_pathway = (
-                pathway_context if quantity.startswith('M_')
-                and pathway_context is not None
-                and pathway_uses_capacity_parameter(run_log, pathway_context)
-                else None
-            )
-            figure, _ = plot_quantity(
-                quantity, time, values, checkpoint,
-                v_max=v_max_values.get(pathway), suptitle=suptitle,
-                capacity_pathway=capacity_pathway)
-            filename_quantity = (
-                f'{capacity_pathway}_{quantity}'
-                if capacity_pathway is not None else quantity)
-            _, filename = plot_target(checkpoint, number, filename_quantity)
-            path = os.path.join(directory, filename)
-            # print('saving to  ', os.path.split(directory)[-1], filename)
-            figure.savefig(path, dpi=300)
-            plt.close(figure)
-            paths.append(path)
-            last_number = number
+            checkpoint, fit_replicas, getattr(model_run[2], 'replica', None))
+        def target(number, quantity):
+            _, diagnostic_filename = plot_target(checkpoint, number, quantity)
+            return os.path.join(directory, diagnostic_filename)
 
-        for number, (pathway, time, actual_rate, maximum_rate) in enumerate(
-                pathway_reaction_rate_curves(run_log, v_max_values),
-                start=last_number + 1):
-            quantity = f'{pathway}_reaction_rate'
-            figure, _ = plot_reaction_rate(
-                pathway, time, actual_rate, maximum_rate, checkpoint,
-                suptitle=suptitle)
-            _, filename = plot_target(checkpoint, number, quantity)
-            path = os.path.join(directory, filename)
-            figure.savefig(path, dpi=300)
-            plt.close(figure)
-            paths.append(path)
-
-        for number, (quantity, (figure, _)) in enumerate(
-                pathway_limitation_factor_figures(
-                    checkpoint, run_log, suptitle=suptitle), start=80):
-            _, filename = plot_target(checkpoint, number, quantity)
-            path = os.path.join(directory, filename)
-            figure.savefig(path, dpi=300)
-            plt.close(figure)
-            paths.append(path)
-
-        for number, (quantity, (figure, _)) in enumerate(
-                fe3_aceto_diagnostic_figures(
-                    checkpoint, model_run, suptitle=suptitle), start=90):
-            _, filename = plot_target(checkpoint, number, quantity)
-            path = os.path.join(directory, filename)
-            figure.savefig(path, dpi=300)
-            plt.close(figure)
-            paths.append(path)
-
-        ch4_production = ch4_pathway_production_figure(
-            checkpoint, run_log, suptitle=suptitle)
-        if ch4_production is not None:
-            quantity = 'CH4_pathway_production'
-            figure, _ = ch4_production
-            _, filename = plot_target(checkpoint, 94, quantity)
-            path = os.path.join(directory, filename)
-            figure.savefig(path, dpi=300)
-            plt.close(figure)
-            paths.append(path)
+        paths.extend(_save_diagnostic_plots(
+            checkpoint, model_run, directory, target, suptitle))
     return paths
 
 
@@ -951,7 +1373,7 @@ def parse_args():
                         help='Only plot these sample IDs.')
     parser.add_argument('--model-id', dest='model_ids', nargs='+', metavar='MODEL_ID',
                         help='Only plot model IDs containing these values.')
-    parser.add_argument('--fit-mode', dest='fit_modes', choices=('single', 'split'),
+    parser.add_argument('--fit-mode', dest='fit_modes', choices=('single', 'split', 'multi'),
                         nargs='+', metavar='FIT_MODE',
                         help='Only plot these fit modes.')
     parser.add_argument('--replica', dest='replicas', nargs='+', metavar='REPLICA',
@@ -976,8 +1398,12 @@ def main(args=None):
         checkpoints = filter_checkpoints(
             collect_best(args.results_directory), **filters)
         for checkpoint in checkpoints:
+            replica_label = (','.join(
+                str(record.get('replica', '?'))
+                for record in checkpoint.multi_replica_results)
+                if checkpoint.is_multi_replica else checkpoint.replica_name)
             print(checkpoint.model_id, checkpoint.loss_id,
-                  checkpoint.replica_name, checkpoint.fit_mode)
+                  replica_label, checkpoint.fit_mode)
         print(f'{len(checkpoints)} checkpoint(s) selected')
         return checkpoints
     return plot_all(args.results_directory, **filters)

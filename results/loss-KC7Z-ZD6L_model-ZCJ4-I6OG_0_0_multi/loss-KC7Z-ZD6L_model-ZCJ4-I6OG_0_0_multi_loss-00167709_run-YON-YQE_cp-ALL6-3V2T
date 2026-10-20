@@ -1,0 +1,609 @@
+{
+    "parameters": {
+        "Ac_CUE": 0.3054381717379079,
+        "Ac_v_max": 0.02930089920410135,
+        "Aceto_Km_Ac": 6.101374999448766,
+        "Fe3_CUE": 0.4957268190725866,
+        "Fe3_Km_Ac": 0.03741021637552581,
+        "Fe3_Km_Fe3": 80.37470153341371,
+        "Fe3_v_max": 0.5977533369149282,
+        "Ferm_CUE": 0.3394898898737833,
+        "Ferm_Km": 0.11121400418730822,
+        "Ferm_inhibition": 2.44789944591579,
+        "Ferm_v_max": 0.037977703657436745,
+        "Homo_CUE": 0.2600576232821942,
+        "Homo_Km_CO2": 21.298079687237006,
+        "Homo_Km_H2": 0.00963758632905818,
+        "Homo_v_max": 0.015853630315979014,
+        "Hydro_CUE": 0.42961405521312235,
+        "Hydro_Km_CO2": 0.06006430145355943,
+        "Hydro_Km_H2": 4.508919735131146,
+        "Hydro_v_max": 0.6464179421061648,
+        "Hydrolysis_Kmb": 0.0019275943026645385,
+        "Hydrolysis_v_max": 0.0056076450942400225
+    },
+    "replicas": [
+        {
+            "checkpoint": "/Users/martinlegeland/Code/soil/simple-model/results/joint_inner/run-GYQ-YB7/13694/loss-KC7Z-ZD6L_model-NCN2-JTP6_1369_4_single_loss-00088353_run-GYQ-YB7_cp-5L5Z-M4LT",
+            "loss": 0.08835322304852007,
+            "parameters": {
+                "Acetate": 59.79121780911856,
+                "Aceto_thermodynamics": 1.0,
+                "CH4": 0.0,
+                "CO2": 0.0,
+                "DOC": 81.09233202897344,
+                "Fe2": 0.0,
+                "Fe3": 160.54369378834963,
+                "Fe3_thermodynamics": 1.0,
+                "H2": 0.0,
+                "H2O": 33149.0239092861,
+                "Homo_thermodynamics": 1.0,
+                "Hydro_thermodynamics": 1.0,
+                "M_Ac": 0.044139401234625744,
+                "M_Fe3": 7.059447278579438e-08,
+                "M_Ferm": 4.1168565468151135,
+                "M_Homo": 0.25952976444399617,
+                "M_Hydro": 0.717269499849041,
+                "TOC": 4054.616601448672,
+                "death_rate": 8.3e-05
+            },
+            "r2": 0.6093177094160485,
+            "r2_threshold_reached": false,
+            "replica": "13694",
+            "replica_number": "4",
+            "sample": "1369"
+        },
+        {
+            "checkpoint": "/Users/martinlegeland/Code/soil/simple-model/results/joint_inner/run-AZQ-QP5/13695/loss-KC7Z-ZD6L_model-NCN2-JTP6_1369_5_single_loss-00035777_run-AZQ-QP5_cp-UD2S-AE4I",
+            "loss": 0.03577701517759413,
+            "parameters": {
+                "Acetate": 93.4053052464824,
+                "Aceto_thermodynamics": 1.0,
+                "CH4": 0.0,
+                "CO2": 0.0,
+                "DOC": 81.09233202897344,
+                "Fe2": 0.0,
+                "Fe3": 32.25806900177386,
+                "Fe3_thermodynamics": 1.0,
+                "H2": 0.0,
+                "H2O": 33149.0239092861,
+                "Homo_thermodynamics": 1.0,
+                "Hydro_thermodynamics": 1.0,
+                "M_Ac": 0.0038156801240058743,
+                "M_Fe3": 1.7371027695765306,
+                "M_Ferm": 2.29923854672466,
+                "M_Homo": 0.0022034730066628223,
+                "M_Hydro": 0.12510321754294046,
+                "TOC": 4054.616601448672,
+                "death_rate": 8.3e-05
+            },
+            "r2": 0.6700499313619583,
+            "r2_threshold_reached": false,
+            "replica": "13695",
+            "replica_number": "5",
+            "sample": "1369"
+        },
+        {
+            "checkpoint": "/Users/martinlegeland/Code/soil/simple-model/results/joint_inner/run-VSU-HGH/13696/loss-KC7Z-ZD6L_model-NCN2-JTP6_1369_6_single_loss-00043579_run-VSU-HGH_cp-C7R4-YTNR",
+            "loss": 0.043578904443639925,
+            "parameters": {
+                "Acetate": 17.958243304730892,
+                "Aceto_thermodynamics": 1.0,
+                "CH4": 0.0,
+                "CO2": 0.0,
+                "DOC": 81.09233202897344,
+                "Fe2": 0.0,
+                "Fe3": 39.99238432497042,
+                "Fe3_thermodynamics": 1.0,
+                "H2": 0.0,
+                "H2O": 33149.0239092861,
+                "Homo_thermodynamics": 1.0,
+                "Hydro_thermodynamics": 1.0,
+                "M_Ac": 0.0030751001462439643,
+                "M_Fe3": 0.7896664237237547,
+                "M_Ferm": 0.08262232128822135,
+                "M_Homo": 0.00022787216271965955,
+                "M_Hydro": 3.5724387849549464,
+                "TOC": 4054.616601448672,
+                "death_rate": 8.3e-05
+            },
+            "r2": 0.6162888911843885,
+            "r2_threshold_reached": false,
+            "replica": "13696",
+            "replica_number": "6",
+            "sample": "1369"
+        }
+    ],
+    "run_config": {
+        "algo": {
+            "seed": null,
+            "workers": 1
+        },
+        "chosen": {
+            "algorithm": "differential_evolution",
+            "fit_mode": "multi",
+            "normalized_parameters": true,
+            "parameter_override": {},
+            "pathways": [
+                "Hydrolysis",
+                "Fermentation",
+                "Hydro",
+                "Aceto",
+                "Homo",
+                "Fe3"
+            ],
+            "sample": 0,
+            "t_end": null,
+            "t_start": null,
+            "validation_replica": 0
+        },
+        "model": {
+            "Aceto": {
+                "educts": {
+                    "Acetate": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "Acetate",
+                        "stoichiometry": 1.0
+                    }
+                },
+                "microbe": {
+                    "CUE": "variable",
+                    "C_source": "Acetate",
+                    "Kmb": 0.0,
+                    "death_rate": 8.3e-05,
+                    "name": "M_Ac",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "CH4": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "CH4",
+                        "stoichiometry": 1.0
+                    },
+                    "CO2": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "CO2",
+                        "stoichiometry": 1.0
+                    }
+                },
+                "use_thermodynamics": true
+            },
+            "Fe3": {
+                "educts": {
+                    "Acetate": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "Acetate",
+                        "stoichiometry": 1.0
+                    },
+                    "Fe3": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "Fe3",
+                        "stoichiometry": 8.0
+                    },
+                    "H2O": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "H2O",
+                        "stoichiometry": 1.0
+                    }
+                },
+                "microbe": {
+                    "CUE": "variable",
+                    "C_source": "Acetate",
+                    "Kmb": 0.0,
+                    "death_rate": 8.3e-05,
+                    "name": "M_Fe3",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "CO2": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "CO2",
+                        "stoichiometry": 2.0
+                    },
+                    "Fe2": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "Fe2",
+                        "stoichiometry": 8.0
+                    }
+                },
+                "use_thermodynamics": true
+            },
+            "Fermentation": {
+                "educts": {
+                    "DOC": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "DOC",
+                        "stoichiometry": 10.0
+                    }
+                },
+                "microbe": {
+                    "CUE": "variable",
+                    "C_source": "DOC",
+                    "Kmb": 0.0,
+                    "death_rate": 8.3e-05,
+                    "name": "M_Ferm",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "Acetate": {
+                        "Km": 0.0,
+                        "inhibition": "variable",
+                        "name": "Acetate",
+                        "stoichiometry": 3.5
+                    },
+                    "CO2": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "CO2",
+                        "stoichiometry": 3.0
+                    },
+                    "H2": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "H2",
+                        "stoichiometry": 6.0
+                    }
+                },
+                "use_thermodynamics": false
+            },
+            "Homo": {
+                "educts": {
+                    "CO2": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "CO2",
+                        "stoichiometry": 2.0
+                    },
+                    "H2": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "H2",
+                        "stoichiometry": 4.0
+                    }
+                },
+                "microbe": {
+                    "CUE": "variable",
+                    "C_source": "CO2",
+                    "Kmb": 0.0,
+                    "death_rate": 8.3e-05,
+                    "name": "M_Homo",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "Acetate": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "Acetate",
+                        "stoichiometry": 1.0
+                    },
+                    "H2O": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "H2O",
+                        "stoichiometry": 2.0
+                    }
+                },
+                "use_thermodynamics": true
+            },
+            "Hydro": {
+                "educts": {
+                    "CO2": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "CO2",
+                        "stoichiometry": 1.0
+                    },
+                    "H2": {
+                        "Km": "variable",
+                        "inhibition": Infinity,
+                        "name": "H2",
+                        "stoichiometry": 4.0
+                    }
+                },
+                "microbe": {
+                    "CUE": "variable",
+                    "C_source": "CO2",
+                    "Kmb": 0.0,
+                    "death_rate": 8.3e-05,
+                    "name": "M_Hydro",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "CH4": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "CH4",
+                        "stoichiometry": 1.0
+                    },
+                    "H2O": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "H2O",
+                        "stoichiometry": 2.0
+                    }
+                },
+                "use_thermodynamics": true
+            },
+            "Hydrolysis": {
+                "educts": {
+                    "TOC": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "TOC",
+                        "stoichiometry": 1.0
+                    }
+                },
+                "microbe": {
+                    "CUE": 0.0,
+                    "C_source": null,
+                    "Kmb": "variable",
+                    "death_rate": 0.0,
+                    "name": "M_Ferm",
+                    "v_max": "variable"
+                },
+                "products": {
+                    "DOC": {
+                        "Km": 0.0,
+                        "inhibition": Infinity,
+                        "name": "DOC",
+                        "stoichiometry": 1.0
+                    }
+                },
+                "use_thermodynamics": false
+            },
+            "version": "0.2"
+        },
+        "multi_replica": {
+            "local_best": null,
+            "local_initialization": "default",
+            "replicas": [
+                "13694",
+                "13695",
+                "13696"
+            ],
+            "shared": [
+                "Ferm_CUE",
+                "Hydro_CUE",
+                "Ac_CUE",
+                "Homo_CUE",
+                "Fe3_CUE",
+                "Hydrolysis_Kmb",
+                "Ferm_Km",
+                "Hydro_Km_H2",
+                "Hydro_Km_CO2",
+                "Aceto_Km_Ac",
+                "Homo_Km_H2",
+                "Homo_Km_CO2",
+                "Fe3_Km_Ac",
+                "Fe3_Km_Fe3",
+                "Hydrolysis_v_max",
+                "Ferm_v_max",
+                "Hydro_v_max",
+                "Ac_v_max",
+                "Homo_v_max",
+                "Fe3_v_max",
+                "Ferm_inhibition"
+            ]
+        },
+        "objective": {
+            "loss_weight": {
+                "CH4": 1.0,
+                "CO2": 1.0
+            },
+            "reduction": {
+                "CH4": "mse",
+                "CO2": "mse"
+            },
+            "transform": {
+                "CH4": [
+                    "log",
+                    "normalize"
+                ],
+                "CO2": [
+                    "normalize"
+                ]
+            }
+        },
+        "range": {
+            "Ac_CUE": {
+                "name": "Ac_CUE",
+                "normalize": true,
+                "range": [
+                    0.10987224352159172,
+                    0.9022460127568075
+                ],
+                "scale": "linear"
+            },
+            "Ac_v_max": {
+                "name": "Ac_v_max",
+                "normalize": true,
+                "range": [
+                    0.02267122930283014,
+                    0.34300483499920387
+                ],
+                "scale": "log"
+            },
+            "Aceto_Km_Ac": {
+                "name": "Aceto_Km_Ac",
+                "normalize": true,
+                "range": [
+                    1.515235987236812,
+                    311.3789655897216
+                ],
+                "scale": "log"
+            },
+            "Fe3_CUE": {
+                "name": "Fe3_CUE",
+                "normalize": true,
+                "range": [
+                    0.06950467861651188,
+                    0.8433067145851332
+                ],
+                "scale": "linear"
+            },
+            "Fe3_Km_Ac": {
+                "name": "Fe3_Km_Ac",
+                "normalize": true,
+                "range": [
+                    0.0014362159045606612,
+                    99.01572205946201
+                ],
+                "scale": "log"
+            },
+            "Fe3_Km_Fe3": {
+                "name": "Fe3_Km_Fe3",
+                "normalize": true,
+                "range": [
+                    0.014293486265069596,
+                    532.0144866701294
+                ],
+                "scale": "log"
+            },
+            "Fe3_v_max": {
+                "name": "Fe3_v_max",
+                "normalize": true,
+                "range": [
+                    0.24192999705755228,
+                    2.03624524513748
+                ],
+                "scale": "log"
+            },
+            "Ferm_CUE": {
+                "name": "Ferm_CUE",
+                "normalize": true,
+                "range": [
+                    0.11000150915682388,
+                    0.9233164758062287
+                ],
+                "scale": "linear"
+            },
+            "Ferm_Km": {
+                "name": "Ferm_Km",
+                "normalize": true,
+                "range": [
+                    0.001681856247027061,
+                    7.996374665850198
+                ],
+                "scale": "log"
+            },
+            "Ferm_inhibition": {
+                "name": "Ferm_inhibition",
+                "normalize": true,
+                "range": [
+                    0.005777001045906574,
+                    42.16813072041908
+                ],
+                "scale": "log"
+            },
+            "Ferm_v_max": {
+                "name": "Ferm_v_max",
+                "normalize": true,
+                "range": [
+                    0.00033674863171941966,
+                    0.6288725950342386
+                ],
+                "scale": "log"
+            },
+            "Homo_CUE": {
+                "name": "Homo_CUE",
+                "normalize": true,
+                "range": [
+                    0.05854657547317066,
+                    0.9104911694777574
+                ],
+                "scale": "linear"
+            },
+            "Homo_Km_CO2": {
+                "name": "Homo_Km_CO2",
+                "normalize": true,
+                "range": [
+                    0.004474988920658023,
+                    510.67040203121906
+                ],
+                "scale": "log"
+            },
+            "Homo_Km_H2": {
+                "name": "Homo_Km_H2",
+                "normalize": true,
+                "range": [
+                    0.006887123607867955,
+                    237.2412715013016
+                ],
+                "scale": "log"
+            },
+            "Homo_v_max": {
+                "name": "Homo_v_max",
+                "normalize": true,
+                "range": [
+                    0.012353784724154123,
+                    0.3724932120248112
+                ],
+                "scale": "log"
+            },
+            "Hydro_CUE": {
+                "name": "Hydro_CUE",
+                "normalize": true,
+                "range": [
+                    0.21300676785574457,
+                    0.9002272382919146
+                ],
+                "scale": "linear"
+            },
+            "Hydro_Km_CO2": {
+                "name": "Hydro_Km_CO2",
+                "normalize": true,
+                "range": [
+                    0.0008079968000739576,
+                    165.98047583236576
+                ],
+                "scale": "log"
+            },
+            "Hydro_Km_H2": {
+                "name": "Hydro_Km_H2",
+                "normalize": true,
+                "range": [
+                    0.0009831240626676798,
+                    51.1732139251945
+                ],
+                "scale": "log"
+            },
+            "Hydro_v_max": {
+                "name": "Hydro_v_max",
+                "normalize": true,
+                "range": [
+                    0.004086111318620574,
+                    0.6540852145325942
+                ],
+                "scale": "log"
+            },
+            "Hydrolysis_Kmb": {
+                "name": "Hydrolysis_Kmb",
+                "normalize": true,
+                "range": [
+                    3.9192178803228e-08,
+                    1.0294716531067416
+                ],
+                "scale": "log"
+            },
+            "Hydrolysis_v_max": {
+                "name": "Hydrolysis_v_max",
+                "normalize": true,
+                "range": [
+                    2.956011376573048e-08,
+                    0.007962998795464462
+                ],
+                "scale": "log"
+            }
+        }
+    },
+    "total_loss": 0.16770914266975412
+}

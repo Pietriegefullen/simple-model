@@ -571,8 +571,19 @@ class Parameter():
         elif isinstance(p, (int, float) + BOOLEAN_TYPES):
             if self.is_variable() and np.isfinite(p):
                 out_of_range = False
-                if self.options is None and (not p <= self.high or not p >= self.low):
-                    out_of_range = True
+                if self.options is None:
+                    # An exact endpoint in transformed coordinates can map
+                    # back through exp/log normalisation a few ULPs outside
+                    # its stored physical bound.  Canonicalise only that
+                    # round-off spillover; do not hide a real violation.
+                    tolerance = (64 * np.finfo(float).eps
+                                 * max(abs(self.low), abs(self.high), np.finfo(float).tiny))
+                    if p < self.low and self.low - p <= tolerance:
+                        p = self.low
+                    elif p > self.high and p - self.high <= tolerance:
+                        p = self.high
+                    elif p < self.low or p > self.high:
+                        out_of_range = True
                 elif isinstance(self.options, set) and not p in self.options:
                     out_of_range = True
 

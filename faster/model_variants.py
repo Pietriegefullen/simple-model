@@ -26,4 +26,4 @@ def model_variant_from_id(model_id):
     for model_prefix, variant in MODEL_ID_TO_VARIANT.items():
         if model_id.startswith('model-' + model_prefix):
             return variant
-    return None
+    return '?'

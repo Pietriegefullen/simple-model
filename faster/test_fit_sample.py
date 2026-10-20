@@ -5,6 +5,7 @@ import unittest
 import fit_sample
 import hashing
 import parameters
+import user_input
 from test_hashing import checkpoint_with
 
 
@@ -44,6 +45,20 @@ class RequestedCheckpointTest(unittest.TestCase):
         errors = fit_sample.checkpoint_range_errors(checkpoint, fit_range)
 
         self.assertEqual(errors, ['rate=1.5 is outside [0, 1]'])
+
+
+class OptimizerArgumentTest(unittest.TestCase):
+    def test_cma_es_options_are_available_for_single_sample_fits(self):
+        args = user_input.parse_args_fit([
+            '1351', '4', '--algorithm', 'cma-es', '--cma-sigma', '0.1',
+            '--cma-restarts', '1', '--popsize', '12',
+            '--max-evaluations', '300'])
+
+        self.assertEqual(args.algorithm, 'cma-es')
+        self.assertEqual(args.cma_sigma, 0.1)
+        self.assertEqual(args.cma_restarts, 1)
+        self.assertEqual(args.popsize, 12)
+        self.assertEqual(args.max_evaluations, 300)
 
 
 if __name__ == '__main__':

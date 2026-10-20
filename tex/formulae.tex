@@ -1,0 +1,95 @@
+\documentclass{article}
+
+\usepackage{bm}
+
+
+\usepackage[symbols]{glossaries}
+
+\newglossaryentry{chemical_species}{%
+  name={\ensuremath{S_i}},
+  description={chemical species},
+  type=symbols,
+  sort=2-Si
+}
+\newglossaryentry{v}{%
+  name={\ensuremath{i}},
+  description={turnover rate},
+  type=symbols,
+  sort=2-v
+}
+\newglossaryentry{M}{%
+  name={\ensuremath{M}},
+  description={biomass},
+  type=symbols,
+  sort=2-M
+}
+\newglossaryentry{species_index}{%
+  name={\ensuremath{i}},
+  description={index over chemical species},
+  type=symbols,
+  sort=2-i
+}
+\newglossaryentry{pathway_index}{%
+  name={\ensuremath{j}},
+  description={index over pathways},
+  type=symbols,
+  sort=2-j
+}
+
+\begin{document}
+
+\glsaddallunused
+
+\printglossary[title=List of Symbols,%
+               toctitle=List of Symbols,%
+               type=symbols,%
+               style=list,%
+               nogroupskip,%
+               nonumberlist]
+
+
+\section{Methods}
+
+\subsection{Model}
+
+
+\begin{equation}
+\frac{\mathrm{d}S_i}{\mathrm{d}t} = \sum_{j=1}^{N_P} M_j \left(v_j \cdot \gamma_{ij} - \delta\right)
+\end{equation}
+
+\begin{equation}
+v_j = v_{\mathrm{max},j} \cdot f_{\mathrm{MM},j} \cdot f_{\mathrm{thermo},j}\cdot f_{\mathrm{inhib},j}
+\end{equation}
+
+
+\begin{equation}
+f_{\mathrm{MM},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{m,ij}}
+\end{equation}
+
+\begin{equation}
+f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{inhib,ij}}
+\end{equation}
+
+If the $i$-th pool is irrelevant for the $j$-th pathway, $K_{m,ij} = 0$.
+Numerics: Add $\varepsilon = 10^{-12}$ in the denominator, to avoid division by zero.
+
+
+\begin{equation}
+S^{\mathrm{dis}}_i = 
+\end{equation}
+
+\begin{equation}
+\log Q = \sum_
+\end{equation}
+
+\begin{equation}
+\Delta G_{r,j} = \Delta G_{s,j} + R T \log Q
+\end{equation}
+
+\begin{equation}
+f_{\mathrm{thermo},j} = 1 - e^{\frac{\min(0, \Delta G_{r,j} - \Delta G_{r,\min})}{RT}}
+\end{equation}
+
+$\Delta G_{r,\min} = -26 \cdot 10^3 \_ \frac{\mathrm{kJ}}{\mathrm{mol}}$
+
+\end{document}

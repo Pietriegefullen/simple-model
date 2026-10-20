@@ -2,6 +2,8 @@ import os
 import json
 import fcntl
 import tempfile
+import base64
+import pickle
 from contextlib import contextmanager
 
 import hashing
@@ -70,7 +72,7 @@ class SetAllConstant(Callback):
 
 class PrintCallback(Callback):
     def __init__(self, run_config, initial_best_loss = None,
-                 initial_best_r2 = None, header = None):
+                 initial_best_r2 = None, header = None, footer = None, carriage_return = True):
         super().__init__(run_config)
         # A fit can resume in a directory that already contains results.  The
         # stored loss is an incumbent too, even though it is not part of this
@@ -78,6 +80,8 @@ class PrintCallback(Callback):
         self.initial_best_loss = initial_best_loss
         self.initial_best_r2 = initial_best_r2
         self.header = header
+        self.footer = footer
+        self.carriage_return = carriage_return
         
     def __call__(self):
         args, kwargs, loss_value = self.objective.last_call()
@@ -95,9 +99,11 @@ class PrintCallback(Callback):
             best_r2 = self.initial_best_r2
         r2_text = 'n/a' if best_r2 is None else f'{best_r2:.2f}'
         header = '' if self.header is None else self.header + ' '
-        print(f'\r{header}generation {generation_text}: call {cnt:6d}: '
+        cret = '\r' if self.carriage_return else ''
+        footer = '' if self.footer is None else (' ' + self.footer)
+        print(f'{cret}{header}generation {generation_text}: call {cnt:6d}: '
               f'loss value {loss_value:8.3g}, '
-              f'best loss: {best_loss:8.3g}, best R2 = {r2_text}', end = '')
+              f'best loss: {best_loss:8.3g}, best R2 = {r2_text}' + footer, end = '')
 
 
 class CallLimitInterrupt(Exception):
@@ -110,6 +116,92 @@ class StalledEvaluationInterrupt(CallLimitInterrupt):
     def __init__(self, timeout):
         self.timeout = timeout
         super().__init__(f'No objective evaluation completed within {timeout:g} seconds')
+
+
+class CMAStateCheckpoint:
+    """Persist the latest CMA-ES progress state for later resumption.
+
+    Ordinary checkpoints are deliberately ranked by objective value.  That is
+    useful for selecting a model, but is not an optimiser checkpoint: CMA-ES
+    also needs its covariance matrix, evolution paths and random-number state.
+    This companion file is instead replaced as CMA-ES advances.  A state that
+    was interrupted within a population includes its pending samples and
+    completed losses, so it remains internally coherent.
+    It lives beside the ordinary checkpoints, starts with a dot so older
+    checkpoint scanners ignore it, and is atomically replaced under the same
+    directory lock.
+
+    The opaque payload is pickle data produced by the maintained ``cma``
+    package.  It is local run state, not an interchange format; the run ID and
+    a format version prevent accidentally loading it for a different fit.
+    """
+
+    FILE_NAME = '.cma-es-state.json'
+    VERSION = 1
+
+    def __init__(self, run_config, target=None):
+        self.run_config = hashing.normalize_run_config(run_config)
+        self.run_id = hashing.build_run_id(self.run_config)
+        self._target_directory = target
+
+    def target_directory(self):
+        if self._target_directory is None:
+            # Match Callback's default result location without requiring a
+            # Callback instance (which also owns an Objective).
+            plain = [get_value(self.run_config, keys) for keys in checkpoint_plain]
+            self._target_directory = os.path.join(CP_ROOT, '_'.join(map(str, plain)))
+        return self._target_directory
+
+    @contextmanager
+    def _locked_directory(self):
+        save_dir = self.target_directory()
+        os.makedirs(save_dir, exist_ok=True)
+        lock_file = os.path.join(save_dir, '.checkpoint.lock')
+        with open(lock_file, 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield save_dir
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def save(self, state):
+        """Atomically store an opaque, JSON-compatible CMA state payload."""
+        encoded_state = base64.b64encode(
+            pickle.dumps(state, protocol=pickle.HIGHEST_PROTOCOL)).decode('ascii')
+        document = {
+            'version': self.VERSION,
+            'run_id': self.run_id,
+            'state': encoded_state,
+        }
+        with self._locked_directory() as save_dir:
+            destination = os.path.join(save_dir, self.FILE_NAME)
+            descriptor, temporary_file = tempfile.mkstemp(
+                dir=save_dir, prefix='.cma-es-state-', text=True)
+            try:
+                with os.fdopen(descriptor, 'w') as handle:
+                    json.dump(document, handle, sort_keys=True)
+                os.replace(temporary_file, destination)
+            finally:
+                if os.path.exists(temporary_file):
+                    os.remove(temporary_file)
+
+    def load(self):
+        """Return a compatible saved state, or ``None`` when none is usable."""
+        with self._locked_directory() as save_dir:
+            source = os.path.join(save_dir, self.FILE_NAME)
+            try:
+                with open(source) as handle:
+                    document = json.load(handle)
+                if (document.get('version') != self.VERSION
+                        or document.get('run_id') != self.run_id):
+                    return None
+                return pickle.loads(base64.b64decode(document['state']))
+            except (OSError, ValueError, KeyError, TypeError,
+                    pickle.PickleError, EOFError):
+                # A damaged state file must never make a valuable ordinary
+                # result checkpoint unusable.  The caller can safely restart
+                # from its normal x0 seed instead.
+                return None
 
 
 class Interrupt(Callback):

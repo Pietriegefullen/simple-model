@@ -269,6 +269,9 @@ if __name__ == '__main__':
     import user_input
     
     args = user_input.parse_args_fit()
+    algorithm_name = ('Powell' if args.local else
+                      {'de': 'differential_evolution',
+                       'cma-es': 'cma_es'}[args.algorithm])
 
     chosen = {
             'sample':                   args.sample,
@@ -286,7 +289,7 @@ if __name__ == '__main__':
                                          'Fe3'],
             'parameter_override':       args.override,  # e.g. 'Homo_thermodynamics': False
             'normalized_parameters':    True,
-            'algorithm':                'powell' if args.local else 'differential_evolution',
+            'algorithm':                algorithm_name,
             }
 
     objective_config = {
@@ -298,10 +301,18 @@ if __name__ == '__main__':
                                          'CH4': ['log', 'normalize']},
             }
     
-    algo_config = {
-            'differential_evolution':   {'workers' : args.workers if not args.workers is None else -1}, # empty dict uses default
-            'powell':                   {}
-                }
+    algo_options = {}
+    if algorithm_name in {'differential_evolution', 'cma_es'}:
+        algo_options['workers'] = args.workers
+        if args.popsize is not None:
+            algo_options['popsize'] = args.popsize
+        if args.max_evaluations is not None:
+            algo_options['max_evaluations'] = args.max_evaluations
+    if algorithm_name == 'cma_es':
+        if args.cma_sigma is not None:
+            algo_options['sigma0'] = args.cma_sigma
+        algo_options['restarts'] = args.cma_restarts
+    algo_config = {algorithm_name: algo_options}
     
     if args.checkpoint is not None:
         # Keep the configured default ranges while taking every starting value
