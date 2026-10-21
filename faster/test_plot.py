@@ -57,6 +57,61 @@ class FigureSpecTest(unittest.TestCase):
         self.assertEqual(plot.MODEL_VARIANT_LINESTYLES,
                          {'A': '-', 'B': '--', 'C': ':', 'D': '-.'})
 
+    def test_figure_plan_reuses_named_secondary_axis(self):
+        calls = []
+
+        def curve(context, axis, *, value, label):
+            calls.append((context.checkpoint, axis, value, label))
+            axis.plot([0, 1], [value, value], label=label)
+
+        plan = plot.FigurePlan(
+            plot.FigureSpec(axis_names=('gas',), figsize=(4, 3)),
+            calls=(
+                plot.PlotCall(curve, 'gas', {'value': 1, 'label': 'primary'}),
+                plot.PlotCall(curve, 'gas', {'value': 2, 'label': 'right one'},
+                              secondary=True),
+                plot.PlotCall(curve, 'gas', {'value': 3, 'label': 'right two'},
+                              secondary=True),
+            ),
+            suptitle='planned figure',
+        )
+
+        figure, axes = plot.render_figure(
+            plan, plot.PlotContext(checkpoint='cp-TEST'))
+
+        self.assertEqual(list(axes), ['gas', 'gas_right'])
+        self.assertEqual(len(axes['gas'].lines), 1)
+        self.assertEqual(len(axes['gas_right'].lines), 2)
+        self.assertTrue(all(checkpoint == 'cp-TEST'
+                            for checkpoint, *_ in calls))
+        self.assertEqual(figure._suptitle.get_text(), 'planned figure')
+
+    def test_label_keeps_words_in_text_mode_and_units_in_math_mode(self):
+        self.assertEqual(plot.label('time', 'd'), r'time [$\mathrm{d}$]')
+        self.assertEqual(plot.math(r'CO_2'), r'$CO_2$')
+
+    def test_plot_book_renders_each_named_figure_with_one_context(self):
+        seen = []
+
+        def record_context(context, axis):
+            seen.append(context)
+            axis.plot([0, 1], [0, 1])
+
+        book = plot.PlotBook({
+            'first': plot.FigurePlan(
+                plot.FigureSpec(axis_names=('axis',)),
+                (plot.PlotCall(record_context, 'axis'),)),
+            'second': plot.FigurePlan(
+                plot.FigureSpec(axis_names=('axis',)),
+                (plot.PlotCall(record_context, 'axis'),)),
+        })
+        context = plot.PlotContext(checkpoint='cp-TEST')
+
+        figures = plot.render_book(book, context)
+
+        self.assertEqual(list(figures), ['first', 'second'])
+        self.assertEqual(seen, [context, context])
+
 
 if __name__ == '__main__':
     unittest.main()

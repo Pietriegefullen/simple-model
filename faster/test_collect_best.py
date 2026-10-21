@@ -1,6 +1,6 @@
 import unittest
 
-import collect_best
+import plot_best
 import matplotlib.pyplot as plt
 import numpy as np
 import parameters
@@ -27,7 +27,7 @@ class SampleYLimitsTest(unittest.TestCase):
                 Replica([2.0, 10.0], [1e-4, 1e-2]),
             ]
 
-        limits = collect_best.sample_y_limits(Sample())
+        limits = plot_best.sample_y_limits(Sample())
         self.assertLess(limits['CO2'][0], 1.0)
         self.assertGreater(limits['CO2'][1], 10.0)
         self.assertGreater(limits['CH4'][0], 0.0)
@@ -49,7 +49,7 @@ class CheckpointFilterTest(unittest.TestCase):
             Checkpoint('1351', '5', 'model-A', 'split', 'loss-1'),
             Checkpoint('1352', '4', 'model-B', 'split', 'loss-2'),
         ]
-        selected = collect_best.filter_checkpoints(
+        selected = plot_best.filter_checkpoints(
             checkpoints, samples=['1351'], model_ids=['model-A'],
             fit_modes=['split'], replicas=['5'], loss_ids=['loss-1'])
         self.assertEqual(selected, [checkpoints[1]])
@@ -65,7 +65,7 @@ class CheckpointFilterTest(unittest.TestCase):
         matching = Checkpoint('model-3NWE-JDSY')
         checkpoints = [matching, Checkpoint('model-FA75-GSEM')]
 
-        selected = collect_best.filter_checkpoints(
+        selected = plot_best.filter_checkpoints(
             checkpoints, model_ids=['3NWE'])
         self.assertEqual(selected, [matching])
 
@@ -99,7 +99,7 @@ class Fe3AcetoDiagnosticsTest(unittest.TestCase):
             'Aceto_MM': ([0, 1], [.5, .6]),
         }
 
-        figures = dict(collect_best.fe3_aceto_diagnostic_figures(
+        figures = dict(plot_best.fe3_aceto_diagnostic_figures(
             None, (pathway_model, None, run_log), suptitle='test'))
 
         self.assertEqual(set(figures), {
@@ -124,7 +124,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         plt.close('all')
 
     def test_delta_g_plot_marks_the_gibbs_minimum(self):
-        _, axis = collect_best.plot_quantity(
+        _, axis = plot_best.plot_quantity(
             'Hydro_deltaG_r', [0, 1], [-20, -30], None, suptitle='test')
 
         self.assertEqual(len(axis.lines), 2)
@@ -133,19 +133,19 @@ class PathwayQuantityPlotTest(unittest.TestCase):
                          [1e-3*GIBBS_MINIMUM, 1e-3*GIBBS_MINIMUM])
 
     def test_inhibition_factor_uses_a_zero_to_one_axis(self):
-        _, axis = collect_best.plot_quantity(
+        _, axis = plot_best.plot_quantity(
             'Fermentation_inhib', [0, 1], [.2, .8], None, suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.0))
 
     def test_rate_plot_includes_v_max_with_headroom(self):
-        _, axis = collect_best.plot_quantity(
+        _, axis = plot_best.plot_quantity(
             'Hydro_v', [0, 1], [.2, .8], None, v_max=1., suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.05))
 
     def test_unit_constant_v_max_labels_m_pool_as_pathway_capacity(self):
-        _, axis = collect_best.plot_quantity(
+        _, axis = plot_best.plot_quantity(
             'M_Hydro', [0, 1], [.2, .8], None, suptitle='test',
             capacity_pathway='Hydro')
 
@@ -170,15 +170,15 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         })
 
         quantities = list(
-            collect_best.pathway_plot_quantities(run_log, include_pathway=True))
+            plot_best.pathway_plot_quantities(run_log, include_pathway=True))
         microbe_quantity = next(item for item in quantities if item[0] == 'M_Hydro')
         self.assertEqual(microbe_quantity[-1], 'Hydro')
         self.assertTrue(
-            collect_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
+            plot_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
 
         run_log._parameters['Hydro_v_max'].variable(1., (.5, 1.5))
         self.assertFalse(
-            collect_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
+            plot_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
 
     def test_dissolved_h2_follows_total_h2_in_pool_plot_order(self):
         class PathwayModel:
@@ -193,7 +193,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'H2O': ([0, 1], [10., 10.]),
         }
 
-        quantities = list(collect_best.pathway_plot_quantities(
+        quantities = list(plot_best.pathway_plot_quantities(
             run_log, pathway_model=PathwayModel()))
         self.assertEqual([quantity[0] for quantity in quantities],
                          ['H2', 'H2_dissolved', 'H2O'])
@@ -202,7 +202,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertEqual(dissolved_h2[2].tolist(), [1., 2.])
 
     def test_dissolved_h2_has_a_clear_plot_title(self):
-        _, axis = collect_best.plot_quantity(
+        _, axis = plot_best.plot_quantity(
             'H2_dissolved', [0, 1], [.1, .2], None, suptitle='test')
 
         self.assertEqual(axis.get_title(), 'Dissolved H2')
@@ -214,7 +214,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         }
 
         pathway, time, actual_rate, maximum_rate = next(
-            collect_best.pathway_reaction_rate_curves(
+            plot_best.pathway_reaction_rate_curves(
                 run_log, {'Hydro': .5}))
 
         self.assertEqual(pathway, 'Hydro')
@@ -223,7 +223,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         np.testing.assert_allclose(maximum_rate, [1., 1.5, 3., 4.])
 
     def test_reaction_rate_plot_marks_biomass_scaled_v_max_as_dashed(self):
-        _, axis = collect_best.plot_reaction_rate(
+        _, axis = plot_best.plot_reaction_rate(
             'Hydro', [0, 1], [.2, .8], [1., 2.], None, suptitle='test')
 
         self.assertEqual(len(axis.lines), 2)
@@ -241,7 +241,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'Hydro_MM': ([0, 1], [.5, .6]),
         }
 
-        figures = dict(collect_best.pathway_limitation_factor_figures(
+        figures = dict(plot_best.pathway_limitation_factor_figures(
             None, run_log, suptitle='test'))
         homo_axis = figures['Homo_limitation_factors'][1]
         hydro_axis = figures['Hydro_limitation_factors'][1]
@@ -261,9 +261,9 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'Aceto_CH4 from M_Ac': ([0, 1], [1, 1]),
         }
 
-        figure, axis = collect_best.ch4_pathway_production_figure(
+        figure, axis = plot_best.ch4_pathway_production_figure(
             None, run_log, suptitle='test')
-        _, log_axis = collect_best.ch4_pathway_production_figure(
+        _, log_axis = plot_best.ch4_pathway_production_figure(
             None, run_log, suptitle='test', log_scale=True)
 
         self.assertEqual(axis.get_yscale(), 'linear')
@@ -300,9 +300,9 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'M_Hydro': ([0, 1], [4., 4.]),
         }
 
-        figure, axis = collect_best.co2_pathway_production_figure(
+        figure, axis = plot_best.co2_pathway_production_figure(
             None, pathway_model, run_log, suptitle='test')
-        _, log_axis = collect_best.co2_pathway_production_figure(
+        _, log_axis = plot_best.co2_pathway_production_figure(
             None, pathway_model, run_log, suptitle='test', log_scale=True)
 
         self.assertEqual(axis.get_yscale(), 'linear')
@@ -336,7 +336,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         run_log['Fermentation_v'] = ([0., 1.], [100., 100.])
         run_log['M_Ferm'] = ([0., 1.], [100., 100.])
 
-        _, axis = collect_best.co2_pathway_production_figure(
+        _, axis = plot_best.co2_pathway_production_figure(
             None, pathway_model, run_log, suptitle='test')
 
         np.testing.assert_allclose(axis.collections[0].get_paths()[0].vertices[:, 1].max(),

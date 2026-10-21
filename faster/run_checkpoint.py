@@ -137,16 +137,16 @@ def _json_safe(value):
 
 def save_replay_report(output_directory, source_path, run_config,
                        parameter_overrides, t_start, t_end, model_run):
-    """Write collect_best-style figures and reproducibility metadata.
+    """Write plot_best-style figures and reproducibility metadata.
 
-    ``collect_best`` owns the report styling and diagnostic figures.  This
+    ``plot_best`` owns the report styling and diagnostic figures.  This
     adapter only chooses names below the caller's report directory and records
     the effective configuration that produced them.
     """
     # Import lazily: a parameter-only replay configuration should not need the
     # plotting stack, and this keeps the reusable helpers lightweight.
     import matplotlib.pyplot as plt
-    import collect_best
+    import plot_best
     import data
 
     output_directory = prepare_output_directory(output_directory)
@@ -156,7 +156,7 @@ def save_replay_report(output_directory, source_path, run_config,
     effective_config = copy.deepcopy(run_config)
     effective_config['model'] = pathway_model.get_config(only_structure=True)
     source_id = checkpoint_id(source_path)
-    report_checkpoint = collect_best.Checkpoint(
+    report_checkpoint = plot_best.Checkpoint(
         parameters=pathway_model.parameters(),
         loss=float(objective.last_call()[-1]),
         run_config=effective_config,
@@ -165,7 +165,7 @@ def save_replay_report(output_directory, source_path, run_config,
     )
 
     dataset = data.get_data_before_carex()
-    figure, _ = collect_best.plot_fit(
+    figure, _ = plot_best.plot_fit(
         report_checkpoint, dataset, model_run=model_run)
     fit_plot = output_directory / '00_fit.svg'
     figure.savefig(fit_plot, dpi=300)
@@ -175,13 +175,13 @@ def save_replay_report(output_directory, source_path, run_config,
     sample = dataset[report_checkpoint.replica[0]]
     fitted_replicas = sample.get_split(
         report_checkpoint.replica[1], report_checkpoint.fit_mode)['fit']
-    suptitle = collect_best.figure_suptitle(
+    suptitle = plot_best.figure_suptitle(
         report_checkpoint, fitted_replicas, getattr(run_log, 'replica', None))
 
     def target(number, quantity):
         return output_directory / f'{number:02d}_{quantity}.svg'
 
-    plot_paths.extend(collect_best._save_diagnostic_plots(
+    plot_paths.extend(plot_best._save_diagnostic_plots(
         report_checkpoint, model_run, str(output_directory), target, suptitle))
 
     result_r2 = _json_metric(objective.last_R2())

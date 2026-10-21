@@ -197,7 +197,7 @@ def plot_fitted_ratio(pathway_model, val_replica):
 if __name__ == '__main__':
     #model_type = 'simple' # or 'complex'
     
-    from plot import plot_Gibbs, plot_fit, plot_thermodynamics, plot_pathways
+    from plot import plot_fit
   
     model_type= 'complex'
     sample_name =  '1367' #1353 1351, 1367, 1369, 1370, 
@@ -232,12 +232,8 @@ if __name__ == '__main__':
         if rate:
             log = pathway_model.system_change_log
             
-        #plot_Gibbs(log, 'Fe3')
         plot_fit(log)
-        #plot_pathways(log)
-        #plot_thermodynamics(log, 'Fe3')
 
         log.plot()
         
         plt.show()
-

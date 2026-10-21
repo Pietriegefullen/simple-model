@@ -94,7 +94,7 @@ def read_checkpoint(path):
     return checkpoint.get("parameters", checkpoint)
 
 
-# This mirrors the pool and pathway ordering used by ``collect_best`` plots.
+# This mirrors the pool and pathway ordering used by ``plot_best`` plots.
 # Keeping a pathway's biomass, kinetic parameters, and CUE together makes it
 # much easier to scan a model change than grouping all parameters by type.
 PATHWAY_PARAMETER_ORDER = {

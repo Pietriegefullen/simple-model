@@ -25,7 +25,7 @@ class SingleParameterDistributionsTest(unittest.TestCase):
     def test_single_checkpoints_uses_retained_single_fits_only(self):
         single = Checkpoint('model-A')
         split = Checkpoint('model-B', fit_mode='split')
-        with mock.patch.object(distributions.collect_best, 'collect_best',
+        with mock.patch.object(distributions.plot_best, 'collect_best',
                                return_value=[split, single]):
             selected = distributions.single_checkpoints('/ignored')
         self.assertEqual(selected, [single])

@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 
-import collect_best
+import plot_best
 from fit_sample import run
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
@@ -40,16 +40,16 @@ PLOTS_PER_PAGE = 12
 def single_checkpoints(results_directory=RESULTS_DIRECTORY, model_ids=None):
     """Return the retained best checkpoint for every requested single fit.
 
-    ``collect_best.collect_best`` deliberately keeps one checkpoint per model,
+    ``plot_best.collect_best`` deliberately keeps one checkpoint per model,
     loss definition, fit mode, and replica.  The additional model-ID filter is
     substring based, matching the convention used by ``collect_best``.
     """
     checkpoints = [
-        checkpoint for checkpoint in collect_best.collect_best(results_directory)
+        checkpoint for checkpoint in plot_best.collect_best(results_directory)
         if checkpoint.fit_mode == 'single'
     ]
     if model_ids:
-        checkpoints = collect_best.filter_checkpoints(
+        checkpoints = plot_best.filter_checkpoints(
             checkpoints, model_ids=model_ids)
     return sorted(checkpoints, key=lambda checkpoint: (
         checkpoint.model_id, checkpoint.loss_id, checkpoint.replica))

@@ -24,7 +24,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-import collect_best
+import plot_best
 import data
 import optimizer
 from fit_sample import run
@@ -38,7 +38,7 @@ METRICS = ('combined', 'CO2', 'CH4')
 def variant_checkpoints(results_directory, variants, fit_mode='split'):
     """Select the lowest-calibration-loss checkpoint for every variant fold."""
     grouped = defaultdict(dict)
-    for checkpoint in collect_best.collect_best(results_directory):
+    for checkpoint in plot_best.collect_best(results_directory):
         if checkpoint.fit_mode != fit_mode:
             continue
         variant = model_variant_from_id(checkpoint.model_id)

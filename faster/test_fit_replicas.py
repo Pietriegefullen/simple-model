@@ -119,6 +119,13 @@ class SetupSummaryTest(unittest.TestCase):
 
 
 class LocalR2ThresholdTest(unittest.TestCase):
+    def test_formats_low_final_r2_in_red(self):
+        self.assertEqual(
+            fit_replicas.format_local_r2(0.79),
+            '\033[1;31m0.79\033[0m')
+        self.assertEqual(fit_replicas.format_local_r2(0.8), '0.80')
+        self.assertEqual(fit_replicas.format_local_r2(None), 'n/a')
+
     def test_stops_only_when_the_threshold_is_reached(self):
         callback = fit_replicas.StopWhenLocalR2Reached(0.7)
         callback.set_objective(type('Objective', (), {'last_R2': lambda self: 0.7})())

@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
-import collect_best
+import plot_best
 import compare_checkpoints
 import data
 import optimizer
@@ -211,10 +211,10 @@ def plot_fit_comparison(specifications, dataset, model_runs=None):
         model_runs = run_variants(specifications)
 
     reference = specifications[0].checkpoint
-    sample, validation_replica, fitted_replicas = collect_best.fit_replicas(
+    sample, validation_replica, fitted_replicas = plot_best.fit_replicas(
         reference, dataset)
-    figure, axes = collect_best.create_fit_figure()
-    handles = collect_best.plot_fit_measurements(reference, dataset, axes)
+    figure, axes = plot_best.create_fit_figure()
+    handles = plot_best.plot_fit_measurements(reference, dataset, axes)
 
     variants = []
     for specification in specifications:
@@ -230,7 +230,7 @@ def plot_fit_comparison(specifications, dataset, model_runs=None):
                       linestyle=linestyle, linewidth=1.5)
         handles.append(Line2D(
             [], [], color='k', linestyle=linestyle, linewidth=1.5,
-            label=collect_best.fit_score_label(
+            label=plot_best.fit_score_label(
                 checkpoint, objective, validation_objective, run_log,
                 model_label=variant_legend_label(variant)),
         ))
@@ -238,8 +238,8 @@ def plot_fit_comparison(specifications, dataset, model_runs=None):
 
     axes['CH4'].legend(
         handles=handles, fancybox=False, edgecolor='k', loc='lower right')
-    collect_best.format_fit_axes(reference, sample, axes)
-    collect_best.finish_fit_figure(
+    plot_best.format_fit_axes(reference, sample, axes)
+    plot_best.finish_fit_figure(
         figure, comparison_suptitle(reference, variants))
     return figure, axes
 
@@ -465,7 +465,7 @@ def plot_ab_replica_detail(specifications, model_runs, replica, *, detail=None,
     predictions = detail['predictions']
     a_specification, a_model, a_log = predictions['A']
     b_specification, b_model, b_log = predictions['B']
-    sample_limits = collect_best.sample_y_limits(replica.sample)
+    sample_limits = plot_best.sample_y_limits(replica.sample)
 
     figure, grid = plt.subplots(2, 2, figsize=(10, 7), sharex='col')
     top_axes = dict(zip(('CO2', 'CH4'), grid[0]))
@@ -614,8 +614,8 @@ def save_comparisons(results_directory=RESULTS_DIRECTORY, output_directory=None,
     """Write variant fit and A/C H2-consumption figures; return their paths."""
     output_directory = (Path(PROJECT_DIRECTORY) / 'variant_comparisons'
                         if output_directory is None else Path(output_directory))
-    checkpoints = collect_best.filter_checkpoints(
-        collect_best.collect_best(results_directory), **filters)
+    checkpoints = plot_best.filter_checkpoints(
+        plot_best.collect_best(results_directory), **filters)
     groups = comparison_groups(checkpoints, variants)
     dataset = data.get_data_before_carex()
     paths = []
@@ -671,7 +671,7 @@ def save_comparisons(results_directory=RESULTS_DIRECTORY, output_directory=None,
 
         if {'A', 'B'}.issubset(by_variant_specification):
             reference = by_variant_specification['A'].checkpoint
-            _, validation_replica, _ = collect_best.fit_replicas(reference, dataset)
+            _, validation_replica, _ = plot_best.fit_replicas(reference, dataset)
             detail = ab_replica_detail_data(
                 [by_variant_specification['A'], by_variant_specification['B']],
                 model_runs, validation_replica)
@@ -752,8 +752,8 @@ def main(args=None):
     }
 
     if args.dry_run:
-        checkpoints = collect_best.filter_checkpoints(
-            collect_best.collect_best(args.results_directory), **filters)
+        checkpoints = plot_best.filter_checkpoints(
+            plot_best.collect_best(args.results_directory), **filters)
         for group, by_variant in sorted(comparison_groups(
                 checkpoints, args.variants).items()):
             available = [specification.variant for specification

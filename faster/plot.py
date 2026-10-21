@@ -1,41 +1,44 @@
-"""Reusable, axes-oriented plotting helpers.
+"""Reusable, declarative plotting helpers.
 
-The public boundary in this module is deliberately small:
+The plotting interface has three small, composable parts:
 
-1. describe a figure once with :class:`FigureSpec`;
-2. create it with :func:`create_figure`; and
-3. pass the named axes to functions that add data or model curves.
+* :class:`FigureSpec` describes a layout and names its primary axes.
+* :class:`PlotCall` assigns a plotting routine to one of those axes (or its
+  optional right-hand secondary axis).
+* :func:`render_figure` creates the figure and executes the calls with one
+  shared :class:`PlotContext`.  The context can be built directly from a
+  saved checkpoint with :func:`replay_context`.
 
 For example::
 
-    spec = FigureSpec(ncols=2, axis_names=("CO2", "CH4"), figsize=(8, 4))
-    figure, axes = create_figure(spec)
-    plot_replica_pools(replica, axes, marker="o")
-    plot_run_pools(run_log, axes)
+    context = replay_context("ABCD")
+    plan = FigurePlan(
+        FigureSpec(ncols=2, axis_names=("CO2", "CH4")),
+        calls=(
+            PlotCall(measured_pool, "CO2", {"pool": "CO2"}),
+            PlotCall(modelled_pool, "CO2", {"pool": "CO2"}),
+            PlotCall(modelled_pool, "CO2", {"pool": "CH4"}, secondary=True),
+            PlotCall(measured_pool, "CH4", {"pool": "CH4"}),
+            PlotCall(modelled_pool, "CH4", {"pool": "CH4"}),
+        ),
+    )
+    figure, axes = render_figure(plan, context)
 
-``subplot_mosaic`` is available through ``FigureSpec(mosaic=...)`` when a
-rectangular grid is not expressive enough.  The older ``plot_data`` and
-``plot_fit`` functions remain as compatibility wrappers.
+A routine used by ``PlotCall`` has the explicit signature
+``routine(context, axis, **options)``.  This keeps layout, data selection,
+and drawing separate, while allowing a panel to contain any number of curves.
+``subplot_mosaic`` remains available through ``FigureSpec(mosaic=...)``.
+``plot_fit`` remains as a compatibility wrapper for the one legacy caller.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
-mpl.rcParams.update(mpl.rcParamsDefault)
-plt.rcParams['text.usetex'] = True
-import matplotlib.ticker as ticker
-
-from chemistry import GIBBS_MINIMUM as DGmin
-from pathways import pathway_color
-
-GIBBS_ENERGY_SCALE = 1e-3  # Internal reaction energies are J/mol; plots use kJ/mol.
-GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
 
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
@@ -48,6 +51,32 @@ MODEL_VARIANT_LINESTYLES = {
     'C': ':',
     'D': '-.',
 }
+
+
+def configure_latex() -> None:
+    """Use LaTeX for all Matplotlib text without resetting user styling.
+
+    Plain strings are rendered by LaTeX in text mode.  Use :func:`math` only
+    for the mathematical portions of a label, for example
+    ``label('time', 'd')`` gives ``time [$\\mathrm{d}$]``.
+    """
+    plt.rcParams['text.usetex'] = True
+
+
+def math(expression: str) -> str:
+    """Return a LaTeX math fragment suitable for a Matplotlib label."""
+    return rf'${expression}$'
+
+
+def label(text: str, unit: str | None = None) -> str:
+    """Build a text-mode label with an optional LaTeX-rendered unit."""
+    if unit is None:
+        return text
+    unit_text = rf'\mathrm{{{unit}}}'
+    return f'{text} [{math(unit_text)}]'
+
+
+configure_latex()
 
 
 @dataclass(frozen=True)
@@ -73,6 +102,47 @@ class FigureSpec:
     layout: str | None = None
     subplot_kw: Mapping[str, Any] = field(default_factory=dict)
     gridspec_kw: Mapping[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class PlotContext:
+    """The data shared by all routines in a rendered figure.
+
+    ``checkpoint`` deliberately remains opaque: it may be a checkpoint path,
+    its short identifier, or a loaded checkpoint object.  Plot routines only
+    rely on the data they need, normally ``replica`` and ``run_log``.
+    """
+
+    checkpoint: Any = None
+    replica: Any = None
+    run_log: Any = None
+    model_run: tuple[Any, ...] | None = None
+
+
+@dataclass(frozen=True)
+class PlotCall:
+    """Add one plotting routine to a named primary or secondary axis."""
+
+    routine: Callable[..., Any]
+    axis: str
+    options: Mapping[str, Any] = field(default_factory=dict)
+    secondary: bool = False
+
+
+@dataclass(frozen=True)
+class FigurePlan:
+    """A figure layout together with the routines that populate it."""
+
+    spec: FigureSpec
+    calls: tuple[PlotCall, ...] = ()
+    suptitle: str | None = None
+
+
+@dataclass(frozen=True)
+class PlotBook:
+    """Named figures that share one plotting context and checkpoint replay."""
+
+    figures: Mapping[str, FigurePlan]
 
 
 def create_figure(spec: FigureSpec) -> tuple[plt.Figure, dict[str, plt.Axes]]:
@@ -123,6 +193,105 @@ def create_figure(spec: FigureSpec) -> tuple[plt.Figure, dict[str, plt.Axes]]:
     return figure, dict(axes)
 
 
+def render_figure(plan: FigurePlan, context: PlotContext | None = None,
+                  *, secondary_axis_offset: float | None = None
+                  ) -> tuple[plt.Figure, dict[str, plt.Axes]]:
+    """Render a declarative figure plan and return all named axes.
+
+    Primary axes retain their names from ``plan.spec``.  A secondary axis is
+    stored as ``"<name>_right"``.  Multiple calls marked ``secondary=True``
+    share that same axis, so secondary data and curves naturally use one
+    scale and one legend.
+
+    ``secondary_axis_offset`` can move every right spine outwards, which is
+    useful when a narrow panel has a long secondary label.
+    """
+    figure, axes = create_figure(plan.spec)
+    context = PlotContext() if context is None else context
+    secondary_axes: dict[str, plt.Axes] = {}
+
+    for call in plan.calls:
+        if call.axis not in axes:
+            available = ', '.join(axes)
+            raise KeyError(
+                f'PlotCall refers to unknown axis {call.axis!r}; '
+                f'available axes are: {available}.')
+        target = axes[call.axis]
+        if call.secondary:
+            target = secondary_axes.get(call.axis)
+            if target is None:
+                secondary_name = f'{call.axis}_right'
+                if secondary_name in axes:
+                    raise ValueError(
+                        f'Cannot create the secondary axis {secondary_name!r}; '
+                        'that name is already used by the figure layout.')
+                target = axes[call.axis].twinx()
+                if secondary_axis_offset is not None:
+                    target.spines['right'].set_position(
+                        ('outward', secondary_axis_offset))
+                secondary_axes[call.axis] = target
+                axes[secondary_name] = target
+        call.routine(context, target, **dict(call.options))
+
+    if plan.suptitle is not None:
+        figure.suptitle(plan.suptitle)
+    return figure, axes
+
+
+def replay_context(checkpoint: Any, *, parameter_overrides=None,
+                   t_start=None, t_end=None) -> PlotContext:
+    """Replay a checkpoint once and return a context for one or more figures.
+
+    The expensive model evaluation happens here, not once per ``PlotCall``.
+    Passing the returned context to several :func:`render_figure` calls lets a
+    report reuse the exact same model trajectory.  Imports are intentionally
+    lazy so normal plotting does not depend on checkpoint tooling.
+    """
+    from run_checkpoint import _NOT_SPECIFIED, replay_checkpoint
+
+    start = _NOT_SPECIFIED if t_start is None else t_start
+    end = _NOT_SPECIFIED if t_end is None else t_end
+    model_run = replay_checkpoint(
+        checkpoint,
+        parameter_overrides=parameter_overrides,
+        t_start=start,
+        t_end=end,
+    )
+    return PlotContext(
+        checkpoint=checkpoint,
+        replica=getattr(model_run[-1], 'replica', None),
+        run_log=model_run[-1],
+        model_run=model_run,
+    )
+
+
+def render_book(book: PlotBook, context: PlotContext | None = None
+                ) -> dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]:
+    """Render every named figure in a book with the same data context."""
+    return {
+        name: render_figure(plan, context)
+        for name, plan in book.figures.items()
+    }
+
+
+def render_checkpoint(checkpoint: Any, book: PlotBook, *,
+                      parameter_overrides=None, t_start=None, t_end=None
+                      ) -> dict[str, tuple[plt.Figure, dict[str, plt.Axes]]]:
+    """Replay ``checkpoint`` once, then render every figure in ``book``.
+
+    This is the high-level entry point for a report.  It deliberately returns
+    figures rather than saving them: output formats, filenames, and ownership
+    stay with the caller.
+    """
+    context = replay_context(
+        checkpoint,
+        parameter_overrides=parameter_overrides,
+        t_start=t_start,
+        t_end=t_end,
+    )
+    return render_book(book, context)
+
+
 def _pool_axes(ax: object, separate: bool) -> tuple[plt.Figure, dict[str, plt.Axes]]:
     """Normalise legacy axes inputs to the named-axes interface."""
     if ax is None:
@@ -150,10 +319,6 @@ def _pool_axes(ax: object, separate: bool) -> tuple[plt.Figure, dict[str, plt.Ax
         return ax.figure, {pool: ax for pool in POOL_NAMES}
     raise TypeError('ax must be an Axes, a two-axis sequence, or a pool-axis mapping.')
 
-def get_axes(ax, separate = True):
-    """Compatibility wrapper; new code should use ``create_figure``."""
-    return _pool_axes(ax, separate)
-
 def pool_color(pool):
     if pool == 'CO2':
         c = CO2_COLOR
@@ -168,7 +333,10 @@ def format_ax(ax, log_scale = False):
     ax.spines['right'].set_visible(False)
 
     if log_scale:
-        ax.set_yscale('log')
+        try:
+            ax.set_yscale('log')
+        except Exception as ex:
+            print(ex)
 
 def plot_pool_data(replica, pool, ax, **kwargs):
     """Add one replica's measured pool to ``ax`` and return that same axes."""
@@ -208,17 +376,41 @@ def plot_run_pools(run_log, axes: Mapping[str, plt.Axes], **kwargs):
     return axes
 
 
-def plot_data(replica, ax=None, separate=True, **kwargs):
-    """Compatibility wrapper around :func:`plot_replica_pools`.
+def measured_pool(context: PlotContext, axis: plt.Axes, *, pool: str,
+                  replica=None, **kwargs):
+    """A :class:`PlotCall` routine for one measured CO2 or CH4 pool.
 
-    It returns a named axes dictionary (rather than a positional tuple), which
-    is accepted unchanged by later calls to ``plot_data`` and ``plot_fit``.
+    ``replica`` is optional to support a figure that intentionally combines
+    observations from several replicas while keeping one shared context.
     """
-    figure, axes = _pool_axes(ax, separate)
-    plot_replica_pools(replica, axes, **kwargs)
-    sample_label = str(replica.sample).replace(' ', r'\ ')
-    figure.suptitle(rf'$\mathrm{{{sample_label}}}$')
-    return figure, axes
+    source = context.replica if replica is None else replica
+    if source is None:
+        raise ValueError('measured_pool needs context.replica or replica=...')
+    return plot_pool_data(source, pool, axis, **kwargs)
+
+
+def modelled_pool(context: PlotContext, axis: plt.Axes, *, pool: str,
+                  run_log=None, **kwargs):
+    """A :class:`PlotCall` routine for one modelled CO2 or CH4 pool."""
+    source = context.run_log if run_log is None else run_log
+    if source is None:
+        raise ValueError('modelled_pool needs context.run_log or run_log=...')
+    return plot_run_pool(source, pool, axis, **kwargs)
+
+
+def log_quantity(context: PlotContext, axis: plt.Axes, *, quantity: str,
+                 run_log=None, **kwargs):
+    """Plot any ``(time, values)`` quantity logged by a model run.
+
+    This deliberately performs no semantic formatting.  It is the compact
+    building block for diagnostic figures which put several arbitrary logged
+    quantities on the same primary or secondary axis.
+    """
+    source = context.run_log if run_log is None else run_log
+    if source is None:
+        raise ValueError('log_quantity needs context.run_log or run_log=...')
+    time, values = source[quantity]
+    return axis.plot(time, values, **kwargs)
 
 
 def plot_fit(run_log, ax=None, separate=True):
@@ -226,202 +418,3 @@ def plot_fit(run_log, ax=None, separate=True):
     figure, axes = _pool_axes(ax, separate)
     plot_run_pools(run_log, axes)
     return figure, axes
-
-
-def design(ax):
-    
-    is_right = ax.yaxis.get_ticks_position() == 'right'
-    if is_right:
-        ax.spines['left'].set_visible(False)
-        ax.spines['bottom'].set_visible(False)
-
-    else:
-        ax.spines['right'].set_visible(False)
-
-    ax.spines['top'].set_visible(False)
-    
-    ax.spines['left'].set_position(('data', 0))
-    
-    ax.tick_params(axis="y", direction='out')
-    if ax.get_yscale() == 'linear':
-        ax.ticklabel_format(axis='y', style='plain')
-        ax.spines['bottom'].set_position(('data', 0))
-        ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.1f}'))
-        
-    return ax
-
-def xaxis_time(ax):
-    ax.set_xlabel('t [d]',  loc = 'right')
-    ax.xaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
-    
-    maxy = None
-    for line in ax.get_lines():
-        y = line.get_ydata()
-        if maxy is None or max(y) > maxy:
-            maxy = max(y)
-    if maxy <= 0:
-        ax.tick_params(axis="x", direction='in', labeltop = True, labelbottom = False)
-        ax.set_xlabel('t [d]',  loc = 'right', labelpad = -20)
-        ax.xaxis.set_label_coords(1.1, 1.06)
-        
-def title(ax, log, pathway = ''):
-    r = log.replica
-    sample = ' '.join([r.sample.sample_name, r.sample.site, f'({r.sample.origin})'])
-    pwy = ''
-    if not pathway == '':
-        pwy = f': {pathway} pathway'
-    ax.set_title(f'{sample}, replica {r.replica_number}{pwy}')
-    return ax
-
-def plot_Gibbs(log, pathway, ax = None):
-    if ax is None:
-       fig, ax = plt.subplots()
-    
-    t, DGr = log[f'{pathway}_deltaG_r']
-    DGr = np.asarray(DGr, dtype=float) * GIBBS_ENERGY_SCALE
-    gibbs_minimum = DGmin * GIBBS_ENERGY_SCALE
-    
-    ax.plot(t, DGr)
-    
-    ax.plot([min(t), max(t)], [gibbs_minimum, gibbs_minimum], 'k--')
-    ax.annotate('Gibbs minimum', xy = (max(t), gibbs_minimum), ha = 'right', va = 'top',
-                xytext = (0, -6), textcoords = 'offset points')
-        
-    ax = design(ax)
-    xaxis_time(ax)
-    
-    ax.set_ylabel(rf'$\Delta G\ [{GIBBS_ENERGY_UNIT}]$', rotation = 0, loc = 'top', labelpad = -30)
-    
-    ax = title(ax, log, pathway)
-
-    return ax
-
-def legend(ax):
-    handles, labels = [], []
-    for axs in plt.gcf().axes:
-        handles += axs.get_legend_handles_labels()[0]
-        labels += axs.get_legend_handles_labels()[1]
-        
-    plt.gcf().axes[0].legend(handles, labels, 
-                             loc = 'best', 
-                             fancybox = False, 
-                             edgecolor = 'k')
-
-
-def plot_data2(x, y, ax = None, **kwargs):
-    if ax is None:
-        fig, ax = plt.subplots()
-    
-    ax.plot(x, y, 'x', **kwargs)
-    xaxis_time(ax)
-    return ax
-
-def plot_model(x,y, ax = None, **kwargs):
-    if ax is None:
-        fig, ax = plt.subplots()
-    
-    ax.plot(x,y, '-', **kwargs)
-    xaxis_time(ax)
-    return ax
-
-def plot_fit2(log, plot_CO2 = True, plot_CH4 = True, ax = None, log_co2 = False, log_ch4 = True):
-    if ax is None:
-        fig, ax = plt.subplots()
-    
-    axs = []
-    if plot_CO2:
-        t, data = log.replica.CO2()
-        plot_data(t, data, ax = ax, color = CO2_COLOR)
-        ylim = ax.get_ylim()
-        r2 = log.R2('CO2', log_fit = log_co2)
-        plot_model(*log['CO2'], ax = ax, color = CO2_COLOR,
-                   label = rf'$R^2 = {r2:.2f}$')
-        ax.set_ylim(ylim)
-        design(ax)
-        axs.append(ax)
-        
-        ax.set_ylabel(r'$\mathrm{CO_2\ [\mu mol]}$')
-
-    if plot_CH4:
-        if plot_CO2:
-            ax = ax.twinx()
-        t, data = log.replica.CH4()
-        ax = plot_data(t, data, ax = ax, color = CH4_COLOR)
-        ylim = ax.get_ylim()
-        r2 = log.R2('CH4', log_fit = log_ch4)
-        plot_model(*log['CH4'], ax = ax, color = CH4_COLOR,
-                   label = rf'$R^2 = {r2:.2f}$')
-        ax.set_ylim(ylim)
-
-        ax.set_ylabel(r'$\mathrm{CH_4\ [\mu mol]}$')
-
-        ax.set_yscale('log')
-        design(ax)
-        axs.append(ax)
-        
-        if plot_CO2:
-            axs[0].tick_params(axis='y', labelcolor=CO2_COLOR)
-            axs[0].yaxis.label.set_color(CO2_COLOR)
-            axs[1].tick_params(axis='y', labelcolor=CH4_COLOR)
-            axs[1].yaxis.label.set_color(CH4_COLOR)
-
-    design(ax)
-    title(ax, log)
-    legend(ax)
-
-
-def plot_pathways(log, ax = None):
-    if ax is None:
-        fig, ax = plt.subplots()
-        
-    # TODO: 
-    # for each pathway get biomass, 
-    # get v (not v_max)
-    # compute pathway 'activity' as biomass * v
-    # plot as stacked?
-    stack = []
-    pathways = set([name.split('_')[0] for name in log._log.keys() if '_' in name])
-    pathways.remove('CO2')
-    pathways.remove('CH4')
-    pathways.remove('M')
-    labels = []
-    for pathway in pathways:
-        microbe = 'M_' + pathway
-        v = pathway + '_v'
-        
-        if microbe == 'M_Aceto':
-            microbe = 'M_Ac'
-        elif microbe == 'M_Fermentation' or  microbe == 'M_Hydrolysis':
-            microbe = 'M_Ferm'
-        
-        if not v in log._log:
-            continue
-    
-        t, biomass = log[microbe]
-        t_v, _v = log[v]
-        _v = np.interp(t, t_v, _v)
-        stack.append(biomass*_v)
-        labels.append(pathway)
-        
-    ax.stackplot(t, *stack, labels = labels, 
-                 colors = [pathway_color(p) for p in labels])
-    #ax.set_yscale('log')
-    #ax.set_ylim([1e-8, 1e0])
-    design(ax)
-    ax.legend()
-    
-    return ax
-
-
-def plot_thermodynamics(log, pathway, ax = None):
-    if ax is None:
-        fig, ax = plt.subplots()
-    
-    t, MM = log[f'{pathway}_MM']
-    t, f = log[f'{pathway}_thermodynamic_factor']
-    
-    plot_model(t,MM, ax = ax)
-    plot_model(t,f, ax = ax)
-    design(ax)
-    
-    return ax

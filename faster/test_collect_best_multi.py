@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-import collect_best
+import plot_best
 import model
 import parameters
 
@@ -44,7 +44,7 @@ def multi_checkpoint(loss, checkpoint_id, replicas):
         }
         for replica in replicas
     ]
-    return collect_best.Checkpoint(
+    return plot_best.Checkpoint(
         parameters.ModelParameters({'Hydro_v_max': 1.}), loss, run_config,
         checkpoint_id, f'/outer/{checkpoint_id}', {'replicas': records})
 
@@ -55,9 +55,9 @@ class MultiCheckpointCollectionTest(unittest.TestCase):
         replacement = multi_checkpoint(2., 'cp-BETTER', ['13514', '13515'])
         second = multi_checkpoint(1., 'cp-SECOND', ['13694', '13695'])
 
-        with mock.patch.object(collect_best, 'collect_all',
+        with mock.patch.object(plot_best, 'collect_all',
                                return_value=[first, replacement, second]):
-            selected = collect_best.collect_best()
+            selected = plot_best.collect_best()
 
         self.assertEqual({checkpoint.id for checkpoint in selected},
                          {'cp-BETTER', 'cp-SECOND'})
@@ -65,20 +65,20 @@ class MultiCheckpointCollectionTest(unittest.TestCase):
     def test_filters_match_replicas_inside_joint_fit(self):
         checkpoint = multi_checkpoint(1., 'cp-TEST', ['13514', '13515'])
 
-        selected = collect_best.filter_checkpoints(
+        selected = plot_best.filter_checkpoints(
             [checkpoint], samples=['1351'], replicas=['5'], fit_modes=['multi'])
 
         self.assertEqual(selected, [checkpoint])
 
     def test_directory_and_manifest_identify_the_exact_joint_fit(self):
         checkpoint = multi_checkpoint(1., 'cp-TEST', ['13514', '13515'])
-        directory = collect_best.multi_plot_directory(checkpoint)
+        directory = plot_best.multi_plot_directory(checkpoint)
         self.assertIn('_multi_', os.path.basename(directory))
         self.assertIn(checkpoint.run_id, directory)
         self.assertIn(checkpoint.id, directory)
 
         with tempfile.TemporaryDirectory() as temporary_directory:
-            manifest = collect_best.write_multi_fit_manifest(
+            manifest = plot_best.write_multi_fit_manifest(
                 temporary_directory, checkpoint)
             with open(manifest) as handle:
                 contents = handle.read()

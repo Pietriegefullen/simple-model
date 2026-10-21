@@ -111,6 +111,7 @@ class Pathway():
         free of logging allows diagnostics to be evaluated from the accepted
         solver output rather than from LSODA's intermediate trial states.
         """
+
         R = CONSTANTS.GAS_CONSTANT
         T = 4. + CONSTANTS.KELVIN
 
@@ -126,10 +127,10 @@ class Pathway():
         # calculate in micro L/gdw, to match dissolved quantities' units: micro mol/gdw
         water_content = S[system.index('H2O')]*m_H2O/rho_H2O #  micro L/gdw
         activities = S/water_content # mol/L
-        activities = np.clip(activities, EPS, np.inf)
 
         stoichiometry = self.stoichiometry[contributes]
         log_activities = np.log(activities[contributes])
+
         if log_activities.ndim == 1:
             log_Q = np.sum(stoichiometry*log_activities)
         else:

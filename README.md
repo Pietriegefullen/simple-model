@@ -1,5 +1,43 @@
 simple model
 
+## Composable checkpoint plots
+
+`faster/plot.py` separates figure layout, model data, and the routines that
+draw curves.  Build a `PlotBook` to state which routines belong on each named
+figure, then give it a saved checkpoint.  The checkpoint is replayed only
+once, and every figure receives the same model trajectory.
+
+```python
+import plot
+
+book = plot.PlotBook({
+    'gases': plot.FigurePlan(
+        plot.FigureSpec(ncols=2, axis_names=('CO2', 'CH4'), figsize=(9, 4)),
+        calls=(
+            plot.PlotCall(plot.measured_pool, 'CO2', {'pool': 'CO2'}),
+            plot.PlotCall(plot.modelled_pool, 'CO2', {'pool': 'CO2'}),
+            # A CH4 curve on CO2's right-hand scale:
+            plot.PlotCall(plot.modelled_pool, 'CO2', {'pool': 'CH4'},
+                          secondary=True),
+            plot.PlotCall(plot.measured_pool, 'CH4', {'pool': 'CH4'}),
+            plot.PlotCall(plot.modelled_pool, 'CH4', {'pool': 'CH4'}),
+        ),
+        suptitle='checkpoint comparison',
+    ),
+})
+
+figures = plot.render_checkpoint('KRQY-LMRT', book)
+figures['gases'][0].savefig('gases.svg')
+```
+
+A plotting routine has the simple signature
+`routine(context, axis, **options)`.  Use `plot.log_quantity` for an arbitrary
+logged series, or write a small routine with that signature for a specialised
+curve.  Several calls can target the same axis; calls with `secondary=True`
+share its named `<axis>_right` secondary axis.  Text is rendered through LaTeX
+globally; `plot.label('time', 'd')` produces text-mode `time` with only the
+unit typeset in math mode.
+
 ## Replaying a checkpoint
 
 `faster/run_checkpoint.py` evaluates a saved annotated checkpoint once.  It
@@ -19,11 +57,54 @@ as its first value to begin from the start of the experiment.
 The checkpoint argument accepts a file path or a full/partial `cp-` identifier;
 an ID must identify exactly one file below `results/`.
 The target directory receives the standard fit and pathway diagnostic plots
-from `collect_best`, along with `metadata.json` containing the source
+from `plot_best`, along with `metadata.json` containing the source
 checkpoint parameters, effective run configuration, requested overrides, and
 result metrics.  It must be new or empty.
 Relative `--output-dir` paths are rooted at this project directory (not
 `faster/`), so the examples above write below `simple_model/replay_results/`.
+
+## Plotting checkpoints and comparisons
+
+`faster/plot_checkpoint.py` accepts full checkpoint paths or unique partial
+checkpoint IDs.  With one checkpoint it writes the complete standard
+`plot_best` report.  With two or more checkpoints, matching fit and
+diagnostic plots are combined so each model result appears in the same figure.
+
+```sh
+python faster/plot_checkpoint.py KRQY --output-dir checkpoint_plots/KRQY
+python faster/plot_checkpoint.py KRQY LMRT --output-dir checkpoint_plots/comparison
+python faster/plot_checkpoint.py KRQY --compare D "*_thermodynamics" False
+```
+
+Without `--output-dir`, reports are written below
+`USER_VARIABLES.PLOT_DIRECTORY`: `checkpoint/<id>` for one checkpoint and
+`checkpoint-comparison/<id>__<id>` for a comparison.  The target must still
+be new or empty.
+
+Comparison titles contain checkpoint metadata shared by all inputs.  Legends
+always identify the checkpoint and add model, replica, fit mode, or objective
+only when that attribute differs between inputs.
+
+`--compare` adds a named counterfactual replay for every requested checkpoint.
+It takes a custom name followed by one or more parameter/value pairs; parameter
+names accept shell-style wildcards and values are parsed as booleans, numbers,
+or text.  For example, model D can reuse a model A checkpoint while disabling
+all of its thermodynamic factors:
+
+```sh
+python faster/plot_checkpoint.py KRQY --compare D "*_thermodynamics" False
+python faster/plot_best.py --sample 1351 --fit-mode split \
+  --compare D "*_thermodynamics" False
+```
+
+The D replay is labelled `model D`, while the original checkpoint retains its
+model label.  The wildcard expands only to parameters present in each source
+checkpoint, and `*_thermodynamics=False` also updates the corresponding model
+switches.  A named comparison uses the default directory
+`checkpoint-comparison/<id>__<name>` below `PLOT_DIRECTORY` unless
+`--output-dir` is supplied to `plot_checkpoint`.  `plot_best` creates one such
+comparison report per selected checkpoint; joint multi-replica fits are not
+currently supported for named replays.
 
 ## Resuming nested CMA-ES fits
 

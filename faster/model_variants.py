@@ -5,8 +5,8 @@
 # this mapping here so plots and result collection label model variants alike.
 MODEL_ID_TO_VARIANT = {
     'PIRL': 'A',         # default
-    '6FY6': 'B',         # no thermodynamics
-    'KX3J': 'C',         # no Hydro
+    '6FY6': 'B',         # no thermodynamics (fitted)
+    'KX3J': 'C',         # no Hydro (mit thermodynamics)
     'XIYF': 'old',
     'FA75': 'A',
     'EM33': 'B',

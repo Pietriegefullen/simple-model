@@ -30,6 +30,9 @@ import user_input
 
 PATHWAYS = ['Hydrolysis', 'Fermentation', 'Hydro', 'Aceto', 'Homo', 'Fe3']
 REPLICA_PROVIDED_PARAMETERS = frozenset({'H2O', 'TOC', 'DOC', 'CH4', 'CO2'})
+LOCAL_R2_HIGHLIGHT_THRESHOLD = 0.8
+HIGHLIGHT_STYLE = '\033[1;31m'  # bold red; matches fit_status.py
+RESET_STYLE = '\033[0m'
 
 
 def objective_config():
@@ -50,6 +53,16 @@ def copy_parameters(source):
 
 
 ALGORITHM_CHOICES = {'de': 'differential_evolution', 'cma-es': 'cma_es'}
+
+
+def format_local_r2(r2_value):
+    """Format a final local-fit R², highlighting fits below the target."""
+    if r2_value is None or not np.isfinite(r2_value):
+        return 'n/a'
+    text = f'{r2_value:.2f}'
+    if r2_value < LOCAL_R2_HIGHLIGHT_THRESHOLD:
+        return f'{HIGHLIGHT_STYLE}{text}{RESET_STYLE}'
+    return text
 
 
 def parameters_x0(saved, parameter_set):
@@ -741,10 +754,9 @@ class SharedReplicaObjective(optimizer.Addable):
             })
             if show_live_local_progress:
                 print()
-            else:
-                r2_text = 'n/a' if local_r2 is None or not np.isfinite(local_r2) else f'{local_r2:.2f}'
-                print(f'   {replica}: local best loss: {best_loss:8.3g}, '
-                      f'best R2 = {r2_text}')
+            r2_text = format_local_r2(local_r2)
+            print(f'   {replica}: local best loss: {best_loss:8.3g}, '
+                  f'best R2 = {r2_text}')
             if loss_threshold_reached:
                 # This candidate has explicitly failed the local loss guard.
                 # Its partial sum cannot stand in for the omitted replicas:
