@@ -46,6 +46,24 @@ class FigureSpecTest(unittest.TestCase):
         self.assertEqual([len(axis.lines) for axis in axes.values()], [2, 2])
         figure.canvas.draw()
 
+    def test_default_size_scales_with_the_number_of_axes(self):
+        figure, _ = plot.create_figure(plot.FigureSpec(axis_names=('only',)))
+
+        self.assertEqual(figure.get_size_inches().tolist(), [4.0, 4.0])
+
+    def test_log_scale_requires_non_negative_data_and_sets_positive_limits(self):
+        figure, axis = plt.subplots()
+        axis.plot([0, 1], [0, 10])
+
+        self.assertTrue(plot.format_ax(axis, log_scale=True))
+        self.assertEqual(axis.get_yscale(), 'log')
+        self.assertGreater(axis.get_ylim()[0], 0)
+
+        _, negative_axis = plt.subplots()
+        negative_axis.plot([0, 1], [-1, 10])
+        self.assertFalse(plot.format_ax(negative_axis, log_scale=True))
+        self.assertEqual(negative_axis.get_yscale(), 'linear')
+
     def test_mosaic_creates_axes_from_its_labels(self):
         _, axes = plot.create_figure(plot.FigureSpec(
             mosaic=[['CO2', 'CH4'], ['summary', 'summary']],

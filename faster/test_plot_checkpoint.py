@@ -1,4 +1,6 @@
 import unittest
+from tempfile import TemporaryDirectory
+from unittest import mock
 
 import matplotlib
 
@@ -47,17 +49,23 @@ class ComparisonLabelTest(unittest.TestCase):
 
 class CommandLineTest(unittest.TestCase):
     def test_default_output_directory_is_grouped_below_plot_directory(self):
-        args = plot_checkpoint.parse_args(['ABCD'])
+        checkpoint = Checkpoint('ABCD', replica='1351-4', fit='split')
+        result = plot_checkpoint.CheckpointPlot(checkpoint, (None, None, {}))
 
-        self.assertEqual(args.output_dir,
-                         plot_checkpoint.Path(PLOT_DIRECTORY) / 'checkpoint' / 'ABCD')
+        self.assertEqual(plot_checkpoint.default_output_directory([result]),
+                         plot_checkpoint.Path(PLOT_DIRECTORY) / 'checkpoint' /
+                         'split' / '1351-4' / 'ABCD')
 
     def test_comparison_default_keeps_the_requested_checkpoint_order(self):
-        args = plot_checkpoint.parse_args(['ABCD', 'EFGH'])
+        first = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ABCD', replica='1351-4', fit='split'), (None, None, {}))
+        second = plot_checkpoint.CheckpointPlot(
+            Checkpoint('EFGH', replica='1351-4', fit='split'), (None, None, {}))
 
-        self.assertEqual(args.output_dir,
+        self.assertEqual(plot_checkpoint.default_output_directory([first, second]),
                          plot_checkpoint.Path(PLOT_DIRECTORY) /
-                         'checkpoint-comparison' / 'ABCD__EFGH')
+                         'checkpoint-comparison' / 'split' / '1351-4' /
+                         'ABCD__EFGH')
 
     def test_explicit_output_directory_overrides_the_default(self):
         args = plot_checkpoint.parse_args(['ABCD', '--output-dir', 'chosen'])
@@ -72,13 +80,38 @@ class CommandLineTest(unittest.TestCase):
             args.comparisons,
             [plot_checkpoint.ComparisonSpec(
                 'D', (('*_thermodynamics', False),))])
-        self.assertEqual(args.output_dir,
+        result = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ABCD', replica='1351-4', fit='split'), (None, None, {}))
+        replay = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ABCD', replica='1351-4', fit='split'), (None, None, {}), 'D')
+        self.assertEqual(plot_checkpoint.default_output_directory(
+                             [result, replay], args.comparisons),
                          plot_checkpoint.Path(PLOT_DIRECTORY) /
-                         'checkpoint-comparison' / 'ABCD__D')
+                         'checkpoint-comparison' / 'split' / '1351-4' / 'ABCD__D')
 
     def test_compare_requires_complete_parameter_value_pairs(self):
         with self.assertRaises(ValueError):
             plot_checkpoint.parse_args(['ABCD', '--compare', 'D', 'Hydro_v_max'])
+
+    def test_existing_comparison_figure_is_skipped_unless_overwritten(self):
+        with TemporaryDirectory() as temporary:
+            path = plot_checkpoint.Path(temporary) / '00_fit.png'
+            path.touch()
+            first, _ = plt.subplots()
+            with mock.patch.object(
+                    plot_checkpoint, 'comparison_figures',
+                    return_value={'fit': (first, None)}):
+                self.assertEqual(plot_checkpoint.save_comparison(
+                    [object()], temporary, dataset={}, overwrite=False), [])
+
+            second, _ = plt.subplots()
+            with mock.patch.object(
+                    plot_checkpoint, 'comparison_figures',
+                    return_value={'fit': (second, None)}):
+                written = plot_checkpoint.save_comparison(
+                    [object()], temporary, dataset={}, overwrite=True)
+
+        self.assertEqual(written, [path])
 
 
 class ComparisonReplayTest(unittest.TestCase):

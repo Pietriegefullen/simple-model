@@ -63,10 +63,12 @@ def _write_checkpoint(path, loss):
 
 
 class ExistingCheckpointTest(unittest.TestCase):
-    def _callback(self, directory, overwrite_existing=False):
+    def _callback(self, directory, overwrite_existing=False,
+                  ignore_existing=False):
         run_config = checkpoint_with()['run_config']
         callback = checkpoint.CheckpointCallback(
-            run_config, target=directory, overwrite_existing=overwrite_existing)
+            run_config, target=directory, overwrite_existing=overwrite_existing,
+            ignore_existing=ignore_existing)
         callback.set_objective(_Objective(2.0))
         return callback
 
@@ -115,6 +117,20 @@ class ExistingCheckpointTest(unittest.TestCase):
                            if not name.startswith('.')]
             self.assertEqual(len(checkpoints), 1)
             self.assertNotEqual(checkpoints[0], 'old-checkpoint')
+
+    def test_ignored_existing_checkpoints_are_not_loaded_or_retained(self):
+        with tempfile.TemporaryDirectory() as directory:
+            old_checkpoint = os.path.join(directory, 'old-checkpoint')
+            _write_checkpoint(old_checkpoint, 1.0)
+            callback = self._callback(directory, ignore_existing=True)
+
+            self.assertIsNone(callback.load_best_existing_checkpoint())
+            callback()
+
+            checkpoints = [name for name in os.listdir(directory)
+                           if not name.startswith('.')]
+            self.assertIn('old-checkpoint', checkpoints)
+            self.assertEqual(len(checkpoints), 2)
 
     def test_new_checkpoint_payload_and_filename_are_canonical(self):
         raw_run_config = checkpoint_with({

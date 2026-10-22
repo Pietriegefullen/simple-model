@@ -24,7 +24,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-import plot_best
+import checkpoint_report as plot_best
 import data
 import optimizer
 from fit_sample import run

@@ -1,6 +1,6 @@
 import unittest
 
-import plot_best
+import checkpoint_report as plot_best
 import matplotlib.pyplot as plt
 import numpy as np
 import parameters
@@ -68,6 +68,27 @@ class CheckpointFilterTest(unittest.TestCase):
         selected = plot_best.filter_checkpoints(
             checkpoints, model_ids=['3NWE'])
         self.assertEqual(selected, [matching])
+
+
+class BestCheckpointTest(unittest.TestCase):
+    def test_loss_id_does_not_create_a_second_best_fit(self):
+        class Checkpoint:
+            is_multi_replica = False
+
+            def __init__(self, identifier, loss, loss_id):
+                self.id = identifier
+                self.loss = loss
+                self.loss_id = loss_id
+                self.model_id = 'model-A'
+                self.fit_mode = 'split'
+                self.replica = ('1351', '4')
+
+        retained = plot_best.choose_best([
+            Checkpoint('older', 4., 'loss-A'),
+            Checkpoint('better', 2., 'loss-B'),
+        ])
+
+        self.assertEqual([checkpoint.id for checkpoint in retained], ['better'])
 
 
 class Fe3AcetoDiagnosticsTest(unittest.TestCase):

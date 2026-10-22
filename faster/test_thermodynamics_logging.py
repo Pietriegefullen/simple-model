@@ -131,6 +131,21 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
             pathway_model.contributing_pathways[0].deltaG_r(dissolved_states))
         self.assertEqual(len(delta_g), len(fe3))
 
+    def test_prediction_keeps_kinetic_diagnostics_from_the_solver_process(self):
+        pathway_model = model.Model([pathways.Fe3])
+        pathway_model.model_parameters.set({
+            'Fe3_Km_Ac': 50., 'Fe3_Km_Fe3': 500., 'Fe3_v_max': 1.5,
+            'Fe3_CUE': .5, 'death_rate': 8.3e-5, 'Fe3_thermodynamics': True,
+            'M_Fe3': .25, 'Fe3': 150., 'Acetate': 20.,
+        })
+
+        run_log = pathway_model.predict(Replica())
+        pool_time, _ = run_log['Fe3']
+        for name in ('Fe3_MM', 'Fe3_v'):
+            time, values = run_log[name]
+            np.testing.assert_array_equal(time, pool_time)
+            self.assertEqual(len(values), len(pool_time))
+
 
 if __name__ == '__main__':
     unittest.main()

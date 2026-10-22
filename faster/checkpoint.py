@@ -216,13 +216,15 @@ class Interrupt(Callback):
 
 class CheckpointCallback(Callback):
     def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
-                 target = None, overwrite_existing = False):
+                 target = None, overwrite_existing = False,
+                 ignore_existing = False):
         super().__init__(run_config)
         assert keep_only_n is None or keep_only_n > 0
         self.keep_only_n = keep_only_n
         self.verbose = verbose
         self.legacy = legacy
         self.overwrite_existing = overwrite_existing
+        self.ignore_existing = ignore_existing
         self._existing_checkpoint_paths = None
         self._existing_best_loss = None
         self._current_run_best_loss = None
@@ -263,18 +265,24 @@ class CheckpointCallback(Callback):
             finally:
                 fcntl.flock(lock, fcntl.LOCK_UN)
 
-    def cleanup(self, save_dir):
+    def cleanup(self, save_dir, checkpoints=None):
         if self.keep_only_n is None:
             return
-        for _, checkpoint_file in self.checkpoints(save_dir)[self.keep_only_n:]:
+        if checkpoints is None:
+            checkpoints = self.checkpoints(save_dir)
+        for _, checkpoint_file in checkpoints[self.keep_only_n:]:
             os.remove(checkpoint_file)
 
     def prepare_existing_checkpoints(self, checkpoints):
         """Snapshot or explicitly discard checkpoints that predate this run."""
         if self._existing_checkpoint_paths is not None:
-            return checkpoints
+            return [checkpoint for checkpoint in checkpoints
+                    if checkpoint[1] not in self._existing_checkpoint_paths]
 
         self._existing_checkpoint_paths = {path for _, path in checkpoints}
+        if self.ignore_existing:
+            return []
+
         if checkpoints:
             self._existing_best_loss = checkpoints[0][0]
 
@@ -367,7 +375,8 @@ class CheckpointCallback(Callback):
                 if os.path.exists(temporary_file):
                     os.remove(temporary_file)
 
-            self.cleanup(save_dir)
+            self.cleanup(save_dir, self.prepare_existing_checkpoints(
+                self.checkpoints(save_dir)))
 
         if self.verbose:
             print(f'\nSaved checkpoint {checkpoint_file}')

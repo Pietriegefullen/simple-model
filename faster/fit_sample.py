@@ -140,6 +140,7 @@ def fit(chosen, objective_config, algo_config, init_config,
         cp_target = None,
         checkpoint_source = None,
         overwrite_existing_checkpoints = False,
+        ignore_existing_checkpoints = False,
         checkpoint_confirmation = None, 
         call_limit = None,
         skip_existing_r2 = None):
@@ -211,7 +212,9 @@ def fit(chosen, objective_config, algo_config, init_config,
         checkpoint_callback = checkpoint.CheckpointCallback(
             run_config, keep_only_n = checkpoint_keep_only_n,
             verbose = verbose_callback, target = cp_target,
-            overwrite_existing = overwrite_existing_checkpoints)
+            overwrite_existing = overwrite_existing_checkpoints,
+            ignore_existing = (ignore_existing_checkpoints
+                               and not overwrite_existing_checkpoints))
         existing_best = checkpoint_callback.load_best_existing_checkpoint()
 
         if existing_best is not None:
@@ -343,6 +346,10 @@ if __name__ == '__main__':
     
     fit(chosen, objective_config, algo_config, init_config,
         store_checkpoints = not args.dry,
-        overwrite_existing_checkpoints = args.overwrite_checkpoints)
+        overwrite_existing_checkpoints = args.overwrite_checkpoints,
+        # ``--default`` is a fresh search from the declared parameter
+        # defaults.  Do not resume or rank against files already stored for
+        # the same run configuration.
+        ignore_existing_checkpoints = args.default)
     
     

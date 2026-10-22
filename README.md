@@ -38,48 +38,35 @@ share its named `<axis>_right` secondary axis.  Text is rendered through LaTeX
 globally; `plot.label('time', 'd')` produces text-mode `time` with only the
 unit typeset in math mode.
 
-## Replaying a checkpoint
-
-`faster/run_checkpoint.py` evaluates a saved annotated checkpoint once.  It
-uses the model structure, fitting split, objective, and parameter ranges stored
-in the checkpoint; it does not launch an optimiser or modify the checkpoint.
-
-```sh
-python faster/run_checkpoint.py KRQY-LMRT --output-dir replay_results/KRQY-LMRT
-python faster/run_checkpoint.py KRQY --output-dir replay_results/KRQY-override \
-  --p Hydro_v_max 0.02 Homo_thermodynamics false
-python faster/run_checkpoint.py KRQY --output-dir replay_results/KRQY-window --t 5 40
-```
-
-`--p` values replace (and fix) the corresponding saved parameter values for
-that one replay.  `--t` replaces the checkpoint's observation window; use `0`
-as its first value to begin from the start of the experiment.
-The checkpoint argument accepts a file path or a full/partial `cp-` identifier;
-an ID must identify exactly one file below `results/`.
-The target directory receives the standard fit and pathway diagnostic plots
-from `plot_best`, along with `metadata.json` containing the source
-checkpoint parameters, effective run configuration, requested overrides, and
-result metrics.  It must be new or empty.
-Relative `--output-dir` paths are rooted at this project directory (not
-`faster/`), so the examples above write below `simple_model/replay_results/`.
-
 ## Plotting checkpoints and comparisons
 
 `faster/plot_checkpoint.py` accepts full checkpoint paths or unique partial
 checkpoint IDs.  With one checkpoint it writes the complete standard
-`plot_best` report.  With two or more checkpoints, matching fit and
+report.  With two or more checkpoints, matching fit and
 diagnostic plots are combined so each model result appears in the same figure.
 
 ```sh
 python faster/plot_checkpoint.py KRQY --output-dir checkpoint_plots/KRQY
 python faster/plot_checkpoint.py KRQY LMRT --output-dir checkpoint_plots/comparison
 python faster/plot_checkpoint.py KRQY --compare D "*_thermodynamics" False
+python faster/plot_checkpoint.py --best --sample 1351 --fit-mode split
 ```
 
+`--best` selects the lowest-loss checkpoint for every matching model, fit mode,
+sample, and validation replica. It writes one report per checkpoint. The
+older `plot_best.py` is only a short compatibility shortcut for
+`plot_checkpoint.py --best`; `run_checkpoint.py` is likewise retained only as
+a compatibility entry point, so there is one plotting interface to learn.
+
 Without `--output-dir`, reports are written below
-`USER_VARIABLES.PLOT_DIRECTORY`: `checkpoint/<id>` for one checkpoint and
-`checkpoint-comparison/<id>__<id>` for a comparison.  The target must still
-be new or empty.
+`USER_VARIABLES.PLOT_DIRECTORY`: `checkpoint/<fit-mode>/<sample>-<replica>/<id>`
+for one checkpoint and
+`checkpoint-comparison/<fit-mode>/<sample>-<replica>/<id>__<id>` for a
+comparison. The target directory is created when needed.
+
+Existing figure files are skipped, so re-running `--best` only creates missing
+figures. Add `--overwrite` to regenerate files already present in the target
+directory.
 
 Comparison titles contain checkpoint metadata shared by all inputs.  Legends
 always identify the checkpoint and add model, replica, fit mode, or objective
@@ -101,7 +88,8 @@ The D replay is labelled `model D`, while the original checkpoint retains its
 model label.  The wildcard expands only to parameters present in each source
 checkpoint, and `*_thermodynamics=False` also updates the corresponding model
 switches.  A named comparison uses the default directory
-`checkpoint-comparison/<id>__<name>` below `PLOT_DIRECTORY` unless
+`checkpoint-comparison/<fit-mode>/<sample>-<replica>/<id>__<name>` below
+`PLOT_DIRECTORY` unless
 `--output-dir` is supplied to `plot_checkpoint`.  `plot_best` creates one such
 comparison report per selected checkpoint; joint multi-replica fits are not
 currently supported for named replays.

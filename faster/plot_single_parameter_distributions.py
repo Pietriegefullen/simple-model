@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 
-import plot_best
+import checkpoint_report as plot_best
 from fit_sample import run
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 

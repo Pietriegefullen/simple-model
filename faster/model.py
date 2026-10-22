@@ -31,7 +31,8 @@ GAS_RUNAWAY_FLOOR = 1.0
 
 
 version_major = '0'
-version_minor = '2' # minor 2: Henry's law adjusted
+version_minor = '3' # minor 2: Henry's law adjusted
+                    #       3: allow zero pool values.
 __version__ = '.'.join([version_major, version_minor])
 
 
@@ -101,7 +102,7 @@ def _solve_segment(f, t_span, initial_state, t_eval, events):
 def integrate(f, t, S0, solver_result, reset_Fe3, gas_limits):
     #print('solving IVP')
     events = gas_runaway_events(gas_limits)
-    
+
     t_after = None
     if isinstance(reset_Fe3, int):
         if reset_Fe3 >= max(t):
@@ -132,10 +133,10 @@ def integrate(f, t, S0, solver_result, reset_Fe3, gas_limits):
 
         solver_result[0].y = np.concatenate([solver_result[0].y,
                                              result_after.y], axis = -1)
-        
+
         solver_result[0].t = np.concatenate([solver_result[0].t,
                                              result_after.t])
-    
+
     return solver_result
 
 
@@ -147,7 +148,7 @@ def _integration_worker(f, t, S0, result_queue, reset_Fe3, gas_limits):
         result_queue.put(solver_result[0])
     except optimizer.IntegrationFailure as error:
         result_queue.put(error)
-        
+
 
 # obsolete?
 def get_pathways(model_type):
@@ -171,8 +172,8 @@ class Model():
         self.system_change_log = ModelRun()
         self.system_change_log.rate = True
         self.model_parameters = parameters.ModelParameters()
-        
-        pathway_classes = [pathways.pathway_by_name(p) if isinstance(p, str) else p 
+
+        pathway_classes = [pathways.pathway_by_name(p) if isinstance(p, str) else p
                            for p in pwys]
         self._unbuilt_contributing_pathways = pathway_classes
         self.contributing_pathways = None
@@ -180,23 +181,23 @@ class Model():
 
         self.t = None
         self.replica = None
-    
+
     def get_config(self, only_structure = False):
         cfg = {}
         for pathway in self.contributing_pathways:
             cfg[pathway.__class__.__name__] = pathway.get_config(only_structure)
         cfg.update({'version':__version__})
         return cfg
-    
+
     def build(self, quiet = False):
-        self.contributing_pathways = [p(self.model_parameters) 
+        self.contributing_pathways = [p(self.model_parameters)
                                       for p in self._unbuilt_contributing_pathways]
         for p in self.contributing_pathways:
             p.inject_logger(self.system_state_log)
-        
+
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
-               
+
     def compute_dissolved(self, S):
         dissolved_S = S.copy()
         rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
@@ -214,28 +215,43 @@ class Model():
         return dissolved_S
 
     def __call__(self, t, S):
-        S = np.maximum(S, EPS)
-
+        S = np.maximum(S, 0) # TODO: why EPS, not zero?
+        
         dissolved_S = self.compute_dissolved(S)
         dSj_dt = np.stack([pathway_j(t, dissolved_S)
                             for pathway_j in self.contributing_pathways], axis = -1)
-        
+
         dS_dt = np.sum(dSj_dt, axis = -1)
-        dS_dt = np.clip(dS_dt, -S, np.inf) # don't let pools become negative (assuming dt == 1)
-        
+        dS_dt = np.where(S == 0, np.maximum(0, dS_dt), dS_dt)
+
         for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
             self.system_change_log.log_snap(pool_name, t, dSi_dt)
         return dS_dt
-        
+
     def add_t(self, t):
         if self.t is None:
             self.t = np.squeeze(t)
         else:
             self.t = np.concatenate([np.squeeze(t), self.t])
         self._clean_t()
-        
+
     def _clean_t(self):
         self.t = np.sort(list(set(self.t)))
+
+    def log_accepted_kinetics(self, t, states):
+        # ``solve_ivp`` stores state as ``(pool, time)``.  Convert each time
+        # column independently, then rebuild the same layout for ``deltaG_r``.
+        dissolved_states = np.column_stack([
+            self.compute_dissolved(state) for state in states.T
+        ])
+        for pathway in self.contributing_pathways:
+            self.system_state_log.log(pathway.__class__.__name__ + '_MM',
+                 t,
+                 pathway.kinetics(dissolved_states))
+            self.system_state_log.log(pathway.__class__.__name__ + '_v',
+                 t,
+                 pathway.compute_v(t, dissolved_states))
+
 
     def log_accepted_thermodynamics(self, t, states):
         """Log reaction Gibbs energies on accepted solver states only.
@@ -255,8 +271,8 @@ class Model():
                     pathway.__class__.__name__ + '_deltaG_r',
                     t,
                     pathway.deltaG_r(dissolved_states))
-        
-    def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False, 
+
+    def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False,
                 reset_Fe3 = None, days_beyond_reset = 1000,
                 initial_mean_days = 0):
         if t is not None and t_eval is not None:
@@ -267,7 +283,7 @@ class Model():
             if t is not None:
                 t_eval = np.concatenate([t_eval, np.atleast_1d(t)])
         t_eval = np.sort(np.unique(np.atleast_1d(t_eval)))
-        
+
         if not reset_Fe3 is None:
             last_day = reset_Fe3 + days_beyond_reset
             t_eval = np.sort(np.unique(np.append(t_eval, last_day)))
@@ -308,21 +324,22 @@ class Model():
 
         if isinstance(solver_result, optimizer.IntegrationFailure):
             raise solver_result
-        
+
         # prevent nonpositive pool values
-        solver_result.y = np.maximum(solver_result.y, 1e-24) 
-        
+        solver_result.y = np.maximum(solver_result.y, 1e-24)
+
         # add pool values to log
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
 
         self.log_accepted_thermodynamics(solver_result.t, solver_result.y)
-        
+        self.log_accepted_kinetics(solver_result.t, solver_result.y)
+
         #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
         #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
         #self.system_state_log._log['R2'] = {'CO2': co2_r2,
         #                                    'CH4': ch4_r2}
-        
+
         add_to_log = []
         for k, val in self.system_state_log._log.items():
             if 'CH4 from' in k:
@@ -331,14 +348,14 @@ class Model():
                 integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
                 n = k + ' (integrated)'
                 add_to_log.append((n, t[1:], np.cumsum(integral)))
-                
+
         for name, ts, vs in add_to_log:
             self.system_state_log.log(name, ts, vs)
-        
+
         self.system_state_log._parameters = self.parameters()
-        
+
         return self.system_state_log
-    
+
     def parameters(self):
         return self.model_parameters
 
@@ -357,7 +374,7 @@ class Model():
         return model_string
 
     def save(self, target_directory, file_name):
-        cfg = {'pathways': [p.__class__.__name__ 
+        cfg = {'pathways': [p.__class__.__name__
                             for p in self.contributing_pathways],
                'parameters': self.parameters().get_config()}
         if not os.path.isdir(target_directory):
@@ -385,12 +402,12 @@ class Model():
     def load(self, file):
         with open(file, 'r') as df:
             cfg = json.load(df)
-        
+
         self.__init__(cfg['pathways'])
         self.model_parameters.set(cfg['parameters'])
 
 def plot_order(names):
-    
+
     return names
 
 class ModelRun():
@@ -398,16 +415,16 @@ class ModelRun():
         self._log = {}
         self._parameters = None
         self.rate = False
-        
+
     def keys(self):
         return self._log.keys()
-    
+
     def __eq__(self, other):
         return self._log == other._log
-    
+
     def __getitem__(self, key):
         return self._log[key]
-       
+
     def log_snap(self, name, t, value):
         if not name in self._log:
             ts = np.empty((0,))
@@ -419,7 +436,7 @@ class ModelRun():
         vs = np.concatenate([vs, np.reshape(value,(1,))],
                             axis = 0)
         self.log(name, ts, vs)
-        
+
     def log_snap_2(self, name, t, value):
         if not name in self._log:
             self._log[name] = [[],[]]
@@ -429,12 +446,14 @@ class ModelRun():
     def log(self, name, ts, values):
         #if not name in self._log:
         #    self._log[name] = []
+        #if 'v' in name:
+        #    print('logging', name)
         self._log[name] = (ts, values)
 
     def reset(self, replica):
         self._log.clear()
         self.replica = replica
-        
+
     def R2(self, gas_name, log_fit):
         t_pred, pred_val = self.__getitem__(gas_name)
         if gas_name == 'CO2':
@@ -443,38 +462,38 @@ class ModelRun():
             t_meas, meas_val = self.replica.CH4(rate = self.rate)
         else:
             raise Exception()
-            
+
         t = np.intersect1d(np.round(t_pred,2), np.round(t_meas,2))
         idx_pred = np.squeeze([np.nonzero(np.round(t_pred,2) == np.round(_t,2))[0] for _t in t])
         idx_meas = np.squeeze([np.nonzero(np.round(t_meas,2) == np.round(_t,2))[0] for _t in t])
         r2_val = r2(pred_val[idx_pred], meas_val[idx_meas], log = log_fit)
-        
+
         return r2_val
-    
+
     def plot_factors(self, pathway):
-        
+
         v_name = pathway + '_v'
         if not v_name in self._log:
             return
-        
+
         fig, ax = plt.subplots()
 
         t, v = self._log[v_name]
-        
+
         ax.plot(t,v, 'k-', linewidth = 1.)
-        
+
         _pwy = pathway
         _pwy = _pwy.replace('Aceto', 'Ac')
         _pwy = _pwy.replace('Fermentation', 'Ferm')
         v_max = float(self._parameters[_pwy + '_v_max'])
         ax.plot(ax.get_xlim(), [v_max, v_max], 'k--', label = 'v_max', linewidth = 1.)
-        
+
         ax.set_ylim([0,v_max])
-        
+
         #ax.legend()
-        
+
         ax2 = ax.twinx()
-        
+
         all_factors = ['MM', 'inhib', 'thermodynamic_factor']
         factor_colors = ['r', 'b', 'g']
 
@@ -492,30 +511,30 @@ class ModelRun():
         ax2.spines['bottom'].set_visible(False)
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
-        
+
         fig.legend(handles + handles2, labels + labels2, loc = 'lower right')
         plt.title(v_name)
-        
+
         return ax
-    
-    def plot(self, name = None, 
-             newfigure = True, 
-             log = False, 
-             label = None, 
+
+    def plot(self, name = None,
+             newfigure = True,
+             log = False,
+             label = None,
              save_target = None,
              xlim = None):
         if name is None:
             name = list(self._log.keys())
-            
+
         if not isinstance(name, list):
             name = [name]
-        
+
         ordered_names = plot_order(name)
-        
+
         for i, n in enumerate(ordered_names):
             if 'MM' in n or 'inhib' in n or 'thermodynamic_factor' in n:
                 pass #continue
-            
+
             if n.endswith('_v'):
                 pathway_name = n.replace('_v','')
                 ax = self.plot_factors(pathway_name)
@@ -524,19 +543,19 @@ class ModelRun():
             elif not n in self._log:
                 print(n + ' not logged')
                 continue
-                
+
             else:
                 if newfigure:
                     fig, ax = plt.subplots()
                 else:
                     fig = plt.gcf()
                     ax = plt.gca()
-                    
+
                 x, y = self._log[n]
                 slabel = n
                 if not label is None and not label == '':
                     slabel += ' ' + label
-                    
+
                 mark = '-'
                 #if 'R2' in self._log and n in self._log['R2']:
                  #   value = self._log['R2'][n]
@@ -545,47 +564,47 @@ class ModelRun():
                 if n == 'CH4':
                     ax = fig.axes
                     if len(name) > 1:
-                        ax = ax[0] 
+                        ax = ax[0]
                         ch4_ax = ax.twinx()
                     else:
                         ch4_ax = ax[0]
                     ch4_ax.plot(x, y, mark, label = slabel, color = 'orange')
-    
+
                 else:
                     ch4_ax = ax
                     ch4_ax.plot(x, y, mark, label = slabel)
-                
+
                 ax = ch4_ax
                 ax.set_title(n)
                 plt.legend(loc = 'lower right')
-                
+
                 if log:
                     ax.set_yscale('log')
                     ax.set_title(n + ' (log)')
-                    
+
                 elif n in system.SYSTEM:
                     plt.yscale('log')
                     ax.set_ylim([0,ax.get_ylim()[1]])
                     pass
-            
+
                 elif 'inhib' in n or 'thermodynamic_factor' in n:
                     ax.set_ylim([0.,1])
-                    
+
                 elif 'MM' in n:
                     ax.set_yscale('log')
                     ax.set_ylim([1e-5, 1e0])
-    
+
                 if not xlim is None:
                     ax.set_xlim(xlim)
 
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['bottom'].set_visible(False)
-            
+
             if not save_target is None:
                 file_name = '_'.join([f'{i+1:02d}', n])
                 plt.savefig(os.path.join(save_target, file_name + '.png'), dpi = 300)
-        
+
     def __str__(self):
         run_string = 'Model run:'
         run_string += '\n' + '='*len(run_string) + '\n'
@@ -596,7 +615,7 @@ class ModelRun():
         t_end = np.max(ts)
         run_string += '\n' + f't in [{t_start:.2f}, {t_end:.2f}]'
         return run_string
-    
+
 
 def get_all_loss_parameters(parameter_source):
     all_files = []

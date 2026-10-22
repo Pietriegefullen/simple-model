@@ -1,8 +1,7 @@
 """Plot one or more saved checkpoints, including aligned comparisons.
 
-The command accepts the same full or partial checkpoint identifiers as
-``run_checkpoint.py``.  A single checkpoint keeps the established
-``plot_best`` report.  With several checkpoints, each result is added to
+The command accepts full or partial checkpoint identifiers.  A single
+checkpoint keeps the established report.  With several checkpoints, each result is added to
 the corresponding fit and diagnostic figure instead of producing a separate
 set of files.
 """
@@ -23,10 +22,10 @@ import numpy as np
 import data
 import parameters
 import plot
-from fit_sample import _requested_checkpoint, run
-from run_checkpoint import (checkpoint_id, prepare_output_directory,
-                            replay_configuration, resolve_checkpoint)
-from USER_VARIABLES import RESULTS_DIRECTORY, PLOT_DIRECTORY
+import checkpoint_report as report
+from checkpoint_io import checkpoint_id, resolve_checkpoint, replay_inputs
+from fit_sample import run
+from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY, PLOT_DIRECTORY
 from user_input import parse
 
 
@@ -80,10 +79,8 @@ def _checkpoint_name(checkpoint) -> str:
 
 def _model_variant(checkpoint) -> str:
     """Return a readable variant while retaining unknown model identifiers."""
-    import plot_best
-
     try:
-        variant = str(plot_best.model_variant(checkpoint))
+        variant = str(report.model_variant(checkpoint))
         return str(checkpoint.model_id) if variant == '?' else variant
     except Exception:
         return str(checkpoint.model_id)
@@ -98,6 +95,23 @@ def checkpoint_attributes(checkpoint, comparison_name=None) -> dict[str, str]:
         'fit': checkpoint.fit_mode,
         'loss': checkpoint.loss_id,
     }
+
+
+def plotted_checkpoint(identifier, source, metadata, run_config, model_run,
+                       comparison_name=None) -> CheckpointPlot:
+    """Pair one completed model run with the metadata needed by report figures."""
+    pathway_model, objective, _ = model_run
+    effective_config = copy.deepcopy(run_config)
+    effective_config['model'] = pathway_model.get_config(only_structure=True)
+    checkpoint = report.Checkpoint(
+        parameters=pathway_model.parameters(),
+        loss=float(objective.last_call()[-1]),
+        run_config=effective_config,
+        id=identifier,
+        source=str(source),
+        metadata=metadata,
+    )
+    return CheckpointPlot(checkpoint, model_run, comparison_name)
 
 
 def comparison_labels(results: Iterable[Any]) -> tuple[str, list[str]]:
@@ -137,31 +151,23 @@ def comparison_labels(results: Iterable[Any]) -> tuple[str, list[str]]:
 
 def load_checkpoint(identifier, results_directory=RESULTS_DIRECTORY) -> CheckpointPlot:
     """Resolve and replay one checkpoint without changing it on disk."""
-    import plot_best
-
     source = resolve_checkpoint(identifier, results_directory)
-    run_config, initial_parameters = replay_configuration(source)
+    _, run_config, initial_parameters, contents = replay_inputs(source)
     model_run = run(run_config, initial_parameters)
-    pathway_model, objective, _ = model_run
-    contents = _requested_checkpoint(source)
-    effective_config = copy.deepcopy(run_config)
-    effective_config['model'] = pathway_model.get_config(only_structure=True)
     metadata = {'replicas': contents.get('replicas', [])} \
         if isinstance(contents, dict) else {}
-    checkpoint = plot_best.Checkpoint(
-        parameters=pathway_model.parameters(),
-        loss=float(objective.last_call()[-1]),
-        run_config=effective_config,
-        id=checkpoint_id(source) or source.name,
-        source=str(source),
-        metadata=metadata,
-    )
-    return CheckpointPlot(checkpoint, model_run)
+    return plotted_checkpoint(
+        checkpoint_id(source) or source.name, source, metadata, run_config, model_run)
 
 
 def load_checkpoints(identifiers, results_directory=RESULTS_DIRECTORY):
     """Resolve and replay checkpoint identifiers in the requested order."""
     return [load_checkpoint(identifier, results_directory) for identifier in identifiers]
+
+
+def replay_saved_checkpoint(checkpoint) -> CheckpointPlot:
+    """Evaluate one checkpoint already selected from the checkpoint catalogue."""
+    return CheckpointPlot(checkpoint, run(checkpoint.run_config, checkpoint.parameters))
 
 
 def _expanded_overrides(checkpoint, specification: ComparisonSpec) -> dict[str, Any]:
@@ -187,8 +193,6 @@ def replay_comparison(result: CheckpointPlot,
     counterfactuals faithfully disable the multiplier rather than merely
     changing stored parameter metadata.
     """
-    import plot_best
-
     source = result.checkpoint
     overrides = _expanded_overrides(source, specification)
     run_config = copy.deepcopy(source.run_config)
@@ -202,18 +206,9 @@ def replay_comparison(result: CheckpointPlot,
     run_config['chosen'].setdefault('parameter_override', {}).update(overrides)
 
     model_run = run(run_config, parameter_values)
-    pathway_model, objective, _ = model_run
-    effective_config = copy.deepcopy(run_config)
-    effective_config['model'] = pathway_model.get_config(only_structure=True)
-    checkpoint = plot_best.Checkpoint(
-        parameters=pathway_model.parameters(),
-        loss=float(objective.last_call()[-1]),
-        run_config=effective_config,
-        id=source.id,
-        source=source.source,
-        metadata=source.metadata,
-    )
-    return CheckpointPlot(checkpoint, model_run, specification.name)
+    return plotted_checkpoint(
+        source.id, source.source, source.metadata, run_config, model_run,
+        specification.name)
 
 
 def add_comparisons(results: Iterable[CheckpointPlot],
@@ -250,10 +245,8 @@ def _legend(axis, labels) -> None:
 
 def comparison_fit(results: list[CheckpointPlot], dataset):
     """Draw one shared CO2/CH4 fit figure for all checkpoint results."""
-    import plot_best
-
     _, labels = comparison_labels(results)
-    figure, axes = plot_best.create_fit_figure()
+    figure, axes = report.create_fit_figure()
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     measurements_drawn = set()
     samples = []
@@ -262,11 +255,11 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
         checkpoint = result.checkpoint
         pathway_model, _, run_log = result.model_run
         del pathway_model
-        sample, _, _ = plot_best.fit_replicas(checkpoint, dataset)
+        sample, _, _ = report.fit_replicas(checkpoint, dataset)
         samples.append(sample)
         measurement_key = (checkpoint.replica, checkpoint.fit_mode)
         if measurement_key not in measurements_drawn:
-            plot_best.plot_fit_measurements(checkpoint, dataset, axes)
+            report.plot_fit_measurements(checkpoint, dataset, axes)
             measurements_drawn.add(measurement_key)
         colour = colours[index % len(colours)]
         for pool, axis in axes.items():
@@ -275,34 +268,35 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
 
     # Use the broadest data limits when checkpoints use several samples.
     for pool, axis in axes.items():
-        limits = [plot_best.sample_y_limits(sample).get(pool) for sample in samples]
+        limits = [report.sample_y_limits(sample).get(pool) for sample in samples]
         limits = [limit for limit in limits if limit is not None]
         if limits:
             axis.set_ylim(min(limit[0] for limit in limits),
                           max(limit[1] for limit in limits))
-        if any('log' in result.checkpoint.run_config['objective']['transform'][pool]
-               for result in results):
-            axis.set_yscale('log')
-        plot.format_ax(axis, log_scale=axis.get_yscale() == 'log')
+        log_requested = any(
+            'log' in result.checkpoint.run_config['objective']['transform'][pool]
+            for result in results)
+        log_applied = plot.format_ax(axis, log_scale=log_requested)
+        if limits and not log_applied:
+            axis.set_ylim(min(limit[0] for limit in limits),
+                          max(limit[1] for limit in limits))
     _legend(axes['CH4'], labels)
-    plot_best.finish_fit_figure(
+    report.finish_fit_figure(
         figure, _comparison_suptitle(results, 'model fit'))
     return figure, axes
 
 
 def _comparison_quantities(results: list[CheckpointPlot]):
     """Return figures for every ordinary diagnostic logged by any result."""
-    import plot_best
-
     _, labels = comparison_labels(results)
     quantities = {}
     for index, result in enumerate(results):
         pathway_model, _, run_log = result.model_run
-        vmax = plot_best.pathway_v_max_values(run_log)
-        for name, time, values, pathway in plot_best.pathway_plot_quantities(
+        vmax = report.pathway_v_max_values(run_log)
+        for name, time, values, pathway in report.pathway_plot_quantities(
                 run_log, include_pathway=True, pathway_model=pathway_model):
             capacity = (pathway if name.startswith('M_') and pathway is not None
-                        and plot_best.pathway_uses_capacity_parameter(
+                        and report.pathway_uses_capacity_parameter(
                             run_log, pathway) else None)
             key = f'{capacity}_{name}' if capacity is not None else name
             quantities.setdefault(key, []).append(
@@ -318,19 +312,19 @@ def _comparison_quantities(results: list[CheckpointPlot]):
         for index, name, time, values, vmax, _ in curves:
             values = np.asarray(values, dtype=float)
             if name.endswith('_deltaG_r'):
-                values = values * plot_best.GIBBS_ENERGY_SCALE
+                values = values * report.GIBBS_ENERGY_SCALE
             colour = colours[index % len(colours)]
             axis.plot(time, values, color=colour, linewidth=1.5,
                       label=labels[index])
             if vmax is not None and name.endswith('_v'):
                 axis.axhline(vmax, color=colour, linestyle='--', linewidth=1)
         if first_name.endswith('_deltaG_r'):
-            axis.axhline(plot_best.GIBBS_MINIMUM * plot_best.GIBBS_ENERGY_SCALE,
+            axis.axhline(report.GIBBS_MINIMUM * report.GIBBS_ENERGY_SCALE,
                          color='k', linestyle=':', linewidth=1,
                          label=r'$\mathrm{Gibbs\ minimum}$')
-        axis.set_title(plot_best.quantity_title(first_name, capacity))
+        axis.set_title(report.quantity_title(first_name, capacity))
         axis.set_xlabel(plot.label('time', 'd'))
-        axis.set_ylabel(plot_best.quantity_ylabel(first_name, capacity))
+        axis.set_ylabel(report.quantity_ylabel(first_name, capacity))
         if first_name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
             axis.set_ylim(0, 1)
         plot.format_ax(axis)
@@ -343,14 +337,12 @@ def _comparison_quantities(results: list[CheckpointPlot]):
 
 def _comparison_reaction_rates(results: list[CheckpointPlot]):
     """Return one comparison figure per biomass-scaled pathway rate."""
-    import plot_best
-
     _, labels = comparison_labels(results)
     rates = {}
     for index, result in enumerate(results):
         _, _, run_log = result.model_run
-        vmax = plot_best.pathway_v_max_values(run_log)
-        for pathway, time, actual, maximum in plot_best.pathway_reaction_rate_curves(
+        vmax = report.pathway_v_max_values(run_log)
+        for pathway, time, actual, maximum in report.pathway_reaction_rate_curves(
                 run_log, vmax):
             rates.setdefault(pathway, []).append((index, time, actual, maximum))
 
@@ -377,14 +369,12 @@ def _comparison_reaction_rates(results: list[CheckpointPlot]):
 
 def _comparison_limitation_factors(results: list[CheckpointPlot]):
     """Return one all-factor comparison for every pathway logged by a result."""
-    import plot_best
-
     _, labels = comparison_labels(results)
     series = {}
     for index, result in enumerate(results):
         _, _, run_log = result.model_run
         keys = set(run_log.keys())
-        for pathway in plot_best.PATHWAY_PLOT_ORDER:
+        for pathway in report.PATHWAY_PLOT_ORDER:
             if f'{pathway}_v' not in keys:
                 continue
             factors = []
@@ -416,7 +406,7 @@ def _comparison_limitation_factors(results: list[CheckpointPlot]):
                 time, factor = values
                 axis.plot(time, factor, color=colour, linestyle=style, linewidth=1.2)
                 active.append(values)
-            time, total = plot_best._factor_product(active)
+            time, total = report._factor_product(active)
             axis.plot(time, total, color=colour, linewidth=2)
             checkpoint_handles.append(Line2D([], [], color=colour, linewidth=2,
                                              label=labels[index]))
@@ -448,54 +438,73 @@ def comparison_figures(results: list[CheckpointPlot], dataset):
     return figures
 
 
-def save_comparison(results: list[CheckpointPlot], output_directory, dataset=None):
+def prepare_output_directory(directory, *, allow_existing=False) -> Path:
+    """Create a report directory, optionally retaining its existing figures."""
+    target = Path(directory)
+    if not target.is_absolute():
+        target = Path(PROJECT_DIRECTORY) / target
+    if target.exists() and not target.is_dir():
+        raise ValueError(f'Output path is not a directory: {target}')
+    if target.exists() and any(target.iterdir()) and not allow_existing:
+        raise ValueError(f'Output directory is not empty: {target}')
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def save_comparison(results: list[CheckpointPlot], output_directory, dataset=None,
+                    *, overwrite=False):
     """Save the aligned fit and diagnostic figures for several checkpoints."""
-    output_directory = prepare_output_directory(output_directory)
-    dataset = data.get_data_before_carex() if dataset is None else dataset
+    output_directory = prepare_output_directory(output_directory, allow_existing=True)
+    dataset = data.get_data_before_day() if dataset is None else dataset
     figures = comparison_figures(results, dataset)
     paths = []
     for number, (name, (figure, _)) in enumerate(figures.items()):
-        path = Path(output_directory) / f'{number:02d}_{name}.svg'
-        figure.savefig(path, dpi=300)
+        path = Path(output_directory) / f'{number:02d}_{name}.png'
+        if overwrite or not path.exists():
+            figure.savefig(path, dpi=300)
+            paths.append(path)
         plt.close(figure)
-        paths.append(path)
     return paths
 
 
 def save_single(result: CheckpointPlot, output_directory, dataset=None, *,
-                target=None, prepare=True):
-    """Save the complete established ``plot_best`` report for one result."""
-    import plot_best
+                target=None, prepare=True, overwrite=False):
+    """Save the complete standard report for one result."""
 
-    output_directory = (prepare_output_directory(output_directory)
+    output_directory = (prepare_output_directory(output_directory, allow_existing=True)
                         if prepare else Path(output_directory))
-    dataset = data.get_data_before_carex() if dataset is None else dataset
+    dataset = data.get_data_before_day() if dataset is None else dataset
     checkpoint, model_run = result.checkpoint, result.model_run
-    figure, _ = plot_best.plot_fit(checkpoint, dataset, model_run=model_run)
+    figure, _ = report.plot_fit(checkpoint, dataset, model_run=model_run)
     if target is None:
         def target(number, quantity=None):
             stem = 'fit' if quantity is None else quantity
-            return Path(output_directory) / f'{number:02d}_{stem}.svg'
+            return Path(output_directory) / f'{number:02d}_{stem}.png'
 
     fit_path = Path(target(0, None))
-    figure.savefig(fit_path, dpi=300)
+    paths = []
+    if overwrite or not fit_path.exists():
+        figure.savefig(fit_path, dpi=300)
+        paths.append(fit_path)
     plt.close(figure)
 
     sample = dataset[checkpoint.replica[0]]
     fitted_replicas = sample.get_split(
         checkpoint.replica[1], checkpoint.fit_mode)['fit']
-    suptitle = plot_best.figure_suptitle(
+    suptitle = report.figure_suptitle(
         checkpoint, fitted_replicas, getattr(model_run[2], 'replica', None))
 
-    return [fit_path, *plot_best._save_diagnostic_plots(
-        checkpoint, model_run, str(output_directory), target, suptitle)]
+    return [*paths, *report._save_diagnostic_plots(
+        checkpoint, model_run, str(output_directory), target, suptitle,
+        overwrite=overwrite)]
 
 
-def save_plots(results: list[CheckpointPlot], output_directory, dataset=None):
+def save_plots(results: list[CheckpointPlot], output_directory, dataset=None,
+               *, overwrite=False):
     """Save all standard plots, combined when several checkpoints are given."""
     if len(results) == 1:
-        return save_single(results[0], output_directory, dataset)
-    return save_comparison(results, output_directory, dataset)
+        return save_single(results[0], output_directory, dataset, overwrite=overwrite)
+    return save_comparison(results, output_directory, dataset, overwrite=overwrite)
 
 
 def default_output_directory(checkpoints, comparisons=()) -> Path:
@@ -506,37 +515,116 @@ def default_output_directory(checkpoints, comparisons=()) -> Path:
             character if character.isalnum() or character in '-._' else '-'
             for character in name).strip('-') or 'checkpoint'
 
-    names = [component(checkpoint) for checkpoint in checkpoints]
+    checkpoint_objects = [
+        item.checkpoint if isinstance(item, CheckpointPlot) else item
+        for item in checkpoints
+    ]
+    names = []
+    for checkpoint in checkpoint_objects:
+        name = component(getattr(checkpoint, 'id', checkpoint))
+        if name not in names:
+            names.append(name)
     names.extend(component(comparison.name) for comparison in comparisons)
     category = 'checkpoint' if len(names) == 1 else 'checkpoint-comparison'
-    return Path(PLOT_DIRECTORY) / category / '__'.join(names)
+    directory = Path(PLOT_DIRECTORY) / category
+    if checkpoint_objects and all(
+            hasattr(checkpoint, attribute)
+            for checkpoint in checkpoint_objects
+            for attribute in ('fit_mode', 'replica_name')):
+        fit_modes = {checkpoint.fit_mode for checkpoint in checkpoint_objects}
+        replicas = {checkpoint.replica_name for checkpoint in checkpoint_objects}
+        directory /= next(iter(fit_modes)) if len(fit_modes) == 1 else 'mixed-fit-mode'
+        directory /= next(iter(replicas)) if len(replicas) == 1 else 'mixed-replica'
+    return directory / '__'.join(names)
+
+
+def _add_best_filters(parser) -> None:
+    """Add the selectors used only with ``--best``."""
+    parser.add_argument('--sample', dest='samples', nargs='+', metavar='SAMPLE')
+    parser.add_argument('--model-id', dest='model_ids', nargs='+', metavar='MODEL_ID')
+    parser.add_argument('--fit-mode', dest='fit_modes', nargs='+',
+                        choices=('single', 'split', 'multi'), metavar='FIT_MODE')
+    parser.add_argument('--replica', dest='replicas', nargs='+', metavar='REPLICA')
+    parser.add_argument('--loss-id', dest='loss_ids', nargs='+', metavar='LOSS_ID')
+    parser.add_argument('--dry-run', action='store_true',
+                        help='list selected best checkpoints without plotting')
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         description='Plot one or more saved checkpoints; comparisons share figures.')
-    parser.add_argument('checkpoints', nargs='+', metavar='CHECKPOINT',
+    parser.add_argument('checkpoints', nargs='*', metavar='CHECKPOINT',
                         help='checkpoint path or unique full/partial cp-ID')
+    parser.add_argument('--best', action='store_true',
+                        help='plot every best checkpoint selected by the filters below')
     parser.add_argument('--output-dir', metavar='DIRECTORY',
                         help='new or empty directory for SVG figures; defaults '
                              'below USER_VARIABLES.PLOT_DIRECTORY')
+    parser.add_argument('--overwrite', action='store_true',
+                        help='replace figures that already exist in the target directory')
     parser.add_argument('--results-directory', default=RESULTS_DIRECTORY,
                         help='checkpoint root used for partial IDs')
+    _add_best_filters(parser)
     add_comparison_argument(parser)
     args = parser.parse_args(argv)
+    if args.best == bool(args.checkpoints):
+        parser.error('give checkpoint IDs, or use --best, but not both')
     args.comparisons = parse_comparisons(args.compare)
-    if args.output_dir is None:
-        args.output_dir = default_output_directory(args.checkpoints, args.comparisons)
     return args
+
+
+def best_checkpoints(args):
+    """Return the best checkpoints selected by the common command interface."""
+    selected = report.filter_checkpoints(
+        report.collect_all(args.results_directory),
+        samples=args.samples, model_ids=args.model_ids, fit_modes=args.fit_modes,
+        replicas=args.replicas, loss_ids=args.loss_ids)
+    return report.choose_best(selected)
+
+
+def save_best(checkpoints, args):
+    """Write one report per best checkpoint, with optional named replays."""
+    checkpoints = list(checkpoints)
+    paths = []
+    for checkpoint in checkpoints:
+        if checkpoint.is_multi_replica:
+            if args.comparisons:
+                raise ValueError(
+                    '--compare does not support joint multi-replica checkpoints; '
+                    'select --fit-mode single or split.')
+            paths.extend(report.plot_multi_checkpoint(
+                checkpoint, data.get_data_before_day()))
+            continue
+        results = add_comparisons([replay_saved_checkpoint(checkpoint)],
+                                  args.comparisons)
+        default_directory = default_output_directory([checkpoint], args.comparisons)
+        directory = default_directory if args.output_dir is None else args.output_dir
+        if args.output_dir is not None and len(checkpoints) > 1:
+            directory = Path(args.output_dir) / default_directory.name
+        paths.extend(save_plots(results, directory, overwrite=args.overwrite))
+    return paths
 
 
 def main(argv=None):
     args = parse_args(argv)
-    results = load_checkpoints(args.checkpoints, args.results_directory)
-    results = add_comparisons(results, args.comparisons)
-    paths = save_plots(results, args.output_dir)
-    print(f'Wrote {len(paths)} plot(s) to {args.output_dir}')
+    if args.best:
+        checkpoints = best_checkpoints(args)
+        if args.dry_run:
+            for checkpoint in checkpoints:
+                print(checkpoint.id, checkpoint.model_id, checkpoint.replica_name,
+                      checkpoint.fit_mode)
+            print(f'{len(checkpoints)} checkpoint(s) selected')
+            return checkpoints
+        paths = save_best(checkpoints, args)
+        print(f'Wrote {len(paths)} plot(s) below {PLOT_DIRECTORY}')
+        return paths
+    results = add_comparisons(
+        load_checkpoints(args.checkpoints, args.results_directory), args.comparisons)
+    directory = args.output_dir or default_output_directory(results, args.comparisons)
+    paths = save_plots(results, directory, overwrite=args.overwrite)
+    print(f'Wrote {len(paths)} plot(s) to {directory}')
     return paths
+
 
 
 if __name__ == '__main__':

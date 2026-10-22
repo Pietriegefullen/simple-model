@@ -19,7 +19,7 @@ from pathlib import Path
 import fit_replicas
 import fit_sample
 import parameters
-from run_checkpoint import checkpoint_id, resolve_checkpoint
+from checkpoint_io import checkpoint_id, resolve_checkpoint
 from USER_VARIABLES import RESULTS_DIRECTORY
 
 

@@ -43,6 +43,8 @@ import matplotlib.pyplot as plt
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
 POOL_NAMES = ('CO2', 'CH4')
+GIBBS_ENERGY_SCALE = 1e-3
+GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
 # Model identity is always encoded by line style in variant-comparison plots.
 # Pathway identity is encoded by ``pathways.pathway_color``.
 MODEL_VARIANT_LINESTYLES = {
@@ -93,7 +95,7 @@ class FigureSpec:
     ncols: int = 1
     axis_names: tuple[str, ...] | None = None
     mosaic: str | Sequence[Sequence[str]] | None = None
-    figsize: tuple[float, float] = (8, 4)
+    figsize: tuple[float, float] | None = None
     sharex: bool | str = False
     sharey: bool | str = False
     box_aspect: float | None = None
@@ -152,10 +154,24 @@ def create_figure(spec: FigureSpec) -> tuple[plt.Figure, dict[str, plt.Axes]]:
     can therefore be changed from a row to a column without changing plotting
     functions or the code that selects ``axes['CO2']``.
     """
+    if spec.figsize is None:
+        if spec.mosaic is None:
+            rows, columns = spec.nrows, spec.ncols
+        elif isinstance(spec.mosaic, str):
+            mosaic_rows = spec.mosaic.split(';') if ';' in spec.mosaic \
+                else spec.mosaic.splitlines()
+            rows = len(mosaic_rows)
+            columns = max(map(len, mosaic_rows))
+        else:
+            rows, columns = np.asarray(spec.mosaic, dtype=object).shape
+        figsize = (4 * columns, 4 * rows)
+    else:
+        figsize = spec.figsize
+
     if spec.mosaic is not None:
         if spec.axis_names is not None:
             raise ValueError('axis_names cannot be used with a mosaic; use its labels.')
-        figure = plt.figure(figsize=spec.figsize, layout=spec.layout)
+        figure = plt.figure(figsize=figsize, layout=spec.layout)
         axes = figure.subplot_mosaic(
             spec.mosaic,
             sharex=spec.sharex,
@@ -177,7 +193,7 @@ def create_figure(spec: FigureSpec) -> tuple[plt.Figure, dict[str, plt.Axes]]:
         figure, grid = plt.subplots(
             spec.nrows,
             spec.ncols,
-            figsize=spec.figsize,
+            figsize=figsize,
             sharex=spec.sharex,
             sharey=spec.sharey,
             squeeze=False,
@@ -247,16 +263,17 @@ def replay_context(checkpoint: Any, *, parameter_overrides=None,
     report reuse the exact same model trajectory.  Imports are intentionally
     lazy so normal plotting does not depend on checkpoint tooling.
     """
-    from run_checkpoint import _NOT_SPECIFIED, replay_checkpoint
+    from checkpoint_io import replay_inputs
+    from fit_sample import run
 
-    start = _NOT_SPECIFIED if t_start is None else t_start
-    end = _NOT_SPECIFIED if t_end is None else t_end
-    model_run = replay_checkpoint(
-        checkpoint,
-        parameter_overrides=parameter_overrides,
-        t_start=start,
-        t_end=end,
-    )
+    _, run_config, parameter_values, _ = replay_inputs(checkpoint)
+    overrides = parameter_overrides or {}
+    run_config['chosen'].setdefault('parameter_override', {}).update(overrides)
+    if t_start is not None:
+        run_config['chosen']['t_start'] = t_start
+    if t_end is not None:
+        run_config['chosen']['t_end'] = t_end
+    model_run = run(run_config, parameter_values)
     return PlotContext(
         checkpoint=checkpoint,
         replica=getattr(model_run[-1], 'replica', None),
@@ -328,15 +345,35 @@ def pool_color(pool):
         raise NotImplementedError()
     return c
 
-def format_ax(ax, log_scale = False):
+def format_ax(ax, log_scale=False):
+    """Apply shared axes styling and an optional safe logarithmic y scale.
+
+    A logarithmic scale is meaningful only when every drawn value is
+    non-negative and at least one is positive.  Its limits are set from the
+    plotted data, replacing any zero lower bound with a small positive one.
+    """
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    if log_scale:
-        try:
-            ax.set_yscale('log')
-        except Exception as ex:
-            print(ex)
+    if not log_scale:
+        return False
+    lower, upper = ax.dataLim.intervaly
+    if not (np.isfinite(lower) and np.isfinite(upper) and lower >= 0 and upper > 0):
+        return False
+    positive_values = [
+        np.asarray(line.get_ydata(), dtype=float)
+        for line in ax.lines
+    ]
+    positive_values = [
+        values[np.isfinite(values) & (values > 0)]
+        for values in positive_values
+    ]
+    positive_values = [values for values in positive_values if values.size]
+    positive_lower = (min(np.min(values) for values in positive_values)
+                      if positive_values else upper * 1e-6)
+    ax.set_yscale('log')
+    ax.set_ylim(positive_lower / 1.05, upper * 1.05)
+    return True
 
 def plot_pool_data(replica, pool, ax, **kwargs):
     """Add one replica's measured pool to ``ax`` and return that same axes."""

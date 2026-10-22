@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
-import plot_best
+import checkpoint_report as plot_best
 import compare_checkpoints
 import data
 import optimizer

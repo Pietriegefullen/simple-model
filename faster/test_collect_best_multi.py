@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-import plot_best
+import checkpoint_report as plot_best
 import model
 import parameters
 
