@@ -72,7 +72,8 @@ class SetAllConstant(Callback):
 
 class PrintCallback(Callback):
     def __init__(self, run_config, initial_best_loss = None,
-                 initial_best_r2 = None, header = None, footer = None, carriage_return = True):
+                 initial_best_r2 = None, header = None, footer = None, carriage_return = True,
+                 show_penalty_count = False):
         super().__init__(run_config)
         # A fit can resume in a directory that already contains results.  The
         # stored loss is an incumbent too, even though it is not part of this
@@ -82,10 +83,12 @@ class PrintCallback(Callback):
         self.header = header
         self.footer = footer
         self.carriage_return = carriage_return
+        self.show_penalty_count = show_penalty_count
         
     def __call__(self):
         args, kwargs, loss_value = self.objective.last_call()
-        cnt = self.objective.call_count()
+        cnt = getattr(self.objective, 'evaluation_count',
+                      self.objective.call_count)()
         generation = self.objective.generation()
         generation_text = 'n/a' if generation is None else str(generation)
         best_loss = self.objective.best_loss()
@@ -101,9 +104,14 @@ class PrintCallback(Callback):
         header = '' if self.header is None else self.header + ' '
         cret = '\r' if self.carriage_return else ''
         footer = '' if self.footer is None else (' ' + self.footer)
+        penalty_text = ''
+        if self.show_penalty_count:
+            penalty_count = getattr(self.objective, 'penalty_count', lambda: 0)()
+            penalty_text = f', penalties {penalty_count}/{cnt}'
         print(f'{cret}{header}generation {generation_text}: call {cnt:6d}: '
               f'loss value {loss_value:8.3g}, '
-              f'best loss: {best_loss:8.3g}, best R2 = {r2_text}' + footer, end = '')
+              f'best loss: {best_loss:8.3g}, best R2 = {r2_text}'
+              + penalty_text + footer, end = '')
 
 
 class CallLimitInterrupt(Exception):
@@ -203,6 +211,93 @@ class CMAStateCheckpoint:
                 # from its normal x0 seed instead.
                 return None
 
+    def clear(self):
+        """Discard this run's saved CMA state before a deliberate fresh run."""
+        with self._locked_directory() as save_dir:
+            try:
+                os.remove(os.path.join(save_dir, self.FILE_NAME))
+            except FileNotFoundError:
+                pass
+
+
+class PenaltyCounter:
+    """A small process-safe counter for invalid objective evaluations.
+
+    Unlike manager proxies, this remains reliable when an inner optimiser
+    repeatedly sends independently pickled objectives through one reusable
+    process pool.  It intentionally shares the checkpoint directory lock so
+    that increments cannot race with checkpoint writes or cleanup.
+    """
+
+    FILE_NAME = '.penalty-count.json'
+
+    def __init__(self, target):
+        self.target = target
+
+    @contextmanager
+    def _locked_directory(self):
+        os.makedirs(self.target, exist_ok=True)
+        lock_file = os.path.join(self.target, '.checkpoint.lock')
+        with open(lock_file, 'a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def _read_unlocked(self):
+        try:
+            with open(os.path.join(self.target, self.FILE_NAME)) as handle:
+                document = json.load(handle)
+                return {
+                    'count': int(document['count']),
+                    'calls': int(document.get('calls', 0)),
+                }
+        except (OSError, ValueError, KeyError, TypeError):
+            return {'count': 0, 'calls': 0}
+
+    def reset(self):
+        with self._locked_directory():
+            destination = os.path.join(self.target, self.FILE_NAME)
+            descriptor, temporary_file = tempfile.mkstemp(
+                dir=self.target, prefix='.penalty-count-', text=True)
+            try:
+                with os.fdopen(descriptor, 'w') as handle:
+                    json.dump({'count': 0, 'calls': 0}, handle)
+                os.replace(temporary_file, destination)
+            finally:
+                if os.path.exists(temporary_file):
+                    os.remove(temporary_file)
+
+    def record(self, penalized):
+        with self._locked_directory():
+            current = self._read_unlocked()
+            destination = os.path.join(self.target, self.FILE_NAME)
+            descriptor, temporary_file = tempfile.mkstemp(
+                dir=self.target, prefix='.penalty-count-', text=True)
+            try:
+                with os.fdopen(descriptor, 'w') as handle:
+                    json.dump({
+                        'count': current['count'] + int(penalized),
+                        'calls': current['calls'] + 1,
+                    }, handle)
+                os.replace(temporary_file, destination)
+            finally:
+                if os.path.exists(temporary_file):
+                    os.remove(temporary_file)
+
+    def value(self):
+        with self._locked_directory():
+            return self._read_unlocked()['count']
+
+    def call_count(self):
+        with self._locked_directory():
+            return self._read_unlocked()['calls']
+
+    def increment(self):
+        """Compatibility shorthand for recording one penalised call."""
+        self.record(True)
+
 
 class Interrupt(Callback):
     def __init__(self, call_limit):
@@ -300,10 +395,21 @@ class CheckpointCallback(Callback):
         incumbent for both checkpoint retention and live progress output.
         ``--overwrite-checkpoints`` deliberately keeps its documented
         behaviour of starting with an empty checkpoint directory.
+
+        Once a normal resumable run has started, a retained pre-existing
+        checkpoint is still a valid incumbent.  In particular, a new failed
+        or worse evaluation must not make that incumbent disappear from a
+        post-optimisation lookup.
         """
         with self.locked_directory() as save_dir:
-            checkpoints = self.prepare_existing_checkpoints(
-                self.checkpoints(save_dir))
+            all_checkpoints = self.checkpoints(save_dir)
+            if self._existing_checkpoint_paths is None:
+                checkpoints = self.prepare_existing_checkpoints(all_checkpoints)
+            elif self.ignore_existing or self.overwrite_existing:
+                checkpoints = [item for item in all_checkpoints
+                               if item[1] not in self._existing_checkpoint_paths]
+            else:
+                checkpoints = all_checkpoints
             if not checkpoints:
                 return None
 
@@ -316,6 +422,46 @@ class CheckpointCallback(Callback):
                 # another process has modified it outside this lock.  Treat it
                 # as unavailable rather than preventing the fit from running.
                 return None
+
+    def checkpoint_availability(self):
+        """Summarise why a checkpoint lookup may not have found a result.
+
+        This is diagnostic-only: it neither repairs nor removes files.  It is
+        used when a nested fit must keep going without a durable inner result,
+        so the warning distinguishes "no evaluation" from filesystem and
+        format problems.
+        """
+        with self.locked_directory() as save_dir:
+            counts = {
+                'readable': 0,
+                'hidden': 0,
+                'non_file': 0,
+                'unreadable': 0,
+                'invalid_json': 0,
+                'missing_total_loss': 0,
+            }
+            for entry in os.scandir(save_dir):
+                if entry.name.startswith('.'):
+                    counts['hidden'] += 1
+                    continue
+                if not entry.is_file():
+                    counts['non_file'] += 1
+                    continue
+                try:
+                    with open(entry.path) as checkpoint_file:
+                        document = json.load(checkpoint_file)
+                except OSError:
+                    counts['unreadable'] += 1
+                    continue
+                except json.JSONDecodeError:
+                    counts['invalid_json'] += 1
+                    continue
+                if not isinstance(document, dict) or 'total_loss' not in document:
+                    counts['missing_total_loss'] += 1
+                    continue
+                counts['readable'] += 1
+            return ', '.join(f'{name}={count}' for name, count in counts.items()
+                             if count) or 'directory is empty'
 
     def existing_checkpoint_is_better(self):
         return (not self.overwrite_existing

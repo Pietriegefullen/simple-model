@@ -119,22 +119,30 @@ def _variant(model_id):
     return model_variant_from_id(model_id) or f'unknown ({model_id})'
 
 
-def best_results(results_directory, dataset):
+def best_results(results_directory, dataset, model_ids=None):
     """Return the highest total R² for every mode/variant/sample/replica.
 
     The cache key includes the complete objective and split configuration: two
     old runs with different windows or objective weights get the correct R²
-    before they are compared.
+    before they are compared.  When *model_ids* is given, each value is matched
+    as a substring of the generated model ID.
     """
     variances = {}
     best = {}
     errors = []
+    print('scanning results')
+    count = 0
     for path, checkpoint in checkpoint_files(results_directory):
+        count+=1
+        #print(f'{count:6d}', end = '')
         try:
             run_config = checkpoint['run_config']
             chosen = run_config['chosen']
             objective_config = run_config['objective']
             model_id = hashing.build_model_id(run_config['model'])
+            if model_ids is not None and not any(
+                    partial_id in model_id for partial_id in model_ids):
+                continue
             cache_key = json.dumps(
                 {'chosen': chosen, 'objective': objective_config}, sort_keys=True,
                 default=str)
@@ -235,8 +243,8 @@ def parse_args():
                         help='Optional text file to receive the report.')
     parser.add_argument('--fit-mode', action='append', dest='fit_modes',
                         help='Only report this fit mode; may be repeated.')
-    parser.add_argument('--variant', action='append', dest='variants',
-                        help='Only report this model variant; may be repeated.')
+    parser.add_argument('--model-id', action='append', dest='model_ids',
+                        help='Only include model IDs containing this text; may be repeated.')
     parser.add_argument('--highlight-threshold', type=float,
                         default=DEFAULT_HIGHLIGHT_THRESHOLD,
                         help='Mark R² values below this value (default: 0.8).')
@@ -252,11 +260,12 @@ def parse_args():
 def main():
     args = parse_args()
     dataset = data.get_data_before_day()
-    results, errors = best_results(args.results, dataset)
+    results, errors = best_results(args.results, dataset, args.model_ids)
     color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
-    report = format_report(results, dataset, args.fit_modes, args.variants,
-                           args.highlight_threshold, color,
-                           args.omit_samples_starting_with)
+    report = format_report(
+        results, dataset, fit_modes=args.fit_modes,
+        highlight_threshold=args.highlight_threshold, color=color,
+        omit_sample_prefixes=args.omit_samples_starting_with)
     print(report)
     if errors:
         print(f'\nSkipped {len(errors)} checkpoint(s) that could not be interpreted.')
@@ -265,8 +274,8 @@ def main():
         if len(errors) > 5:
             print(f'  ... and {len(errors) - 5} more')
     if args.output:
-        plain_report = format_report(results, dataset, args.fit_modes,
-                                     args.highlight_threshold,
+        plain_report = format_report(results, dataset, fit_modes=args.fit_modes,
+                                     highlight_threshold=args.highlight_threshold,
                                      omit_sample_prefixes=args.omit_samples_starting_with)
         args.output.write_text(plain_report + '\n')
 

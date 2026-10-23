@@ -95,6 +95,17 @@ class ExistingCheckpointTest(unittest.TestCase):
                            if not name.startswith('.')]
             self.assertEqual(len(checkpoints), 2)
 
+    def test_retained_existing_checkpoint_remains_loadable_after_a_worse_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            existing_path = os.path.join(directory, 'old-checkpoint')
+            _write_checkpoint(existing_path, 1.0)
+            callback = self._callback(directory)
+
+            self.assertEqual(callback.load_best_existing_checkpoint()[0], existing_path)
+            callback()  # Its loss is 2.0, so the existing incumbent is kept.
+
+            self.assertEqual(callback.load_best_existing_checkpoint()[0], existing_path)
+
     def test_loads_lowest_loss_existing_checkpoint(self):
         with tempfile.TemporaryDirectory() as directory:
             _write_checkpoint(os.path.join(directory, 'worse-checkpoint'), 2.0)
@@ -188,6 +199,18 @@ class ExistingCheckpointTest(unittest.TestCase):
 
         self.assertIn('generation 4: call', output.getvalue())
 
+    def test_print_callback_can_include_penalty_count(self):
+        objective = _PrintObjective(((3.0, 0.1),))
+        objective.penalty_count = lambda: 2
+        callback = checkpoint.PrintCallback(None, show_penalty_count=True)
+        callback.set_objective(objective)
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            callback()
+
+        self.assertIn('penalties 2/1', output.getvalue())
+
     def test_print_callback_reports_existing_best_r2_until_it_is_beaten(self):
         objective = _PrintObjective(((2.0, 0.9), (0.5, 0.2)))
         callback = checkpoint.PrintCallback(
@@ -209,6 +232,27 @@ class ExistingCheckpointTest(unittest.TestCase):
 
         with self.assertRaises(checkpoint.CallLimitInterrupt):
             callback()
+
+    def test_cma_state_can_be_cleared_for_a_fresh_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = checkpoint.CMAStateCheckpoint(
+                checkpoint_with()['run_config'], target=directory)
+            state.save({'generation': 3})
+            self.assertEqual(state.load(), {'generation': 3})
+            state.clear()
+            self.assertIsNone(state.load())
+
+    def test_penalty_counter_accumulates_and_resets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            counter = checkpoint.PenaltyCounter(directory)
+            counter.reset()
+            counter.increment()
+            counter.increment()
+            self.assertEqual(counter.value(), 2)
+            self.assertEqual(counter.call_count(), 2)
+            counter.reset()
+            self.assertEqual(counter.value(), 0)
+            self.assertEqual(counter.call_count(), 0)
 
 
 if __name__ == '__main__':

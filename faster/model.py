@@ -215,7 +215,7 @@ class Model():
         return dissolved_S
 
     def __call__(self, t, S):
-        S = np.maximum(S, 0) # TODO: why EPS, not zero?
+        S = np.maximum(S, 0) 
         
         dissolved_S = self.compute_dissolved(S)
         dSj_dt = np.stack([pathway_j(t, dissolved_S)

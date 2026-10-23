@@ -77,6 +77,17 @@ def _checkpoint_name(checkpoint) -> str:
     return identifier if identifier.casefold().startswith('cp-') else f'cp-{identifier}'
 
 
+def _checkpoint_directory_name(checkpoint) -> str:
+    """Return a checkpoint output-folder name that makes fit quality visible."""
+    try:
+        loss = float(checkpoint.loss)
+    except (AttributeError, TypeError, ValueError):
+        # Retain a useful output name for lightweight callers that provide
+        # checkpoint identity but not the numerical objective value.
+        return _checkpoint_name(checkpoint)
+    return f'{_checkpoint_name(checkpoint)}_loss-{loss:.8g}'
+
+
 def _model_variant(checkpoint) -> str:
     """Return a readable variant while retaining unknown model identifiers."""
     try:
@@ -521,7 +532,10 @@ def default_output_directory(checkpoints, comparisons=()) -> Path:
     ]
     names = []
     for checkpoint in checkpoint_objects:
-        name = component(getattr(checkpoint, 'id', checkpoint))
+        if hasattr(checkpoint, 'id'):
+            name = component(_checkpoint_directory_name(checkpoint))
+        else:
+            name = component(checkpoint)
         if name not in names:
             names.append(name)
     names.extend(component(comparison.name) for comparison in comparisons)
@@ -587,6 +601,7 @@ def save_best(checkpoints, args):
     checkpoints = list(checkpoints)
     paths = []
     for checkpoint in checkpoints:
+        print(checkpoint)
         if checkpoint.is_multi_replica:
             if args.comparisons:
                 raise ValueError(

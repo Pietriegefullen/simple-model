@@ -55,6 +55,10 @@ def copy_parameters(source):
 ALGORITHM_CHOICES = {'de': 'differential_evolution', 'cma-es': 'cma_es'}
 
 
+def algorithm_label(name):
+    return {'differential_evolution': 'DE', 'cma_es': 'CMA-ES'}.get(name, name)
+
+
 def format_local_r2(r2_value):
     """Format a final local-fit R², highlighting fits below the target."""
     if r2_value is None or not np.isfinite(r2_value):
@@ -63,6 +67,11 @@ def format_local_r2(r2_value):
     if r2_value < LOCAL_R2_HIGHLIGHT_THRESHOLD:
         return f'{HIGHLIGHT_STYLE}{text}{RESET_STYLE}'
     return text
+
+
+def is_failed_inner_loss(loss):
+    """Whether an inner result is a penalty rather than a usable fit."""
+    return not np.isfinite(loss) or loss >= optimizer.INVALID_OBJECTIVE_PENALTY
 
 
 def parameters_x0(saved, parameter_set):
@@ -87,6 +96,55 @@ def checkpoint_x0(checkpoint_data, parameter_set):
     """
     return parameters_x0(parameters.ModelParameters(checkpoint_data['parameters']),
                          parameter_set)
+
+
+def checkpoint_final_inner_candidate(checkpoints, objective):
+    """Try to persist an evaluated inner result and describe the attempt.
+
+    CMA-ES can resume a state whose evaluation budget is already exhausted.
+    It restores its selected vector without making another objective call, but
+    annotated inner checkpoints are written by objective callbacks.  Replay
+    the best in-memory vector once in the parent process so the normal
+    callback stores it.  The returned result is always a real, readable
+    checkpoint; in-memory checkpoint substitutes are deliberately forbidden.
+    """
+    stored = checkpoints.load_best_existing_checkpoint()
+    if stored is not None:
+        return stored, 'a readable checkpoint was already present'
+
+    try:
+        best_args, best_kwargs, _ = objective.best_call()
+    except (IndexError, AttributeError):
+        # A resumed CMA-ES may have selected a vector without recording a
+        # local parent-process call.  Its model already holds that vector.
+        try:
+            objective(objective.model().parameters(), transformed=False)
+        except (LocalR2ThresholdReached, LocalLossThresholdReached):
+            return (checkpoints.load_best_existing_checkpoint(),
+                    'replayed the selected model parameters; a local stop guard fired')
+        except Exception as error:
+            return None, (
+                'there was no parent-process best-call record; replaying the '
+                f'selected model parameters failed with {type(error).__name__}: {error}')
+        return (checkpoints.load_best_existing_checkpoint(),
+                'there was no parent-process best-call record; replayed the '
+                'selected model parameters')
+
+    # Use the best evaluated vector rather than the model's current vector:
+    # the latter may be the final member of a CMA population, not its best.
+    try:
+        objective(best_args, **best_kwargs)
+    except (LocalR2ThresholdReached, LocalLossThresholdReached):
+        # CheckpointCallback precedes the local-stop callbacks, so a normal
+        # result file may have been written despite the deliberate stop.
+        return (checkpoints.load_best_existing_checkpoint(),
+                'replayed the best recorded candidate; a local stop guard fired')
+    except Exception as error:
+        return None, (
+            'replaying the best recorded candidate failed with '
+            f'{type(error).__name__}: {error}')
+    return (checkpoints.load_best_existing_checkpoint(),
+            'replayed the best recorded candidate')
 
 
 def select_shared_default_parameters(reference, shared_names):
@@ -352,15 +410,13 @@ def print_setup_summary(replicas, pathways, omitted_pathways, shared_names,
                         objective, qualifying_checkpoints, local_best=None,
                         local_call_budget=3000, local_r2_threshold=None,
                         local_loss_threshold=None,
+                        max_failed_inner_runs=5,
                         local_workers=1, resume=True,
                         outer_algorithm='differential_evolution',
                         local_algorithm='differential_evolution',
                         local_warm_start=True,
                         shared_bounds_source='declared model ranges'):
     """Print the exact model, data, parameter, and nested-objective setup."""
-    def algorithm_label(name):
-        return {'differential_evolution': 'DE', 'cma_es': 'CMA-ES'}.get(name, name)
-
     outer_label = algorithm_label(outer_algorithm)
     local_label = algorithm_label(local_algorithm)
     print('\nJOINT REPLICA FIT SETUP')
@@ -387,6 +443,7 @@ def print_setup_summary(replicas, pathways, omitted_pathways, shared_names,
         f'{local_r2_threshold:g}' if local_r2_threshold is not None else 'disabled'))
     print('Inner loss guard / outer-candidate rejection threshold: ' + (
         f'{local_loss_threshold:g}' if local_loss_threshold is not None else 'disabled'))
+    print(f'Maximum failed inner runs before outer rejection: {max_failed_inner_runs}')
     if fixed_parameters:
         print('Fixed parameters (--p): ' + ', '.join(
             f'{name}={value}' for name, value in sorted(fixed_parameters.items())))
@@ -529,7 +586,8 @@ class SharedReplicaObjective(optimizer.Addable):
                  local_algorithm, local_algorithm_name='differential_evolution',
                  local_best=None, checkpoint_source=None,
                  prepared_local_parameters=None, local_r2_threshold=None,
-                 local_loss_threshold=None, resume=True, local_warm_start=True):
+                 local_loss_threshold=None, max_failed_inner_runs=5,
+                 resume=True, local_warm_start=True):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -551,10 +609,12 @@ class SharedReplicaObjective(optimizer.Addable):
         self.prepared_local_parameters = prepared_local_parameters
         self.local_r2_threshold = local_r2_threshold
         self.local_loss_threshold = local_loss_threshold
+        self.max_failed_inner_runs = max_failed_inner_runs
         self.resume = resume
         self.local_warm_start = local_warm_start
         self._local_warm_starts = {}
         self._local_pool = None
+        self._failed_inner_runs = 0
 
     def _parallel_resources(self):
         """Create one reusable worker pool for all inner fits."""
@@ -613,13 +673,15 @@ class SharedReplicaObjective(optimizer.Addable):
     def _call(self, values, transformed=True):
         shared = self.model().parameters()
         self.set_parameters(shared.variables(), values, transformed=transformed)
+
         results = []
         loss_contributions = []
-        #total_loss = 0.0
+        failed_inner_runs = 0
         residual_total = 0.0
         variance_total = 0.0
         metrics_available = True
         self._aborted_by_loss_guard = False
+        self._failed_inner_runs = 0
 
         for replica in self.replicas:
             if self.prepared_local_parameters is None:
@@ -631,12 +693,22 @@ class SharedReplicaObjective(optimizer.Addable):
                     self.prepared_local_parameters[replica_identifier(replica)])
             for name in self.shared_names:
                 local_parameters[name].constant(shared[name].value)
-            local_model = model.build_model(self.pathways, self.normalized_parameters)
+
+            local_model = model.build_model(self.pathways,
+                                            self.normalized_parameters)
             local_model.parameters().set(local_parameters)
+
             local_objective = optimizer.build_objective_function(
                 local_model, [replica], self.objective_config)
+            # Invalid local evaluations (most commonly integration timeouts)
+            # are still penalised, but one warning per evaluation would erase
+            # the live best-loss/R² progress line.  Show their aggregate on
+            # that line instead.
+            local_objective.set_penalty_warning_output(False)
+
             inner_run_config = self._inner_run_config(
                 local_model, local_parameters, replica, shared)
+
             # Each run ID encodes its replica and fixed shared values.  Keep
             # its best local result in the normal annotated-checkpoint format
             # so the parent can recover it after parallel worker evaluation.
@@ -645,10 +717,20 @@ class SharedReplicaObjective(optimizer.Addable):
                 checkpoint.CP_ROOT, 'joint_inner', inner_run_id,
                 replica_identifier(replica))
             inner_checkpoints = checkpoint.CheckpointCallback(
-                inner_run_config, keep_only_n=1, target=inner_target)
-            inner_cma_state = checkpoint.CMAStateCheckpoint(
-                inner_run_config, target=inner_target)
+                inner_run_config, keep_only_n=1, target=inner_target,
+                overwrite_existing=not self.resume)
+            inner_penalties = None
+            if self.local_algorithm.get('workers', 1) != 1:
+                inner_penalties = checkpoint.PenaltyCounter(inner_target)
+                inner_penalties.reset()
+            inner_cma_state = checkpoint.CMAStateCheckpoint(inner_run_config,
+                                                           target=inner_target)
+            if not self.resume:
+                inner_cma_state.clear()
             local_objective.add_callback(inner_checkpoints)
+            if inner_penalties is not None:
+                local_objective.set_penalty_counter(inner_penalties)
+
             # With a parallel pool, callbacks execute in isolated worker
             # copies of this objective.  Their apparent "best" values are
             # only best for one worker, not for the whole local population.
@@ -657,14 +739,16 @@ class SharedReplicaObjective(optimizer.Addable):
             show_live_local_progress = self.local_algorithm.get('workers', 1) == 1
             if show_live_local_progress:
                 local_objective.add_callback(
-                    checkpoint.PrintCallback(None, header=' ' * 3 + str(replica)))
-
+                    checkpoint.PrintCallback(
+                        None, header=' ' * 3 + str(replica),
+                        show_penalty_count=True))
             if self.local_r2_threshold is not None:
                 local_objective.add_callback(
                     StopWhenLocalR2Reached(self.local_r2_threshold))
             if self.local_loss_threshold is not None:
                 local_objective.add_callback(
                     StopWhenLocalLossExceeds(self.local_loss_threshold))
+
             local_algorithm = dict(self.local_algorithm)
             seed = None
             if self.resume:
@@ -677,15 +761,18 @@ class SharedReplicaObjective(optimizer.Addable):
                     local_parameters)
             if seed is not None:
                 local_algorithm['x0'] = seed
+
             local_optimizer = optimizer.get(self.local_algorithm_name)
             local_optimizer.configure(local_algorithm)
-            if self.local_algorithm_name == 'cma_es':
+            if self.resume and self.local_algorithm_name == 'cma_es':
                 local_optimizer.set_state_checkpoint(inner_cma_state)
+
             local_manager, local_pool = self._parallel_resources()
             if local_manager is not None:
                 local_optimizer.set_process_manager(local_manager)
             if local_pool is not None:
                 local_optimizer.set_worker_map(local_pool.map)
+
             # Keep the local best vector available in this process.  The
             # existing DE multiprocessing mode shares only aggregate scores.
             threshold_reached = False
@@ -693,10 +780,13 @@ class SharedReplicaObjective(optimizer.Addable):
             interrupted = False
             try:
                 local_optimizer.minimize(local_objective, local_parameters, verbose = False)
+
             except LocalR2ThresholdReached:
                 threshold_reached = True
+
             except LocalLossThresholdReached:
                 loss_threshold_reached = True
+
             except KeyboardInterrupt:
                 interrupted = True
                 # ``Pool.map`` may have queued stalled work.  It cannot be
@@ -705,15 +795,28 @@ class SharedReplicaObjective(optimizer.Addable):
                 self.reset_parallel_resources()
                 if not confirm_continue_after_inner_interrupt():
                     raise
+
             stored_inner = inner_checkpoints.load_best_existing_checkpoint()
+            checkpoint_recovery = 'a readable checkpoint was present after optimisation'
+            if stored_inner is None and not interrupted:
+                stored_inner, checkpoint_recovery = checkpoint_final_inner_candidate(
+                    inner_checkpoints, local_objective)
             if stored_inner is None:
-                if not interrupted:
-                    raise RuntimeError(
-                        f'Inner DE for replica {replica_identifier(replica)} '
-                        'finished without a checkpoint.')
-                # No candidate completed before Ctrl-C.  Continue fitting the
-                # other replicas, but make this outer candidate uncompetitive
-                # rather than silently omitting a replica from its loss.
+                # A missing durable checkpoint must not terminate the outer
+                # run.  It is nevertheless never safe to use an in-memory
+                # approximation as a result: reject this outer candidate with
+                # the normal finite invalid-objective penalty instead.
+                reason = ('the inner optimisation was interrupted before recovery'
+                          if interrupted else checkpoint_recovery)
+                availability = inner_checkpoints.checkpoint_availability()
+                print(
+                    f'   WARNING: Inner {algorithm_label(self.local_algorithm_name)} '
+                    f'for replica {replica_identifier(replica)} has no readable '
+                    f'evaluated candidate checkpoint. Reason: {reason}. '
+                    f'Objective calls: {local_objective.evaluation_count()}. '
+                    f'Checkpoint directory: {availability}. '
+                    f'Rejecting this outer candidate with penalty '
+                    f'{optimizer.INVALID_OBJECTIVE_PENALTY:g} and continuing.')
                 checkpoint_path = None
                 best_parameters = local_parameters
                 best_loss = optimizer.INVALID_OBJECTIVE_PENALTY
@@ -722,19 +825,26 @@ class SharedReplicaObjective(optimizer.Addable):
             else:
                 checkpoint_path, checkpoint_data = stored_inner
                 best_parameters = parameters.ModelParameters(checkpoint_data['parameters'])
-                if self.local_warm_start:
-                    self._local_warm_starts[replica_identifier(replica)] = copy_parameters(
-                        best_parameters)
                 best_loss = local_objective._call(best_parameters, transformed=False)
                 local_r2 = local_objective.last_R2()
                 mse_residual, mse_total = local_objective.last_weighted_mse()
-            if mse_residual is None or mse_total is None:
+            failed_inner = is_failed_inner_loss(best_loss)
+            if failed_inner:
+                failed_inner_runs += 1
                 metrics_available = False
             else:
-                residual_total += mse_residual
-                variance_total += mse_total
-            loss_contributions.append(best_loss)
-            #total_loss += best_loss
+                if self.local_warm_start:
+                    self._local_warm_starts[replica_identifier(replica)] = copy_parameters(
+                        best_parameters)
+                if mse_residual is None or mse_total is None:
+                    metrics_available = False
+                else:
+                    residual_total += mse_residual
+                    variance_total += mse_total
+                # Failed runs are deliberately excluded: a rare integration
+                # timeout must not erase CMA-ES's ordering among otherwise
+                # useful outer candidates.
+                loss_contributions.append(best_loss)
             results.append({
                 'replica': replica_identifier(replica),
                 'sample': str(replica.sample.sample_name),
@@ -745,6 +855,7 @@ class SharedReplicaObjective(optimizer.Addable):
                 'r2_threshold_reached': threshold_reached,
                 'loss_threshold_reached': loss_threshold_reached,
                 'interrupted': interrupted,
+                'failed': failed_inner,
                 'checkpoint': checkpoint_path,
                 'parameters': {
                     parameter.name: parameter.value
@@ -755,8 +866,13 @@ class SharedReplicaObjective(optimizer.Addable):
             if show_live_local_progress:
                 print()
             r2_text = format_local_r2(local_r2)
+            penalty_text = (f', penalties {local_objective.penalty_count()}/'
+                            f'{local_objective.evaluation_count()}')
             print(f'   {replica}: local best loss: {best_loss:8.3g}, '
-                  f'best R2 = {r2_text}')
+                  f'best R2 = {r2_text}' + penalty_text)
+            if failed_inner:
+                print(f'   failed inner runs: {failed_inner_runs}/'
+                      f'{self.max_failed_inner_runs} allowed; excluded from total loss')
             if loss_threshold_reached:
                 # This candidate has explicitly failed the local loss guard.
                 # Its partial sum cannot stand in for the omitted replicas:
@@ -768,10 +884,24 @@ class SharedReplicaObjective(optimizer.Addable):
                 self._aborted_by_loss_guard = True
                 print('   local loss guard reached; rejecting this outer candidate')
                 return optimizer.INVALID_OBJECTIVE_PENALTY
+            if failed_inner_runs > self.max_failed_inner_runs:
+                remaining = len(self.replicas) - len(results)
+                self._last_results = results
+                self._last_weighted_mse = (None, None)
+                self._failed_inner_runs = failed_inner_runs
+                print(
+                    f'   FAILED INNER-RUN LIMIT EXCEEDED: {failed_inner_runs} '
+                    f'> {self.max_failed_inner_runs}; skipping {remaining} '
+                    f'remaining replica(s) and rejecting this outer candidate.')
+                return optimizer.INVALID_OBJECTIVE_PENALTY
 
         self._last_results = results
+        self._failed_inner_runs = failed_inner_runs
         self._last_weighted_mse = ((residual_total, variance_total)
                                    if metrics_available else (None, None))
+        if not loss_contributions:
+            print('   No successful inner runs; rejecting this outer candidate.')
+            return optimizer.INVALID_OBJECTIVE_PENALTY
         total_loss = np.mean(loss_contributions)
         return total_loss
 
@@ -784,7 +914,9 @@ class SharedReplicaObjective(optimizer.Addable):
 
     def checkpoint_metadata(self):
         return {'replicas': self._last_results,
-                'aborted_by_local_loss_guard': self._aborted_by_loss_guard}
+                'aborted_by_local_loss_guard': self._aborted_by_loss_guard,
+                'failed_inner_runs': self._failed_inner_runs,
+                'max_failed_inner_runs': self.max_failed_inner_runs}
 
 
 def fit(replicas, shared_parameters, shared_names, local_template,
@@ -795,7 +927,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_best=None, checkpoint_source=None, store_checkpoints=True,
         checkpoint_target=None, prepared_local_parameters=None,
         local_r2_threshold=None, local_loss_threshold=None, resume=True,
-        local_warm_start=True):
+        local_warm_start=True, max_failed_inner_runs=5):
     """Run the nested shared/local fit and return its outer objective."""
     if objective is None:
         objective = objective_config()
@@ -809,13 +941,16 @@ def fit(replicas, shared_parameters, shared_names, local_template,
     local_workers = local_algorithm.get('workers', 1)
     if (not isinstance(local_workers, (int, np.integer)) or local_workers == 0
             or local_workers < -1):
-        raise ValueError('Inner DE workers must be 1, -1, or a positive integer.')
+        raise ValueError('Inner optimizer workers must be 1, -1, or a positive integer.')
     outer_algorithm['workers'] = 1
     local_algorithm['workers'] = local_workers
     # A nested run can otherwise inherit SciPy's very large generation
     # default for every replica and every outer candidate.
     if local_algorithm.get('max_evaluations') is None:
         local_algorithm['max_evaluations'] = 3000
+    if (not isinstance(max_failed_inner_runs, (int, np.integer))
+            or max_failed_inner_runs < 0):
+        raise ValueError('max_failed_inner_runs must be a non-negative integer.')
 
     model_id = hashing.build_model_id(
         build_parameter_template(pathways, normalized_parameters).get_config(only_structure=True))
@@ -830,7 +965,8 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         checkpoint_source=checkpoint_source,
         prepared_local_parameters=prepared_local_parameters,
         local_r2_threshold=local_r2_threshold,
-        local_loss_threshold=local_loss_threshold, resume=resume,
+        local_loss_threshold=local_loss_threshold,
+        max_failed_inner_runs=max_failed_inner_runs, resume=resume,
         local_warm_start=local_warm_start)
     run_config = {
         'model': build_parameter_template(pathways, normalized_parameters).get_config(
@@ -853,6 +989,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
                           'local_algo': dict(local_algorithm),
                           'local_r2_threshold': local_r2_threshold,
                           'local_loss_threshold': local_loss_threshold,
+                          'max_failed_inner_runs': max_failed_inner_runs,
                           'local_warm_start': local_warm_start},
     }
     outer_checkpoints = None
@@ -865,9 +1002,11 @@ def fit(replicas, shared_parameters, shared_names, local_template,
             checkpoint_target = os.path.join(
                 checkpoint.CP_ROOT, 'joint_multi', hashing.build_run_id(run_config))
         outer_checkpoints = checkpoint.CheckpointCallback(
-            run_config, target=checkpoint_target)
+            run_config, target=checkpoint_target, overwrite_existing=not resume)
         outer_cma_state = checkpoint.CMAStateCheckpoint(
             run_config, target=checkpoint_target)
+        if not resume:
+            outer_cma_state.clear()
         outer_objective.add_callback(outer_checkpoints)
         if resume:
             existing_outer = outer_checkpoints.load_best_existing_checkpoint()
@@ -892,7 +1031,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
 
     outer_optimizer = optimizer.get(outer_algorithm_name)
     outer_optimizer.configure(outer_algorithm)
-    if outer_algorithm_name == 'cma_es' and outer_cma_state is not None:
+    if resume and outer_algorithm_name == 'cma_es' and outer_cma_state is not None:
         outer_optimizer.set_state_checkpoint(outer_cma_state)
     try:
         outer_optimizer.minimize(outer_objective, shared_parameters)
@@ -959,13 +1098,17 @@ def parse_args(argv=None):
                         help=('Maximum completed inner-optimiser evaluations for each '
                               'individual replica (default: 3000).'))
     parser.add_argument('--local-r2-threshold', type=float,
-                        help=('Stop an individual replica inner-DE fit once its '
+                        help=('Stop an individual replica inner-optimizer fit once its '
                               'R² reaches this value, e.g. 0.7.'))
     parser.add_argument('--local-loss-threshold', type=float,
                         help=('Abort an individual inner fit and reject its entire '
                               'outer candidate after an evaluated loss exceeds this value.'))
+    parser.add_argument('--max-failed-inner-runs', type=int, default=5,
+                        help=('Exclude penalty-loss inner fits from the outer loss, but '
+                              'reject the outer candidate after more than this many '
+                              'failures (default: 5).'))
     parser.add_argument('--local-workers', type=int, default=1,
-                        help=('Worker processes for each inner DE; use -1 for '
+                        help=('Worker processes for each inner optimizer; use -1 for '
                               'all available cores (default: 1).'))
     parser.set_defaults(local_warm_start=True)
     parser.add_argument('--no-local-warm-start', dest='local_warm_start',
@@ -999,6 +1142,8 @@ def parse_args(argv=None):
             and (not np.isfinite(args.local_loss_threshold)
                  or args.local_loss_threshold < 0)):
         parser.error('--local-loss-threshold must be finite and non-negative.')
+    if args.max_failed_inner_runs < 0:
+        parser.error('--max-failed-inner-runs must be non-negative.')
     if args.local_workers == 0 or args.local_workers < -1:
         parser.error('--local-workers must be 1, -1, or a positive integer.')
     for name in ('outer_popsize', 'local_popsize'):
@@ -1059,7 +1204,8 @@ def run(args):
         replicas, pathways, args.omit, shared_names, shared_parameters,
         prepared_local_parameters, args.fixed, objective_config(), qualifying,
         args.local_best, args.local_max_evaluations, args.local_r2_threshold,
-        args.local_loss_threshold, args.local_workers, args.resume,
+        args.local_loss_threshold, args.max_failed_inner_runs,
+        args.local_workers, args.resume,
         outer_algorithm_name, local_algorithm_name,
         args.local_warm_start, shared_bounds_source)
     if args.dry:
@@ -1092,6 +1238,7 @@ def run(args):
         prepared_local_parameters=prepared_local_parameters,
         local_r2_threshold=args.local_r2_threshold,
         local_loss_threshold=args.local_loss_threshold, resume=args.resume,
+        max_failed_inner_runs=args.max_failed_inner_runs,
         outer_algorithm_name=outer_algorithm_name,
         local_algorithm_name=local_algorithm_name,
         local_warm_start=args.local_warm_start)

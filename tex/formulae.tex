@@ -7,25 +7,31 @@
 \makeglossaries
 \newglossaryentry{chemical_species}{%
   name={\ensuremath{S_i}},
-  description={chemical species},
+  description={chemical/microbe species},
   type=symbols,
   sort=2-Si
 }
+\newglossaryentry{time}{%
+  name={\ensuremath{t}},
+  description={time},
+  type=symbols,
+  sort=2-t
+}
 \newglossaryentry{v}{%
-  name={\ensuremath{i}},
+  name={\ensuremath{v}},
   description={turnover rate},
   type=symbols,
   sort=2-v
 }
 \newglossaryentry{M}{%
   name={\ensuremath{M}},
-  description={biomass},
+  description={microbe biomass},
   type=symbols,
   sort=2-M
 }
 \newglossaryentry{species_index}{%
   name={\ensuremath{i}},
-  description={index over chemical species},
+  description={index over chemical/microbe species},
   type=symbols,
   sort=2-i
 }
@@ -36,6 +42,36 @@
   sort=2-j
 }
 
+\newglossaryentry{stoichiometry}{%
+  name={\ensuremath{\gamma}},
+  description={stoichiometric coefficient},
+  type=symbols,
+  sort=1-c
+}
+\newglossaryentry{death_rate}{%
+  name={\ensuremath{\delta}},
+  description={death rate},
+  type=symbols,
+  sort=1-d
+}
+\newglossaryentry{number_of_pathways}{%
+  name={\ensuremath{N_P}},
+  description={number of pathways},
+  type=symbols,
+  sort=2-NP
+}
+\newglossaryentry{system_size}{%
+  name={\ensuremath{N_S}},
+  description={system size, number of substance/microbe pools},
+  type=symbols,
+  sort=2-NS
+}
+\newglossaryentry{v_max}{%
+  name={\ensuremath{v_{\mathrm{max}}}},
+  description={maximum pathway turnover velocity},
+  type=symbols,
+  sort=2-vmax
+}
 \begin{document}
 
 \glsaddallunused
@@ -47,33 +83,121 @@
                nogroupskip,%
                nonumberlist]
 
+\newcommand{\Sdis}{S^{\mathrm{dis}}}
+\newcommand{\cuej}{\mathrm{CUE}_j}%{\eta_{C,j}}
 
 \section{Methods}
 
 \subsection{Model}
 
-
+The system is described by $N_S$ pools, representing chemical species and microbe groups changing over time.
+The amount of the $i$-th substance (chemical or microbial species) that is present in the system at time $t$ is 
 \begin{equation}
-\frac{\mathrm{d}S_i}{\mathrm{d}t} = \sum_{j=1}^{N_P} M_j \left(v_j \cdot \gamma_{ij} - \delta\right)
+S_i = S_i(t).
 \end{equation}
 
+The model takes into account $N_P$ pathways, each characterized by a reaction equation and associated with a group of microbes.
+The $j$-th pathway's driver are the microbes, whose current amount of biomass at time $t$ is given by
 \begin{equation}
-v_j = v_{\mathrm{max},j} \cdot f_{\mathrm{MM},j} \cdot f_{\mathrm{thermo},j}\cdot f_{\mathrm{inhib},j}
+M_j(t) = S_{I^M_j}(t), 
+\end{equation}
+where $I^M_j$ indexes the corresponding microbe pool.
+
+Each pathway is characterized by a reaction equation, whose stoichiometric coefficients for the $i$-th substance are given by $\gamma_{ij}$.
+
+
+
+Microbe growth is modeled via the carbon-use-efficiency $\cuej$, indicating the fraction of carbon turnover which goes into microbe growth.
+
+% microbes have a source of C
+% => what units is biomass in? (mg/g dw or micromol/g dw)
+
+The microbes' metabolism is composed of an anabolistic and a catabolistic fraction.
+The reaction equation describes the catabolism. 
+In addition, the microbes use a carbon source for the anabolism, resulting in biomass growth.
+Hence, the carbon turnover of the total metabolism is composed of the stoichiometric coefficient for the respective carbon source and additional terms describing the anabolism.
+
+The carbon use efficiency $\cuej$ indicates the anabolistic fraction with respect to the total metabolism, i.e.
+\begin{equation}
+\cuej = \frac{\alpha_j}{\alpha_j + \gamma_{I^M_j,j}}.
+\end{equation}
+Rearranging yields the effective stoichiometric contribution of the anabolism for the $j$-th pathway
+\begin{equation}
+\alpha_{j} = \gamma_{I^M_j,j} \frac{\cuej}{1 - \cuej}.
+\end{equation}
+This term describes the reduction of substance used as carbon source for the anabolism by the $j$-th pathway's microbes.
+Furthermore,
+\begin{equation}
+\mu_{M_j,j} = \alpha_{j} N_{C,j} m_{C_j}
+\end{equation}
+models the resulting increase in biomass.
+% TODO: \alpha_{C_j,j} is \alpha_j for correct pathway, and zero otherwise
+
+Hence, the effective stoichiometry of the $j$-th pathway taking microbial growth into account is given by
+\begin{equation}
+\rho_{ij} = \gamma_{ij}  - \alpha_{C_j, j} + \mu_{M_j,j},
+\end{equation}
+where $\gamma_{ij}$ is the stoichiometric coefficient of the $i$-th substance in the reaction equation.
+
+
+
+
+
+
+
+The anabolism is described via
+\begin{equation}
+\alpha_{M_j,j} = \gamma_{C_j,j} \frac{\cuej}{1 - \cuej}% N_{C,j} m_{C} - 
+\end{equation}
+
+The two other terms take into account microbial growth and the associated reduction of the substance used as source by the microbes.
+
+
+% a = g * CUE/(1-CUE)
+% a (1-CUE) = g * CUE
+% a = (g + a) * CUE
+% CUE = a /(g+a)
+% => CUE is the fraction of anabolism in the total metabolism (g + a)
+
+
+% TODO: death rate only applies to microbe pool!
+The change of each substance at time $t$ is described by
+\begin{equation}
+\frac{\mathrm{d}S_i}{\mathrm{d}t} = \sum_{j=1}^{N_P} M_j \left(v_j \cdot \rho_{ij} - \delta_{ij}\right),
+\end{equation}
+taking into account contributions from the $N_{\mathrm{pwy}}$ pathways, where the time-dependency is omitted for the sake of clarity.
+In order to model microbe death, the constant 
+\begin{equation}
+\delta_{ij} = \begin{cases} \delta & \mathrm{if}\ i = I^M_j\\
+                        0 & \mathrm{otherwise},
+            \end{cases}
+\end{equation}
+thus reducing all biomass with a constant rate.
+
+\begin{equation}
+\rho_{ij} = \gamma_{ij} + \alpha_{ij}
 \end{equation}
 
 
+The $j$-th pathway's turnover rate is governed by the velocity
+\begin{equation}
+v_j = v_{\mathrm{max},j} \cdot f_{\mathrm{MM},j} \cdot f_{\mathrm{thermo},j}\cdot f_{\mathrm{inhib},j},
+\end{equation}
+with the constant maximum turnover rate $v_{\mathrm{max}}$ and the time-dependent dimensionless factors $f_k$ with values between $0$ and $1$, summarizing the effects of kinetics (Michaelis-Menten and inhibition) and thermodynamics at time $t$.
+
+The forward and inverse kinetics are modelled by the factors
 \begin{equation}
 f_{\mathrm{MM},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{m,ij}}
 \end{equation}
-
+and 
 \begin{equation}
-f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{inhib,ij}}
+f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{\mathrm{inhib},ij}},
 \end{equation}
+where $K_{m,ij}$ and $K_{\mathrm{inhib}, ij}$ are the half-saturation coefficients with respect to the $i$-th substance in the $j$-th pathway.
 
 If the $i$-th pool is irrelevant for the $j$-th pathway, $K_{m,ij} = 0$.
 Numerics: Add $\varepsilon = 10^{-12}$ in the denominator, to avoid division by zero.
 
-\newcommand{\Sdis}{S^{\mathrm{dis}}}
 
 \begin{equation}
  H_{cc,i} = H_{cp}^{\circ} \cdot R\cdot T \cdot e^{C_{cp} \cdot \left(\frac{1}{T} - \frac{1}{T^{\circ}}\right)}
@@ -109,5 +233,11 @@ f_{\mathrm{thermo},j} = 1 - e^{\frac{\min(0, \Delta G_{r,j} - \Delta G_{r,\min})
 \end{equation}
 
 $\Delta G_{r,\min} = -26 \cdot 10^3 \_ \frac{\mathrm{kJ}}{\mathrm{mol}}$
+
+
+In order to avoid negative pools, 
+\begin{equation}
+S_i = \max(0, S_i)
+\end{equation}
 
 \end{document}

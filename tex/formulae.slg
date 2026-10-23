@@ -1,7 +1,7 @@
 This is makeindex, version 2.17 [TeX Live 2025] (kpathsea + Thai support).
 Scanning style file ./formulae.ist...........................done (27 attributes redefined, 0 ignored).
-Scanning input file formulae.slo....done (5 entries accepted, 0 rejected).
-Sorting entries....done (15 comparisons).
-Generating output file formulae.sls....done (14 lines written, 0 warnings).
+Scanning input file formulae.slo....done (11 entries accepted, 0 rejected).
+Sorting entries....done (39 comparisons).
+Generating output file formulae.sls....done (26 lines written, 0 warnings).
 Output written in formulae.sls.
 Transcript written in formulae.slg.

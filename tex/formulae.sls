@@ -1,7 +1,15 @@
 \glossarysection[\glossarytoctitle]{\glossarytitle}\glossarypreamble
 \begin{theglossary}\glossaryheader
 \glsgroupheading{glssymbols}\relax \glsresetentrylist %
+\glossentry{stoichiometry}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
+\glossentry{death_rate}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
 \glossentry{M}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
+\glossentry{number_of_pathways}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
+\glossentry{system_size}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsignore{1}}}%
 \glossentry{chemical_species}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsignore{1}}}%
@@ -9,6 +17,10 @@
 		\setentrycounter[]{page}\glsignore{1}}}%
 \glossentry{pathway_index}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsignore{1}}}%
+\glossentry{time}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
 \glossentry{v}{\glossaryentrynumbers{\relax 
+		\setentrycounter[]{page}\glsignore{1}}}%
+\glossentry{v_max}{\glossaryentrynumbers{\relax 
 		\setentrycounter[]{page}\glsignore{1}}}%
 \end{theglossary}\glossarypostamble

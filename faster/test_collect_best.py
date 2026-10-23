@@ -1,4 +1,8 @@
+import json
+import os
+import tempfile
 import unittest
+from unittest import mock
 
 import checkpoint_report as plot_best
 import matplotlib.pyplot as plt
@@ -70,6 +74,22 @@ class CheckpointFilterTest(unittest.TestCase):
         self.assertEqual(selected, [matching])
 
 
+class CheckpointCollectionTest(unittest.TestCase):
+    def test_ignores_generated_report_artifacts(self):
+        """Only generated checkpoint filenames are candidates for loading."""
+        with tempfile.TemporaryDirectory() as directory:
+            for filename in ('parameter_influence.png', 'sensitivity.csv'):
+                with open(os.path.join(directory, filename), 'w') as handle:
+                    handle.write('not a checkpoint')
+            with open(os.path.join(directory, 'metadata.json'), 'w') as handle:
+                json.dump({}, handle)
+
+            with mock.patch.object(parameters, 'load_parameter_file') as load:
+                self.assertEqual(plot_best.collect_all(directory), [])
+
+            load.assert_not_called()
+
+
 class BestCheckpointTest(unittest.TestCase):
     def test_loss_id_does_not_create_a_second_best_fit(self):
         class Checkpoint:
@@ -138,6 +158,28 @@ class Fe3AcetoDiagnosticsTest(unittest.TestCase):
         self.assertLessEqual(acetate_axis.get_position().x1, .76)
         self.assertEqual(figures['Fe3_Aceto_deltaG_r'][1].lines[-1].get_linestyle(), '--')
         self.assertEqual(figures['Fe3_Aceto_MM'][1].get_ylim(), (0.0, 1.0))
+        self.assertIn('mg', figures['Fe3_Aceto_microbes'][1].get_ylabel())
+
+    def test_combined_delta_g_plots_include_all_and_hydro_homo_pathways(self):
+        run_log = {
+            f'{pathway}_deltaG_r': ([0, 1], [-20, -21])
+            for pathway in plot_best.PATHWAY_PLOT_ORDER
+        }
+
+        figures = dict(plot_best.pathway_delta_g_figures(
+            None, run_log, suptitle='test'))
+
+        self.assertEqual(set(figures), {
+            'All_pathways_deltaG_r', 'Hydro_Homo_deltaG_r',
+        })
+        all_axis = figures['All_pathways_deltaG_r'][1]
+        self.assertEqual(len(all_axis.lines), len(plot_best.PATHWAY_PLOT_ORDER) + 1)
+        self.assertEqual(
+            [line.get_label() for line in all_axis.lines[:-1]],
+            [rf'$\mathrm{{{pathway}\ pathway}}$'
+             for pathway in plot_best.PATHWAY_PLOT_ORDER])
+        hydro_homo_axis = figures['Hydro_Homo_deltaG_r'][1]
+        self.assertEqual(len(hydro_homo_axis.lines), 3)
 
 
 class PathwayQuantityPlotTest(unittest.TestCase):
@@ -174,7 +216,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertEqual(axis.get_title(), 'Hydro pathway capacity (M_Hydro)')
         ylabel = axis.get_ylabel().replace('\\', '')
         self.assertIn('pathway capacity', ylabel)
-        self.assertIn('dry', ylabel)
+        self.assertIn('mg/g dry weight', ylabel)
         self.assertTrue(any('$v_{\\max} = 1$ (constant)' in text.get_text()
                             for text in axis.texts))
 
@@ -200,6 +242,15 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         run_log._parameters['Hydro_v_max'].variable(1., (.5, 1.5))
         self.assertFalse(
             plot_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
+
+    def test_microbe_pool_uses_mass_biomass_units(self):
+        _, axis = plot_best.plot_quantity(
+            'M_Hydro', [0, 1], [.2, .8], None, suptitle='test')
+
+        ylabel = axis.get_ylabel().replace('\\', '')
+        self.assertIn('microbial biomass', ylabel)
+        self.assertIn('mg/g dry weight', ylabel)
+        self.assertNotIn('μmol', ylabel)
 
     def test_dissolved_h2_follows_total_h2_in_pool_plot_order(self):
         class PathwayModel:

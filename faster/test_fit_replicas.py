@@ -119,6 +119,46 @@ class SetupSummaryTest(unittest.TestCase):
 
 
 class LocalR2ThresholdTest(unittest.TestCase):
+    def test_refuses_an_in_memory_inner_candidate_without_a_readable_file(self):
+        class Parameters:
+            def get_values(self):
+                return {'rate': 0.25}
+
+        class Model:
+            def parameters(self):
+                return Parameters()
+
+        class Objective:
+            def __init__(self):
+                self.replayed = []
+
+            def best_call(self):
+                return ('best-candidate', {}, 0.125)
+
+            def model(self):
+                return Model()
+
+            def _call(self, *args, **kwargs):
+                self.replayed.append((args, kwargs))
+
+            def __call__(self, *args, **kwargs):
+                self.replayed.append((args, kwargs))
+                return 0.125
+
+        class UnavailableCheckpoints:
+            def load_best_existing_checkpoint(self):
+                return None
+
+        recovered, reason = fit_replicas.checkpoint_final_inner_candidate(
+            UnavailableCheckpoints(), Objective())
+
+        self.assertIsNone(recovered)
+        self.assertIn('replayed the best recorded candidate', reason)
+
+    def test_reports_the_selected_algorithm_name(self):
+        self.assertEqual(fit_replicas.algorithm_label('cma_es'), 'CMA-ES')
+        self.assertEqual(fit_replicas.algorithm_label('differential_evolution'), 'DE')
+
     def test_formats_low_final_r2_in_red(self):
         self.assertEqual(
             fit_replicas.format_local_r2(0.79),
@@ -154,6 +194,18 @@ class LocalR2ThresholdTest(unittest.TestCase):
             '--shared', 'Hydro_v_max', '--local-loss-threshold', '0.5'])
 
         self.assertEqual(args.local_loss_threshold, 0.5)
+
+    def test_parser_accepts_maximum_failed_inner_runs(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--max-failed-inner-runs', '2'])
+
+        self.assertEqual(args.max_failed_inner_runs, 2)
+
+    def test_penalty_loss_is_not_a_usable_inner_result(self):
+        self.assertTrue(fit_replicas.is_failed_inner_loss(
+            fit_replicas.optimizer.INVALID_OBJECTIVE_PENALTY))
+        self.assertTrue(fit_replicas.is_failed_inner_loss(float('nan')))
+        self.assertFalse(fit_replicas.is_failed_inner_loss(0.25))
 
     def test_interrupt_confirmation_continues_by_default_and_can_abort(self):
         self.assertTrue(fit_replicas.confirm_continue_after_inner_interrupt(
@@ -191,6 +243,39 @@ class LocalR2ThresholdTest(unittest.TestCase):
         self.assertEqual(args.outer_cma_sigma, 0.2)
         self.assertEqual(args.local_popsize, 12)
         self.assertTrue(args.local_warm_start)
+
+
+class InnerCheckpointRecoveryTest(unittest.TestCase):
+    def test_replays_selected_cma_candidate_when_no_checkpoint_was_written(self):
+        stored = ('candidate.json', {'parameters': {'rate': 0.5}})
+
+        class Checkpoints:
+            def __init__(self):
+                self.value = None
+
+            def load_best_existing_checkpoint(self):
+                return self.value
+
+        class Objective:
+            def __init__(self, checkpoints):
+                self.checkpoints = checkpoints
+                self.calls = []
+
+            def model(self):
+                return type('Model', (), {'parameters': lambda _: 'selected'})()
+
+            def __call__(self, parameters, transformed):
+                self.calls.append((parameters, transformed))
+                self.checkpoints.value = stored
+
+        checkpoints = Checkpoints()
+        objective = Objective(checkpoints)
+
+        recovered, reason = fit_replicas.checkpoint_final_inner_candidate(
+            checkpoints, objective)
+        self.assertEqual(recovered, stored)
+        self.assertIn('selected model parameters', reason)
+        self.assertEqual(objective.calls, [('selected', False)])
 
 
 if __name__ == '__main__':

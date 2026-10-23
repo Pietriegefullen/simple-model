@@ -16,12 +16,13 @@ matplotlib.rcParams['text.usetex'] = False
 
 class Checkpoint:
     def __init__(self, identifier, *, model='model-X', replica='1351-4',
-                 fit='split', loss='loss-X'):
+                 fit='split', loss='loss-X', total_loss=.123456):
         self.id = identifier
         self.model_id = model
         self.replica_name = replica
         self.fit_mode = fit
         self.loss_id = loss
+        self.loss = total_loss
 
 
 class ComparisonLabelTest(unittest.TestCase):
@@ -54,7 +55,7 @@ class CommandLineTest(unittest.TestCase):
 
         self.assertEqual(plot_checkpoint.default_output_directory([result]),
                          plot_checkpoint.Path(PLOT_DIRECTORY) / 'checkpoint' /
-                         'split' / '1351-4' / 'ABCD')
+                         'split' / '1351-4' / 'cp-ABCD_loss-0.123456')
 
     def test_comparison_default_keeps_the_requested_checkpoint_order(self):
         first = plot_checkpoint.CheckpointPlot(
@@ -65,7 +66,7 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual(plot_checkpoint.default_output_directory([first, second]),
                          plot_checkpoint.Path(PLOT_DIRECTORY) /
                          'checkpoint-comparison' / 'split' / '1351-4' /
-                         'ABCD__EFGH')
+                         'cp-ABCD_loss-0.123456__cp-EFGH_loss-0.123456')
 
     def test_explicit_output_directory_overrides_the_default(self):
         args = plot_checkpoint.parse_args(['ABCD', '--output-dir', 'chosen'])
@@ -87,7 +88,8 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual(plot_checkpoint.default_output_directory(
                              [result, replay], args.comparisons),
                          plot_checkpoint.Path(PLOT_DIRECTORY) /
-                         'checkpoint-comparison' / 'split' / '1351-4' / 'ABCD__D')
+                         'checkpoint-comparison' / 'split' / '1351-4' /
+                         'cp-ABCD_loss-0.123456__D')
 
     def test_compare_requires_complete_parameter_value_pairs(self):
         with self.assertRaises(ValueError):

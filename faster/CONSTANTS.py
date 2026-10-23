@@ -1,5 +1,4 @@
 
-
 MOLAR_MASS_C = 12.011*1e-3  # mg/micromol, molar mass of carbon
 MOLAR_MASS_C_g_mol = MOLAR_MASS_C*1e3
 MOLAR_MASS_GLUCOSE = 180    # g/mol

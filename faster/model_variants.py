@@ -18,6 +18,11 @@ MODEL_ID_TO_VARIANT = {
     'LDHK': 'B',
     '6V72': 'E', # carbon use efficiency constant at 0.5 for all pathways.
     'O26L': 'F', # like E CUE = 0.5 for all AND all _v_max = 1.0
+
+    # model version 0.3
+    '3T3P': 'A', # v_max variable
+    '3CXX': 'A', # v_max == 1
+
 }
 
 

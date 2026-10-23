@@ -1,5 +1,11 @@
 \glossaryentry{2-Si?\glossentry{chemical_species}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{2-t?\glossentry{time}|setentrycounter[]{page}"\glsignore}{1}
 \glossaryentry{2-v?\glossentry{v}|setentrycounter[]{page}"\glsignore}{1}
 \glossaryentry{2-M?\glossentry{M}|setentrycounter[]{page}"\glsignore}{1}
 \glossaryentry{2-i?\glossentry{species_index}|setentrycounter[]{page}"\glsignore}{1}
 \glossaryentry{2-j?\glossentry{pathway_index}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{1-c?\glossentry{stoichiometry}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{1-d?\glossentry{death_rate}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{2-NP?\glossentry{number_of_pathways}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{2-NS?\glossentry{system_size}|setentrycounter[]{page}"\glsignore}{1}
+\glossaryentry{2-vmax?\glossentry{v_max}|setentrycounter[]{page}"\glsignore}{1}

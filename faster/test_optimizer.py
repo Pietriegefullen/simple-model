@@ -354,7 +354,7 @@ class NonFiniteLossTest(unittest.TestCase):
 
         output = io.StringIO()
         with redirect_stdout(output):
-            value = objective._call([], transformed=False)
+            value = objective([], transformed=False)
 
         self.assertEqual(value, optimizer.INVALID_OBJECTIVE_PENALTY)
         self.assertIsNone(objective.last_R2())
@@ -368,6 +368,19 @@ class NonFiniteLossTest(unittest.TestCase):
 
         self.assertEqual(value, optimizer.INVALID_OBJECTIVE_PENALTY)
         self.assertIsNone(objective.last_R2())
+
+    def test_penalty_warning_output_can_be_suppressed_and_counted(self):
+        objective = optimizer.Objective(_FailedIntegrationModel(), object())
+        objective.add_loss(_InvalidLoss(), 1.0)
+        objective.set_penalty_warning_output(False)
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            value = objective([], transformed=False)
+
+        self.assertEqual(value, optimizer.INVALID_OBJECTIVE_PENALTY)
+        self.assertEqual(objective.penalty_count(), 1)
+        self.assertEqual(output.getvalue(), '')
 
 
 if __name__ == '__main__':

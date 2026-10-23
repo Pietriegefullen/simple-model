@@ -156,6 +156,52 @@ python faster/analyze_checkpoint_basins.py --sample 1366 --replica 6 \
   --fit-mode split --run-name 1366-6-existing
 ```
 
+## Local sensitivity around one fitted checkpoint
+
+`faster/sensitivity.py` performs a one-at-a-time, two-sided local sensitivity
+analysis around the values in a saved checkpoint. It estimates each centred
+finite-difference derivative, `dQ/dp ≈ (Q(p+h)-Q(p-h))/(2h)`, using a default
+step of `h = 1e-4 × |p|`, without altering the checkpoint. The influence plot
+shows this derivative by default. The CSV also reports the dimensionless
+elasticity `d ln(Q)/d ln(p)`; use `--plot elasticity` when comparing effects
+across parameters with unlike units. By default it measures the final modelled
+CO2; any logged model quantity—or an expression such as `CO2 + CH4` or
+`CO2 / CH4`—can be used, reduced to its final value, maximum, or time
+integral.
+
+```sh
+python faster/sensitivity.py KRQY --quantity CO2 --stat final
+python faster/sensitivity.py KRQY --quantity CH4 --stat integral --fraction 0.05
+python faster/sensitivity.py KRQY --target 'CO2 + CH4' --stat final
+python faster/sensitivity.py KRQY --target 'CO2 / CH4' --stat final
+python faster/sensitivity.py KRQY --parameters '*_v_max' 'M_*'
+python faster/sensitivity.py KRQY --plot elasticity
+```
+
+For a nested joint checkpoint, select the replica whose local solution should
+be combined with the checkpoint's shared solution. `--scope shared` and
+`--scope local` then test only the corresponding class of parameters.
+
+```sh
+python faster/sensitivity.py JOINT --replica 1351 5 --scope shared
+```
+
+Results are written by default under
+`results/sensitivity/<sample>-<replica>/cp-<checkpoint>_<quantity>_<stat>/`.
+Each run contains `metadata.json` (source checkpoint, replica, settings, and
+parameter roles), `sensitivity.csv` (the baseline and both perturbation
+outcomes), and `parameter_influence.png` (the per-parameter response plot).
+Derivative plots use a signed logarithmic (`symlog`) horizontal axis, which
+keeps positive and negative central differences while making small and large
+magnitudes visible together. Recreate a plot without rerunning any model
+simulations with:
+
+```sh
+python faster/replot_sensitivity.py results/sensitivity/1352-5/cp-ABCD_CO2_final
+python faster/replot_sensitivity.py results/sensitivity/1352-5/cp-ABCD_CO2_final \
+  --plot elasticity --output parameter_elasticity.png
+```
+
 ## Parameter distributions for successful single fits
 
 `faster/plot_single_parameter_distributions.py` retains the best (lowest-loss)

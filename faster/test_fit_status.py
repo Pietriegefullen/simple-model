@@ -1,4 +1,7 @@
+import sys
 import unittest
+from pathlib import Path
+from unittest import mock
 
 import fit_status
 
@@ -96,6 +99,44 @@ class FitStatusTest(unittest.TestCase):
         self.assertIn('1000', report)
         self.assertNotIn('2000', report)
         self.assertIn('coverage: 1/2 fitted', report)
+
+    def test_best_results_filters_on_a_partial_model_id(self):
+        checkpoint = {
+            'parameters': {},
+            'total_loss': 0.1,
+            'run_config': {
+                'model': {'name': 'matching'},
+                'chosen': {
+                    'sample': '1000', 'validation_replica': '4',
+                    'fit_mode': 'single'},
+                'objective': self.objective,
+            },
+        }
+        excluded = {
+            **checkpoint,
+            'run_config': {**checkpoint['run_config'], 'model': {'name': 'other'}},
+        }
+        with mock.patch.object(
+                fit_status, 'checkpoint_files',
+                return_value=[(Path('matching.json'), checkpoint),
+                              (Path('other.json'), excluded)]), \
+                mock.patch.object(fit_status.hashing, 'build_model_id', side_effect=[
+                    'model-3NWE-JDSY', 'model-FA75-GSEM']), \
+                mock.patch.object(fit_status, 'observed_variance', return_value=1.0):
+            results, errors = fit_status.best_results(
+                'unused', self.dataset, model_ids=['3NWE'])
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, Path('matching.json'))
+
+    def test_model_id_option_replaces_variant_option(self):
+        with mock.patch.object(sys, 'argv', [
+                'fit_status.py', '--model-id', '3NWE', '--model-id', 'JDSY']):
+            args = fit_status.parse_args()
+
+        self.assertEqual(args.model_ids, ['3NWE', 'JDSY'])
+        self.assertFalse(hasattr(args, 'variants'))
 
 
 if __name__ == '__main__':

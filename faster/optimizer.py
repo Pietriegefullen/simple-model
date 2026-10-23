@@ -284,6 +284,9 @@ class Addable():
         self._best_local_r2 = None
         self._generation = None
 
+    def _record_evaluation_result(self, value):
+        """Allow leaf objectives to account for completed evaluations."""
+
     def loss_contributions(self):
         return self._left.loss_contributions() + self._right.loss_contributions()
         
@@ -374,6 +377,7 @@ class Addable():
             with self._global_call_lock:
                 self._global_call_counter.value += 1
         value = self._call(args, **kwargs)
+        self._record_evaluation_result(value)
         self._call_log.append((args, kwargs, value))
         last_r2 = self.last_R2()
         if self._best_local_loss is None or value < self._best_local_loss:
@@ -456,6 +460,34 @@ class Objective(Addable):
         
         self._loss_contributions = []
         self._last_weighted_mse = None
+        self._penalty_count = 0
+        self._penalty_counter = None
+        self._last_evaluation_was_penalized = False
+        self._suppress_penalty_warnings = False
+
+    def set_penalty_warning_output(self, enabled):
+        """Enable or suppress one warning per invalid objective evaluation."""
+        self._suppress_penalty_warnings = not enabled
+
+    def penalty_count(self):
+        """Return invalid evaluations in this objective's current fit."""
+        return (self._penalty_count if self._penalty_counter is None
+                else self._penalty_counter.value())
+
+    def evaluation_count(self):
+        """Return completed evaluations, including those in worker copies."""
+        return (self.call_count() if self._penalty_counter is None
+                else self._penalty_counter.call_count())
+
+    def set_penalty_counter(self, counter):
+        """Use a process-safe counter shared by parallel worker copies."""
+        self._penalty_counter = counter
+
+    def _record_evaluation_result(self, value):
+        if self._last_evaluation_was_penalized:
+            self._penalty_count += 1
+        if self._penalty_counter is not None:
+            self._penalty_counter.record(self._last_evaluation_was_penalized)
             
     def loss_contributions(self):
         l = self._loss_contributions
@@ -497,6 +529,7 @@ class Objective(Addable):
         
         
     def _call(self, transformed_parameters, transformed = True, t_eval = None):
+        self._last_evaluation_was_penalized = False
         if isinstance(transformed_parameters, parameters.ModelParameters):
             p_dict = transformed_parameters.as_dict()
             p_values = list(p_dict.values())
@@ -520,8 +553,10 @@ class Objective(Addable):
                     loss_value = loss_function(self._replica, run_log)
                     replica_loss += loss_weight*loss_value
         except NonFiniteLoss as error:
-            print(f'\nWARNING: Replica {self._replica}: {error}; '
-                  f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')
+            self._last_evaluation_was_penalized = True
+            if not self._suppress_penalty_warnings:
+                print(f'\nWARNING: Replica {self._replica}: {error}; '
+                      f'using penalty {INVALID_OBJECTIVE_PENALTY:g}.')
             self._last_weighted_mse = None, None
             return self._replica_weight * INVALID_OBJECTIVE_PENALTY
         except Exception as ex:

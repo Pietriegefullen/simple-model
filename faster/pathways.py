@@ -66,9 +66,15 @@ class Pathway():
             C_atoms = chemistry.C_atoms(C_source)
             C_source_stoich = [educt for educt in educts
                                if str(educt) == C_source][0]['stoichiometry']
-            CUE = microbe['CUE']
-            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + EPS)
+            CUE = microbe['CUE'] # dimensionless
+            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + EPS) # dimensionless
             microbe_growth = system.vector(0, microbe, anabolism_fraction*C_atoms*CONSTANTS.MOLAR_MASS_C)
+            # Multiplying with molar mass of C effectively
+            # converts biomass to unit mg/gram dry weight in the system vector.
+            # Strictly speaking, this is mathematically inconsistent because all non-biomass
+            # quantities in the system pools are given in micromole.
+            # But it is not wrong.
+
             C_source_reduction = system.vector(0, microbe['C_source'], anabolism_fraction)
             self.anabolism = microbe_growth - C_source_reduction
 
@@ -216,10 +222,30 @@ class Pathway():
         """
         S is the dissolved species vector
         """
-        biomass = S[self.microbe_index]
+        biomass = S[self.microbe_index] # in units mg/gdw
 
         v = self.compute_v(t, S)
-        dS_dt = biomass * v * self.pathway_vector - biomass * self.death_rate
+        dS_dt = biomass * (v * self.pathway_vector - self.death_rate)
+
+        # death rate only ever applies to microbe index,
+        # it is in 
+        # mg / (mg * day), i.e. 1/day
+
+        # M * v  must be in micromol/(gdw * day)!
+        # 
+        # biomass is in mg/gdw
+        # v is in micromol / (mg biomass * day)
+        # M*v = mg/gdw * micromol/(mg * day) = micromol/(gdw * day)
+
+        # death rate must be in 
+
+        # => death rate is in (micromol/(gdw * day))/(mg/gdw)
+        #           = micromol/(mg*day) 
+        #           => also, should include C molar mass conversion!!!
+        #           => 
+        # -> pathway vector is dimensionless
+        # => anabolism should be dimensionless but also contains the conversion
+        # from micromoles to mg, using the molar mass of C.
 
         if 'CH4' in self.products:
             ch4_prod = dS_dt[system.index('CH4')]

@@ -46,6 +46,8 @@ PATHWAY_MICROBE_POOL = {
     'Hydro': 'M_Hydro',
     'Homo': 'M_Homo',
 }
+MICROBIAL_POOLS = frozenset(PATHWAY_MICROBE_POOL.values())
+MICROBIAL_BIOMASS_UNIT = r'mg/g\ dry\ weight'
 PATHWAY_V_MAX_PARAMETER = {
     'Hydrolysis': 'Hydrolysis_v_max',
     'Fermentation': 'Ferm_v_max',
@@ -131,15 +133,21 @@ def collect_all(results_directory=RESULTS_DIRECTORY):
             if filename.startswith('.') or filename.endswith('.log') or filename.endswith('.json'):
                 continue
 
+            # Results directories also contain report artefacts (for example
+            # sensitivity.csv and parameter_influence.png).  A persisted
+            # checkpoint always has its generated ``cp-...`` identifier as a
+            # filename component, so do not attempt to parse unrelated files
+            # as parameter checkpoints.
+            checkpoint_ids = [part for part in filename.split('_')
+                              if part.startswith('cp-')]
+            if not checkpoint_ids:
+                continue
+
             file_path = os.path.join(root, filename)
             try:
                 loaded_parameters, loss, run_config = parameters.load_parameter_file(file_path)
             except Exception as error:
                 raise ValueError(f'Could not load checkpoint {file_path}') from error
-            checkpoint_ids = [part for part in filename.split('_')
-                              if part.startswith('cp-')]
-            if not checkpoint_ids:
-                raise ValueError(f'Checkpoint ID missing from {file_path}')
             if not run_config:
                 raise ValueError(f'Run configuration missing from {file_path}')
 
@@ -191,7 +199,11 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
         'loss_id': None if loss_ids is None else set(loss_ids),
     }
     selected = []
+    total = len(checkpoints)
+    count = 0
     for checkpoint in checkpoints:
+        count += 1
+        print(f'{count:6d}/{total:d}, selected {len(selected):5d}', end = '')
         sample, replica = checkpoint.replica
         # Keep this public filtering helper usable with the lightweight
         # checkpoint doubles used by callers and tests.
@@ -496,8 +508,9 @@ def pathway_reaction_rate_curves(run_log, v_max_values):
 def quantity_ylabel(name, capacity_pathway=None):
     """Return a compact, quantity-appropriate y-axis label."""
     if capacity_pathway is not None:
-        return (r'$\mathrm{pathway\ capacity\ '
-                r'[\mu mol/g\ dry\ weight/d]}$')
+        return rf'$\mathrm{{pathway\ capacity\ [{MICROBIAL_BIOMASS_UNIT}]}}$'
+    if name in MICROBIAL_POOLS:
+        return rf'$\mathrm{{microbial\ biomass\ [{MICROBIAL_BIOMASS_UNIT}]}}$'
     if name.endswith('_deltaG_r'):
         return rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$'
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
@@ -958,6 +971,42 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
     return figure, axis
 
 
+def pathway_delta_g_figures(checkpoint, run_log, *, suptitle=None,
+                            log_scale=False):
+    """Return combined ΔGᵣ plots for all active pathways and Hydro/Homo.
+
+    The Fe3/Aceto diagnostic remains intentionally separate: it is useful for
+    examining their competing acetate use.  Avoid adding a duplicate "all"
+    plot to models that only logged that same two-pathway pair.
+    """
+    keys = _run_log_keys(run_log)
+
+    def figure(pathways, name, title):
+        return (name, plot_pathway_pair(
+            checkpoint,
+            [(pathway, *run_log[f'{pathway}_deltaG_r']) for pathway in pathways],
+            title,
+            rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$',
+            suptitle=suptitle,
+            gibbs_minimum=True,
+            log_scale=log_scale))
+
+    active = tuple(pathway for pathway in PATHWAY_PLOT_ORDER
+                   if f'{pathway}_deltaG_r' in keys)
+    figures = []
+    if len(active) > 2:
+        figures.append(figure(
+            active, 'All_pathways_deltaG_r',
+            r'$\Delta G_\mathrm{r}$ (all pathways)'))
+
+    hydro_homo = ('Hydro', 'Homo')
+    if all(f'{pathway}_deltaG_r' in keys for pathway in hydro_homo):
+        figures.append(figure(
+            hydro_homo, 'Hydro_Homo_deltaG_r',
+            r'$\Delta G_\mathrm{r}$ (Hydro and Homo pathways)'))
+    return figures
+
+
 def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None, log_scale = False):
     """Return shared-axis Fe3/Aceto pathway diagnostics when both are active."""
     pathway_model, _, run_log = model_run
@@ -972,7 +1021,7 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None, log_sc
             [(pathway, *run_log[PATHWAY_MICROBE_POOL[pathway]])
              for pathway in pathways],
             r'$\mathrm{living\ microbes}$',
-            r'$\mathrm{microbial\ biomass\ [\mu mol/g\ dry\ weight]}$',
+            rf'$\mathrm{{microbial\ biomass\ [{MICROBIAL_BIOMASS_UNIT}]}}$',
             suptitle=suptitle,
             log_scale = log_scale)))
 
@@ -1143,6 +1192,7 @@ def plot_fit(checkpoint, dataset, model_run=None):
         model_run = run(checkpoint.run_config, checkpoint.parameters)
     pathway_model, objective, run_log = model_run
     sample, validation_replica, fitted_replicas = fit_replicas(checkpoint, dataset)
+    print('plot_fit', sample, validation_replica)
     validation_objective = optimizer.build_objective_function(
         pathway_model,
         validation_replica,
@@ -1152,6 +1202,7 @@ def plot_fit(checkpoint, dataset, model_run=None):
     )
     figure, axes = create_fit_figure()
     handles = plot_fit_measurements(checkpoint, dataset, axes)
+
     plot.plot_run_pools(run_log, axes)
 
     handles.append(Line2D(
@@ -1228,6 +1279,17 @@ def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
                 checkpoint, run_log, suptitle=suptitle), start=80):
         path = target(number, quantity)
         save(figure, path)
+
+    for log_scale in (False, True):
+        for number, (quantity, (figure, _)) in enumerate(
+                pathway_delta_g_figures(
+                    checkpoint, run_log, suptitle=suptitle,
+                    log_scale=log_scale), start=88):
+            if log_scale and figure.axes[0].get_yscale() != 'log':
+                plt.close(figure)
+                continue
+            path = target(number, quantity + ('_log' if log_scale else ''))
+            save(figure, path)
 
     for log_scale in (False, True):
         for number, (quantity, (figure, _)) in enumerate(

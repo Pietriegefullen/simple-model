@@ -239,7 +239,9 @@ def default_model_parameters(normalize_parameters = False):
          
          Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
          Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
-         
+        
+        # biomass in units milligrams per gram dry weight of soil???
+        #               or micromol per gram dry weight of soil???
          Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
          Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
          Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
