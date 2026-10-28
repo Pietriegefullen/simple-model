@@ -60,7 +60,8 @@ def fit_r2(checkpoint):
     # Replaying a fit reports optimiser-style progress.  The report itself
     # needs only a concise summary, so retain no per-checkpoint chatter.
     with contextlib.redirect_stdout(io.StringIO()):
-        _, objective, run_log = run(checkpoint.run_config, checkpoint.parameters)
+        _, objective, run_log = run(
+            checkpoint.run_config, checkpoint.parameters, log_prediction=True)
         return float(objective.R2(run_log))
 
 

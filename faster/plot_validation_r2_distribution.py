@@ -62,7 +62,8 @@ def variant_checkpoints(results_directory, variants, fit_mode='split'):
 
 def validation_scores(checkpoint, dataset):
     """Replay a checkpoint and return its combined and per-gas held-out R²."""
-    pathway_model, _, run_log = run(checkpoint.run_config, checkpoint.parameters)
+    pathway_model, _, run_log = run(
+        checkpoint.run_config, checkpoint.parameters, log_prediction=True)
     sample, replica = checkpoint.replica
     validation_replica = dataset[sample][replica]
     validation = optimizer.build_objective_function(

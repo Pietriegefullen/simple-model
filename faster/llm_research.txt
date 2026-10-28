@@ -1,0 +1,52 @@
+
+
+Michaelis-Menten
+================
+
+with S << Km => 1st order kinetics
+-> v grows approximately linear with S.
+
+with S >> Km => 0th order kinetics
+-> v is approximately independent of S (saturated)
+
+small Km values indicate high affinity to the substrate, 
+=> small amounts suffice to reach half velocity
+
+
+
+Hydrogenotrophic Methanogenesis
+===============================
+
+CUE is very low: 1% to 5%, i.e. 0.01 - 0.05
+K_m for H2 is low: (high affinity), around 1 to 6 micromoles
+K_m for CO2 is much higher: 400 to 1200 micromoles
+
+
+
+Fe3
+===
+
+Geobacter has CUE = 0.2 - 0.3
+
+Geobacter is highly affine to Acetate Km for acetate around 10 - 50 micromole
+Mischkinetik: measured: 0.8 micromole (up to 1000 micromole)
+
+
+
+Acetoclastic Methanogenesis
+===========================
+
+high affinity to acetate (Km = 7-20 micromoles (methanosaeta) nicht im Permafrost!?)
+                         Km = 3000 - 5000 micromoles (methanosarcina)
+
+
+Homoacetogenesis
+================
+
+Acetobacterium woodii / A. bakii  H2: Km = 0.7 - 4 micromoles 
+Sporomusa termidida   6 micromoles  
+
+affinity to CO2 is significantly lower, i.e. Km much higher. 1000 - 5000 micromoles
+
+
+

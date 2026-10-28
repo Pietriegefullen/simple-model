@@ -167,7 +167,7 @@ class Pathway():
         deltaG_rmin = chemistry.GIBBS_MINIMUM
         thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
 
-        self.log('thermodynamic_factor', t, thermodynamic_factor)
+        #self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
 
     def kinetics(self, S):
@@ -206,16 +206,16 @@ class Pathway():
         if self.use_inhib:
             f_inhib = self.kinetic_inhibition(S)
             v *= f_inhib
-            self.log('inhib', t, f_inhib)
+            #self.log('inhib', t, f_inhib)
 
         f_thermo = None
         if float(self.use_thermodynamics) == 1:
             f_thermo = self.thermodynamics(t, S)
             v *= f_thermo
-            self.log('thermodynamic_factor', t, f_thermo)
+            #self.log('thermodynamic_factor', t, f_thermo)
 
-        self.log('MM', t, f_MM)
-        self.log('v', t, v)
+        #self.log('MM', t, f_MM)
+        #self.log('v', t, v)
         return v
 
     def __call__(self, t, S): # hier rechnen wir die MM Faktoren
@@ -249,7 +249,7 @@ class Pathway():
 
         if 'CH4' in self.products:
             ch4_prod = dS_dt[system.index('CH4')]
-            self.log('CH4 from ' + self.microbe.name,t,ch4_prod)
+            #self.log('CH4 from ' + self.microbe.name,t,ch4_prod)
 
         return np.reshape(dS_dt, (-1,))
 

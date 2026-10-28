@@ -99,10 +99,14 @@ def _model_variant(checkpoint) -> str:
 
 def checkpoint_attributes(checkpoint, comparison_name=None) -> dict[str, str]:
     """Return human-readable checkpoint metadata for titles and legends."""
+    sample, separator, replica = checkpoint.replica_name.partition('-')
+    if not separator:
+        replica = checkpoint.replica_name
     return {
         'checkpoint': _checkpoint_name(checkpoint),
         'model': comparison_name or _model_variant(checkpoint),
-        'replica': checkpoint.replica_name,
+        'sample': sample,
+        'replica': replica,
         'fit': checkpoint.fit_mode,
         'loss': checkpoint.loss_id,
     }
@@ -142,7 +146,7 @@ def comparison_labels(results: Iterable[Any]) -> tuple[str, list[str]]:
     if not attributes:
         return '', []
 
-    names = ('model', 'replica', 'fit', 'loss')
+    names = ('model', 'sample', 'replica', 'fit', 'loss')
     differing = {
         name for name in names
         if len({attribute[name] for attribute in attributes}) > 1
@@ -164,7 +168,7 @@ def load_checkpoint(identifier, results_directory=RESULTS_DIRECTORY) -> Checkpoi
     """Resolve and replay one checkpoint without changing it on disk."""
     source = resolve_checkpoint(identifier, results_directory)
     _, run_config, initial_parameters, contents = replay_inputs(source)
-    model_run = run(run_config, initial_parameters)
+    model_run = run(run_config, initial_parameters, log_prediction=True)
     metadata = {'replicas': contents.get('replicas', [])} \
         if isinstance(contents, dict) else {}
     return plotted_checkpoint(
@@ -178,7 +182,8 @@ def load_checkpoints(identifiers, results_directory=RESULTS_DIRECTORY):
 
 def replay_saved_checkpoint(checkpoint) -> CheckpointPlot:
     """Evaluate one checkpoint already selected from the checkpoint catalogue."""
-    return CheckpointPlot(checkpoint, run(checkpoint.run_config, checkpoint.parameters))
+    return CheckpointPlot(checkpoint, run(
+        checkpoint.run_config, checkpoint.parameters, log_prediction=True))
 
 
 def _expanded_overrides(checkpoint, specification: ComparisonSpec) -> dict[str, Any]:
@@ -216,7 +221,7 @@ def replay_comparison(result: CheckpointPlot,
                 run_config['model'][pathway]['use_thermodynamics'] = False
     run_config['chosen'].setdefault('parameter_override', {}).update(overrides)
 
-    model_run = run(run_config, parameter_values)
+    model_run = run(run_config, parameter_values, log_prediction=True)
     return plotted_checkpoint(
         source.id, source.source, source.metadata, run_config, model_run,
         specification.name)
@@ -403,7 +408,7 @@ def _comparison_limitation_factors(results: list[CheckpointPlot]):
         Line2D([], [], color='k', linestyle='-', label='Michaelis-Menten'),
         Line2D([], [], color='k', linestyle='--', label='thermodynamic'),
         Line2D([], [], color='k', linestyle='-.', label='inhibition'),
-        Line2D([], [], color='k', linewidth=2, label='all factors'),
+        Line2D([], [], color='k', linestyle='--', linewidth=2, label='all factors'),
     ]
     for pathway, result_factors in series.items():
         figure, axes = plot.create_figure(plot.FigureSpec(
@@ -418,8 +423,8 @@ def _comparison_limitation_factors(results: list[CheckpointPlot]):
                 axis.plot(time, factor, color=colour, linestyle=style, linewidth=1.2)
                 active.append(values)
             time, total = report._factor_product(active)
-            axis.plot(time, total, color=colour, linewidth=2)
-            checkpoint_handles.append(Line2D([], [], color=colour, linewidth=2,
+            axis.plot(time, total, color=colour, linestyle='--', linewidth=2)
+            checkpoint_handles.append(Line2D([], [], color=colour, linestyle='--', linewidth=2,
                                              label=labels[index]))
         axis.axhline(1, color='0.65', linestyle=':', linewidth=1)
         axis.set_title(f'{pathway} limitation factors')
@@ -489,8 +494,8 @@ def save_single(result: CheckpointPlot, output_directory, dataset=None, *,
     figure, _ = report.plot_fit(checkpoint, dataset, model_run=model_run)
     if target is None:
         def target(number, quantity=None):
-            stem = 'fit' if quantity is None else quantity
-            return Path(output_directory) / f'{number:02d}_{stem}.png'
+            return Path(output_directory) / single_plot_filename(
+                number, checkpoint, quantity)
 
     fit_path = Path(target(0, None))
     paths = []
@@ -508,6 +513,14 @@ def save_single(result: CheckpointPlot, output_directory, dataset=None, *,
     return [*paths, *report._save_diagnostic_plots(
         checkpoint, model_run, str(output_directory), target, suptitle,
         overwrite=overwrite)]
+
+
+def single_plot_filename(number, checkpoint, quantity=None) -> str:
+    """Return a sort-friendly report filename with its sample and replica."""
+    stem = 'fit' if quantity is None else quantity
+    replica = getattr(checkpoint, 'replica', None)
+    replica_name = '-'.join(replica) if replica is not None else checkpoint.replica_name
+    return f'{number:02d}_{replica_name}_{stem}.png'
 
 
 def save_plots(results: list[CheckpointPlot], output_directory, dataset=None,

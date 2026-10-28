@@ -87,6 +87,17 @@ class MultiCheckpointCollectionTest(unittest.TestCase):
         self.assertIn('/inner/13514', contents)
         self.assertIn('FULL FIT CONFIGURATION', contents)
 
+    def test_multi_plot_filename_starts_with_figure_and_replica(self):
+        checkpoint = multi_checkpoint(1., 'cp-TEST', ['13514'])
+
+        _, filename = plot_best.multi_plot_target(
+            checkpoint, type('Replica', (), {
+                'sample': type('Sample', (), {'sample_name': '1351'})(),
+                'replica_number': '4',
+            })())
+
+        self.assertTrue(filename.startswith('00_1351-4_'))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -83,6 +83,33 @@ class SharedParameterParsingTest(unittest.TestCase):
         self.assertEqual(shared['Hydro_v_max'].lower(), 0.003)
         self.assertEqual(shared['Hydro_v_max'].upper(), 1.0)
 
+    def test_fix_default_glob_excludes_shared_parameters(self):
+        reference = parameters.ModelParameters({
+            'Hydrolysis_v_max': parameters.Parameter(
+                'Hydrolysis_v_max', 0.4, (0.1, 1.0)),
+            'Hydro_v_max': parameters.Parameter('Hydro_v_max', 0.6, (0.1, 1.0)),
+        })
+
+        fixed = fit_replicas.select_default_fixed_parameters(
+            reference, ['*_v_max'], ['Hydrolysis_v_max'])
+
+        self.assertEqual(fixed, {'Hydro_v_max': 0.6})
+
+    def test_fixed_value_glob_excludes_shared_parameters(self):
+        fixed, overlap = fit_replicas.parse_fixed_parameters(
+            ['*_v_max', '1'], ['Hydrolysis_v_max'])
+
+        self.assertNotIn('Hydrolysis_v_max', fixed)
+        self.assertTrue(fixed)
+        self.assertEqual(set(fixed.values()), {1})
+        self.assertEqual(overlap, set())
+
+    def test_direct_fixed_value_for_shared_parameter_remains_an_error(self):
+        _, overlap = fit_replicas.parse_fixed_parameters(
+            ['Hydrolysis_v_max', '1'], ['Hydrolysis_v_max'])
+
+        self.assertEqual(overlap, {'Hydrolysis_v_max'})
+
 
 class SetupSummaryTest(unittest.TestCase):
     def test_declared_default_ranges_remain_locally_optimizable(self):
@@ -202,8 +229,10 @@ class LocalR2ThresholdTest(unittest.TestCase):
         self.assertEqual(args.max_failed_inner_runs, 2)
 
     def test_penalty_loss_is_not_a_usable_inner_result(self):
-        self.assertTrue(fit_replicas.is_failed_inner_loss(
-            fit_replicas.optimizer.INVALID_OBJECTIVE_PENALTY))
+        failed = fit_replicas.is_failed_inner_loss(
+            fit_replicas.optimizer.INVALID_OBJECTIVE_PENALTY)
+        self.assertIs(type(failed), bool)
+        self.assertTrue(failed)
         self.assertTrue(fit_replicas.is_failed_inner_loss(float('nan')))
         self.assertFalse(fit_replicas.is_failed_inner_loss(0.25))
 
@@ -243,6 +272,12 @@ class LocalR2ThresholdTest(unittest.TestCase):
         self.assertEqual(args.outer_cma_sigma, 0.2)
         self.assertEqual(args.local_popsize, 12)
         self.assertTrue(args.local_warm_start)
+
+    def test_parser_accepts_default_fixed_parameter_globs(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydrolysis_v_max', '--fix-default', '*_v_max'])
+
+        self.assertEqual(args.fix_default, ['*_v_max'])
 
 
 class InnerCheckpointRecoveryTest(unittest.TestCase):

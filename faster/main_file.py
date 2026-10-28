@@ -228,7 +228,7 @@ if __name__ == '__main__':
     
         print()
 
-        log = pathway_model.predict(val_replica, reset_Fe3 = reset_Fe3)
+        log = pathway_model.predict_with_logging(val_replica, reset_Fe3 = reset_Fe3)
         if rate:
             log = pathway_model.system_change_log
             

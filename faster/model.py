@@ -1,6 +1,9 @@
 import os
+import cProfile
 import multiprocessing
 import queue
+import uuid
+from pathlib import Path
 
 import numpy as np
 import scipy.integrate
@@ -22,7 +25,12 @@ OPTIMIZATION_ALGORITHM = 'differential_evolution' #'dual_annealing' #'differenti
 # A candidate that cannot be integrated within this budget is not useful to
 # the optimiser.  ``solve_ivp`` runs in a child process so this is a hard
 # deadline, including for LSODA's Fortran internals.
-INTEGRATION_TIMEOUT_SECONDS = 5.0
+INTEGRATION_TIMEOUT_SECONDS = 10.
+
+# When set, every integration watchdog process writes one cProfile data file
+# here.  It is deliberately environment-controlled so normal fits pay no
+# profiling or file-system cost.
+INTEGRATION_PROFILE_DIRECTORY_ENV = 'SOIL_INTEGRATION_PROFILE_DIRECTORY'
 
 # Stop only trajectories that are wildly outside the scale of the particular
 # replica.  The floor avoids a zero limit for all-zero gas measurements.
@@ -81,8 +89,10 @@ def _solve_segment(f, t_span, initial_state, t_eval, events):
             t_eval=t_eval,
             events=events,
             method='LSODA',
-            max_step=10,
-            first_step=1e-6,
+            rtol = 1e-6,
+            atol = 1e-9,
+            max_step=1.0,
+            #first_step=1e-6,
         )
     except optimizer.IntegrationFailure:
         raise
@@ -142,12 +152,29 @@ def integrate(f, t, S0, solver_result, reset_Fe3, gas_limits):
 
 def _integration_worker(f, t, S0, result_queue, reset_Fe3, gas_limits):
     """Return integration failures to the parent instead of printing a traceback."""
+    profiler = None
+    profile_directory = os.environ.get(INTEGRATION_PROFILE_DIRECTORY_ENV)
+    if profile_directory:
+        profiler = cProfile.Profile()
     try:
         solver_result = []
-        integrate(f, t, S0, solver_result, reset_Fe3, gas_limits)
+        if profiler is None:
+            integrate(f, t, S0, solver_result, reset_Fe3, gas_limits)
+        else:
+            profiler.runcall(integrate, f, t, S0, solver_result, reset_Fe3, gas_limits)
         result_queue.put(solver_result[0])
     except optimizer.IntegrationFailure as error:
         result_queue.put(error)
+    finally:
+        if profiler is not None:
+            # A unique filename matters because the outer optimiser can start
+            # several integration workers concurrently.  If the worker is
+            # killed by the hard timeout it cannot flush a profile; successful
+            # workers still provide representative RHS/solver measurements.
+            directory = Path(profile_directory)
+            directory.mkdir(parents=True, exist_ok=True)
+            profiler.dump_stats(str(directory / (
+                f'integration-{os.getpid()}-{uuid.uuid4().hex}.pstats')))
 
 
 # obsolete?
@@ -224,8 +251,8 @@ class Model():
         dS_dt = np.sum(dSj_dt, axis = -1)
         dS_dt = np.where(S == 0, np.maximum(0, dS_dt), dS_dt)
 
-        for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
-            self.system_change_log.log_snap(pool_name, t, dSi_dt)
+        #for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
+        #    self.system_change_log.log_snap(pool_name, t, dSi_dt)
         return dS_dt
 
     def add_t(self, t):
@@ -245,12 +272,28 @@ class Model():
             self.compute_dissolved(state) for state in states.T
         ])
         for pathway in self.contributing_pathways:
+            pathway_name = pathway.__class__.__name__
+            mm_factor = pathway.kinetics(dissolved_states)
             self.system_state_log.log(pathway.__class__.__name__ + '_MM',
-                 t,
-                 pathway.kinetics(dissolved_states))
+                                      t, mm_factor)
+            if pathway.use_inhib:
+                self.system_state_log.log(pathway_name + '_inhib', t,
+                                          pathway.kinetic_inhibition(dissolved_states))
+            if float(pathway.use_thermodynamics) == 1:
+                self.system_state_log.log(pathway_name + '_thermodynamic_factor', t,
+                                          pathway.thermodynamics(t, dissolved_states))
             self.system_state_log.log(pathway.__class__.__name__ + '_v',
                  t,
                  pathway.compute_v(t, dissolved_states))
+            if 'CH4' in pathway.products:
+                biomass = dissolved_states[pathway.microbe_index]
+                specific_rate = pathway.compute_v(t, dissolved_states)
+                rates = biomass * (
+                    specific_rate * pathway.pathway_vector[:, np.newaxis]
+                    - pathway.death_rate[:, np.newaxis])
+                self.system_state_log.log(
+                    pathway_name + '_CH4 from ' + pathway.microbe.name, t,
+                    rates[system.index('CH4')])
 
 
     def log_accepted_thermodynamics(self, t, states):
@@ -332,29 +375,50 @@ class Model():
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             self.system_state_log.log(pool_name, solver_result.t, Si)
 
-        self.log_accepted_thermodynamics(solver_result.t, solver_result.y)
-        self.log_accepted_kinetics(solver_result.t, solver_result.y)
+        #self.log_accepted_thermodynamics(solver_result.t, solver_result.y)
+        #self.log_accepted_kinetics(solver_result.t, solver_result.y)
 
         #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
         #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
         #self.system_state_log._log['R2'] = {'CO2': co2_r2,
         #                                    'CH4': ch4_r2}
 
-        add_to_log = []
-        for k, val in self.system_state_log._log.items():
-            if 'CH4 from' in k:
-                t, v = val
-                delta_t = np.diff(t)
-                integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
-                n = k + ' (integrated)'
-                add_to_log.append((n, t[1:], np.cumsum(integral)))
+        #add_to_log = []
+        #for k, val in self.system_state_log._log.items():
+        #    if 'CH4 from' in k:
+        #        t, v = val
+        #        delta_t = np.diff(t)
+        #        integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
+        #        n = k + ' (integrated)'
+        #        add_to_log.append((n, t[1:], np.cumsum(integral)))
 
-        for name, ts, vs in add_to_log:
-            self.system_state_log.log(name, ts, vs)
+        #for name, ts, vs in add_to_log:
+        #    self.system_state_log.log(name, ts, vs)
 
         self.system_state_log._parameters = self.parameters()
 
         return self.system_state_log
+
+    def predict_with_logging(self, replica, t = None, t_eval = None, quiet = False,
+                             parallel = False, reset_Fe3 = None,
+                             days_beyond_reset = 1000, initial_mean_days = 0):
+        """Predict a trajectory and add diagnostics used by replay plots.
+
+        ``predict`` deliberately records only pool trajectories, keeping
+        optimisation evaluations free of diagnostic work.  This companion
+        method derives pathway kinetics and thermodynamics once from the
+        accepted solver states, so every logged series shares the pool time
+        grid and is safe to use in replay reports.
+        """
+        run_log = self.predict(
+            replica, t=t, t_eval=t_eval, quiet=quiet, parallel=parallel,
+            reset_Fe3=reset_Fe3, days_beyond_reset=days_beyond_reset,
+            initial_mean_days=initial_mean_days)
+        pool_time, _ = run_log[system.SYSTEM[0]]
+        states = np.vstack([run_log[pool][1] for pool in system.SYSTEM])
+        self.log_accepted_thermodynamics(pool_time, states)
+        self.log_accepted_kinetics(pool_time, states)
+        return run_log
 
     def parameters(self):
         return self.model_parameters

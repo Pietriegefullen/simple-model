@@ -35,6 +35,13 @@ HIGHLIGHT_STYLE = '\033[1;31m'  # bold red; matches fit_status.py
 RESET_STYLE = '\033[0m'
 
 
+def build_model(pathways, normalized_parameters, use_cython=False):
+    """Build the selected RHS backend without changing the default path."""
+    if use_cython:
+        raise NotImplementedError()
+    return model.build_model(pathways, normalized_parameters)
+
+
 def objective_config():
     """Return the objective definition used by ``fit_sample.py``."""
     return {
@@ -71,7 +78,7 @@ def format_local_r2(r2_value):
 
 def is_failed_inner_loss(loss):
     """Whether an inner result is a penalty rather than a usable fit."""
-    return not np.isfinite(loss) or loss >= optimizer.INVALID_OBJECTIVE_PENALTY
+    return bool(not np.isfinite(loss) or loss >= optimizer.INVALID_OBJECTIVE_PENALTY)
 
 
 def parameters_x0(saved, parameter_set):
@@ -156,7 +163,7 @@ def select_shared_default_parameters(reference, shared_names):
     return shared
 
 
-def build_parameter_template(pathways, normalized_parameters=True):
+def build_parameter_template(pathways, normalized_parameters=True, use_cython=False):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -164,26 +171,61 @@ def build_parameter_template(pathways, normalized_parameters=True):
     parameter catalogue, just as ``fit_sample`` does; otherwise valid local
     parameters such as biomass and initial Fe3 would silently stay constant.
     """
-    pathway_model = model.build_model(pathways, normalized_parameters)
+    pathway_model = build_model(pathways, normalized_parameters, use_cython)
     defaults = parameters.default_model_parameters(
         normalize_parameters=normalized_parameters)
     pathway_model.parameters().set(defaults)
     return pathway_model
 
 
-def expand_parameter_names(requested, available):
+def expand_parameter_names(requested, available, option='--shared'):
     """Expand exact names and shell-style globs against model parameters."""
     if not requested:
-        raise ValueError('Specify at least one parameter with --shared.')
+        raise ValueError(f'Specify at least one parameter with {option}.')
     available = list(available)
     expanded = []
     for pattern in requested:
         matches = ([pattern] if pattern in available else
                    [name for name in available if fnmatch.fnmatchcase(name, pattern)])
         if not matches:
-            raise ValueError(f'--shared pattern {pattern!r} matches no model parameter.')
+            raise ValueError(f'{option} pattern {pattern!r} matches no model parameter.')
         expanded.extend(matches)
     return list(dict.fromkeys(expanded))
+
+
+def select_default_fixed_parameters(reference, requested, shared_names=()):
+    """Return matching default values, except for outer-shared parameters."""
+    if not requested:
+        return {}
+    names = expand_parameter_names(
+        requested, reference.as_dict(), option='--fix-default')
+    shared_names = set(shared_names)
+    return {name: reference[name].value for name in names if name not in shared_names}
+
+
+def parse_fixed_parameters(requested, shared_names=()):
+    """Parse ``--p`` pairs, allowing shared parameters to escape globs.
+
+    A wildcard is normally a convenient way to set a family of constants.  If
+    one of those names is selected by ``--shared``, it must remain an outer
+    variable instead.  Directly naming a shared parameter with ``--p`` is
+    still rejected by the caller because that is an unambiguous conflict.
+    """
+    fixed = {}
+    direct_shared = set()
+    shared_names = set(shared_names)
+    if requested is None:
+        return fixed, direct_shared
+    for name, value in zip(requested[::2], requested[1::2]):
+        pair = user_input.parse_override([name, value])
+        shared_matches = set(pair) & shared_names
+        if '*' in name:
+            for shared_name in shared_matches:
+                del pair[shared_name]
+        else:
+            direct_shared.update(shared_matches)
+        fixed.update(pair)
+    return fixed, direct_shared
 
 
 def replica_identifier(replica):
@@ -415,7 +457,8 @@ def print_setup_summary(replicas, pathways, omitted_pathways, shared_names,
                         outer_algorithm='differential_evolution',
                         local_algorithm='differential_evolution',
                         local_warm_start=True,
-                        shared_bounds_source='declared model ranges'):
+                        shared_bounds_source='declared model ranges',
+                        default_fixed_names=()):
     """Print the exact model, data, parameter, and nested-objective setup."""
     outer_label = algorithm_label(outer_algorithm)
     local_label = algorithm_label(local_algorithm)
@@ -444,11 +487,19 @@ def print_setup_summary(replicas, pathways, omitted_pathways, shared_names,
     print('Inner loss guard / outer-candidate rejection threshold: ' + (
         f'{local_loss_threshold:g}' if local_loss_threshold is not None else 'disabled'))
     print(f'Maximum failed inner runs before outer rejection: {max_failed_inner_runs}')
-    if fixed_parameters:
+    default_fixed_names = set(default_fixed_names)
+    explicit_fixed = {
+        name: value for name, value in fixed_parameters.items()
+        if name not in default_fixed_names
+    }
+    if explicit_fixed:
         print('Fixed parameters (--p): ' + ', '.join(
-            f'{name}={value}' for name, value in sorted(fixed_parameters.items())))
+            f'{name}={value}' for name, value in sorted(explicit_fixed.items())))
     else:
         print('Fixed parameters (--p): none')
+    if default_fixed_names:
+        print('Fixed at model defaults (--fix-default): ' + ', '.join(
+            sorted(default_fixed_names)))
 
     reference = next(iter(local_parameters.values()))
     rows = []
@@ -587,7 +638,7 @@ class SharedReplicaObjective(optimizer.Addable):
                  local_best=None, checkpoint_source=None,
                  prepared_local_parameters=None, local_r2_threshold=None,
                  local_loss_threshold=None, max_failed_inner_runs=5,
-                 resume=True, local_warm_start=True):
+                 resume=True, local_warm_start=True, use_cython=False):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -612,6 +663,7 @@ class SharedReplicaObjective(optimizer.Addable):
         self.max_failed_inner_runs = max_failed_inner_runs
         self.resume = resume
         self.local_warm_start = local_warm_start
+        self.use_cython = use_cython
         self._local_warm_starts = {}
         self._local_pool = None
         self._failed_inner_runs = 0
@@ -663,6 +715,7 @@ class SharedReplicaObjective(optimizer.Addable):
                 'replica': replica_identifier(replica),
                 'r2_threshold': self.local_r2_threshold,
                 'loss_threshold': self.local_loss_threshold,
+                'rhs_backend': 'cython' if self.use_cython else 'python',
             },
         }
 
@@ -694,8 +747,8 @@ class SharedReplicaObjective(optimizer.Addable):
             for name in self.shared_names:
                 local_parameters[name].constant(shared[name].value)
 
-            local_model = model.build_model(self.pathways,
-                                            self.normalized_parameters)
+            local_model = build_model(self.pathways, self.normalized_parameters,
+                                      self.use_cython)
             local_model.parameters().set(local_parameters)
 
             local_objective = optimizer.build_objective_function(
@@ -927,7 +980,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_best=None, checkpoint_source=None, store_checkpoints=True,
         checkpoint_target=None, prepared_local_parameters=None,
         local_r2_threshold=None, local_loss_threshold=None, resume=True,
-        local_warm_start=True, max_failed_inner_runs=5):
+        local_warm_start=True, max_failed_inner_runs=5, use_cython=False):
     """Run the nested shared/local fit and return its outer objective."""
     if objective is None:
         objective = objective_config()
@@ -967,7 +1020,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_r2_threshold=local_r2_threshold,
         local_loss_threshold=local_loss_threshold,
         max_failed_inner_runs=max_failed_inner_runs, resume=resume,
-        local_warm_start=local_warm_start)
+        local_warm_start=local_warm_start, use_cython=use_cython)
     run_config = {
         'model': build_parameter_template(pathways, normalized_parameters).get_config(
             only_structure=True),
@@ -990,7 +1043,9 @@ def fit(replicas, shared_parameters, shared_names, local_template,
                           'local_r2_threshold': local_r2_threshold,
                           'local_loss_threshold': local_loss_threshold,
                           'max_failed_inner_runs': max_failed_inner_runs,
-                          'local_warm_start': local_warm_start},
+                          'local_warm_start': local_warm_start,
+                          'rhs_backend': 'cython' if use_cython else 'python'
+                          },
     }
     outer_checkpoints = None
     outer_cma_state = None
@@ -1048,6 +1103,9 @@ def parse_args(argv=None):
                         help='Shared parameter names or globs, e.g. Hydro_v_max M_*.')
     parser.add_argument('--p', nargs='+', dest='fixed',
                         help='Fixed parameter/value pairs, as in fit_sample.')
+    parser.add_argument('--fix-default', nargs='+', metavar='PARAMETER',
+                        help=('Fix matching parameter names or globs at their model defaults; '
+                              'parameters selected by --shared remain free.'))
     parser.add_argument('--omit', choices=PATHWAYS, nargs='+', default=[],
                         help='Pathways to omit from the model.')
     parser.add_argument('--samples', nargs='+',
@@ -1157,6 +1215,7 @@ def parse_args(argv=None):
     for name in ('outer_cma_restarts', 'local_cma_restarts'):
         if getattr(args, name) < 0:
             parser.error('--' + name.replace('_', '-') + ' cannot be negative.')
+    args.fixed_arguments = args.fixed
     args.fixed = user_input.parse_override(args.fixed)
     return args
 
@@ -1171,7 +1230,7 @@ def run(args):
         raise ValueError('At least one pathway must remain after --omit.')
     reference = build_parameter_template(pathways, True).parameters()
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
-    overlap = set(shared_names) & set(args.fixed)
+    args.fixed, overlap = parse_fixed_parameters(args.fixed_arguments, shared_names)
     if overlap:
         raise ValueError('--shared and --p cannot both name ' + ', '.join(sorted(overlap)))
     unavailable = set(shared_names) & REPLICA_PROVIDED_PARAMETERS
@@ -1181,6 +1240,12 @@ def run(args):
     unknown_fixed = set(args.fixed) - set(reference.as_dict())
     if unknown_fixed:
         raise ValueError('Unknown --p parameter(s): ' + ', '.join(sorted(unknown_fixed)))
+    default_fixed = select_default_fixed_parameters(
+        reference, args.fix_default, shared_names)
+    # An explicit --p value intentionally takes precedence over a default
+    # selected by --fix-default.
+    default_fixed_names = [name for name in default_fixed if name not in args.fixed]
+    fixed_parameters = {**default_fixed, **args.fixed}
     if args.shared_checkpoint_bounds:
         shared_parameters, qualifying = shared_bounds_from_checkpoints(
             shared_names, pathways=pathways, objective=objective_config(),
@@ -1196,18 +1261,18 @@ def run(args):
     model_id = hashing.build_model_id(
         build_parameter_template(pathways, True).get_config(only_structure=True))
     prepared_local_parameters = prepare_local_parameters(
-        replicas, template, shared_names, args.fixed, model_id,
+        replicas, template, shared_names, fixed_parameters, model_id,
         args.local_best, args.checkpoint_source)
     outer_algorithm_name = ALGORITHM_CHOICES[args.outer_algorithm]
     local_algorithm_name = ALGORITHM_CHOICES[args.local_algorithm]
     print_setup_summary(
         replicas, pathways, args.omit, shared_names, shared_parameters,
-        prepared_local_parameters, args.fixed, objective_config(), qualifying,
+        prepared_local_parameters, fixed_parameters, objective_config(), qualifying,
         args.local_best, args.local_max_evaluations, args.local_r2_threshold,
         args.local_loss_threshold, args.max_failed_inner_runs,
         args.local_workers, args.resume,
         outer_algorithm_name, local_algorithm_name,
-        args.local_warm_start, shared_bounds_source)
+        args.local_warm_start, shared_bounds_source, default_fixed_names)
     if args.dry:
         return replicas, shared_parameters, qualifying
     #if not args.yes and not confirm_setup():
@@ -1231,7 +1296,7 @@ def run(args):
         outer_algorithm['max_evaluations'] = args.outer_max_evaluations
     local_algorithm['max_evaluations'] = args.local_max_evaluations
     return fit(
-        replicas, shared_parameters, shared_names, template, args.fixed,
+        replicas, shared_parameters, shared_names, template, fixed_parameters,
         pathways=pathways, objective=objective_config(), outer_algorithm=outer_algorithm,
         local_algorithm=local_algorithm, local_best=args.local_best,
         checkpoint_source=args.checkpoint_source, store_checkpoints=True,

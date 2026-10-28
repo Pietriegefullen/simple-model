@@ -83,7 +83,8 @@ def save_all_plots():
                 loaded_model = model.Model(model.get_pathways(model_type))
                 loaded_model.parameters().set(best_parameters)
                 #val_run = loaded_model.predict(val_replica)
-                val_run = loaded_model.predict(val_replica, t = range(int(val_replica.last_day)))
+                val_run = loaded_model.predict_with_logging(
+                    val_replica, t=range(int(val_replica.last_day)))
 
                 figure_postfix = '_'.join([
                                         sample.sample_name + val_replica.replica_number,

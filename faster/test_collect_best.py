@@ -39,6 +39,62 @@ class SampleYLimitsTest(unittest.TestCase):
         self.assertGreater(limits['CH4'][1], 1e-2)
 
 
+class FigureTitleTest(unittest.TestCase):
+    def test_standard_title_names_both_sample_and_replica(self):
+        class Checkpoint:
+            replica = ('1351', '4')
+            fit_mode = 'single'
+
+        with mock.patch.object(plot_best, 'model_variant', return_value='A'):
+            title = plot_best.figure_suptitle(Checkpoint())
+
+        self.assertIn('sample 1351', title)
+        self.assertIn('replica 4', title)
+
+
+class FitAxesTest(unittest.TestCase):
+    def tearDown(self):
+        plt.close('all')
+
+    def test_ch4_axis_is_logarithmic_without_a_log_loss_transform(self):
+        class Checkpoint:
+            run_config = {'objective': {'transform': {'CO2': [], 'CH4': []}}}
+
+        class Sample:
+            replicas = []
+
+        _, axes = plot_best.create_fit_figure()
+        axes['CO2'].plot([0, 1], [1, 2])
+        axes['CH4'].plot([0, 1], [1e-4, 1e-2])
+
+        plot_best.format_fit_axes(Checkpoint(), Sample(), axes)
+
+        self.assertEqual(axes['CO2'].get_yscale(), 'linear')
+        self.assertEqual(axes['CH4'].get_yscale(), 'log')
+
+    def test_ch4_axis_remains_logarithmic_with_nonpositive_model_values(self):
+        class Checkpoint:
+            run_config = {'objective': {'transform': {'CO2': [], 'CH4': []}}}
+
+        class Sample:
+            replicas = []
+
+        _, axes = plot_best.create_fit_figure()
+        axes['CH4'].plot([0, 1], [-1e-4, 1e-2])
+
+        plot_best.format_fit_axes(Checkpoint(), Sample(), axes)
+
+        self.assertEqual(axes['CH4'].get_yscale(), 'log')
+
+    def test_combined_limitation_factor_is_dashed(self):
+        _, axis = plot_best.plot_pathway_limitation_factors(
+            'Hydro', ([0, 1], [.8, .6]), None, None, None, suptitle='test')
+
+        combined = next(line for line in axis.lines
+                        if 'all\\ factors' in line.get_label())
+        self.assertEqual(combined.get_linestyle(), '--')
+
+
 class CheckpointFilterTest(unittest.TestCase):
     def test_filters_are_combined(self):
         class Checkpoint:

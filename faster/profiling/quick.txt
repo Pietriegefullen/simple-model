@@ -1,0 +1,122 @@
+Multi-fit profile
+=================
+
+Profiled elapsed time: 1307.850 s
+This run used one local worker unless --keep-local-workers was set.
+
+Self time by code area (additive; best guide to where CPU time goes)
+-------------------------------------------------------------------
+  1303.211 s   99.6%     3614007 calls  project: ~
+     2.086 s    0.2%     2303452 calls  NumPy
+     0.947 s    0.1%      717792 calls  Python/other libraries
+     0.381 s    0.0%       45452 calls  project: optimizer.py
+     0.303 s    0.0%       30398 calls  project: model.py
+     0.282 s    0.0%      233424 calls  project: parameters.py
+     0.256 s    0.0%       93288 calls  project: pathways.py
+     0.154 s    0.0%      112712 calls  project: hashing.py
+     0.082 s    0.0%        2935 calls  project: checkpoint.py
+     0.078 s    0.0%      134024 calls  project: system.py
+     0.032 s    0.0%        6117 calls  project: data.py
+     0.030 s    0.0%        4865 calls  SciPy
+     0.004 s    0.0%        4888 calls  project: <frozen importlib._bootstrap>
+     0.001 s    0.0%         496 calls  project: fit_replicas.py
+     0.001 s    0.0%        1555 calls  project: chemistry.py
+     0.001 s    0.0%         388 calls  project: <frozen importlib._bootstrap_external>
+     0.001 s    0.0%         303 calls  project: <string>
+     0.000 s    0.0%          20 calls  project: user_input.py
+
+Top functions by inclusive time
+-------------------------------
+Sat Oct 24 20:01:44 2026    profiling/quick.pstats
+
+         7665659 function calls (7306116 primitive calls) in 1307.850 seconds
+
+   Ordered by: cumulative time
+   List reduced from 1117 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000 1307.837 1307.837 /Users/martinlegeland/Code/soil/simple-model/faster/fit_replicas.py:1164(run)
+        1    0.000    0.000 1307.791 1307.791 /Users/martinlegeland/Code/soil/simple-model/faster/fit_replicas.py:922(fit)
+      3/1    0.000    0.000 1307.758 1307.758 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:638(minimize)
+      3/1    0.000    0.000 1307.743 1307.743 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:708(_minimize)
+      3/1    0.000    0.000 1307.742 1307.742 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/scipy/optimize/_differentialevolution.py:22(differential_evolution)
+      3/1    0.000    0.000 1307.693 1307.693 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/scipy/optimize/_differentialevolution.py:1121(solve)
+      4/1    0.002    0.001 1307.693 1307.693 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/scipy/optimize/_differentialevolution.py:1288(_calculate_population_energies)
+    303/1    0.002    0.000 1307.693 1307.693 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/scipy/_lib/_util.py:440(__call__)
+    303/1    0.013    0.000 1307.693 1307.693 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:375(__call__)
+        1    0.000    0.000 1307.693 1307.693 /Users/martinlegeland/Code/soil/simple-model/faster/fit_replicas.py:673(_call)
+      303    0.050    0.000 1306.762    4.313 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:531(_call)
+      303    0.106    0.000 1303.455    4.302 /Users/martinlegeland/Code/soil/simple-model/faster/model.py:277(predict)
+      303    0.036    0.000 1249.667    4.124 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/queues.py:98(get)
+      303    0.001    0.000 1249.489    4.124 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/connection.py:253(poll)
+      303    0.008    0.000 1249.487    4.124 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/connection.py:423(_poll)
+      303    0.044    0.000 1249.479    4.124 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/connection.py:917(wait)
+      303    0.013    0.000 1249.392    4.123 /opt/anaconda3/envs/soil/lib/python3.9/selectors.py:403(select)
+      303 1249.378    4.123 1249.378    4.123 {method 'poll' of 'select.poll' objects}
+253973/147493    0.057    0.000  554.207    0.004 {built-in method builtins.next}
+        1    0.000    0.000  554.064  554.064 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/scipy/optimize/_differentialevolution.py:1521(__next__)
+      302    0.013    0.000   51.273    0.170 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/process.py:142(join)
+      302    0.005    0.000   51.259    0.170 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/popen_fork.py:36(wait)
+      302    0.012    0.000   51.254    0.170 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/popen_fork.py:24(poll)
+      302   51.242    0.170   51.242    0.170 {built-in method posix.waitpid}
+      852    0.038    0.000    2.812    0.003 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:167(get_values)
+   124840    1.218    0.000    2.300    0.000 /opt/anaconda3/envs/soil/lib/python3.9/site-packages/numpy/_core/numeric.py:2315(isclose)
+      426    0.009    0.000    1.476    0.003 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:248(__call__)
+      852    0.126    0.000    1.461    0.002 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:185(<listcomp>)
+      213    0.002    0.000    1.440    0.007 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:514(weighted_mse)
+      426    0.006    0.000    1.394    0.003 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:128(squared_errors)
+      303    0.012    0.000    1.380    0.005 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/process.py:110(start)
+      303    0.003    0.000    1.368    0.005 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/context.py:222(_Popen)
+      303    0.005    0.000    1.365    0.005 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/context.py:281(_Popen)
+      303    0.002    0.000    1.358    0.004 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/popen_spawn_posix.py:30(__init__)
+      303    0.031    0.000    1.356    0.004 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/popen_fork.py:15(__init__)
+      303    0.049    0.000    1.324    0.004 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/popen_spawn_posix.py:38(_launch)
+      852    0.101    0.000    1.203    0.001 /Users/martinlegeland/Code/soil/simple-model/faster/optimizer.py:192(<listcomp>)
+      304    0.025    0.000    0.995    0.003 /opt/anaconda3/envs/soil/lib/python3.9/multiprocessing/util.py:447(spawnv_passfds)
+      304    0.966    0.003    0.966    0.003 {built-in method _posixsubprocess.fork_exec}
+      301    0.005    0.000    0.409    0.001 /Users/martinlegeland/Code/soil/simple-model/faster/checkpoint.py:472(__call__)
+
+
+
+Compact ranking
+---------------
+  1307.837 s cumulative       0.000 s self         1/       1 calls  faster/fit_replicas.py:1164(run)
+  1307.791 s cumulative       0.000 s self         1/       1 calls  faster/fit_replicas.py:922(fit)
+  1307.758 s cumulative       0.000 s self         1/       3 calls  faster/optimizer.py:638(minimize)
+  1307.743 s cumulative       0.000 s self         1/       3 calls  faster/optimizer.py:708(_minimize)
+  1307.742 s cumulative       0.000 s self         1/       3 calls  _differentialevolution.py:22(differential_evolution)
+  1307.693 s cumulative       0.000 s self         1/       3 calls  _differentialevolution.py:1121(solve)
+  1307.693 s cumulative       0.002 s self         1/       4 calls  _differentialevolution.py:1288(_calculate_population_energies)
+  1307.693 s cumulative       0.002 s self         1/     303 calls  _util.py:440(__call__)
+  1307.693 s cumulative       0.013 s self         1/     303 calls  faster/optimizer.py:375(__call__)
+  1307.693 s cumulative       0.000 s self         1/       1 calls  faster/fit_replicas.py:673(_call)
+  1306.762 s cumulative       0.050 s self       303/     303 calls  faster/optimizer.py:531(_call)
+  1303.455 s cumulative       0.106 s self       303/     303 calls  faster/model.py:277(predict)
+  1249.667 s cumulative       0.036 s self       303/     303 calls  queues.py:98(get)
+  1249.489 s cumulative       0.001 s self       303/     303 calls  connection.py:253(poll)
+  1249.487 s cumulative       0.008 s self       303/     303 calls  connection.py:423(_poll)
+  1249.479 s cumulative       0.044 s self       303/     303 calls  connection.py:917(wait)
+  1249.392 s cumulative       0.013 s self       303/     303 calls  selectors.py:403(select)
+  1249.378 s cumulative    1249.378 s self       303/     303 calls  faster/~:0(<method 'poll' of 'select.poll' objects>)
+   554.207 s cumulative       0.057 s self    147493/  253973 calls  faster/~:0(<built-in method builtins.next>)
+   554.064 s cumulative       0.000 s self         1/       1 calls  _differentialevolution.py:1521(__next__)
+    51.273 s cumulative       0.013 s self       302/     302 calls  process.py:142(join)
+    51.259 s cumulative       0.005 s self       302/     302 calls  popen_fork.py:36(wait)
+    51.254 s cumulative       0.012 s self       302/     302 calls  popen_fork.py:24(poll)
+    51.242 s cumulative      51.242 s self       302/     302 calls  faster/~:0(<built-in method posix.waitpid>)
+     2.812 s cumulative       0.038 s self       852/     852 calls  faster/optimizer.py:167(get_values)
+     2.300 s cumulative       1.218 s self    124840/  124840 calls  numeric.py:2315(isclose)
+     1.476 s cumulative       0.009 s self       426/     426 calls  faster/optimizer.py:248(__call__)
+     1.461 s cumulative       0.126 s self       852/     852 calls  faster/optimizer.py:185(<listcomp>)
+     1.440 s cumulative       0.002 s self       213/     213 calls  faster/optimizer.py:514(weighted_mse)
+     1.394 s cumulative       0.006 s self       426/     426 calls  faster/optimizer.py:128(squared_errors)
+     1.380 s cumulative       0.012 s self       303/     303 calls  process.py:110(start)
+     1.368 s cumulative       0.003 s self       303/     303 calls  context.py:222(_Popen)
+     1.365 s cumulative       0.005 s self       303/     303 calls  context.py:281(_Popen)
+     1.358 s cumulative       0.002 s self       303/     303 calls  popen_spawn_posix.py:30(__init__)
+     1.356 s cumulative       0.031 s self       303/     303 calls  popen_fork.py:15(__init__)
+     1.324 s cumulative       0.049 s self       303/     303 calls  popen_spawn_posix.py:38(_launch)
+     1.203 s cumulative       0.101 s self       852/     852 calls  faster/optimizer.py:192(<listcomp>)
+     0.995 s cumulative       0.025 s self       304/     304 calls  util.py:447(spawnv_passfds)
+     0.966 s cumulative       0.966 s self       304/     304 calls  faster/~:0(<built-in method _posixsubprocess.fork_exec>)
+     0.409 s cumulative       0.005 s self       301/     301 calls  faster/checkpoint.py:472(__call__)

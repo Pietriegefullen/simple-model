@@ -273,7 +273,7 @@ def replay_context(checkpoint: Any, *, parameter_overrides=None,
         run_config['chosen']['t_start'] = t_start
     if t_end is not None:
         run_config['chosen']['t_end'] = t_end
-    model_run = run(run_config, parameter_values)
+    model_run = run(run_config, parameter_values, log_prediction=True)
     return PlotContext(
         checkpoint=checkpoint,
         replica=getattr(model_run[-1], 'replica', None),

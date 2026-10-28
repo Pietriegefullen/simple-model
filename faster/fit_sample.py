@@ -2,6 +2,7 @@ import os
 
 import model
 import data
+import system
 import optimizer
 import parameters
 import checkpoint
@@ -119,7 +120,7 @@ def confirm_checkpoint_compatibility(path, warnings, input_function=None):
 #       recompute model_id from config and rename files.
 #       => always compute id from config, b/c hashing makes config canonical.
 
-def run(run_config, initial_parameters, **kwargs):
+def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
     chosen = run_config['chosen']
     objective_config = run_config['objective']
     algo_config = {chosen['algorithm']: run_config['algo']}
@@ -130,6 +131,12 @@ def run(run_config, initial_parameters, **kwargs):
                                           store_checkpoints = False,
                                           minimize = False,
                                           **kwargs)
+    if log_prediction:
+        # The fit itself uses the lean prediction path.  Replay it once with
+        # diagnostics only for consumers that will plot those diagnostics.
+        pool_time, _ = run_log[system.SYSTEM[0]]
+        run_log = pathway_model.predict_with_logging(
+            run_log.replica, t_eval=pool_time)
     return pathway_model, objective, run_log
 
 def fit(chosen, objective_config, algo_config, init_config, 

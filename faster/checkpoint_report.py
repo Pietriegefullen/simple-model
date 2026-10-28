@@ -203,7 +203,7 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
     count = 0
     for checkpoint in checkpoints:
         count += 1
-        print(f'{count:6d}/{total:d}, selected {len(selected):5d}', end = '')
+        print(f'\r{count:6d}/{total:d}, selected {len(selected):5d}', end = '')
         sample, replica = checkpoint.replica
         # Keep this public filtering helper usable with the lightweight
         # checkpoint doubles used by callers and tests.
@@ -535,7 +535,8 @@ def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
         str(replica.replica_number) for replica in fit_replicas)
     curve_replica_number = getattr(curve_replica, 'replica_number', None)
     first_line = ' | '.join((
-        checkpoint.replica[0],
+        f'sample {checkpoint.replica[0]}',
+        f'replica {checkpoint.replica[1]}',
         checkpoint.fit_mode,
         f'model {model_variant(checkpoint)}',
     ))
@@ -656,7 +657,7 @@ def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
         if inhibition_series is not None:
             active_factors.append(inhibition_series)
         time, total_factor = _factor_product(active_factors)
-        axis.plot(time, total_factor, color='k', linewidth=2,
+        axis.plot(time, total_factor, color='k', linestyle='--', linewidth=2,
                   label=r'$\mathrm{all\ factors}\ [M(t)v(t)]/[M(t)v_{\max}]$')
     axis.axhline(1, color='0.65', linestyle=':', linewidth=1,
                  label=r'$\mathrm{no\ limitation}$')
@@ -1167,13 +1168,25 @@ def fit_score_label(checkpoint, objective, validation_objective, run_log,
 
 
 def format_fit_axes(checkpoint, sample, axes):
-    """Apply the standard fit-plot scales, limits, and axes style."""
+    """Apply the standard fit-plot scales, limits, and axes style.
+
+    Fit plots always display CH4 logarithmically.  A failed simulation can
+    briefly produce a non-positive CH4 value, which makes ``format_ax``
+    decline its safe automatic log formatting; retain a log CH4 axis in that
+    case and use the positive measured-data limits when available.
+    """
     y_limits = sample_y_limits(sample)
     for pool, axis in axes.items():
         log_applied = plot.format_ax(
             axis,
-            log_scale='log' in checkpoint.run_config['objective']['transform'][pool],
+            log_scale=(pool == 'CH4' or 'log' in
+                       checkpoint.run_config['objective']['transform'][pool]),
         )
+        if pool == 'CH4' and not log_applied:
+            axis.set_yscale('log')
+            if pool in y_limits:
+                axis.set_ylim(y_limits[pool])
+            continue
         if pool in y_limits and not log_applied:
             axis.set_ylim(y_limits[pool])
 
@@ -1189,7 +1202,8 @@ def finish_fit_figure(figure, suptitle):
 def plot_fit(checkpoint, dataset, model_run=None):
     """Plot fitted replicas, validation data, and a model run for a checkpoint."""
     if model_run is None:
-        model_run = run(checkpoint.run_config, checkpoint.parameters)
+        model_run = run(checkpoint.run_config, checkpoint.parameters,
+                        log_prediction=True)
     pathway_model, objective, run_log = model_run
     sample, validation_replica, fitted_replicas = fit_replicas(checkpoint, dataset)
     print('plot_fit', sample, validation_replica)
@@ -1364,7 +1378,8 @@ def plot_multi_checkpoint(checkpoint, dataset):
         figure, _ = plot_fit(plot_checkpoint, dataset, model_run=model_run)
         suptitle = ' | '.join((
             f'joint multi fit ({replica_names})',
-            f'replica {replica.sample.sample_name}-{replica.replica_number}',
+            f'sample {replica.sample.sample_name}',
+            f'replica {replica.replica_number}',
             f'model {model_variant(plot_checkpoint)}',
         ))
         finish_fit_figure(figure, suptitle)

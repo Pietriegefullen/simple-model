@@ -349,7 +349,7 @@ def _replica_predictions(specifications, model_runs, replica, variants=('A', 'B'
         predictions[variant] = (
             specification,
             pathway_model,
-            pathway_model.predict(replica),
+            pathway_model.predict_with_logging(replica),
         )
     return predictions
 

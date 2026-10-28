@@ -71,7 +71,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         self.pathway.thermodynamics(0., self.state())
 
         self.assertNotIn('Fe3_deltaG_r', run_log.keys())
-        self.assertIn('Fe3_thermodynamic_factor', run_log.keys())
+        self.assertNotIn('Fe3_thermodynamic_factor', run_log.keys())
 
     def test_model_logs_delta_g_at_accepted_times(self):
         pathway_model = model.Model([pathways.Fe3])
@@ -116,7 +116,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
             'Acetate': 20.,
         })
 
-        run_log = pathway_model.predict(Replica())
+        run_log = pathway_model.predict_with_logging(Replica())
         time, delta_g = run_log['Fe3_deltaG_r']
         pool_time, fe3 = run_log['Fe3']
 
@@ -131,7 +131,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
             pathway_model.contributing_pathways[0].deltaG_r(dissolved_states))
         self.assertEqual(len(delta_g), len(fe3))
 
-    def test_prediction_keeps_kinetic_diagnostics_from_the_solver_process(self):
+    def test_fast_prediction_omits_diagnostic_series(self):
         pathway_model = model.Model([pathways.Fe3])
         pathway_model.model_parameters.set({
             'Fe3_Km_Ac': 50., 'Fe3_Km_Fe3': 500., 'Fe3_v_max': 1.5,
@@ -140,6 +140,20 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         })
 
         run_log = pathway_model.predict(Replica())
+
+        self.assertNotIn('Fe3_deltaG_r', run_log.keys())
+        self.assertNotIn('Fe3_MM', run_log.keys())
+        self.assertNotIn('Fe3_v', run_log.keys())
+
+    def test_prediction_keeps_kinetic_diagnostics_from_the_solver_process(self):
+        pathway_model = model.Model([pathways.Fe3])
+        pathway_model.model_parameters.set({
+            'Fe3_Km_Ac': 50., 'Fe3_Km_Fe3': 500., 'Fe3_v_max': 1.5,
+            'Fe3_CUE': .5, 'death_rate': 8.3e-5, 'Fe3_thermodynamics': True,
+            'M_Fe3': .25, 'Fe3': 150., 'Acetate': 20.,
+        })
+
+        run_log = pathway_model.predict_with_logging(Replica())
         pool_time, _ = run_log['Fe3']
         for name in ('Fe3_MM', 'Fe3_v'):
             time, values = run_log[name]

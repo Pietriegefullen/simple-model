@@ -14,6 +14,7 @@ python faster/polish_replicas.py JI7G --replicas 13514 13526 --max-evaluations 2
 import argparse
 import copy
 import json
+import math
 from pathlib import Path
 
 import fit_replicas
@@ -24,7 +25,7 @@ from USER_VARIABLES import RESULTS_DIRECTORY
 
 
 DEFAULT_SIGMA = 0.10
-DEFAULT_MAX_EVALUATIONS = 3000
+DEFAULT_MAX_EVALUATIONS = 300
 
 
 def _multi_metadata(checkpoint_data):
@@ -146,6 +147,22 @@ def _polish_target(source_path, record, output_root=None):
     return root / 'joint_polish' / f'cp-{source_id}' / str(record['replica'])
 
 
+def existing_polish_checkpoint(target):
+    """Return one readable saved polish checkpoint below *target*, if any."""
+    target = Path(target)
+    if not target.is_dir():
+        return None
+    for candidate in sorted(target.iterdir()):
+        if not candidate.is_file() or candidate.name.startswith('.'):
+            continue
+        try:
+            fit_sample._requested_checkpoint(candidate)
+        except ValueError:
+            continue
+        return candidate
+    return None
+
+
 def _write_manifest(path, source_path, selected_records, args, completed):
     path.mkdir(parents=True, exist_ok=True)
     document = {
@@ -157,6 +174,8 @@ def _write_manifest(path, source_path, selected_records, args, completed):
         'max_evaluations': args.max_evaluations,
         'popsize': args.popsize,
         'seed': args.seed,
+        'skip_existing': args.skip_existing,
+        'skip_r2': args.skip_r2,
         'completed_replicas': completed,
     }
     with (path / 'manifest.json').open('w') as handle:
@@ -166,7 +185,7 @@ def _write_manifest(path, source_path, selected_records, args, completed):
 
 def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
            max_evaluations=DEFAULT_MAX_EVALUATIONS, popsize=None, seed=None,
-           output_root=None, dry_run=False):
+           output_root=None, dry_run=False, skip_existing=False, skip_r2=None):
     """Polish selected source replicas and return their output directories."""
     source_path = resolve_checkpoint(source_checkpoint)
     source_data = fit_sample._requested_checkpoint(source_path)
@@ -174,7 +193,8 @@ def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
     selected = select_replica_records(records, replica_ids)
     target_root = _polish_target(source_path, {'replica': '_'}, output_root).parent
     args = argparse.Namespace(sigma=sigma, max_evaluations=max_evaluations,
-                              popsize=popsize, seed=seed)
+                              popsize=popsize, seed=seed, skip_existing=skip_existing,
+                              skip_r2=skip_r2)
     completed = []
     if not dry_run:
         _write_manifest(target_root, source_path, selected, args, completed)
@@ -183,7 +203,7 @@ def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
         'sigma0': sigma,
         'max_evaluations': max_evaluations,
         'seed': seed,
-        'workers': 1,
+        'workers': -1,
     }
     if popsize is not None:
         algorithm['popsize'] = popsize
@@ -192,12 +212,25 @@ def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
         local = local_parameters_for_polish(source_data, record)
         chosen = polish_run_configuration(source_data, record)
         target = _polish_target(source_path, record, output_root)
+        existing = existing_polish_checkpoint(target)
+        if skip_existing and existing is not None:
+            print(f"Skipping replica {record['replica']}: existing polish checkpoint "
+                  f'{existing.name}')
+            completed.append(str(record['replica']))
+            if not dry_run:
+                _write_manifest(target_root, source_path, selected, args, completed)
+            continue
         print(f"Polishing replica {record['replica']} with {len(local.variables())} local parameters")
         if not dry_run:
-            fit_sample.fit(
-                chosen, source_data['run_config']['objective'], {'cma_es': algorithm},
-                {'range': local, 'parameters': copy.deepcopy(local)},
-                checkpoint_keep_only_n=1, cp_target=str(target))
+            try:
+                fit_sample.fit(
+                    chosen, source_data['run_config']['objective'], {'cma_es': algorithm},
+                    {'range': local, 'parameters': copy.deepcopy(local)},
+                    checkpoint_keep_only_n=1, cp_target=str(target),
+                    skip_existing_r2=skip_r2)
+            except fit_sample.ExistingFitGoodEnough as error:
+                print(f"Skipping replica {record['replica']}: existing polish R2 "
+                      f'{error.r2:.3f} exceeds --skip-r2 {skip_r2:.3f}')
         completed.append(str(record['replica']))
         if not dry_run:
             _write_manifest(target_root, source_path, selected, args, completed)
@@ -220,6 +253,11 @@ def parse_args(argv=None):
     parser.add_argument('--popsize', type=int,
                         help="CMA-ES population size; default uses CMA-ES's dimension-aware value.")
     parser.add_argument('--seed', type=int, help='Random seed for CMA-ES.')
+    parser.add_argument('--skip-existing', action='store_true',
+                        help='Skip replicas that already have a readable polish checkpoint.')
+    parser.add_argument('--skip-r2', type=float, metavar='R2',
+                        help=('Skip a replica when its existing polish checkpoint has '
+                              'R2 strictly above this threshold.'))
     parser.add_argument('--output-root',
                         help="Result root; default is this project's results directory.")
     parser.add_argument('--dry-run', action='store_true',
@@ -231,6 +269,8 @@ def parse_args(argv=None):
         parser.error('--max-evaluations must be positive.')
     if args.popsize is not None and args.popsize <= 0:
         parser.error('--popsize must be positive.')
+    if args.skip_r2 is not None and not -math.inf < args.skip_r2 <= 1:
+        parser.error('--skip-r2 must be at most 1.')
     return args
 
 
@@ -238,7 +278,8 @@ def main(argv=None):
     args = parse_args(argv)
     outputs = polish(args.checkpoint, args.replicas, args.sigma,
                      args.max_evaluations, args.popsize, args.seed,
-                     args.output_root, args.dry_run)
+                     args.output_root, args.dry_run, args.skip_existing,
+                     args.skip_r2)
     print('Dry run: would write results to:' if args.dry_run else 'Polish results:')
     for output in outputs:
         print('  ' + output)

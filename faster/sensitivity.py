@@ -34,6 +34,7 @@ import numpy as np
 import data
 import model
 import parameters
+import checkpoint_report
 from checkpoint_io import checkpoint_id, replay_inputs
 from USER_VARIABLES import PROJECT_DIRECTORY
 
@@ -223,35 +224,11 @@ def write_plot(rows, target, baseline, output, metric):
     plt.close(figure)
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('checkpoint', help='Saved checkpoint path or unique checkpoint ID.')
-    parser.add_argument('--replica', nargs=2, metavar=('SAMPLE', 'REPLICA'),
-                        help='Replica to replay; required for a joint multi-replica checkpoint.')
-    parser.add_argument('--target', '--quantity', dest='target', default='CO2',
-                        help=('A logged quantity or + / - / expression of logged quantities, '
-                              "e.g. 'CO2 + CH4' or 'CO2 / CH4' (default: CO2)."))
-    parser.add_argument('--stat', choices=('final', 'maximum', 'integral'), default='final',
-                        help='How to reduce the logged time series (default: final).')
-    parser.add_argument('--fraction', type=float, default=1e-4,
-                        help='Relative finite-difference step h/|p| (default: 1e-4).')
-    parser.add_argument('--scope', choices=('all', 'shared', 'local'), default='all',
-                        help='Parameter role to test; meaningful for joint fits (default: all).')
-    parser.add_argument('--parameters', nargs='*', metavar='GLOB',
-                        help='Optional parameter names or shell-style patterns, e.g. M_* Hydro_*.')
-    parser.add_argument('--plot', choices=('derivative', 'elasticity'), default='derivative',
-                        help=('Metric in parameter_influence.png (default: derivative). '
-                              'Elasticity is dimensionless and useful for comparing unlike units.'))
-    parser.add_argument('--output-dir', type=Path,
-                        help='Override the default results/sensitivity/SAMPLE-REPLICA directory.')
-    args = parser.parse_args(argv)
-    if not 0 < args.fraction < 1:
-        parser.error('--fraction must be greater than zero and less than one.')
-
-    source, _, _, contents = replay_inputs(args.checkpoint)
+def analyse_checkpoint(identifier, args, dataset):
+    """Run and persist one checkpoint/replica analysis; return its provenance."""
+    source, _, _, contents = replay_inputs(identifier)
     run_config, values, roles, replica_id, local_record = checkpoint_solution(
         source, contents, args.replica)
-    dataset = data.get_data_before_day()
     replica = dataset[replica_id[0]][replica_id[1]]
     names = selected_parameters(values, roles, args.parameters, args.scope)
     baseline = replay(run_config, values, replica, args.target, args.stat)
@@ -335,6 +312,113 @@ def main(argv=None):
     with (output_dir / 'metadata.json').open('w') as handle:
         json.dump(metadata, handle, indent=2, default=str)
     print(f'Wrote sensitivity analysis for {len(names)} parameters to {output_dir}')
+    return {'checkpoint_id': short_id, 'source_checkpoint': str(source.resolve()),
+            'sample': replica_id[0], 'replica': replica_id[1],
+            'output_directory': str(output_dir), 'baseline_target': baseline,
+            'status': 'ok'}
+
+
+def batch_jobs(model_ids, fit_modes):
+    """Select retained best checkpoints, expanding joint fits by their replicas."""
+    # Do the small predicate locally rather than calling the report command's
+    # interactive filter, so a long batch selection does not emit one progress
+    # update per checkpoint before any sensitivity work starts.
+    selected = [checkpoint for checkpoint in checkpoint_report.collect_best()
+                if any(model_id in checkpoint.model_id for model_id in model_ids)
+                and checkpoint.fit_mode in fit_modes]
+    if not selected:
+        raise ValueError('No retained best checkpoints match the requested --model-id and --fit-mode.')
+    jobs = []
+    for checkpoint in sorted(selected, key=lambda item: str(item.source)):
+        if checkpoint.fit_mode == 'multi':
+            for record in checkpoint.multi_replica_results:
+                sample = record.get('sample')
+                replica = record.get('replica_number', record.get('replica'))
+                if sample is not None and replica is not None:
+                    jobs.append((checkpoint.source, (str(sample), str(replica))))
+        else:
+            jobs.append((checkpoint.source, None))
+    if not jobs:
+        raise ValueError('The matching joint checkpoint contains no saved per-replica solutions.')
+    return jobs
+
+
+def write_batch_summary(rows, model_ids, fit_modes, target, stat):
+    root = Path(PROJECT_DIRECTORY) / 'results' / 'sensitivity'
+    root.mkdir(parents=True, exist_ok=True)
+    model_slug = '-'.join(model_ids)
+    mode_slug = '-'.join(fit_modes)
+    target_slug = re.sub(r'[^A-Za-z0-9_.-]+', '_', target).strip('_')
+    destination = root / f'batch_{model_slug}_{mode_slug}_{target_slug}_{stat}.csv'
+    fields = ('checkpoint_id', 'source_checkpoint', 'sample', 'replica',
+              'output_directory', 'baseline_target', 'status')
+    with destination.open('w', newline='') as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+    return destination
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('checkpoint', nargs='?',
+                        help='One saved checkpoint path or unique ID. Omit when using --model-id.')
+    parser.add_argument('--model-id', nargs='+',
+                        help='Batch selector: model-ID substring(s); retained best checkpoints are used.')
+    parser.add_argument('--fit-mode', nargs='+', choices=('single', 'split', 'multi'),
+                        help='Batch selector: fit mode(s) to analyse.')
+    parser.add_argument('--replica', nargs=2, metavar=('SAMPLE', 'REPLICA'),
+                        help='Replica to replay; required for one joint multi-replica checkpoint.')
+    parser.add_argument('--target', '--quantity', dest='target', default='CO2',
+                        help=('A logged quantity or + / - / expression of logged quantities, '
+                              "e.g. 'CO2 + CH4' or 'CO2 / CH4' (default: CO2)."))
+    parser.add_argument('--stat', choices=('final', 'maximum', 'integral'), default='final',
+                        help='How to reduce the logged time series (default: final).')
+    parser.add_argument('--fraction', type=float, default=1e-4,
+                        help='Relative finite-difference step h/|p| (default: 1e-4).')
+    parser.add_argument('--scope', choices=('all', 'shared', 'local'), default='all',
+                        help='Parameter role to test; meaningful for joint fits (default: all).')
+    parser.add_argument('--parameters', nargs='*', metavar='GLOB',
+                        help='Optional parameter names or shell-style patterns, e.g. M_* Hydro_*.')
+    parser.add_argument('--plot', choices=('derivative', 'elasticity'), default='derivative',
+                        help=('Metric in parameter_influence.png (default: derivative). '
+                              'Elasticity is dimensionless and useful for comparing unlike units.'))
+    parser.add_argument('--output-dir', type=Path,
+                        help='Override one checkpoint output directory; unavailable in batch mode.')
+    args = parser.parse_args(argv)
+    if not 0 < args.fraction < 1:
+        parser.error('--fraction must be greater than zero and less than one.')
+    if args.checkpoint and args.model_id:
+        parser.error('Specify either CHECKPOINT or --model-id, not both.')
+    if not args.checkpoint and not args.model_id:
+        parser.error('Specify CHECKPOINT or --model-id.')
+    if args.model_id and not args.fit_mode:
+        parser.error('--fit-mode is required with --model-id.')
+    if args.model_id and args.replica:
+        parser.error('--replica is selected automatically for each batch checkpoint.')
+    if args.model_id and args.output_dir:
+        parser.error('--output-dir applies to one checkpoint only; omit it in batch mode.')
+
+    dataset = data.get_data_before_day()
+    if args.checkpoint:
+        analyse_checkpoint(args.checkpoint, args, dataset)
+        return
+
+    rows = []
+    for index, (source, replica) in enumerate(batch_jobs(args.model_id, args.fit_mode), start=1):
+        args.replica = replica
+        print(f'[{index}] {source}' + ('' if replica is None else f' ({replica[0]}-{replica[1]})'))
+        try:
+            rows.append(analyse_checkpoint(source, args, dataset))
+        except Exception as error:
+            rows.append({'checkpoint_id': checkpoint_id(source) or Path(source).name,
+                         'source_checkpoint': str(source), 'sample': '', 'replica': '',
+                         'output_directory': '', 'baseline_target': '',
+                         'status': f'failed: {type(error).__name__}: {error}'})
+            print(f'  FAILED: {error}')
+    summary = write_batch_summary(rows, args.model_id, args.fit_mode, args.target, args.stat)
+    successes = sum(row['status'] == 'ok' for row in rows)
+    print(f'Batch finished: {successes}/{len(rows)} analyses succeeded. Summary: {summary}')
 
 
 if __name__ == '__main__':

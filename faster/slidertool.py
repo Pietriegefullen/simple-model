@@ -33,7 +33,7 @@ class FasterModel(Model):
         self.model = model.Model(model.get_pathways('simple'))
         self.model_parameters = parameters.default_model_parameters()
         self.model.parameters().set(self.model_parameters)
-        self.pool_value_dict = self.model.predict(self.replica)
+        self.pool_value_dict = self.model.predict_with_logging(self.replica)
 
         same_plot = list()
         for k in self.pool_value_dict.keys():
@@ -85,7 +85,7 @@ class FasterModel(Model):
 
     def update_model(self):
         self.update_parameters()
-        self.pool_value_dict = self.model.predict(self.replica)
+        self.pool_value_dict = self.model.predict_with_logging(self.replica)
         self.notify()
 
     def update_parameters(self):

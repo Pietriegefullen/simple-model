@@ -94,6 +94,23 @@ switches.  A named comparison uses the default directory
 comparison report per selected checkpoint; joint multi-replica fits are not
 currently supported for named replays.
 
+## Fixing groups of joint-fit parameters
+
+`fit_replicas.py` accepts `--fix-default` with one or more parameter names or
+shell-style globs. It freezes each match at its declared model-default value,
+while any parameter selected by `--shared` stays free. For example, to fit
+only the shared hydrolysis maximum rate among all maximum-rate parameters:
+
+```sh
+python faster/fit_replicas.py --shared Hydrolysis_v_max --fix-default '*_v_max'
+```
+
+Use `--p NAME VALUE` when a fixed parameter should use a value other than its
+model default. Explicit `--p` values take precedence over `--fix-default`.
+When a `--p` glob also matches a `--shared` parameter, the shared parameter is
+left variable; for example, `--shared Hydrolysis_v_max --p '*_v_max' 1` fixes
+the other maximum-rate parameters at `1` while fitting `Hydrolysis_v_max`.
+
 ## Resuming nested CMA-ES fits
 
 `faster/fit_replicas.py` checkpoints both the outer and per-replica CMA-ES
@@ -116,6 +133,8 @@ smaller than the `0.30` exploratory default used by a fresh CMA-ES fit.
 python faster/polish_replicas.py JI7G
 python faster/polish_replicas.py JI7G --replicas 13514 13526 --max-evaluations 2000
 python faster/polish_replicas.py JI7G --sigma 0.05 --popsize 16
+python faster/polish_replicas.py JI7G --skip-existing
+python faster/polish_replicas.py JI7G --skip-r2 0.8
 ```
 
 Replica IDs are the full sample+replica IDs recorded by the multi fit (for
@@ -123,6 +142,10 @@ example `13514` or `1351/4` means sample `1351`, replica `4`); omitting
 `--replicas` polishes every replica in that checkpoint. Results are stored under
 `results/joint_polish/cp-<source-id>/`, alongside a `manifest.json` recording
 the source checkpoint and CMA-ES settings.
+
+`--skip-existing` leaves any replica with a readable saved polish checkpoint
+untouched. `--skip-r2 R2` instead loads the existing result and skips it only
+when its reconstructed R² is strictly greater than the supplied threshold.
 
 ## Finding alternative local minima
 
@@ -176,6 +199,16 @@ python faster/sensitivity.py KRQY --target 'CO2 + CH4' --stat final
 python faster/sensitivity.py KRQY --target 'CO2 / CH4' --stat final
 python faster/sensitivity.py KRQY --parameters '*_v_max' 'M_*'
 python faster/sensitivity.py KRQY --plot elasticity
+```
+
+To automate this across a model and fit mode, omit the checkpoint and provide
+`--model-id` and `--fit-mode`. The command implicitly selects the retained
+lowest-loss checkpoint for every matching replica, then writes a batch summary
+beside the individual result folders.
+
+```sh
+python faster/sensitivity.py --model-id C3XX-77BI --fit-mode single \
+  --target 'CO2 + CH4' --stat final
 ```
 
 For a nested joint checkpoint, select the replica whose local solution should

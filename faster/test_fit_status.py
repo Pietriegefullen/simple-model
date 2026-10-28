@@ -73,19 +73,28 @@ class FitStatusTest(unittest.TestCase):
         report = fit_status.format_report(results, self.dataset, color=True)
         self.assertIn('  1000', report)
         self.assertIn(' 0.875', report)
-        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE} 0.799', report)
+        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE}  0.799', report)
         self.assertNotIn('0.799!', report)
         self.assertIn('R² < 0.800', report)
         self.assertIn('coverage: 2/2 fitted', report)
         self.assertIn('sample      4      5', report)
         self.assertNotIn('sample      1', report)
 
+    def test_r2_cells_reserve_space_for_a_negative_sign(self):
+        positive = fit_status.format_r2(.1234, .8)
+        negative = fit_status.format_r2(-.1234, .8)
+
+        self.assertEqual(positive, '  0.123')
+        self.assertEqual(negative, ' -0.123')
+        self.assertEqual(len(positive), len(negative))
+        self.assertEqual(positive.index('.'), negative.index('.'))
+
     def test_report_accepts_a_different_highlight_threshold(self):
         result = fit_status.FitResult('1000', '4', 'single', 'A', .875, None)
         report = fit_status.format_report(
             [result], self.dataset, highlight_threshold=.9, color=True)
         self.assertIn('R² < 0.900', report)
-        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE} 0.875', report)
+        self.assertIn(f'{fit_status.HIGHLIGHT_STYLE}  0.875', report)
 
     def test_report_omits_samples_with_requested_prefixes(self):
         omitted_sample = _Sample()
@@ -129,6 +138,122 @@ class FitStatusTest(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].path, Path('matching.json'))
+
+    def test_multi_results_use_every_replica_score_from_best_global_checkpoint(self):
+        def multi_checkpoint(loss, r2_values):
+            return {
+                'parameters': {},
+                'total_loss': loss,
+                'run_config': {
+                    'model': {'name': 'joint'},
+                    'chosen': {'sample': 0, 'validation_replica': 0,
+                               'fit_mode': 'multi'},
+                    'objective': self.objective,
+                    'multi_replica': {'replicas': ['10004', '10005']},
+                },
+                'replicas': [
+                    {'sample': '1000', 'replica_number': replica,
+                     'replica': f'1000{replica}', 'r2': r2}
+                    for replica, r2 in r2_values.items()
+                ],
+            }
+
+        best_global = multi_checkpoint(.1, {'4': .71, '5': .72})
+        better_local_scores = multi_checkpoint(.2, {'4': .99, '5': .98})
+        with mock.patch.object(
+                fit_status, 'checkpoint_files',
+                return_value=[(Path('best.json'), best_global),
+                              (Path('other.json'), better_local_scores)]), \
+                mock.patch.object(fit_status.hashing, 'build_model_id',
+                                  return_value='model-JOINT'), \
+                mock.patch.object(fit_status.hashing, 'build_run_id',
+                                  return_value='run-JOINT'):
+            results, errors = fit_status.best_results('unused', self.dataset)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(
+            {(result.replica, result.total_r2, result.path) for result in results},
+            {('4', .71, Path('best.json')), ('5', .72, Path('best.json'))})
+
+    def test_polished_results_follow_only_the_best_global_checkpoint(self):
+        def outer(loss, identifier):
+            return {
+                'parameters': {}, 'total_loss': loss,
+                'run_config': {
+                    'model': {'name': 'joint'},
+                    'chosen': {'sample': 0, 'validation_replica': 0,
+                               'fit_mode': 'multi'},
+                    'objective': self.objective,
+                    'multi_replica': {'replicas': ['10004']},
+                },
+                'replicas': [{'sample': '1000', 'replica_number': '4'}],
+            }
+
+        def polished(loss):
+            return {
+                'parameters': {}, 'total_loss': loss,
+                'run_config': {
+                    'model': {'name': 'joint'},
+                    'chosen': {'sample': '1000', 'validation_replica': '4',
+                               'fit_mode': 'single'},
+                    'objective': self.objective,
+                },
+            }
+
+        root = Path('unused')
+        best_root = root / 'joint_polish' / 'cp-BEST'
+        other_root = root / 'joint_polish' / 'cp-OTHER'
+
+        def files(directory):
+            directory = Path(directory)
+            if directory == root:
+                return [(Path('outer_cp-BEST'), outer(.1, 'BEST')),
+                        (Path('outer_cp-OTHER'), outer(.2, 'OTHER')),
+                        (Path('single-fit'), polished(.4))]
+            if directory == best_root:
+                return [(Path('best-polish-1'), polished(.3)),
+                        (Path('best-polish-2'), polished(.2))]
+            if directory == other_root:
+                return [(Path('other-polish'), polished(.01))]
+            return []
+
+        with mock.patch.object(fit_status, 'checkpoint_files', side_effect=files), \
+                mock.patch.object(Path, 'is_dir', return_value=True), \
+                mock.patch.object(fit_status.hashing, 'build_model_id',
+                                  side_effect=['model-POLISHED', 'model-POLISHED',
+                                               'model-SINGLE']), \
+                mock.patch.object(fit_status.hashing, 'build_run_id',
+                                  return_value='run-JOINT'), \
+                mock.patch.object(fit_status, 'observed_variance', return_value=1.0):
+            results, errors = fit_status.polished_results(
+                root, self.dataset, single_model_ids=['SINGLE'])
+
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 2)
+        by_mode = {result.fit_mode: result for result in results}
+        self.assertAlmostEqual(by_mode['single'].total_r2, .6)
+        self.assertEqual(by_mode['single'].path, Path('single-fit'))
+        self.assertAlmostEqual(by_mode['polished'].total_r2, .8)
+        self.assertEqual(by_mode['polished'].path, Path('best-polish-2'))
+
+    def test_polished_comparison_places_single_and_polished_values_side_by_side(self):
+        report = fit_status.format_polished_comparison([
+            fit_status.FitResult('1000', '4', 'single', 'single', .61, None),
+            fit_status.FitResult('1000', '4', 'polished', 'polished', .82, None),
+        ], self.dataset, highlight_threshold=.8)
+
+        self.assertIn('single polished', report)
+        self.assertIn('0.610   0.820', report)
+
+    def test_polished_comparison_blanks_replicas_outside_the_multi_fit(self):
+        report = fit_status.format_polished_comparison([
+            fit_status.FitResult('1000', '4', 'single', 'single', .61, None),
+            fit_status.FitResult('1000', '4', 'polished', 'polished', .82, None),
+        ], self.dataset, highlight_threshold=.8, polished_scope={('1000', '4')})
+
+        row = next(line for line in report.splitlines() if line.startswith('  1000'))
+        self.assertIn('0.610', row)
+        self.assertNotIn('--', row)
 
     def test_model_id_option_replaces_variant_option(self):
         with mock.patch.object(sys, 'argv', [

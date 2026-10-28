@@ -52,7 +52,16 @@ class PolishSelectionTest(unittest.TestCase):
     def test_parser_has_a_small_polishing_sigma_by_default(self):
         args = polish_replicas.parse_args(['ABCD'])
         self.assertEqual(args.sigma, 0.10)
-        self.assertEqual(args.max_evaluations, 3000)
+        self.assertEqual(args.max_evaluations, polish_replicas.DEFAULT_MAX_EVALUATIONS)
+        self.assertFalse(args.skip_existing)
+        self.assertIsNone(args.skip_r2)
+
+    def test_parser_accepts_existing_checkpoint_skip_options(self):
+        args = polish_replicas.parse_args([
+            'ABCD', '--skip-existing', '--skip-r2', '.8'])
+
+        self.assertTrue(args.skip_existing)
+        self.assertEqual(args.skip_r2, .8)
 
 
 if __name__ == '__main__':

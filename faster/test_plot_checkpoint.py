@@ -32,7 +32,8 @@ class ComparisonLabelTest(unittest.TestCase):
         ])
 
         self.assertIn('model model-X', title)
-        self.assertIn('replica 1351-4', title)
+        self.assertIn('sample 1351', title)
+        self.assertIn('replica 4', title)
         self.assertEqual(labels, ['cp-ONE', 'cp-TWO'])
 
     def test_only_differing_attributes_are_added_to_each_legend_label(self):
@@ -43,12 +44,20 @@ class ComparisonLabelTest(unittest.TestCase):
 
         self.assertIn('fit split', title)
         self.assertNotIn('model ', title)
+        self.assertIn('sample 1351', title)
         self.assertIn('model model-A', labels[0])
-        self.assertIn('replica 1351-5', labels[1])
+        self.assertIn('replica 5', labels[1])
         self.assertNotIn('fit split', labels[0])
 
 
 class CommandLineTest(unittest.TestCase):
+    def test_single_plot_filename_places_replica_after_figure_number(self):
+        checkpoint = Checkpoint('ABCD', replica='1351-4')
+
+        self.assertEqual(
+            plot_checkpoint.single_plot_filename(0, checkpoint),
+            '00_1351-4_fit.png')
+
     def test_default_output_directory_is_grouped_below_plot_directory(self):
         checkpoint = Checkpoint('ABCD', replica='1351-4', fit='split')
         result = plot_checkpoint.CheckpointPlot(checkpoint, (None, None, {}))
