@@ -427,6 +427,11 @@ def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
             for quantity in PATHWAY_QUANTITY_ORDER
             if quantity != 'microbe_pool'
         }
+        # Individual MM terms are displayed together in the pathway
+        # limitation figure, where their relative magnitude reveals the
+        # limiting substance.  Do not emit redundant one-curve figures.
+        handled.update(key for key in pathway_keys
+                       if key.startswith(f'{prefix}MM_'))
         # Add every remaining pathway diagnostic (for example ``v``,
         # inhibition, and methane production) in a stable order.
         for name in sorted(pathway_keys - handled):
@@ -623,7 +628,8 @@ def _factor_product(factor_series):
 
 
 def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
-                                    inhibition_series, checkpoint, *, suptitle=None):
+                                    inhibition_series, checkpoint, *,
+                                    mm_component_series=(), suptitle=None):
     """Plot all active limitation factors and their product for one pathway."""
     figure, axis = plt.subplots(figsize=(4, 4))
     if mm_series is None:
@@ -631,8 +637,13 @@ def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
                   transform=axis.transAxes, ha='left', va='top', fontsize=8)
     else:
         time, values = mm_series
-        axis.plot(time, values, color='tab:blue', linewidth=1.5,
-                  label=r'$\mathrm{Michaelis\! -\! Menten}$')
+        for (substance, (component_time, component_values)), color in zip(
+                mm_component_series,
+                plt.rcParams['axes.prop_cycle'].by_key()['color']):
+            axis.plot(component_time, component_values, color=color, linewidth=1.25,
+                      label=rf'$\mathrm{{MM}}\ ({substance})$')
+        axis.plot(time, values, color='tab:blue', linewidth=1.8,
+                  label=r'$\mathrm{Michaelis\! -\! Menten\ product}$')
     if thermodynamic_series is None:
         axis.text(.02, .84, 'Thermodynamic factor not logged', color='0.45',
                   transform=axis.transAxes, ha='left', va='top', fontsize=8)
@@ -682,6 +693,10 @@ def pathway_limitation_factor_figures(checkpoint, run_log, *, suptitle=None):
         mm_key = f'{pathway}_MM'
         thermodynamic_key = f'{pathway}_thermodynamic_factor'
         inhibition_key = f'{pathway}_inhib'
+        component_prefix = f'{mm_key}_'
+        mm_components = tuple(
+            (key.removeprefix(component_prefix), run_log[key])
+            for key in sorted(keys) if key.startswith(component_prefix))
         figures.append((f'{pathway}_limitation_factors',
                         plot_pathway_limitation_factors(
                             pathway,
@@ -689,7 +704,8 @@ def pathway_limitation_factor_figures(checkpoint, run_log, *, suptitle=None):
                             (run_log[thermodynamic_key]
                              if thermodynamic_key in keys else None),
                             run_log[inhibition_key] if inhibition_key in keys else None,
-                            checkpoint, suptitle=suptitle)))
+                            checkpoint, mm_component_series=mm_components,
+                            suptitle=suptitle)))
     return figures
 
 
@@ -736,9 +752,8 @@ def pathway_substrate_consumption_rate(pathway_model, run_log, pathway_name,
     return time, coefficient * biomass_on_rate_grid * specific_rate
 
 
-def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
-                                      substance):
-    """Return a pathway's positive net production rate of one substance.
+def pathway_substance_rate(pathway_model, run_log, pathway_name, substance):
+    """Return a pathway's signed net rate of change for one substance.
 
     When complete system-state logs are available, rates are recalculated on
     accepted solver states.  This matches the total-pool curve and avoids
@@ -746,8 +761,6 @@ def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
     """
     pathway = _pathway_from_model(pathway_model, pathway_name)
     coefficient = float(pathway.pathway_vector[system.index(substance)])
-    if coefficient <= 0:
-        raise ValueError(f'{pathway_name} does not produce {substance}.')
 
     keys = _run_log_keys(run_log)
     if (hasattr(pathway_model, 'compute_dissolved') and
@@ -800,6 +813,16 @@ def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
     return time, coefficient * biomass_on_rate_grid * specific_rate
 
 
+def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
+                                      substance):
+    """Return a pathway's positive net production rate of one substance."""
+    pathway = _pathway_from_model(pathway_model, pathway_name)
+    if float(pathway.pathway_vector[system.index(substance)]) <= 0:
+        raise ValueError(f'{pathway_name} does not produce {substance}.')
+    return pathway_substance_rate(pathway_model, run_log, pathway_name,
+                                  substance)
+
+
 def cumulative_pathway_production(time, rate):
     """Integrate a pathway production rate after consolidating solver times."""
     time = np.asarray(time, dtype=float)
@@ -816,6 +839,93 @@ def cumulative_pathway_production(time, rate):
         return time, np.zeros_like(time)
     increments = np.diff(time) * (rate[:-1] + rate[1:]) / 2
     return time, np.concatenate(([0.], np.cumsum(increments)))
+
+
+def cumulative_pathway_consumption(time, rate):
+    """Integrate the negative portion of a signed pathway rate."""
+    return cumulative_pathway_production(time, -np.asarray(rate, dtype=float))
+
+
+def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
+                                  suptitle=None, log_scale=False):
+    """Show gross gas production, cumulative consumption, and net pool change.
+
+    Gross production is stacked by pathway.  The shaded band is cumulative
+    consumption, so the lower boundary of the band reconstructs the net total
+    gas change plotted as the dashed curve.
+    """
+    keys = _run_log_keys(run_log)
+    if gas not in keys:
+        return None
+
+    producers, consumers = [], []
+    for pathway in PATHWAY_PLOT_ORDER:
+        try:
+            rate_time, rate = pathway_substance_rate(
+                pathway_model, run_log, pathway, gas)
+        except ValueError:
+            continue
+        coefficient = float(_pathway_from_model(
+            pathway_model, pathway).pathway_vector[system.index(gas)])
+        if coefficient > 0:
+            time, cumulative = cumulative_pathway_production(rate_time, rate)
+            if len(time):
+                producers.append((pathway, time, cumulative))
+        elif coefficient < 0:
+            time, cumulative = cumulative_pathway_consumption(rate_time, rate)
+            if len(time):
+                consumers.append((pathway, time, cumulative))
+
+    if not producers:
+        return None
+
+    total_time, total_pool = run_log[gas]
+    total_time = np.asarray(total_time, dtype=float)
+    total_change = np.asarray(total_pool, dtype=float) - float(total_pool[0])
+    grids = [total_time]
+    grids.extend(curve_time for _, curve_time, _ in producers + consumers)
+    time = np.unique(np.concatenate(grids))
+    contributions = [
+        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
+        for _, curve_time, cumulative in producers
+    ]
+    gross_production = np.sum(contributions, axis=0)
+    consumption = sum(
+        (np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
+         for _, curve_time, cumulative in consumers),
+        np.zeros_like(time))
+
+    figure, axes = plot.create_figure(plot.FigureSpec(
+        axis_names=('diagnostic',), figsize=(5, 4)))
+    axis = axes['diagnostic']
+    labels = [
+        rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
+        for (pathway, _, _), contribution in zip(producers, contributions)
+    ]
+    axis.stackplot(
+        time, *contributions, labels=labels,
+        colors=[pathway_color(pathway) for pathway, _, _ in producers],
+        alpha=.75,
+    )
+    if np.any(consumption > 0.):
+        axis.fill_between(
+            time, gross_production - consumption, gross_production,
+            color='0.25', alpha=.22, hatch='//', linewidth=0,
+            label=(rf'$\mathrm{{{gas}\ consumed}}$'
+                   f': {consumption[-1]:.3g}'))
+    axis.plot(total_time, total_change, 'k--', linewidth=1.5,
+              label=(rf'$\mathrm{{net\ total\ {gas}\ change}}$'
+                     f': {total_change[-1]:.3g}'))
+    axis.set_title(rf'$\mathrm{{cumulative\ {gas}\ production}}$')
+    axis.set_xlabel(r'$\mathrm{time [d]}$')
+    axis.set_ylabel(rf'$\mathrm{{cumulative\ {gas}\ [\mu mol/g\ dry\ weight]}}$')
+    plot.format_ax(axis, log_scale=log_scale)
+    axis.legend(
+        title=rf'$\mathrm{{final\ cumulative\ {gas}\ [\mu mol/g]}}$',
+        fancybox=False, edgecolor='k', loc='best')
+    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
+    figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
+    return figure, axis
 
 
 def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
@@ -850,24 +960,19 @@ def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
         for (pathway, _, _), contribution in zip(curves, contributions)
     ]
     axis.stackplot(
-        time, *contributions,
-        labels=labels,
-        colors=[pathway_color(pathway) for pathway, _, _ in curves],
-        alpha=.75,
-    )
+        time, *contributions, labels=labels,
+        colors=[pathway_color(pathway) for pathway, _, _ in curves], alpha=.75)
     total_time, total_ch4 = run_log['CH4']
-    total_ch4 = np.asarray(total_ch4, dtype=float)
-    total_production = total_ch4 - total_ch4[0]
+    total_production = np.asarray(total_ch4, dtype=float) - float(total_ch4[0])
     axis.plot(total_time, total_production, 'k--', linewidth=1.5,
-              label=(r'$\mathrm{total CH_4 produced}$'
+              label=(r'$\mathrm{net\ total\ CH_4\ change}$'
                      f': {total_production[-1]:.3g}'))
-    axis.set_title(r'$\mathrm{cumulative CH_4 production}$')
-    axis.set_xlabel(r'$\mathrm{time [d]}$')
-    axis.set_ylabel(r'$\mathrm{cumulative CH_4 [\mu mol/g dry weight]}$')
+    axis.set_title(r'$\mathrm{cumulative\ CH_4\ production}$')
+    axis.set_xlabel(r'$\mathrm{time\ [d]}$')
+    axis.set_ylabel(r'$\mathrm{cumulative\ CH_4\ [\mu mol/g\ dry\ weight]}$')
     plot.format_ax(axis, log_scale=log_scale)
-    axis.legend(
-        title=r'$\mathrm{final cumulative CH_4 [\mu mol/g]}$',
-        fancybox=False, edgecolor='k', loc='best')
+    axis.legend(title=r'$\mathrm{final\ cumulative\ CH_4\ [\mu mol/g]}$',
+                fancybox=False, edgecolor='k', loc='best')
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
     return figure, axis
@@ -880,54 +985,9 @@ def co2_pathway_production_figure(checkpoint, pathway_model, run_log, *,
     The dashed curve is the net change in the total CO2 pool.  It can differ
     from the stack because other pathways may consume CO2.
     """
-    keys = _run_log_keys(run_log)
-    curves = []
-    for pathway in PATHWAY_PLOT_ORDER:
-        try:
-            rate_time, rate = pathway_substance_production_rate(
-                pathway_model, run_log, pathway, 'CO2')
-        except ValueError:
-            continue
-        time, cumulative = cumulative_pathway_production(rate_time, rate)
-        if len(time):
-            curves.append((pathway, time, cumulative))
-    if not curves or 'CO2' not in keys:
-        return None
-
-    time = np.unique(np.concatenate([curve_time for _, curve_time, _ in curves]))
-    contributions = [
-        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
-        for _, curve_time, cumulative in curves
-    ]
-    figure, axes = plot.create_figure(plot.FigureSpec(
-        axis_names=('diagnostic',), figsize=(5, 4)))
-    axis = axes['diagnostic']
-    labels = [
-        rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
-        for (pathway, _, _), contribution in zip(curves, contributions)
-    ]
-    axis.stackplot(
-        time, *contributions,
-        labels=labels,
-        colors=[pathway_color(pathway) for pathway, _, _ in curves],
-        alpha=.75,
-    )
-    total_time, total_co2 = run_log['CO2']
-    total_co2 = np.asarray(total_co2, dtype=float)
-    total_change = total_co2 - total_co2[0]
-    axis.plot(total_time, total_change, 'k--', linewidth=1.5,
-              label=(r'$\mathrm{net\ total\ CO_2\ change}$'
-                     f': {total_change[-1]:.3g}'))
-    axis.set_title(r'$\mathrm{cumulative\ CO_2\ production}$')
-    axis.set_xlabel(r'$\mathrm{time [d]}$')
-    axis.set_ylabel(r'$\mathrm{cumulative\ CO_2\ [\mu mol/g dry weight]}$')
-    plot.format_ax(axis, log_scale=log_scale)
-    axis.legend(
-        title=r'$\mathrm{final cumulative\ CO_2\ [\mu mol/g]}$',
-        fancybox=False, edgecolor='k', loc='best')
-    figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
-    figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
-    return figure, axis
+    return gas_pathway_production_figure(
+        checkpoint, pathway_model, run_log, 'CO2', suptitle=suptitle,
+        log_scale=log_scale)
 
 
 def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,

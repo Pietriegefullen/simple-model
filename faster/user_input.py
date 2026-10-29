@@ -30,7 +30,19 @@ def parse_args_fit(argv=None):
                         epilog='')
     parser.add_argument('sample', type = int)
     parser.add_argument('validation_replica', type = int)
-    parser.add_argument('--default', action = 'store_true')
+    parameter_source = parser.add_mutually_exclusive_group()
+    parameter_source.add_argument(
+        '--default', action='store_true',
+        help='start a fresh fit from the default model parameters')
+    parameter_source.add_argument(
+        '--estimate', action='store_true',
+        help='start a fresh fit from the estimated model parameters')
+    parser.add_argument(
+        '--fix-v-max-except', nargs='+', metavar='PARAMETER',
+        help='fix every *v_max parameter except the named parameter(s)')
+    parser.add_argument(
+        '--fix-v-max-value', type=float, metavar='VALUE',
+        help='value to assign to each *v_max parameter fixed by --fix-v-max-except')
     parser.add_argument('--omit', nargs = '+', default = [])
     parser.add_argument('--single', action = 'store_true', default = None)
     parser.add_argument('--split', action = 'store_true', default = None)
@@ -90,6 +102,8 @@ def parse_args_fit(argv=None):
         parser.error('--cma-restarts cannot be negative.')
     if args.max_evaluations is not None and args.max_evaluations <= 0:
         parser.error('--max-evaluations must be positive.')
+    if args.fix_v_max_value is not None and args.fix_v_max_except is None:
+        parser.error('--fix-v-max-value requires --fix-v-max-except.')
 
 
     return args

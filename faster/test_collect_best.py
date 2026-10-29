@@ -382,6 +382,23 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertTrue(any('not logged' in text.get_text()
                             for text in hydro_axis.texts))
 
+    def test_limitation_factor_plot_shows_each_logged_mm_substance(self):
+        run_log = {
+            'Hydro_v': ([0, 1], [.2, .3]),
+            'Hydro_MM': ([0, 1], [.2, .4]),
+            'Hydro_MM_CO2': ([0, 1], [.4, .8]),
+            'Hydro_MM_H2': ([0, 1], [.5, .5]),
+        }
+
+        figures = dict(plot_best.pathway_limitation_factor_figures(
+            None, run_log, suptitle='test'))
+        axis = figures['Hydro_limitation_factors'][1]
+
+        labels = [line.get_label() for line in axis.lines]
+        self.assertIn(r'$\mathrm{MM}\ (CO2)$', labels)
+        self.assertIn(r'$\mathrm{MM}\ (H2)$', labels)
+        self.assertIn(r'$\mathrm{Michaelis\! -\! Menten\ product}$', labels)
+
     def test_ch4_pathway_production_is_stacked_with_final_amounts(self):
         run_log = {
             'CH4': ([0, 1], [3, 6]),
@@ -419,7 +436,9 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             ],
         })()
         run_log = {
-            'CO2': ([0, 1], [3., 6.]),
+            # Gross production is 6 and Hydro consumes 2, so the total pool
+            # must increase by 4 for the diagnostic mass balance to close.
+            'CO2': ([0, 1], [3., 7.]),
             'Fermentation_v': ([0, 1], [.5, .5]),
             'M_Ferm': ([0, 1], [2., 2.]),
             'Aceto_v': ([0, 1], [1., 1.]),
@@ -435,12 +454,17 @@ class PathwayQuantityPlotTest(unittest.TestCase):
 
         self.assertEqual(axis.get_yscale(), 'linear')
         self.assertEqual(log_axis.get_yscale(), 'log')
-        self.assertEqual(len(axis.collections), 2)
+        # Two production stacks plus the shaded cumulative CO2 consumption.
+        self.assertEqual(len(axis.collections), 3)
         labels = [text.get_text() for text in axis.get_legend().get_texts()]
         self.assertTrue(any('Fermentation' in label for label in labels))
         self.assertTrue(any('Aceto' in label for label in labels))
         self.assertFalse(any('Hydro' in label for label in labels))
-        self.assertIn('3', labels[-1])
+        self.assertTrue(any('CO2' in label and 'consumed' in label
+                            for label in labels))
+        self.assertTrue(any('consumed' in label and '2' in label
+                            for label in labels))
+        self.assertIn('4', labels[-1])
         self.assertIsNotNone(figure)
 
     def test_co2_production_uses_accepted_states_not_trial_rate_logs(self):

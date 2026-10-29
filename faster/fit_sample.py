@@ -89,6 +89,26 @@ def checkpoint_range_errors(checkpoint_data, fit_parameters):
     return errors
 
 
+def fix_v_max_except(model_parameters, exceptions, value=None):
+    """Fix every ``*v_max`` parameter except the named parameters.
+
+    When supplied, ``value`` is assigned to each fixed parameter.
+    """
+    exceptions = set(exceptions or [])
+    v_max_names = {
+        parameter.name for parameter in model_parameters
+        if parameter.name.endswith('v_max')}
+    unknown = exceptions - v_max_names
+    if unknown:
+        raise ValueError(
+            '--fix-v-max-except only accepts *v_max parameters; got '
+            + ', '.join(sorted(unknown)))
+
+    for parameter in model_parameters:
+        if parameter.name.endswith('v_max') and parameter.name not in exceptions:
+            parameter.constant(parameter.value if value is None else value)
+
+
 def confirm_checkpoint_compatibility(path, warnings, input_function=None):
     """Require a deliberate acknowledgement for an incompatible restart."""
     if not warnings:
@@ -134,9 +154,24 @@ def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
     if log_prediction:
         # The fit itself uses the lean prediction path.  Replay it once with
         # diagnostics only for consumers that will plot those diagnostics.
-        pool_time, _ = run_log[system.SYSTEM[0]]
+        # Older/lean objective logs can retain only the observed gases.  Do
+        # not use TOC as an implicit prerequisite for requesting a diagnostic
+        # replay: the replica's requested days are the authoritative grid.
+        # A complete set of pools is created by ``predict_with_logging``.
+        replica = getattr(run_log, 'replica', None)
+        if replica is not None:
+            pool_time = np.asarray(replica['days'], dtype=float)
+        else:
+            pool_time = next(
+                (np.asarray(run_log[pool][0], dtype=float)
+                 for pool in system.SYSTEM if pool in run_log.keys()),
+                None)
+            if pool_time is None:
+                raise RuntimeError(
+                    'Cannot choose a diagnostic replay grid: the fit log has '
+                    'neither a replica nor any pool trajectory.')
         run_log = pathway_model.predict_with_logging(
-            run_log.replica, t_eval=pool_time)
+            replica, t_eval=pool_time)
     return pathway_model, objective, run_log
 
 def fit(chosen, objective_config, algo_config, init_config, 
@@ -182,7 +217,13 @@ def fit(chosen, objective_config, algo_config, init_config,
 
     legacy_path = None
     initial_parameters = parameters.load_parameters(init_config, source_directory=checkpoint_source)
-        
+
+    if chosen.get('fix_v_max_except') is not None:
+        fix_v_max_except(
+            initial_parameters,
+            chosen['fix_v_max_except'],
+            chosen.get('fix_v_max_value'))
+
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
         initial_parameters[p_name].constant(p_value)
@@ -307,6 +348,8 @@ if __name__ == '__main__':
                                          'Homo',
                                          'Fe3'],
             'parameter_override':       args.override,  # e.g. 'Homo_thermodynamics': False
+            'fix_v_max_except':         args.fix_v_max_except,
+            'fix_v_max_value':          args.fix_v_max_value,
             'normalized_parameters':    True,
             'algorithm':                algorithm_name,
             }
@@ -338,11 +381,13 @@ if __name__ == '__main__':
         # from the selected checkpoint.
         init_config = {'file': args.checkpoint, 'range': 'default'}
     else:
+        fresh_parameters = args.default or args.estimate
         init_config = {
                 'default':                  args.default,
-                'best_N':                   None if args.default else args.best,
-                'sample':                   None if args.default else chosen['sample'],
-                'validation_replica':       None if args.default else chosen['validation_replica'],
+                'estimate':                 args.estimate,
+                'best_N':                   None if fresh_parameters else args.best,
+                'sample':                   None if fresh_parameters else chosen['sample'],
+                'validation_replica':       None if fresh_parameters else chosen['validation_replica'],
                 'model':                    None,
                 'run_ID':                   None,
                 'file':                     None,
@@ -354,9 +399,9 @@ if __name__ == '__main__':
     fit(chosen, objective_config, algo_config, init_config,
         store_checkpoints = not args.dry,
         overwrite_existing_checkpoints = args.overwrite_checkpoints,
-        # ``--default`` is a fresh search from the declared parameter
-        # defaults.  Do not resume or rank against files already stored for
-        # the same run configuration.
-        ignore_existing_checkpoints = args.default)
+        # ``--default`` and ``--estimate`` are fresh searches from declared
+        # parameter catalogues.  Do not resume or rank against files already
+        # stored for the same run configuration.
+        ignore_existing_checkpoints = args.default or args.estimate)
     
     

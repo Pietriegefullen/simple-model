@@ -1,5 +1,22 @@
 simple model
 
+## Interactive model inspector
+
+Launch the desktop inspector from the project root:
+
+```bash
+python faster/model_inspector.py
+```
+
+It reads every saved checkpoint without modifying it. Filter and multi-select
+the checkpoint catalogue to compare matched report plots, then select a plot
+by filename-like report key. The first selected checkpoint supplies editable
+parameter values; sliders use the parameter's stored linear or logarithmic
+scale, and their bounds can be edited directly. A parameter change adds a
+separately labelled in-memory `manual values` replay. Detached comparison
+windows include the source sample, replica, fit mode, and checkpoint ID and
+have their own plot selector and y-scale toggle.
+
 ## Composable checkpoint plots
 
 `faster/plot.py` separates figure layout, model data, and the routines that

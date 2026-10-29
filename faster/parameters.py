@@ -32,6 +32,12 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
         default_range = ModelParameters({p.name: p for p in default_model_parameters(normalized)})
         return default_range
 
+    if 'estimate' in init_config and init_config['estimate']:
+        normalized = init_config['normalized'] if 'normalized' in init_config else False
+        estimated_range = ModelParameters({
+            p.name: p for p in estimated_model_parameters(normalized)})
+        return estimated_range
+
     if 'file' in init_config and not init_config['file'] is None:
         loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
         if 'range' in init_config and init_config['range'] == 'default':
@@ -205,6 +211,59 @@ def provided_parameters(replica):
     _ = system.initial_state(replica, p)
     return p
 
+def estimated_model_parameters(normalize_parameters = False):
+    # NOTE: 
+    # Km values must be in micromoles per liter
+    p = [
+         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
+         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
+         
+         Parameter('Ferm_v_max',     .525, [0.0001, 5], 'log', normalize = normalize_parameters),
+         #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
+         Parameter('Ferm_Km',        500, [100, 4000], 'log', normalize = normalize_parameters), #833
+         Parameter('Ferm_inhibition', 10000, [3000, 30000], 'log', normalize = normalize_parameters),
+         Parameter('Ferm_CUE',        .2, [.02, 0.45], 'linear', normalize = normalize_parameters),
+         
+         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize_parameters),
+         
+         Parameter('Hydro_Km_CO2',   500, [100, 2000], 'log', normalize = normalize_parameters),
+         Parameter('Hydro_v_max',    .17, [0.003, 1.], 'log', normalize = normalize_parameters),
+         Parameter('Hydro_CUE',       .1, [0.02, .2], 'linear', normalize = normalize_parameters),
+         Parameter('Hydro_Km_H2',    10, [3, 40], 'log', normalize = normalize_parameters),
+         
+         Parameter('Homo_Km_H2',     4, [0.5, 10], 'log', normalize = normalize_parameters),
+         Parameter('Homo_Km_CO2',    1000, [200, 5000], 'log', normalize = normalize_parameters),
+         Parameter('Homo_v_max',      .5, [0.005, 1.], 'log', normalize = normalize_parameters),
+         Parameter('Homo_CUE',        .1, [0.02, .2], 'linear', normalize = normalize_parameters),
+         
+         Parameter('Aceto_Km_Ac',    1000, [100, 6500], 'log', normalize = normalize_parameters), #166
+         Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize_parameters),
+         Parameter('Ac_CUE',          .07, [0.01, 0.15], 'linear', normalize = normalize_parameters), 
+         
+         Parameter('Fe3_Km_Ac',      50, [10, 100], 'log',  normalize = normalize_parameters),#500
+         Parameter('Fe3_Km_Fe3',     1000, [100, 10000], 'log', normalize = normalize_parameters),
+         Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize_parameters), 
+         Parameter('Fe3_CUE',        0.2, [0.01, .5], 'linear', normalize = normalize_parameters),
+         
+         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
+         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
+        
+        # biomass in units milligrams per gram dry weight of soil!!!
+         Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
+         Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
+         Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
+         Parameter('M_Homo',         .25, [1e-8, 5], 'log', normalize = normalize_parameters),
+         Parameter('M_Ac',         .0033, [1e-8, 5], 'log', normalize = normalize_parameters),
+         
+         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+        ]
+        
+    return p
+
+
 def default_model_parameters(normalize_parameters = False):
     p = [
          Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
@@ -240,8 +299,7 @@ def default_model_parameters(normalize_parameters = False):
          Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
          Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
         
-        # biomass in units milligrams per gram dry weight of soil???
-        #               or micromol per gram dry weight of soil???
+        # biomass in units milligrams per gram dry weight of soil!!!
          Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
          Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
          Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),

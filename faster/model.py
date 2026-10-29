@@ -39,8 +39,9 @@ GAS_RUNAWAY_FLOOR = 1.0
 
 
 version_major = '0'
-version_minor = '3' # minor 2: Henry's law adjusted
+version_minor = '4' # minor 2: Henry's law adjusted
                     #       3: allow zero pool values.
+                    #       4: convert Km values to micromoles per liter water per dry weight
 __version__ = '.'.join([version_major, version_minor])
 
 
@@ -273,27 +274,62 @@ class Model():
         ])
         for pathway in self.contributing_pathways:
             pathway_name = pathway.__class__.__name__
-            mm_factor = pathway.kinetics(dissolved_states)
+            effective_km = pathway.kinetic_half_saturation_constants(dissolved_states)
+            mm_factors = pathway.kinetic_factors(dissolved_states)
+            mm_factor = np.prod(mm_factors, axis=0)
             self.system_state_log.log(pathway.__class__.__name__ + '_MM',
                                       t, mm_factor)
+            km_total = np.zeros_like(mm_factor, dtype=float)
+            for pool_name in pathway.kinetic_factor_names():
+                pool_index = system.index(pool_name)
+                self.system_state_log.log(
+                    f'{pathway_name}_MM_{pool_name}', t,
+                    mm_factors[pool_index])
+                self.system_state_log.log(
+                    f'{pathway_name}_Km_{pool_name}', t,
+                    effective_km[pool_index])
+                km_total += effective_km[pool_index]
+            # A convenient total for inspection; individual Km curves above
+            # are the values actually used for each substrate.
+            self.system_state_log.log(f'{pathway_name}_Km_total', t, km_total)
             if pathway.use_inhib:
                 self.system_state_log.log(pathway_name + '_inhib', t,
                                           pathway.kinetic_inhibition(dissolved_states))
             if float(pathway.use_thermodynamics) == 1:
                 self.system_state_log.log(pathway_name + '_thermodynamic_factor', t,
                                           pathway.thermodynamics(t, dissolved_states))
-            self.system_state_log.log(pathway.__class__.__name__ + '_v',
-                 t,
-                 pathway.compute_v(t, dissolved_states))
+            specific_rate = pathway.compute_v(t, dissolved_states)
+            self.system_state_log.log(pathway.__class__.__name__ + '_v', t, specific_rate)
+            biomass = dissolved_states[pathway.microbe_index]
+            self.system_state_log.log(
+                pathway_name + '_reaction_rate', t, biomass * specific_rate)
+            self.system_state_log.log(
+                pathway_name + '_capacity_rate', t, biomass * float(pathway.v_max))
+            for pool_index, pool_name in enumerate(system.SYSTEM):
+                coefficient = pathway.pathway_vector[pool_index]
+                if coefficient != 0:
+                    self.system_state_log.log(
+                        f'{pathway_name}_rate_{pool_name}', t,
+                        coefficient * biomass * specific_rate)
             if 'CH4' in pathway.products:
-                biomass = dissolved_states[pathway.microbe_index]
-                specific_rate = pathway.compute_v(t, dissolved_states)
                 rates = biomass * (
                     specific_rate * pathway.pathway_vector[:, np.newaxis]
                     - pathway.death_rate[:, np.newaxis])
                 self.system_state_log.log(
                     pathway_name + '_CH4 from ' + pathway.microbe.name, t,
                     rates[system.index('CH4')])
+
+    def log_accepted_states(self, t, states):
+        """Record all accepted pools and their dissolved gas equivalents."""
+        dissolved_states = np.column_stack([
+            self.compute_dissolved(state) for state in states.T
+        ])
+        for pool_index, pool_name in enumerate(system.SYSTEM):
+            # Re-log raw pools in the diagnostic path, making the complete-log
+            # contract explicit even if a future lean predictor changes.
+            self.system_state_log.log(pool_name, t, states[pool_index])
+            self.system_state_log.log(
+                f'{pool_name}_dissolved', t, dissolved_states[pool_index])
 
 
     def log_accepted_thermodynamics(self, t, states):
@@ -414,8 +450,14 @@ class Model():
             replica, t=t, t_eval=t_eval, quiet=quiet, parallel=parallel,
             reset_Fe3=reset_Fe3, days_beyond_reset=days_beyond_reset,
             initial_mean_days=initial_mean_days)
+        missing_pools = [pool for pool in system.SYSTEM if pool not in run_log.keys()]
+        if missing_pools:
+            raise RuntimeError(
+                'Diagnostic prediction is missing accepted pool trajectories: '
+                + ', '.join(missing_pools))
         pool_time, _ = run_log[system.SYSTEM[0]]
         states = np.vstack([run_log[pool][1] for pool in system.SYSTEM])
+        self.log_accepted_states(pool_time, states)
         self.log_accepted_thermodynamics(pool_time, states)
         self.log_accepted_kinetics(pool_time, states)
         return run_log

@@ -170,19 +170,39 @@ class Pathway():
         #self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
 
-    def kinetics(self, S):
-        if S.ndim == 1:
-            Km = self.Km
-            ax = None
-        else:
-            Km = self.Km[:, np.newaxis]
-            ax = 0
+    def kinetic_factors(self, S):
+        """Return the Michaelis--Menten factor for every system pool.
 
-        MM = np.where(Km == 0,
-                           1.,
-                      S/(Km + S + EPS))
-        MM_factor = np.prod(MM, axis = ax)
-        return MM_factor
+        Rows with a zero half-saturation constant are identically one.  They
+        are retained here so callers can select the active, named factors
+        without duplicating the kinetic calculation used by :meth:`kinetics`.
+        """
+        Km = self.kinetic_half_saturation_constants(S)
+        return np.where(Km == 0, 1., S/(Km + S + EPS))
+
+    def kinetic_half_saturation_constants(self, S):
+        """Return effective Km values in the same units as ``S``.
+
+        Stored half-saturation constants are per litre of pore water.  The
+        solver state is per gram dry soil, so this water-content conversion is
+        the physical Km used in the Michaelis--Menten calculation.  It is
+        public so diagnostic replays can log exactly the quantities used by
+        the RHS without adding any work to normal optimisation calls.
+        """
+        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis]
+        rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC  # g/L
+        m_H2O = CONSTANTS.MOLAR_MASS_H2O  # g/mol
+        water_content = S[system.index('H2O')] * m_H2O / rho_H2O * 1e-6
+        return Km * water_content
+
+    def kinetic_factor_names(self):
+        """Return the pool names with an active Michaelis--Menten term."""
+        return tuple(pool for pool, Km in zip(system.SYSTEM, self.Km)
+                     if float(Km) != 0.)
+
+    def kinetics(self, S):
+        MM = self.kinetic_factors(S)
+        return np.prod(MM, axis=None if S.ndim == 1 else 0)
 
     def kinetic_inhibition(self, S):
         if S.ndim == 1:

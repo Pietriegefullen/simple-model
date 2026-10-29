@@ -302,7 +302,7 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
     return figure, axes
 
 
-def _comparison_quantities(results: list[CheckpointPlot]):
+def _comparison_quantities(results: list[CheckpointPlot], only=None):
     """Return figures for every ordinary diagnostic logged by any result."""
     _, labels = comparison_labels(results)
     quantities = {}
@@ -321,6 +321,8 @@ def _comparison_quantities(results: list[CheckpointPlot]):
     figures = {}
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     for key, curves in quantities.items():
+        if only is not None and key != only:
+            continue
         _, first_name, _, _, _, capacity = curves[0]
         figure, axes = plot.create_figure(plot.FigureSpec(
             axis_names=('diagnostic',), figsize=(4, 4)))
@@ -351,7 +353,7 @@ def _comparison_quantities(results: list[CheckpointPlot]):
     return figures
 
 
-def _comparison_reaction_rates(results: list[CheckpointPlot]):
+def _comparison_reaction_rates(results: list[CheckpointPlot], only=None):
     """Return one comparison figure per biomass-scaled pathway rate."""
     _, labels = comparison_labels(results)
     rates = {}
@@ -365,6 +367,9 @@ def _comparison_reaction_rates(results: list[CheckpointPlot]):
     figures = {}
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     for pathway, curves in rates.items():
+        key = f'{pathway}_reaction_rate'
+        if only is not None and key != only:
+            continue
         figure, axes = plot.create_figure(plot.FigureSpec(
             axis_names=('diagnostic',), figsize=(4, 4)))
         axis = axes['diagnostic']
@@ -379,11 +384,11 @@ def _comparison_reaction_rates(results: list[CheckpointPlot]):
         _legend(axis, labels)
         figure.suptitle(_comparison_suptitle(results, f'{pathway} reaction rate'))
         figure.tight_layout(rect=(0, 0, 1, .88))
-        figures[f'{pathway}_reaction_rate'] = figure
+        figures[key] = figure
     return figures
 
 
-def _comparison_limitation_factors(results: list[CheckpointPlot]):
+def _comparison_limitation_factors(results: list[CheckpointPlot], only=None):
     """Return one all-factor comparison for every pathway logged by a result."""
     _, labels = comparison_labels(results)
     series = {}
@@ -411,6 +416,9 @@ def _comparison_limitation_factors(results: list[CheckpointPlot]):
         Line2D([], [], color='k', linestyle='--', linewidth=2, label='all factors'),
     ]
     for pathway, result_factors in series.items():
+        key = f'{pathway}_limitation_factors'
+        if only is not None and key != only:
+            continue
         figure, axes = plot.create_figure(plot.FigureSpec(
             axis_names=('diagnostic',), figsize=(4, 4)))
         axis = axes['diagnostic']
@@ -436,7 +444,7 @@ def _comparison_limitation_factors(results: list[CheckpointPlot]):
         axis.legend(handles=handles, fancybox=False, edgecolor='k', loc='best')
         figure.suptitle(_comparison_suptitle(results, f'{pathway} limitation'))
         figure.tight_layout(rect=(0, 0, 1, .88))
-        figures[f'{pathway}_limitation_factors'] = figure
+        figures[key] = figure
     return figures
 
 
@@ -452,6 +460,51 @@ def comparison_figures(results: list[CheckpointPlot], dataset):
     figures.update({name: (figure, None)
                     for name, figure in _comparison_limitation_factors(results).items()})
     return figures
+
+
+def comparison_plot_names(results: list[CheckpointPlot]) -> list[str]:
+    """Return standard comparison plot keys without creating any figures."""
+    if not results:
+        raise ValueError('At least one checkpoint is required.')
+    names = ['fit']
+    quantities = set()
+    rates = set()
+    factors = set()
+    for result in results:
+        pathway_model, _, run_log = result.model_run
+        for quantity, _, _, pathway in report.pathway_plot_quantities(
+                run_log, include_pathway=True, pathway_model=pathway_model):
+            capacity = (pathway if quantity.startswith('M_') and pathway is not None
+                        and report.pathway_uses_capacity_parameter(run_log, pathway)
+                        else None)
+            quantities.add(f'{capacity}_{quantity}' if capacity is not None else quantity)
+        vmax = report.pathway_v_max_values(run_log)
+        rates.update(f'{pathway}_reaction_rate' for pathway, *_ in
+                     report.pathway_reaction_rate_curves(run_log, vmax))
+        for pathway in report.PATHWAY_PLOT_ORDER:
+            if f'{pathway}_v' in run_log.keys():
+                factors.add(f'{pathway}_limitation_factors')
+    names.extend(sorted(quantities))
+    names.extend(sorted(rates))
+    names.extend(sorted(factors))
+    return names
+
+
+def comparison_figure(results: list[CheckpointPlot], dataset, name: str):
+    """Render exactly one named comparison figure.
+
+    Model runs are supplied by the caller, so switching plots does not replay
+    a checkpoint.  Diagnostic generators also accept a requested key, avoiding
+    the former cost of constructing every report figure just to show one.
+    """
+    if name == 'fit':
+        return comparison_fit(results, dataset)
+    for builder in (_comparison_quantities, _comparison_reaction_rates,
+                    _comparison_limitation_factors):
+        figures = builder(results, only=name)
+        if name in figures:
+            return figures[name], None
+    raise KeyError(f'Unknown comparison plot: {name}')
 
 
 def prepare_output_directory(directory, *, allow_existing=False) -> Path:
