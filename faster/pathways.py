@@ -212,6 +212,7 @@ class Pathway():
             inhibition = self.inhibition[:, np.newaxis]
             ax = 0
 
+        # inhib = 1 - S/(S+Ki) = Ki/(S+Ki)
         inhib = 1 - np.where(np.isinf(inhibition), 0,
                              S/(inhibition + S + EPS))
         inhib_factor = np.prod(inhib, axis = ax)

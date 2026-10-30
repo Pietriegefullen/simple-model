@@ -214,6 +214,7 @@ def provided_parameters(replica):
 def estimated_model_parameters(normalize_parameters = False):
     # NOTE: 
     # Km values must be in micromoles per liter
+    # Kmb must be in milligrams per liter
     p = [
          Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
          Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
