@@ -3,7 +3,6 @@ import unittest
 import numpy as np
 
 import model
-import pathways
 import system
 from parameters import ModelParameters, default_model_parameters
 
@@ -40,7 +39,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
             parameter.name: parameter
             for parameter in default_model_parameters()
         })
-        self.pathway = pathways.Fe3(parameters)
+        self.pathway = model.pathway_by_name('Fe3')(parameters)
 
     def state(self, *, acetate=20., fe3=150., fe2=1., co2=1., water=20000.):
         state = np.ones(len(system.SYSTEM))
@@ -52,7 +51,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         return state
 
     def fe3_model(self):
-        pathway_model = model.Model([pathways.Fe3])
+        pathway_model = model.build_model(['Fe3'], normalized = True)
         pathway_model.model_parameters.set({
             'Fe3_Km_Ac': 50., 'Fe3_Km_Fe3': 500., 'Fe3_v_max': 1.5,
             'Fe3_CUE': .5, 'death_rate': 8.3e-5, 'Fe3_thermodynamics': True,
@@ -83,7 +82,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         self.assertNotIn('Fe3_thermodynamic_factor', run_log.keys())
 
     def test_model_logs_delta_g_at_accepted_times(self):
-        pathway_model = model.Model([pathways.Fe3])
+        pathway_model = model.Model(['Fe3'])
         pathway_model.model_parameters.set({
             self.pathway.microbe.name: .25,
             'Fe3_Km_Ac': 50.,

@@ -3,7 +3,6 @@ import numpy as np
 
 import CONSTANTS
 
-
 HENRYS_DICT = {'CO2' : {'H_cp_Standard': 3.4*1e-4,
                          'H_cp_temp':    2400                  },
 
@@ -28,9 +27,6 @@ GIBBS_FORMATION = {'Acetate' :  -369.46*1e3,    # Tabellenwerte üblicherweise i
                    'H_plus' :          0}  
 
 
-GIBBS_MINIMUM = -26.*1e3      # J/mol, Einheit passt zur Gaskonstante - 26 in kJ/mol aus z.b. blodau2011thermodynamic
-                              # wert DGmin z.b aus Schink 1997, ist 1/3 der Energie die für ein ATP Herstellung benötigt wird
-
 def C_atoms(substance):
     sources = {'CO2': 1,
                'Acetate': 2,
@@ -50,3 +46,12 @@ def henrys_law(substance):
 
     H_cc = H_cp_Standard * R * T *  np.exp(C_cp * (1/T - 1/T_std))
     return H_cc
+
+def dimensionless_henry_solubility(SYSTEM):
+    henrys_values = []
+    for pool in SYSTEM:
+        value = henrys_law(pool)
+        henrys_values.append(value)
+    h_cc_vector = np.reshape(henrys_values, (-1,))
+    return h_cc_vector
+

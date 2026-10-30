@@ -12,7 +12,6 @@ import USER_VARIABLES
 
 BOOLEAN_TYPES = (bool, np.bool_)
 
-
 def load_parameters(init_config, return_run_config = False, source_directory = None):
     print('determine initial parameters')
     init_config = {k: v for k,v in init_config.items() if not v is None}
@@ -266,6 +265,8 @@ def estimated_model_parameters(normalize_parameters = False):
 
 
 def default_model_parameters(normalize_parameters = False):
+    # Km values must be in micromoles per liter
+    # Kmb must be in milligrams per liter
     p = [
          Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
          Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
@@ -840,55 +841,3 @@ def sort_dict(d):
     return s
 
 
-def R2plot():
-    import model
-    import data
-    
-    r2_values = {}
-
-    kd = data.get_data_before_day()
-    _, found = load_best()
-    total = len([r for s in found.values() for r in s.values()])
-    counter = 0
-    for sample_name, repl_dict in found.items():
-        for repl, (best_loss, best_parameters) in repl_dict.items():
-            counter += 1
-            print(f'{counter/total*100:.2f}%')
-            model_type = 'simple' if 'simple' in repl else 'complex'
-            loaded_model = model.Model(model.get_pathways(model_type))
-            loaded_model.parameters().set(best_parameters)
-  
-            sample = kd[sample_name]
-            val_replica = None
-            for s in sample.leave_one_out_split():
-                fit_repl = '/'.join(sorted([r.replica_number for r in s['fit']]))
-                if fit_repl in repl:
-                    val_replica = s['val']
-                    break
-            if val_replica is None:
-                print('could not identify validation replica for', sample_name, repl)
-                continue
-
-            model_run = loaded_model.predict(val_replica)
-
-            co2_r2 = model_run['R2']['CO2']
-            ch4_r2 = model_run['R2']['CH4']
-            r2_values[sample_name + '/' + val_replica.replica_number] = (co2_r2, ch4_r2)
-
-            #plt.figure()
-            #model_run.plot(['CO2', 'CH4'], newfigure = False)
-            #val_replica.plot(log = False, newfigure = False)
-            #ax = plt.gca()
-            #t = ax.get_title()
-            #plt.title(str(val_replica) + ' validation' )
-            #plt.show()
-
-    plt.figure()
-    all_r2 = np.array([v for v in r2_values.values()])
-    plt.plot(all_r2[:,0], all_r2[:,1], 'k.')
-    plt.xlabel('R2 CO2')
-    plt.ylabel('R2 CH4')
-    plt.ylim([0,1])
-    plt.xlim([0,1])
-    plt.show()
-    

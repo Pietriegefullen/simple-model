@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import parameters
 import system
-from chemistry import GIBBS_MINIMUM
+from CONSTANTS import GIBBS_MINIMUM
 
 
 class SampleYLimitsTest(unittest.TestCase):

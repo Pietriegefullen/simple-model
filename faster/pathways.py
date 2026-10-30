@@ -8,30 +8,7 @@ import CONSTANTS
 from parameters import flatten as flat
 
 
-from CONSTANTS import EPS
-
-def pathway_by_name(name):
-    pwys = {'Homo': Homo,
-            'Aceto': Aceto,
-            'Hydrolysis': Hydrolysis,
-            'Fe3': Fe3,
-            'Hydro': Hydro,
-            'Fermentation': Fermentation}
-    return pwys[name]
-
-PATHWAY_COLORS = {
-    'Homo': 'tab:pink',
-    'Fe3': 'tab:red',
-    'Fermentation': 'tab:brown',
-    'Hydro': 'tab:cyan',
-    'Hydrolysis': 'tab:olive',
-    'Aceto': 'tab:purple',
-}
-
-
-def pathway_color(name):
-    """Return the project-wide color assigned to a biological pathway."""
-    return PATHWAY_COLORS[name]
+from CONSTANTS import EPS, GIBBS_MINIMUM
 
 class Pathway():
     def __init__(self, microbe, educts, products, use_thermodynamics):
@@ -164,7 +141,7 @@ class Pathway():
         R = CONSTANTS.GAS_CONSTANT
         T = 4. + CONSTANTS.KELVIN
         deltaG_r = self.deltaG_r(S)
-        deltaG_rmin = chemistry.GIBBS_MINIMUM
+        deltaG_rmin = GIBBS_MINIMUM
         thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
 
         #self.log('thermodynamic_factor', t, thermodynamic_factor)
@@ -281,7 +258,6 @@ class Pathway():
         return pwy_string
 
 
-
 class Microbe():
     def __init__(self, name, v_max,
                  death_rate = 0,
@@ -343,7 +319,6 @@ class Substance():
 
     def __lt__(self, other):
         return self.name < other.name
-
 
 
 class Hydrolysis(Pathway):

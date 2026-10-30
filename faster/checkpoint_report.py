@@ -21,10 +21,10 @@ import optimizer
 import parameters
 import plot
 import system
-from chemistry import GIBBS_MINIMUM
+from CONSTANTS import GIBBS_MINIMUM
 from fit_sample import run
 import fit_replicas as joint_fit
-from pathways import pathway_color
+from plot import pathway_color
 from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 

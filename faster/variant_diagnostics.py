@@ -14,7 +14,7 @@ import numpy as np
 
 import plot
 import system
-from pathways import pathway_color
+from plot import pathway_color
 
 
 H2_PATHWAYS = ('Homo', 'Hydro')

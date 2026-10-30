@@ -1,7 +1,5 @@
 import numpy as np
 
-import chemistry
-
 SYSTEM = [
             'TOC',
             'DOC',
@@ -22,14 +20,6 @@ SYSTEM = [
 
 def index(name):
     return SYSTEM.index(str(name))
-
-def dimensionless_henry_solubility():
-    henrys_values = []
-    for pool in SYSTEM:
-        value = chemistry.henrys_law(pool)
-        henrys_values.append(value)
-    h_cc_vector = np.reshape(henrys_values, (-1,))
-    return h_cc_vector
 
 def vector(full, pool = None, value = None):
     _vector = np.full((len(SYSTEM), ), float(full))
@@ -89,4 +79,3 @@ def initial_state(replica, model_parameters, initial_mean_days = 0):
         
     return S0 
 
-HCC_s = dimensionless_henry_solubility()

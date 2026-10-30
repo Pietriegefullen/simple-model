@@ -28,6 +28,8 @@ from fit_sample import run
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY, PLOT_DIRECTORY
 from user_input import parse
 
+from CONSTANTS import GIBBS_MINIMUM
+
 
 @dataclass(frozen=True)
 class CheckpointPlot:
@@ -337,7 +339,7 @@ def _comparison_quantities(results: list[CheckpointPlot], only=None):
             if vmax is not None and name.endswith('_v'):
                 axis.axhline(vmax, color=colour, linestyle='--', linewidth=1)
         if first_name.endswith('_deltaG_r'):
-            axis.axhline(report.GIBBS_MINIMUM * report.GIBBS_ENERGY_SCALE,
+            axis.axhline(GIBBS_MINIMUM * report.GIBBS_ENERGY_SCALE,
                          color='k', linestyle=':', linewidth=1,
                          label=r'$\mathrm{Gibbs\ minimum}$')
         axis.set_title(report.quantity_title(first_name, capacity))

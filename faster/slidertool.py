@@ -30,7 +30,7 @@ class FasterModel(Model):
     def __init__(self, replica):
         
         self.replica = d[replica]
-        self.model = model.Model(model.get_pathways('simple'))
+        self.model = model.build_model(model.get_pathways('complex'), normalized = True)
         self.model_parameters = parameters.default_model_parameters()
         self.model.parameters().set(self.model_parameters)
         self.pool_value_dict = self.model.predict_with_logging(self.replica)

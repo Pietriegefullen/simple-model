@@ -55,6 +55,21 @@ MODEL_VARIANT_LINESTYLES = {
 }
 
 
+PATHWAY_COLORS = {
+    'Homo': 'tab:pink',
+    'Fe3': 'tab:red',
+    'Fermentation': 'tab:brown',
+    'Hydro': 'tab:cyan',
+    'Hydrolysis': 'tab:olive',
+    'Aceto': 'tab:purple',
+}
+
+
+def pathway_color(name):
+    """Return the project-wide color assigned to a biological pathway."""
+    return PATHWAY_COLORS[name]
+
+
 def configure_latex() -> None:
     """Use LaTeX for all Matplotlib text without resetting user styling.
 
