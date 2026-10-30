@@ -83,6 +83,11 @@ def _saved_inner_range(record):
             if isinstance(range_config, dict) else None)
 
 
+def model_version_for_polish(source_data, record):
+    run_config, _, shared_names, _ = _multi_metadata(source_data)
+    model_version = run_config['model']['version']
+    return model_version
+
 def local_parameters_for_polish(source_data, record):
     """Recreate the local space, seed it, and lock the source shared values."""
     run_config, _, shared_names, _ = _multi_metadata(source_data)
@@ -211,6 +216,7 @@ def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
     for record in selected:
         local = local_parameters_for_polish(source_data, record)
         chosen = polish_run_configuration(source_data, record)
+        model_version = model_version_for_polish(source_data, record)
         target = _polish_target(source_path, record, output_root)
         existing = existing_polish_checkpoint(target)
         if skip_existing and existing is not None:
@@ -225,7 +231,8 @@ def polish(source_checkpoint, replica_ids=None, sigma=DEFAULT_SIGMA,
             try:
                 fit_sample.fit(
                     chosen, source_data['run_config']['objective'], {'cma_es': algorithm},
-                    {'range': local, 'parameters': copy.deepcopy(local)},
+                    init_confit = {'range': local, 'parameters': copy.deepcopy(local)},
+                    model_version = model_version,
                     checkpoint_keep_only_n=1, cp_target=str(target),
                     skip_existing_r2=skip_r2)
             except fit_sample.ExistingFitGoodEnough as error:

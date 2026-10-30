@@ -206,7 +206,8 @@ def run_one_fit(output, variant_name, pathways, overrides, sample, replica,
                 stage_repeats=(3, 3, 1), r2_target=0.5, polish_best=3,
                 continue_below_r2_target=False,
                 exploration_initializer=True, explore_call_limit=490,
-                explore_stall_timeout=10):
+                explore_stall_timeout=10, 
+                model_version = None):
     """Run one fit through all stages, returning a JSON-ready stage summary.
 
     Exploration is retried until it reaches ``r2_target`` or exhausts its
@@ -222,6 +223,9 @@ def run_one_fit(output, variant_name, pathways, overrides, sample, replica,
         sample, replica, fit_mode, pathways, overrides, 'differential_evolution')
     model_id = model_identifier(chosen)
     stage_results = []
+    
+    if model_version is None:
+        model_version = current_version()
 
     for stage_index, model_calls in enumerate(stage_calls):
         attempts = stage_repeats[stage_index]
@@ -260,6 +264,7 @@ def run_one_fit(output, variant_name, pathways, overrides, sample, replica,
                 _, objective, _ = fit(
                     stage_chosen, objective_config(), algorithm_config,
                     stage_init_config(stage_chosen, model_id, stage_index, polish_best),
+                    model_version = model_version,
                     call_limit=call_limit,
                     skip_existing_r2=GOOD_ENOUGH_R2)
                 best_r2 = _serializable_r2(objective.best_R2())
@@ -405,6 +410,7 @@ def _write_summary(output, summary):
 
 
 def run_batch(args):
+    model_version = None
     output = Path(args.output)
     logger = configure_logger(output)
     dataset = data.get_data_before_day()
@@ -439,7 +445,8 @@ def run_batch(args):
                             args.stage_repeats, args.r2_target, args.polish_best,
                             args.continue_below_r2_target,
                             not args.explore_with_de, args.explore_call_limit,
-                            args.explore_stall_timeout)
+                            args.explore_stall_timeout, 
+                            model_version = model_version)
                         summary['succeeded'].append(job)
                     except ExistingFitGoodEnough as error:
                         job.update({

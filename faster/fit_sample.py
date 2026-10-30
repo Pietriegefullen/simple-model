@@ -147,7 +147,9 @@ def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
     rng = {k:v for k, v in run_config['range'].items() if k in initial_parameters}
     init_config = {'range': parameters.ModelParameters(rng),
                    'parameters': initial_parameters}
+    model_version = run_config['model']['version']
     pathway_model, objective, run_log = fit(chosen, objective_config, algo_config, init_config, 
+                                         model_version = model_version,
                                           store_checkpoints = False,
                                           minimize = False,
                                           **kwargs)
@@ -174,7 +176,7 @@ def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
             replica, t_eval=pool_time)
     return pathway_model, objective, run_log
 
-def fit(chosen, objective_config, algo_config, init_config, 
+def fit(chosen, objective_config, algo_config, init_config, model_version,
         store_checkpoints = True,
         checkpoint_keep_only_n = 10,
         verbose_callback = False,
@@ -185,8 +187,7 @@ def fit(chosen, objective_config, algo_config, init_config,
         ignore_existing_checkpoints = False,
         checkpoint_confirmation = None, 
         call_limit = None,
-        skip_existing_r2 = None, 
-        version = None):
+        skip_existing_r2 = None):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
@@ -194,9 +195,9 @@ def fit(chosen, objective_config, algo_config, init_config,
                              chosen['fit_mode'])
 
     # build model and configure parameters
-    if version is None:
-        version = current_version()
-    pathway_model = build_model(version, chosen['pathways'], chosen['normalized_parameters'])
+    if model_version is None:
+        model_version = current_version()
+    pathway_model = build_model(model_version, chosen['pathways'], chosen['normalized_parameters'])
 
     requested_checkpoint_path = init_config.get('file')
     if requested_checkpoint_path is not None:
@@ -399,7 +400,7 @@ if __name__ == '__main__':
     for omitted_pathway in args.omit:
         chosen['pathways'].remove(omitted_pathway)
     
-    fit(chosen, objective_config, algo_config, init_config,
+    fit(chosen, objective_config, algo_config, init_config, model_version = None,
         store_checkpoints = not args.dry,
         overwrite_existing_checkpoints = args.overwrite_checkpoints,
         # ``--default`` and ``--estimate`` are fresh searches from declared
