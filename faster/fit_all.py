@@ -26,7 +26,6 @@ import parameters
 from fit_sample import ExistingFitGoodEnough, fit
 from model_factory import build_model, current_version
 
-
 PATHWAYS = ['Hydrolysis', 'Fermentation', 'Hydro', 'Aceto', 'Homo', 'Fe3']
 FIT_MODES = ('single', 'split')
 STAGE_SURVIVORS = (10, 3)

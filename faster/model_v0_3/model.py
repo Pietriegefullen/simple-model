@@ -14,7 +14,7 @@ import system
 import optimizer
 from optimizer import r2
 import parameters
-from logging import ModelRun
+from model_run import ModelRun
 
 import USER_VARIABLES
 import CONSTANTS

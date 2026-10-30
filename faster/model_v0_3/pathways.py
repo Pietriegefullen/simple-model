@@ -8,14 +8,15 @@ from .import chemistry
 
 from CONSTANTS import EPS, GIBBS_MINIMUM
 
-
 def flat(parameter, only_structure = False):
-    if not isinstance(parameter, Parameter):
+    if isinstance(parameter, (str, int, float, bool)) or type(parameter) == type(None):
         return parameter
-    if only_structure and parameter.is_variable():
+    if only_structure and hasattr(parameter, 'is_variable') and parameter.is_variable():
         return 'variable'
-    return parameter.value
-
+    if hasattr(parameter, 'value'):
+        return parameter.value
+    print(parameter, type(parameter), parameter.__class__.__name__)
+    raise NotImplementedError()
 
 class Pathway():
     def __init__(self, microbe, educts, products, use_thermodynamics):

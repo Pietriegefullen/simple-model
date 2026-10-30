@@ -157,7 +157,7 @@ def select_shared_default_parameters(reference, shared_names):
     return shared
 
 
-def build_parameter_template(version, pathways, normalized_parameters=True, use_cython=False):
+def build_parameter_template(version, pathways, normalized_parameters=True):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -165,7 +165,7 @@ def build_parameter_template(version, pathways, normalized_parameters=True, use_
     parameter catalogue, just as ``fit_sample`` does; otherwise valid local
     parameters such as biomass and initial Fe3 would silently stay constant.
     """
-    pathway_model = build_model(version, pathways, normalized_parameters, use_cython)
+    pathway_model = build_model(version, pathways, normalized_parameters)
     defaults = parameters.default_model_parameters(
         normalize_parameters=normalized_parameters)
     pathway_model.parameters().set(defaults)
@@ -636,8 +636,8 @@ class SharedReplicaObjective(optimizer.Addable):
                  local_best=None, checkpoint_source=None,
                  prepared_local_parameters=None, local_r2_threshold=None,
                  local_loss_threshold=None, max_failed_inner_runs=5,
-                 resume=True, local_warm_start=True, use_cython=False, version =
-                 None):
+                 resume=True, local_warm_start=True, use_cython=False,
+                 version = None):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -653,8 +653,9 @@ class SharedReplicaObjective(optimizer.Addable):
         self.checkpoint_source = checkpoint_source
         if version is None:
             version = current_version()
+        self.model_version = version
         self.model_id = hashing.build_model_id(
-            build_parameter_template(version, pathways, normalized_parameters).get_config(only_structure=True))
+            build_parameter_template(self.model_version, pathways, normalized_parameters).get_config(only_structure=True))
         self._last_results = []
         self._last_weighted_mse = (None, None)
         self._aborted_by_loss_guard = False
@@ -748,9 +749,8 @@ class SharedReplicaObjective(optimizer.Addable):
             for name in self.shared_names:
                 local_parameters[name].constant(shared[name].value)
 
-            version = 
-            local_model = build_model(version, self.pathways, self.normalized_parameters,
-                                      self.use_cython)
+            local_model = build_model(self.model_version,
+                                      self.pathways, self.normalized_parameters)
             local_model.parameters().set(local_parameters)
 
             local_objective = optimizer.build_objective_function(
