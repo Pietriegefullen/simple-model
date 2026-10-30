@@ -22,7 +22,7 @@ import numpy as np
 import checkpoint
 import data
 import hashing
-import model
+from model_factory import build_model, current_version
 import optimizer
 import parameters
 import user_input
@@ -34,12 +34,6 @@ LOCAL_R2_HIGHLIGHT_THRESHOLD = 0.8
 HIGHLIGHT_STYLE = '\033[1;31m'  # bold red; matches fit_status.py
 RESET_STYLE = '\033[0m'
 
-
-def build_model(pathways, normalized_parameters, use_cython=False):
-    """Build the selected RHS backend without changing the default path."""
-    if use_cython:
-        raise NotImplementedError()
-    return model.build_model(pathways, normalized_parameters)
 
 
 def objective_config():
@@ -163,7 +157,7 @@ def select_shared_default_parameters(reference, shared_names):
     return shared
 
 
-def build_parameter_template(pathways, normalized_parameters=True, use_cython=False):
+def build_parameter_template(version, pathways, normalized_parameters=True, use_cython=False):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -171,7 +165,7 @@ def build_parameter_template(pathways, normalized_parameters=True, use_cython=Fa
     parameter catalogue, just as ``fit_sample`` does; otherwise valid local
     parameters such as biomass and initial Fe3 would silently stay constant.
     """
-    pathway_model = build_model(pathways, normalized_parameters, use_cython)
+    pathway_model = build_model(version, pathways, normalized_parameters, use_cython)
     defaults = parameters.default_model_parameters(
         normalize_parameters=normalized_parameters)
     pathway_model.parameters().set(defaults)
@@ -314,7 +308,8 @@ def checkpoint_r2(candidate, pathways, normalized_parameters, objective):
     dataset = data.get_data_before_day()
     sample = dataset[str(chosen['sample'])]
     replica = sample[str(chosen['validation_replica'])]
-    pathway_model = model.build_model(pathways, normalized_parameters)
+    version = run_config['model']['version']
+    pathway_model = build_model(version, pathways, normalized_parameters)
     pathway_model.parameters().set(candidate_parameters)
     candidate_objective = optimizer.build_objective_function(
         pathway_model, [replica], objective)
@@ -325,7 +320,8 @@ def checkpoint_r2(candidate, pathways, normalized_parameters, objective):
 def shared_bounds_from_checkpoints(shared_names, pathways=PATHWAYS,
                                    normalized_parameters=True,
                                    objective=None, r2_threshold=0.9,
-                                   source_directory=None):
+                                   source_directory=None, 
+                                   version = None):
     """Derive shared search ranges from qualifying single-replica fits.
 
     Checkpoints predate R² storage, so R² is recomputed using the current
@@ -333,7 +329,9 @@ def shared_bounds_from_checkpoints(shared_names, pathways=PATHWAYS,
     """
     if objective is None:
         objective = objective_config()
-    reference_model = build_parameter_template(pathways, normalized_parameters)
+    if version is None:
+        version = current_version()
+    reference_model = build_parameter_template(version, pathways, normalized_parameters)
     model_id = hashing.build_model_id(reference_model.get_config(only_structure=True))
     reference = reference_model.parameters()
     for name in shared_names:
@@ -638,7 +636,8 @@ class SharedReplicaObjective(optimizer.Addable):
                  local_best=None, checkpoint_source=None,
                  prepared_local_parameters=None, local_r2_threshold=None,
                  local_loss_threshold=None, max_failed_inner_runs=5,
-                 resume=True, local_warm_start=True, use_cython=False):
+                 resume=True, local_warm_start=True, use_cython=False, version =
+                 None):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -652,8 +651,10 @@ class SharedReplicaObjective(optimizer.Addable):
         self.local_algorithm_name = local_algorithm_name
         self.local_best = local_best
         self.checkpoint_source = checkpoint_source
+        if version is None:
+            version = current_version()
         self.model_id = hashing.build_model_id(
-            build_parameter_template(pathways, normalized_parameters).get_config(only_structure=True))
+            build_parameter_template(version, pathways, normalized_parameters).get_config(only_structure=True))
         self._last_results = []
         self._last_weighted_mse = (None, None)
         self._aborted_by_loss_guard = False
@@ -747,7 +748,8 @@ class SharedReplicaObjective(optimizer.Addable):
             for name in self.shared_names:
                 local_parameters[name].constant(shared[name].value)
 
-            local_model = build_model(self.pathways, self.normalized_parameters,
+            version = 
+            local_model = build_model(version, self.pathways, self.normalized_parameters,
                                       self.use_cython)
             local_model.parameters().set(local_parameters)
 
@@ -982,6 +984,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_r2_threshold=None, local_loss_threshold=None, resume=True,
         local_warm_start=True, max_failed_inner_runs=5, use_cython=False):
     """Run the nested shared/local fit and return its outer objective."""
+    model_version = current_version()
     if objective is None:
         objective = objective_config()
     fixed_parameters = {} if fixed_parameters is None else fixed_parameters
@@ -1006,7 +1009,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         raise ValueError('max_failed_inner_runs must be a non-negative integer.')
 
     model_id = hashing.build_model_id(
-        build_parameter_template(pathways, normalized_parameters).get_config(only_structure=True))
+        build_parameter_template(model_version, pathways, normalized_parameters).get_config(only_structure=True))
     if prepared_local_parameters is None:
         prepared_local_parameters = prepare_local_parameters(
             replicas, local_template, shared_names, fixed_parameters, model_id,
@@ -1020,9 +1023,10 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_r2_threshold=local_r2_threshold,
         local_loss_threshold=local_loss_threshold,
         max_failed_inner_runs=max_failed_inner_runs, resume=resume,
-        local_warm_start=local_warm_start, use_cython=use_cython)
+        local_warm_start=local_warm_start, use_cython=use_cython,
+        version = model_version)
     run_config = {
-        'model': build_parameter_template(pathways, normalized_parameters).get_config(
+        'model': build_parameter_template(model_version, pathways, normalized_parameters).get_config(
             only_structure=True),
         # The legacy checkpoint directory naming convention requires these
         # fields.  The real selection is preserved in ``multi_replica``.
@@ -1221,6 +1225,7 @@ def parse_args(argv=None):
 
 
 def run(args):
+    version = current_version()
     dataset = data.get_data_before_day()
     replicas = select_replicas(
         dataset, args.samples, args.replicas, args.sites, args.origin, args.depth,
@@ -1228,7 +1233,8 @@ def run(args):
     pathways = [pathway for pathway in PATHWAYS if pathway not in args.omit]
     if not pathways:
         raise ValueError('At least one pathway must remain after --omit.')
-    reference = build_parameter_template(pathways, True).parameters()
+    reference = build_parameter_template(version, pathways, True).parameters()
+
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
     args.fixed, overlap = parse_fixed_parameters(args.fixed_arguments, shared_names)
     if overlap:
@@ -1250,16 +1256,17 @@ def run(args):
         shared_parameters, qualifying = shared_bounds_from_checkpoints(
             shared_names, pathways=pathways, objective=objective_config(),
             r2_threshold=args.r2_threshold,
-            source_directory=args.checkpoint_source)
+            source_directory=args.checkpoint_source, 
+            version = version)
         shared_bounds_source = (
             f'qualifying checkpoint extrema (R² > {args.r2_threshold:g})')
     else:
         shared_parameters = select_shared_default_parameters(reference, shared_names)
         qualifying = []
         shared_bounds_source = 'full declared model ranges (default)'
-    template = build_parameter_template(pathways, True).parameters()
+    template = build_parameter_template(version, pathways, True).parameters()
     model_id = hashing.build_model_id(
-        build_parameter_template(pathways, True).get_config(only_structure=True))
+        build_parameter_template(version, pathways, True).get_config(only_structure=True))
     prepared_local_parameters = prepare_local_parameters(
         replicas, template, shared_names, fixed_parameters, model_id,
         args.local_best, args.checkpoint_source)

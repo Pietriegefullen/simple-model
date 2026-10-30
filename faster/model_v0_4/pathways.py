@@ -1,14 +1,21 @@
 import numpy as np
 
 import system
-import chemistry
 import CONSTANTS
 
-
-from parameters import flatten as flat
+from .import chemistry
 
 
 from CONSTANTS import EPS, GIBBS_MINIMUM
+
+
+def flat(parameter, only_structure = False):
+    if not isinstance(parameter, Parameter):
+        return parameter
+    if only_structure and parameter.is_variable():
+        return 'variable'
+    return parameter.value
+
 
 class Pathway():
     def __init__(self, microbe, educts, products, use_thermodynamics):

@@ -2,9 +2,10 @@ import unittest
 
 import numpy as np
 
-import model
 import system
 from parameters import ModelParameters, default_model_parameters
+
+from model_factory import build_model, pathway_by_name
 
 
 class Replica:
@@ -39,7 +40,8 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
             parameter.name: parameter
             for parameter in default_model_parameters()
         })
-        self.pathway = model.pathway_by_name('Fe3')(parameters)
+        version = "0.4"
+        self.pathway = pathway_by_name(version, 'Fe3')(parameters)
 
     def state(self, *, acetate=20., fe3=150., fe2=1., co2=1., water=20000.):
         state = np.ones(len(system.SYSTEM))
@@ -51,7 +53,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         return state
 
     def fe3_model(self):
-        pathway_model = model.build_model(['Fe3'], normalized = True)
+        pathway_model = build_model(['Fe3'], normalized = True)
         pathway_model.model_parameters.set({
             'Fe3_Km_Ac': 50., 'Fe3_Km_Fe3': 500., 'Fe3_v_max': 1.5,
             'Fe3_CUE': .5, 'death_rate': 8.3e-5, 'Fe3_thermodynamics': True,
@@ -73,7 +75,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         np.testing.assert_allclose(self.pathway.deltaG_r(states), expected)
 
     def test_delta_g_is_not_logged_during_pathway_evaluation(self):
-        run_log = model.ModelRun()
+        run_log = logging.ModelRun()
         self.pathway.inject_logger(run_log)
 
         self.pathway.thermodynamics(0., self.state())
@@ -82,7 +84,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         self.assertNotIn('Fe3_thermodynamic_factor', run_log.keys())
 
     def test_model_logs_delta_g_at_accepted_times(self):
-        pathway_model = model.Model(['Fe3'])
+        pathway_model = build_model(['Fe3'])
         pathway_model.model_parameters.set({
             self.pathway.microbe.name: .25,
             'Fe3_Km_Ac': 50.,

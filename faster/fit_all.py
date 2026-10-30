@@ -22,9 +22,9 @@ from pathlib import Path
 import checkpoint
 import data
 import hashing
-import model
 import parameters
 from fit_sample import ExistingFitGoodEnough, fit
+from model_factory import build_model, current_version
 
 
 PATHWAYS = ['Hydrolysis', 'Fermentation', 'Hydro', 'Aceto', 'Homo', 'Fe3']
@@ -100,7 +100,9 @@ def chosen_config(sample, replica, fit_mode, pathways, overrides,
 
 def model_identifier(chosen):
     """Build the structural model ID used to select restart checkpoints."""
-    pathway_model = model.build_model(
+    version = current_version()
+    pathway_model = build_model(
+        version,
         chosen['pathways'], chosen['normalized_parameters'])
     for name, value in chosen['parameter_override'].items():
         pathway_model.parameters()[name].constant(value)

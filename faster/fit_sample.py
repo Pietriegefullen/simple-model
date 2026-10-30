@@ -1,6 +1,5 @@
 import os
 
-import model
 import data
 import system
 import optimizer
@@ -8,6 +7,7 @@ import parameters
 import checkpoint
 import hashing
 import numpy as np
+from model_factory import build_model, current_version
 
 
 class ExistingFitGoodEnough(Exception):
@@ -185,7 +185,8 @@ def fit(chosen, objective_config, algo_config, init_config,
         ignore_existing_checkpoints = False,
         checkpoint_confirmation = None, 
         call_limit = None,
-        skip_existing_r2 = None):
+        skip_existing_r2 = None, 
+        version = None):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
@@ -193,7 +194,9 @@ def fit(chosen, objective_config, algo_config, init_config,
                              chosen['fit_mode'])
 
     # build model and configure parameters
-    pathway_model = model.build_model(chosen['pathways'], chosen['normalized_parameters'])
+    if version is None:
+        version = current_version()
+    pathway_model = build_model(version, chosen['pathways'], chosen['normalized_parameters'])
 
     requested_checkpoint_path = init_config.get('file')
     if requested_checkpoint_path is not None:

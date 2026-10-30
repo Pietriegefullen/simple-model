@@ -13,7 +13,6 @@ import json
 import system
 import optimizer
 from optimizer import r2
-import pathways
 import parameters
 from logging import ModelRun
 
@@ -21,6 +20,8 @@ import USER_VARIABLES
 import CONSTANTS
 from CONSTANTS import EPS
 
+from . import pathways
+from . import chemistry
 
 # A candidate that cannot be integrated within this budget is not useful to
 # the optimiser.  ``solve_ivp`` runs in a child process so this is a hard

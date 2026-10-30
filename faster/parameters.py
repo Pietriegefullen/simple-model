@@ -757,13 +757,6 @@ class Parameter():
         return float(other)/self.value
 
 
-def flatten(parameter, only_structure = False):
-    if not isinstance(parameter, Parameter):
-        return parameter
-    if only_structure and parameter.is_variable():
-        return 'variable'
-    return parameter.value
-
 def boxplots(loaded_parameters, save_target = None):
     parameter_names = list(loaded_parameters['simple'].keys()) + list(loaded_parameters['complex'].keys()) 
     parameter_names = list(set(parameter_names)) # unique names

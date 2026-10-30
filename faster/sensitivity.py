@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import data
-import model
+from model_factory import build_model
 import parameters
 import checkpoint_report
 from checkpoint_io import checkpoint_id, replay_inputs
@@ -146,8 +146,9 @@ def target_series(run_log, expression):
 
 def replay(run_config, values, replica, target, stat):
     """Run one trajectory and reduce a target expression to one scalar."""
-    pathway_model = model.build_model(run_config['chosen']['pathways'],
-                                      run_config['chosen']['normalized_parameters'])
+    pathway_model = build_model(run_config['model']['version'],
+                                run_config['chosen']['pathways'],
+                                run_config['chosen']['normalized_parameters'])
     pathway_model.parameters().set(parameters.ModelParameters(values))
     run_log = pathway_model.predict(replica)
     times, series = target_series(run_log, target)
