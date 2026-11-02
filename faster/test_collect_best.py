@@ -86,6 +86,24 @@ class FitAxesTest(unittest.TestCase):
 
         self.assertEqual(axes['CH4'].get_yscale(), 'log')
 
+    def test_loss_configuration_can_override_conventional_fit_scales(self):
+        class Checkpoint:
+            run_config = {'objective': {'transform': {
+                'CO2': ['log'], 'CH4': ['linear'],
+            }}}
+
+        class Sample:
+            replicas = []
+
+        _, axes = plot_best.create_fit_figure()
+        axes['CO2'].plot([0, 1], [1, 2])
+        axes['CH4'].plot([0, 1], [1e-4, 1e-2])
+
+        plot_best.format_fit_axes(Checkpoint(), Sample(), axes)
+
+        self.assertEqual(axes['CO2'].get_yscale(), 'log')
+        self.assertEqual(axes['CH4'].get_yscale(), 'linear')
+
     def test_combined_limitation_factor_is_dashed(self):
         _, axis = plot_best.plot_pathway_limitation_factors(
             'Hydro', ([0, 1], [.8, .6]), None, None, None, suptitle='test')

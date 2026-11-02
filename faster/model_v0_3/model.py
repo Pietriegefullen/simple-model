@@ -15,6 +15,7 @@ import optimizer
 from optimizer import r2
 import parameters
 from model_run import ModelRun
+from parameters import Parameter
 
 import USER_VARIABLES
 import CONSTANTS
@@ -52,8 +53,8 @@ __version__ = '.'.join([version_major, version_minor])
 # Model
 
 def build_model(pathways, normalized):
-    pathway_model = Model(pathways)
-    pathway_model.parameters().set('default', normalized = normalized)
+    pathway_model = Model(pathways, normalized_parameters = normalized)
+    #pathway_model.parameters().set('default', normalized = normalized)
     return pathway_model
 
 def pathway_by_name(name):
@@ -207,7 +208,59 @@ def get_pathways(model_type):
         raise NotImplementedError()
 
 class Model():
-    def __init__(self, pwys):
+    @classmethod
+    def default_model_parameters(cls, normalize_parameters):
+        p = [
+             Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
+             Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
+             
+             Parameter('Ferm_v_max',     .525, [0.0001, 5], 'log', normalize = normalize_parameters),
+             #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
+             Parameter('Ferm_Km',        83, [0.0001, 100], 'log', normalize = normalize_parameters), #833
+             Parameter('Ferm_inhibition', 16, [0.001, 200], 'log', normalize = normalize_parameters),
+             Parameter('Ferm_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
+             
+             Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize_parameters),
+             
+             Parameter('Hydro_Km_CO2',   500, [.0005, 1000], 'log', normalize = normalize_parameters),
+             Parameter('Hydro_v_max',    .17, [0.003, 1.], 'log', normalize = normalize_parameters),
+             Parameter('Hydro_CUE',       .5, [0, 1], 'linear', normalize = normalize_parameters),
+             Parameter('Hydro_Km_H2',    500, [.0005, 1000], 'log', normalize = normalize_parameters),
+             
+             Parameter('Homo_Km_H2',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
+             Parameter('Homo_Km_CO2',    500, [0.0005, 1000], 'log', normalize = normalize_parameters),
+             Parameter('Homo_v_max',      .5, [0.005, 1.], 'log', normalize = normalize_parameters),
+             Parameter('Homo_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
+             
+             Parameter('Aceto_Km_Ac',    25, [0.5, 500], 'log', normalize = normalize_parameters), #166
+             Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize_parameters),
+             Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize_parameters), 
+             
+             Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], 'log',  normalize = normalize_parameters),#500
+             Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
+             Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize_parameters), 
+             Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize_parameters),
+             
+             Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
+             Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
+            
+            # biomass in units milligrams per gram dry weight of soil!!!
+             Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
+             Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
+             Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
+             Parameter('M_Homo',         .25, [1e-8, 5], 'log', normalize = normalize_parameters),
+             Parameter('M_Ac',         .0033, [1e-8, 5], 'log', normalize = normalize_parameters),
+             
+             Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+             Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+             Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+             Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+            ]
+            
+        par = parameters.ModelParameters(p)
+        return par
+
+    def __init__(self, pwys, normalized_parameters):
         self.system_state_log = ModelRun()
         self.system_change_log = ModelRun()
         self.system_change_log.rate = True
@@ -217,12 +270,15 @@ class Model():
                            for p in pwys]
         self._unbuilt_contributing_pathways = pathway_classes
         self.contributing_pathways = None
-        self.build(quiet = True)
 
         self.t = None
         self.replica = None
 
         self.HCC_s = chemistry.dimensionless_henry_solubility(system.SYSTEM)
+
+        self.normalize_parameters = normalized_parameters
+
+        self.build(quiet = True)
 
     def get_config(self, only_structure = False):
         cfg = {}
@@ -239,6 +295,16 @@ class Model():
 
         # to initialize model parameters used in initial state
         _ = system.initial_state(None, self.model_parameters)
+
+        normalize = self.normalize_parameters
+        default_values = Model.default_model_parameters(normalize)
+        for used_parameter in self.model_parameters:
+            used_parameter.set(default_values[used_parameter.name])
+
+        self.model_parameters['CO2'].constant(0)
+        self.model_parameters['H2'].constant(0)
+        self.model_parameters['CH4'].constant(0)
+        self.model_parameters['Fe2'].constant(0)
 
     def compute_dissolved(self, S):
         dissolved_S = S.copy()

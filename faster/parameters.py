@@ -28,7 +28,7 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
     
     if 'default' in init_config and init_config['default'] or len(init_config) == 0 or (len(init_config) == 1 and 'normalized' in init_config):
         normalized = init_config['normalized'] if 'normalized' in init_config else False
-        default_range = ModelParameters({p.name: p for p in default_model_parameters(normalized)})
+        default_range = ModelParameters()
         return default_range
 
     if 'estimate' in init_config and init_config['estimate']:
@@ -40,8 +40,7 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
     if 'file' in init_config and not init_config['file'] is None:
         loaded_parameters, loss, run_config = load_parameter_file(init_config['file'])
         if 'range' in init_config and init_config['range'] == 'default':
-            default_range = ModelParameters({p.name: p for p in default_model_parameters()
-                                             if p.name in loaded_parameters})
+            default_range = ModelParameters()
             _ = [default_range[p.name].set(p.value) for p in loaded_parameters
                  if p in default_range]
             for p in loaded_parameters:
@@ -75,14 +74,18 @@ def load_parameters(init_config, return_run_config = False, source_directory = N
 
 def load_parameter_file(file_path):
     exs = []
-    for attempt in [_load_plain_parameter_file, _load_annotated_parameter_file]:
+    for attempt in [_load_annotated_parameter_file]:
         try:
             parameters = attempt(file_path)
             return parameters
         except Exception as ex:
-            exs.append((ex, file_path))
+            #exs.append((ex, file_path))
+            exs.append((ex, traceback.format_exc()))
             continue
-    #print(exs)
+
+    for x in exs:
+        print(x[1])
+        print('====')
     raise Exception('Could not load parameters from checkpoint file. ' + os.path.split(file_path)[-1])
 
 def load_file(file_path):
@@ -90,16 +93,6 @@ def load_file(file_path):
         file_content = json.load(pf)
     return file_content
 
-def delete_nondefault(parameters):
-    default_names = [d.name for d in default_model_parameters()]
-    delete = [p.name for p in parameters if not p.name in default_names]
-    for k in delete:
-        del parameters._parameters[k]
-      
-def set_missing_default(parameters):
-    for d in default_model_parameters():
-        if not d in parameters:
-            parameters[d.name].set(d)
 
 def set_initial_pool(parameters):
     pool_names = system.SYSTEM
@@ -107,22 +100,6 @@ def set_initial_pool(parameters):
         if not pool in parameters:
             parameters[pool].constant(0)
             
-def _load_plain_parameter_file(file_path):
-    file_content = load_file(file_path)
-    assert isinstance(file_content, dict)
-    parameter_names = [p.name for p in default_model_parameters()]
-    
-    assert all([k in parameter_names or k in system.SYSTEM
-                for k in file_content.keys()]), file_path
-    parameters = ModelParameters(file_content)
-    _, file_name = os.path.split(file_path)
-    loss = float(file_name.split('loss_')[-1])
-    run_config = {}
-    
-    set_initial_pool(parameters)
-    set_missing_default(parameters)
-
-    return parameters, loss, run_config
 
 def _load_annotated_parameter_file(file_path):
     file_content = load_file(file_path)
@@ -208,112 +185,6 @@ def provided_parameters(replica):
     import system
     p = ModelParameters()
     _ = system.initial_state(replica, p)
-    return p
-
-def estimated_model_parameters(normalize_parameters = False):
-    # NOTE: 
-    # Km values must be in micromoles per liter
-    # Kmb must be in milligrams per liter
-    p = [
-         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
-         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
-         
-         Parameter('Ferm_v_max',     .525, [0.0001, 5], 'log', normalize = normalize_parameters),
-         #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        500, [100, 4000], 'log', normalize = normalize_parameters), #833
-         Parameter('Ferm_inhibition', 10000, [3000, 30000], 'log', normalize = normalize_parameters),
-         Parameter('Ferm_CUE',        .2, [.02, 0.45], 'linear', normalize = normalize_parameters),
-         
-         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize_parameters),
-         
-         Parameter('Hydro_Km_CO2',   500, [100, 2000], 'log', normalize = normalize_parameters),
-         Parameter('Hydro_v_max',    .17, [0.003, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Hydro_CUE',       .1, [0.02, .2], 'linear', normalize = normalize_parameters),
-         Parameter('Hydro_Km_H2',    10, [3, 40], 'log', normalize = normalize_parameters),
-         
-         Parameter('Homo_Km_H2',     4, [0.5, 10], 'log', normalize = normalize_parameters),
-         Parameter('Homo_Km_CO2',    1000, [200, 5000], 'log', normalize = normalize_parameters),
-         Parameter('Homo_v_max',      .5, [0.005, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Homo_CUE',        .1, [0.02, .2], 'linear', normalize = normalize_parameters),
-         
-         Parameter('Aceto_Km_Ac',    1000, [100, 6500], 'log', normalize = normalize_parameters), #166
-         Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Ac_CUE',          .07, [0.01, 0.15], 'linear', normalize = normalize_parameters), 
-         
-         Parameter('Fe3_Km_Ac',      50, [10, 100], 'log',  normalize = normalize_parameters),#500
-         Parameter('Fe3_Km_Fe3',     1000, [100, 10000], 'log', normalize = normalize_parameters),
-         Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize_parameters), 
-         Parameter('Fe3_CUE',        0.2, [0.01, .5], 'linear', normalize = normalize_parameters),
-         
-         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
-         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
-        
-        # biomass in units milligrams per gram dry weight of soil!!!
-         Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
-         Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
-         Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
-         Parameter('M_Homo',         .25, [1e-8, 5], 'log', normalize = normalize_parameters),
-         Parameter('M_Ac',         .0033, [1e-8, 5], 'log', normalize = normalize_parameters),
-         
-         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-        ]
-        
-    return p
-
-
-def default_model_parameters(normalize_parameters = False):
-    # Km values must be in micromoles per liter
-    # Kmb must be in milligrams per liter
-    p = [
-         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
-         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
-         
-         Parameter('Ferm_v_max',     .525, [0.0001, 5], 'log', normalize = normalize_parameters),
-         #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-         Parameter('Ferm_Km',        83, [0.0001, 100], 'log', normalize = normalize_parameters), #833
-         Parameter('Ferm_inhibition', 16, [0.001, 200], 'log', normalize = normalize_parameters),
-         Parameter('Ferm_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
-         
-         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize_parameters),
-         
-         Parameter('Hydro_Km_CO2',   500, [.0005, 1000], 'log', normalize = normalize_parameters),
-         Parameter('Hydro_v_max',    .17, [0.003, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Hydro_CUE',       .5, [0, 1], 'linear', normalize = normalize_parameters),
-         Parameter('Hydro_Km_H2',    500, [.0005, 1000], 'log', normalize = normalize_parameters),
-         
-         Parameter('Homo_Km_H2',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-         Parameter('Homo_Km_CO2',    500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-         Parameter('Homo_v_max',      .5, [0.005, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Homo_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
-         
-         Parameter('Aceto_Km_Ac',    25, [0.5, 500], 'log', normalize = normalize_parameters), #166
-         Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize_parameters),
-         Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize_parameters), 
-         
-         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], 'log',  normalize = normalize_parameters),#500
-         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-         Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize_parameters), 
-         Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize_parameters),
-         
-         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
-         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
-        
-        # biomass in units milligrams per gram dry weight of soil!!!
-         Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
-         Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
-         Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
-         Parameter('M_Homo',         .25, [1e-8, 5], 'log', normalize = normalize_parameters),
-         Parameter('M_Ac',         .0033, [1e-8, 5], 'log', normalize = normalize_parameters),
-         
-         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-        ]
-        
     return p
 
 class Transform(ABC):
@@ -403,6 +274,9 @@ class ModelParameters():
         if isinstance(d, ModelParameters):
             d = d.as_dict()
 
+        if isinstance(d, list):
+            d = {p.name: p for p in d}
+
         if isinstance(d, dict):
             parameter_values = d
             d = {}
@@ -419,27 +293,11 @@ class ModelParameters():
         
         elif d is None:
             d = {}
+
         else:
             print(d)
             raise NotImplementedError()
         self._parameters = d
-    
-    def search_space(self):
-        default_ranges = default_model_parameters()
-        reductions = []
-        for p in self.variables():
-            p_def = next((dp for dp in default_ranges if p.name == dp.name), None)
-            if p_def is None: raise Exception('Should not happen. ' + str(p.name) + f' {p.low/p.high:.8f}, {p.high:.8f}')
-            p_range = p.transform(p.high) - p.transform(p.low)
-            p_default_range = p.transform(p_def.high) - p.transform(p_def.low)
-            w_i = p_range/p_default_range
-            if w_i == 0: raise Exception('Should not happen.')
-            reductions.append(w_i)
-
-        volume = np.prod(reductions)
-        dimension = len(reductions)
-        average_fraction = np.power(volume, 1/dimension)            
-        return dimension, volume, average_fraction
     
     def as_dict(self):
         return self._parameters
@@ -454,10 +312,7 @@ class ModelParameters():
             
     def set(self, parameters, normalized = False):
         if isinstance(parameters, str) and parameters == 'default':
-            defaults = [p for p in default_model_parameters(normalize_parameters = normalized)
-                        if p.name in self._parameters and self._parameters[p.name].is_unset()]
-
-            self.set(defaults)
+            raise NotImplementedError()
             
         elif isinstance(parameters, dict):
             for p, value in parameters.items():
@@ -540,11 +395,9 @@ class Parameter():
             self.low = range[0]
             self.high = range[1]
 
-        if scale is None:
-            try:
-                scale = {p.name: p.scale for p in default_model_parameters()}[name]
-            except KeyError:
-                scale = 'log'
+        if not range is None and scale is None:
+            raise Exception('Parameter scale must be specified')
+
         self.scale = scale
         self.normalize = normalize
         self.transformer = None

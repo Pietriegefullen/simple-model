@@ -125,13 +125,16 @@ class Checkpoint:
     def __str__(self):
         return self.key
 
-def collect_all(results_directory=RESULTS_DIRECTORY):
+def collect_all(results_directory=RESULTS_DIRECTORY, verbose = True):
     """Load every annotated checkpoint in ``results_directory``."""
     collected = []
     for root, _, files in os.walk(results_directory):
         for filename in files:
             if filename.startswith('.') or filename.endswith('.log') or filename.endswith('.json'):
                 continue
+
+            if verbose:
+                print(f'{len(collected):6d}', filename)
 
             # Results directories also contain report artefacts (for example
             # sensitivity.csv and parameter_influence.png).  A persisted
@@ -160,6 +163,8 @@ def collect_all(results_directory=RESULTS_DIRECTORY):
                 if isinstance(contents, dict) else {}
             collected.append(Checkpoint(loaded_parameters, loss, run_config,
                                         checkpoint_ids[0], file_path, metadata))
+    if verbose:
+        print('done')
     return collected
 
 
@@ -1227,22 +1232,39 @@ def fit_score_label(checkpoint, objective, validation_objective, run_log,
     return ' '.join((model_label, r2_text))
 
 
+def fit_uses_log_scale(checkpoint, pool):
+    """Return the display scale requested by a checkpoint's loss setup.
+
+    The conventional fit view is linear CO2 and logarithmic CH4.  A loss
+    transform containing ``log`` explicitly requests logarithmic display;
+    ``linear`` explicitly requests linear display.  Normalisation alone does
+    not override the conventional display scale.
+    """
+    transforms = (checkpoint.run_config.get('objective', {})
+                  .get('transform', {}).get(pool, ()))
+    transforms = {str(transform).casefold() for transform in transforms}
+    if 'log' in transforms:
+        return True
+    if 'linear' in transforms:
+        return False
+    return pool == 'CH4'
+
+
 def format_fit_axes(checkpoint, sample, axes):
     """Apply the standard fit-plot scales, limits, and axes style.
 
-    Fit plots always display CH4 logarithmically.  A failed simulation can
+    Fit plots conventionally display CH4 logarithmically.  A failed simulation can
     briefly produce a non-positive CH4 value, which makes ``format_ax``
     decline its safe automatic log formatting; retain a log CH4 axis in that
     case and use the positive measured-data limits when available.
     """
     y_limits = sample_y_limits(sample)
     for pool, axis in axes.items():
+        log_requested = fit_uses_log_scale(checkpoint, pool)
         log_applied = plot.format_ax(
-            axis,
-            log_scale=(pool == 'CH4' or 'log' in
-                       checkpoint.run_config['objective']['transform'][pool]),
+            axis, log_scale=log_requested,
         )
-        if pool == 'CH4' and not log_applied:
+        if log_requested and not log_applied:
             axis.set_yscale('log')
             if pool in y_limits:
                 axis.set_ylim(y_limits[pool])

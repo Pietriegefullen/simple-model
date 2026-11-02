@@ -641,9 +641,6 @@ class Algorithm(ABC):
             print('Fitting with ' + self.__class__.__name__)
             print(objective.model())
             print()
-            print('search space average fraction:',
-                  objective.model().parameters().search_space()[-1])
-            print()
             print('Objective = ' + str(objective))
             print()
             print('Callbacks:')

@@ -33,12 +33,14 @@ import plot_checkpoint
 from fit_sample import run
 
 
-def checkpoint_label(checkpoint, hidden=()) -> str:
+def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
     """Show useful catalogue metadata, omitting dimensions already filtered."""
     hidden = set(hidden)
-    sample, replica = checkpoint.replica
     fields = [] if "checkpoint_id" in hidden else [f"{checkpoint.id}"]
     fields.append(f"loss {checkpoint.loss:.7g}")
+    if not details:
+        return "  |  ".join(fields)
+    sample, replica = checkpoint.replica
     details = (
         ("model_version", f"version {checkpoint.run_config['model'].get('version', '?')}"),
         ("sample", f"sample {sample}"),
@@ -228,8 +230,10 @@ class ModelInspector(ttk.Frame):
 
     def reload_catalogue(self):
         try:
-            self.checkpoints = sorted(report.collect_all(), key=lambda checkpoint: checkpoint.loss)
+            self.checkpoints = report.collect_all()
+
         except Exception as error:
+            traceback.print_exc()
             messagebox.showerror("Could not load checkpoints", str(error))
             self.checkpoints = []
         self._clear_caches()
@@ -238,6 +242,19 @@ class ModelInspector(ttk.Frame):
     def apply_filter(self):
         filters = {name: variable.get().casefold().strip()
                    for name, variable in self.filters.items()}
+
+        # The common initial view needs no metadata comparisons: the catalogue
+        # has already been loaded and loss-sorted in ``reload_catalogue``.
+        # Avoid calculating every checkpoint's run hash just to conclude that
+        # it belongs in the unfiltered list.
+        if not any(filters.values()) and not self.best_per_run.get():
+            self.filtered = list(self.checkpoints)
+            self.catalogue.delete(0, "end")
+            for checkpoint in self.filtered:
+                self.catalogue.insert("end", checkpoint_label(checkpoint, details=False))
+            self.catalogue_status.configure(
+                text=f"{len(self.filtered)} of {len(self.checkpoints)} checkpoint(s)")
+            return
 
         def matches(checkpoint):
             sample, replica = checkpoint.replica
@@ -287,9 +304,7 @@ class ModelInspector(ttk.Frame):
         # Persisted checkpoint values intentionally omit their fitting ranges.
         # Reapply the model defaults so every numerical model parameter remains
         # editable, while preserving its physical/logarithmic scale.
-        defaults = {parameter.name: parameter
-                    for parameter in parameters.default_model_parameters()}
-        self.working_parameters = parameters.ModelParameters(defaults)
+        self.working_parameters = parameters.ModelParameters()
         for saved in checkpoint.parameters:
             if saved.name in self.working_parameters:
                 self.working_parameters[saved.name].set(saved.value)
@@ -327,20 +342,20 @@ class ModelInspector(ttk.Frame):
         frame = ttk.Frame(self.parameter_body, padding=(0, 3))
         frame.grid(row=row, column=0, sticky="ew")
         frame.columnconfigure(2, weight=1)
-        ttk.Label(frame, text=parameter.name, width=20).grid(row=0, column=0, rowspan=2, sticky="w")
+        ttk.Label(frame, text=parameter.name, width=20).grid(row=0, column=0, sticky="w")
         value = tk.StringVar(value=f"{parameter.value:.6g}")
         low = tk.StringVar(value=f"{parameter.lower():.6g}")
         high = tk.StringVar(value=f"{parameter.upper():.6g}")
         logarithmic = is_log_slider(parameter)
         slider = ttk.Scale(frame, from_=0, to=1000, orient="horizontal")
-        ttk.Entry(frame, textvariable=value, width=11).grid(row=0, column=1, padx=(4, 5))
-        slider.grid(row=0, column=2, columnspan=5, sticky="ew", padx=(0, 4))
-        ttk.Label(frame, text="min").grid(row=1, column=2, sticky="e")
-        ttk.Entry(frame, textvariable=low, width=9).grid(row=1, column=3, padx=(2, 5))
-        ttk.Label(frame, text="max").grid(row=1, column=4, sticky="e")
-        ttk.Entry(frame, textvariable=high, width=9).grid(row=1, column=5, padx=(2, 5))
+        ttk.Entry(frame, textvariable=value, width=11).grid(row=1, column=0, sticky="w")
+        slider.grid(row=0, column=1, columnspan=5, sticky="ew", padx=(4, 4))
+        ttk.Label(frame, text="min").grid(row=1, column=1, sticky="e")
+        ttk.Entry(frame, textvariable=low, width=9).grid(row=1, column=2, padx=(2, 5))
+        ttk.Label(frame, text="max").grid(row=1, column=3, sticky="e")
+        ttk.Entry(frame, textvariable=high, width=9).grid(row=1, column=4, padx=(2, 5))
         scale_label = ttk.Label(frame, text="log" if logarithmic else "linear", width=6)
-        scale_label.grid(row=1, column=6)
+        scale_label.grid(row=1, column=5)
         control = ParameterControl(parameter, frame, slider, value, low, high, scale_label)
         self.controls[parameter.name] = control
         self._set_slider_from_parameter(control)

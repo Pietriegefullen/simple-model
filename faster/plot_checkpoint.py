@@ -292,7 +292,7 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
             axis.set_ylim(min(limit[0] for limit in limits),
                           max(limit[1] for limit in limits))
         log_requested = any(
-            'log' in result.checkpoint.run_config['objective']['transform'][pool]
+            report.fit_uses_log_scale(result.checkpoint, pool)
             for result in results)
         log_applied = plot.format_ax(axis, log_scale=log_requested)
         if limits and not log_applied:

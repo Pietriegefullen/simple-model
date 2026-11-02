@@ -286,25 +286,15 @@ def build_run_id(config):
     _ = [cp.pop(i,None) for i in ignore]
     return 'run-' + build_id(cp, 3, 2)
 
-@lru_cache(maxsize=1)
-def _pathway_thermodynamics_defaults():
-    import parameters
-    thermodynamics_defaults = {
-        parameter.name.removesuffix('_thermodynamics'): parameter.value
-        for parameter in parameters.default_model_parameters()
-        if parameter.name.endswith('_thermodynamics')
-    }
-    pathway_defaults = {
-        'Hydrolysis': False,
-        'Fermentation': False,
-        **thermodynamics_defaults,
-    }
-    return pathway_defaults
-
-
 def add_missing_thermodynamics_switch(config):
     pathway_keys = [k for k in config.keys() if not k == 'version']
-    pathway_defaults = _pathway_thermodynamics_defaults()
+
+    pathway_defaults = {'Hydrolysis': False, 
+                         'Fermentation': False,
+                         'Fe3': True,
+                         'Hydro': True, 
+                         'Homo': True,
+                         'Aceto': True}
 
     for pwy_name in pathway_keys:
         parameter_name = 'use_thermodynamics'

@@ -328,12 +328,7 @@ class CheckpointCallback(Callback):
         
         # set range of legacy parameters to default range
         if self.legacy:
-            default_parameters = parameters.default_model_parameters()
-            parameter_names = self.run_config()['initial'].keys()
-            for p_name in parameter_names:
-                p = parameters.Parameter.from_config(self.run_config['initial'][p_name])
-                if not p.is_variable(): continue
-                self.run_config['initial'][p_name] = default_parameters[p_name].get_config()
+            raise NotImplementedError()
 
     def checkpoints(self, save_dir):
         checkpoints = []

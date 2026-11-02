@@ -166,9 +166,6 @@ def build_parameter_template(version, pathways, normalized_parameters=True):
     parameters such as biomass and initial Fe3 would silently stay constant.
     """
     pathway_model = build_model(version, pathways, normalized_parameters)
-    defaults = parameters.default_model_parameters(
-        normalize_parameters=normalized_parameters)
-    pathway_model.parameters().set(defaults)
     return pathway_model
 
 
