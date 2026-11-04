@@ -1,3 +1,4 @@
+import fnmatch
 import os
 
 import data
@@ -220,7 +221,13 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
         init_config['model'] = model_id
 
     legacy_path = None
-    initial_parameters = parameters.load_parameters(init_config, source_directory=checkpoint_source)
+    loaded_parameters = parameters.load_parameters(
+        init_config, source_directory=checkpoint_source)
+    # ``load_parameters`` deliberately has no global default catalogue now:
+    # populate this fit from the versioned model we just built, then overlay
+    # any saved/selected values.
+    initial_parameters = parameters.ModelParameters(pathway_model.parameters())
+    initial_parameters.set(loaded_parameters)
 
     if chosen.get('fix_v_max_except') is not None:
         fix_v_max_except(
@@ -230,14 +237,13 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
 
     # override model parameters
     for p_name, p_value in chosen['parameter_override'].items():
-        if '*' in p_name:
-            for p in initial_parameters:
-                if p_name.replace('*', '') in p.name:
-                    p = p_value
-        else:
-            initial_parameters[p_name] = p_value
-
-        initial_parameters[p_name].constant(p_value)
+        matching_names = ([parameter.name for parameter in initial_parameters
+                           if fnmatch.fnmatchcase(parameter.name, p_name)]
+                          if '*' in p_name else [p_name])
+        if not matching_names:
+            raise ValueError(f'--p pattern {p_name!r} matches no model parameter.')
+        for name in matching_names:
+            initial_parameters[name].constant(p_value)
 
     pathway_model.parameters().set(initial_parameters)
 

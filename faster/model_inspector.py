@@ -31,6 +31,7 @@ import parameters
 import checkpoint_report as report
 import plot_checkpoint
 from fit_sample import run
+from model_factory import build_model
 
 
 def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
@@ -304,7 +305,10 @@ class ModelInspector(ttk.Frame):
         # Persisted checkpoint values intentionally omit their fitting ranges.
         # Reapply the model defaults so every numerical model parameter remains
         # editable, while preserving its physical/logarithmic scale.
-        self.working_parameters = parameters.ModelParameters()
+        chosen = checkpoint.run_config['chosen']
+        self.working_parameters = parameters.ModelParameters(build_model(
+            checkpoint.run_config['model']['version'], chosen['pathways'],
+            chosen.get('normalized_parameters', True)).parameters())
         for saved in checkpoint.parameters:
             if saved.name in self.working_parameters:
                 self.working_parameters[saved.name].set(saved.value)

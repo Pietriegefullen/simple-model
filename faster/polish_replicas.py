@@ -94,7 +94,8 @@ def local_parameters_for_polish(source_data, record):
     chosen = run_config['chosen']
     paths = chosen.get('pathways', fit_replicas.PATHWAYS)
     normalized = chosen.get('normalized_parameters', True)
-    local = fit_replicas.build_parameter_template(paths, normalized).parameters()
+    local = fit_replicas.build_parameter_template(
+        model_version_for_polish(source_data, record), paths, normalized).parameters()
 
     # Retain a narrowed local space from the original inner fit if it is
     # available. An archived/moved inner checkpoint is not fatal: the normal

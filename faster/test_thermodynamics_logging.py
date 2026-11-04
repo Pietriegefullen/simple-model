@@ -3,7 +3,8 @@ import unittest
 import numpy as np
 
 import system
-from parameters import ModelParameters, default_model_parameters
+from parameters import ModelParameters
+from model_run import ModelRun
 
 from model_factory import build_model, pathway_by_name
 
@@ -36,11 +37,8 @@ class Replica:
 
 class ThermodynamicsLoggingTest(unittest.TestCase):
     def setUp(self):
-        parameters = ModelParameters({
-            parameter.name: parameter
-            for parameter in default_model_parameters()
-        })
         version = "0.4"
+        parameters = ModelParameters(build_model(version, ['Fe3'], True).parameters())
         self.pathway = pathway_by_name(version, 'Fe3')(parameters)
 
     def state(self, *, acetate=20., fe3=150., fe2=1., co2=1., water=20000.):
@@ -75,7 +73,7 @@ class ThermodynamicsLoggingTest(unittest.TestCase):
         np.testing.assert_allclose(self.pathway.deltaG_r(states), expected)
 
     def test_delta_g_is_not_logged_during_pathway_evaluation(self):
-        run_log = logging.ModelRun()
+        run_log = ModelRun()
         self.pathway.inject_logger(run_log)
 
         self.pathway.thermodynamics(0., self.state())

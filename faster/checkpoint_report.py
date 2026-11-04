@@ -1433,7 +1433,8 @@ def multi_replica_model_run(checkpoint, record, dataset):
     replica = sample[str(record['replica_number'])]
     chosen = checkpoint.run_config['chosen']
     pathway_model = joint_fit.build_parameter_template(
-        chosen['pathways'], chosen['normalized_parameters'])
+        checkpoint.run_config['model']['version'], chosen['pathways'],
+        chosen['normalized_parameters'])
     # The outer checkpoint contains shared values.  The record stores all
     # remaining values from the same outer evaluation, including initial pools
     # and per-replica local parameters.

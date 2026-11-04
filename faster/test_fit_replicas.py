@@ -1,6 +1,7 @@
 import unittest
 from contextlib import redirect_stdout
 import io
+from unittest.mock import patch
 
 import fit_replicas
 import parameters
@@ -97,11 +98,19 @@ class SharedParameterParsingTest(unittest.TestCase):
 
     def test_fixed_value_glob_excludes_shared_parameters(self):
         fixed, overlap = fit_replicas.parse_fixed_parameters(
-            ['*_v_max', '1'], ['Hydrolysis_v_max'])
+            ['*_v_max', '1'], ['Hydrolysis_v_max'],
+            ['Hydrolysis_v_max', 'Hydro_v_max'])
 
         self.assertNotIn('Hydrolysis_v_max', fixed)
         self.assertTrue(fixed)
         self.assertEqual(set(fixed.values()), {1})
+        self.assertEqual(overlap, set())
+
+    def test_fixed_value_is_parsed_and_expanded_against_model_names(self):
+        fixed, overlap = fit_replicas.parse_fixed_parameters(
+            ['Hydro_*', '0.25'], (), ['Hydro_v_max', 'Hydro_CUE'])
+
+        self.assertEqual(fixed, {'Hydro_v_max': 0.25, 'Hydro_CUE': 0.25})
         self.assertEqual(overlap, set())
 
     def test_direct_fixed_value_for_shared_parameter_remains_an_error(self):
@@ -207,6 +216,16 @@ class LocalR2ThresholdTest(unittest.TestCase):
 
         self.assertEqual(args.local_r2_threshold, 0.7)
         self.assertEqual(args.local_workers, -1)
+
+    def test_all_core_workers_create_a_reusable_process_pool(self):
+        objective = object.__new__(fit_replicas.SharedReplicaObjective)
+        objective.local_algorithm = {'workers': -1}
+        objective._local_pool = None
+        with patch.object(fit_replicas, 'ProcessPoolExecutor') as executor:
+            _, pool = objective._parallel_resources()
+
+        executor.assert_called_once_with(max_workers=None)
+        self.assertIs(pool, executor.return_value)
 
     def test_loss_guard_aborts_only_after_a_large_loss(self):
         callback = fit_replicas.StopWhenLocalLossExceeds(2.0)

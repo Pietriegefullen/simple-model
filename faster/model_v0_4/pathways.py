@@ -45,6 +45,8 @@ class Pathway():
         self.v_max = microbe['v_max']
         self.death_rate = system.vector(0, microbe, microbe['death_rate'])
 
+        self.microbe_index = system.index(microbe)
+
         C_source = microbe['C_source']
         self.anabolism = system.vector(0)
         if not C_source is None:
@@ -53,19 +55,9 @@ class Pathway():
                                if str(educt) == C_source][0]['stoichiometry']
             CUE = microbe['CUE'] # dimensionless
             anabolism_fraction = C_source_stoich*CUE/(1.-CUE + EPS) # dimensionless
-            microbe_growth = system.vector(0, microbe, anabolism_fraction*C_atoms*CONSTANTS.MOLAR_MASS_C)
-            # Multiplying with molar mass of C effectively
-            # converts biomass to unit mg/gram dry weight in the system vector.
-            # Strictly speaking, this is mathematically inconsistent because all non-biomass
-            # quantities in the system pools are given in micromole.
-            # But it is not wrong.
 
-            C_source_reduction = system.vector(0, microbe['C_source'], anabolism_fraction)
-            self.anabolism = microbe_growth - C_source_reduction
-
-        self.pathway_vector = self.stoichiometry + self.anabolism
-
-        self.microbe_index = system.index(microbe)
+            self.anabolism[self.microbe_index] += C_atoms*anabolism_fraction
+            self.anabolism[system.index(C_source)] -= anabolism_fraction
 
         if float(self.use_thermodynamics) == 1:
             self.deltaG_f = np.sum(np.stack(
@@ -112,23 +104,16 @@ class Pathway():
         contributes = self.stoichiometry != 0
         contributes[system.index('H2O')] = False # water never contributes in thermodynamics
 
-        # substances are  in micromole per g dry weight of soil.
-        # this is not a concentration but a normalized amount.
-        # instead, use activities of dissolved species in mol/L
-        rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
-        m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
-
-        # calculate in micro L/gdw, to match dissolved quantities' units: micro mol/gdw
-        water_content = S[system.index('H2O')]*m_H2O/rho_H2O #  micro L/gdw
-        activities = S/water_content # mol/L
+        # approximate dimensionless activities as
+        # a = S/(1 mol/L)
+        activities = S * 1e-6 # mol/L
 
         stoichiometry = self.stoichiometry[contributes]
         with np.errstate(divide = 'ignore'):
             log_activities = np.log(activities[contributes])
 
-
         if log_activities.ndim == 1:
-            log_Qj = stoichiometry*log_activities
+            log_Qj = stoichiometry * log_activities
         else:
             log_Qj = stoichiometry[:, np.newaxis]*log_activities
 
@@ -156,13 +141,7 @@ class Pathway():
         return thermodynamic_factor
 
     def kinetic_factors(self, S):
-        """Return the Michaelis--Menten factor for every system pool.
-
-        Rows with a zero half-saturation constant are identically one.  They
-        are retained here so callers can select the active, named factors
-        without duplicating the kinetic calculation used by :meth:`kinetics`.
-        """
-        Km = self.kinetic_half_saturation_constants(S)
+        Km = self.Km
         return np.where(Km == 0, 1., S/(Km + S + EPS))
 
     def kinetic_half_saturation_constants(self, S):
@@ -174,11 +153,8 @@ class Pathway():
         public so diagnostic replays can log exactly the quantities used by
         the RHS without adding any work to normal optimisation calls.
         """
-        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis]
-        rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC  # g/L
-        m_H2O = CONSTANTS.MOLAR_MASS_H2O  # g/mol
-        water_content = S[system.index('H2O')] * m_H2O / rho_H2O * 1e-6
-        return Km * water_content
+        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis] # in micromol/L
+        return Km
 
     def kinetic_factor_names(self):
         """Return the pool names with an active Michaelis--Menten term."""
@@ -203,7 +179,7 @@ class Pathway():
         inhib_factor = np.prod(inhib, axis = ax)
         return inhib_factor
 
-    def compute_v(self, t, S):#ö, f_MM, f_thermo, f_inhib):
+    def compute_v(self, t, S):
         f_MM = self.kinetics(S)
 
         v = float(self.v_max) * f_MM
@@ -212,50 +188,24 @@ class Pathway():
         if self.use_inhib:
             f_inhib = self.kinetic_inhibition(S)
             v *= f_inhib
-            #self.log('inhib', t, f_inhib)
 
         f_thermo = None
         if float(self.use_thermodynamics) == 1:
             f_thermo = self.thermodynamics(t, S)
             v *= f_thermo
-            #self.log('thermodynamic_factor', t, f_thermo)
 
-        #self.log('MM', t, f_MM)
-        #self.log('v', t, v)
         return v
 
     def __call__(self, t, S): # hier rechnen wir die MM Faktoren
         """
         S is the dissolved species vector
+        in micromoles per L
         """
-        biomass = S[self.microbe_index] # in units mg/gdw
+        biomass = S[self.microbe_index] # in units micromol/L
+        v = self.compute_v(t, S) # in units of v_max
 
-        v = self.compute_v(t, S)
-        dS_dt = biomass * (v * self.pathway_vector - self.death_rate)
-
-        # death rate only ever applies to microbe index,
-        # it is in 
-        # mg / (mg * day), i.e. 1/day
-
-        # M * v  must be in micromol/(gdw * day)!
-        # 
-        # biomass is in mg/gdw
-        # v is in micromol / (mg biomass * day)
-        # M*v = mg/gdw * micromol/(mg * day) = micromol/(gdw * day)
-
-        # death rate must be in 
-
-        # => death rate is in (micromol/(gdw * day))/(mg/gdw)
-        #           = micromol/(mg*day) 
-        #           => also, should include C molar mass conversion!!!
-        #           => 
-        # -> pathway vector is dimensionless
-        # => anabolism should be dimensionless but also contains the conversion
-        # from micromoles to mg, using the molar mass of C.
-
-        if 'CH4' in self.products:
-            ch4_prod = dS_dt[system.index('CH4')]
-            #self.log('CH4 from ' + self.microbe.name,t,ch4_prod)
+        dS_dt = biomass * v * self.stoichiometry
+        dS_dt = biomass * v * self.anabolism - biomass * self.death_rate
 
         return np.reshape(dS_dt, (-1,))
 

@@ -129,10 +129,12 @@ def _load_raw_incubation(source_directory):
             dry_weight = row['dry weight (g)']
             total_gas_volume = row['Volume  gasspace']
             water_content = row['Water content (ml)']
+            sample_volume = row['Volume sample'] # ml
             samples[current_sample] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
                                        'total_gas_volume': total_gas_volume,
+                                       'sample_volume': sample_volume,
                                        'water content': water_content}
             continue
         
@@ -200,16 +202,19 @@ def _load_raw_ergaenzung(source_directory):
             dry_weight = row['dry weight (g)']
             total_gas_volume = row['Volume  gasspace']
             water_content = row['Water content (ml)']
-            
+            sample_volume = row['Volume sample']
+
             if str(dry_weight) == 'nan' and str(water_content) == 'nan':
                 dry_weight = raw_ergaenzung.loc[i+1,:]['dry weight (g)']
                 water_content = raw_ergaenzung.loc[i+1,:]['Water content (ml)']
                 total_gas_volume = raw_ergaenzung.loc[i+1,:]['Volume  gasspace']
+                sample_volume = raw_ergaenzung.loc[i+1,:]['Volume sample']
 
             samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
                                        'total_gas_volume': total_gas_volume,
+                                       'sample_volume': sample_volume,
                                        'water content': water_content}
             continue
         
@@ -291,10 +296,12 @@ def _load_bhz(source_directory):
             dry_weight = row['Total soil (wet)']/(row['Moisture'] + 1)
             total_gas_volume = np.nan
             water_content = row['Moisture']*dry_weight/CONSTANTS.DENSITY_WATER_4_DEGC*1000# ml
+            sample_volume = None
             samples[current_replica] = {'days':[], 'CO2':[], 'CH4':[],
                                        'events': [], 
                                        'dry weight': dry_weight,
                                        'total_gas_volume': total_gas_volume,
+                                       'sample_volume': sample_volume,
                                        'water content': water_content}
 
         samples[current_replica]['days'].append(row['day'])

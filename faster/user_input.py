@@ -1,4 +1,5 @@
 import argparse
+import fnmatch
 
 def numeric(value):
     numbers = '0123456789'
@@ -108,11 +109,28 @@ def parse_args_fit(argv=None):
 
     return args
 
-def parse_override(inp):
-    import parameters
+def parse_override(inp, parameter_names=None):
+    """Parse ``--p`` pairs, expanding globs against an explicit catalogue.
+
+    Parameter defaults are model-version-specific.  Callers which know the
+    model therefore pass its parameter names here; argument parsing itself
+    preserves globs until that catalogue is available.
+    """
     if inp is None:
         return {}
+    if len(inp) % 2:
+        raise ValueError('--p requires PARAMETER VALUE pairs.')
     keys = inp[::2]
     values = inp[1::2]
     parsed = {}
+    names = None if parameter_names is None else tuple(parameter_names)
+    for key, value in zip(keys, values):
+        value = parse(value)
+        if '*' in key and names is not None:
+            matches = [name for name in names if fnmatch.fnmatchcase(name, key)]
+            if not matches:
+                raise ValueError(f'--p pattern {key!r} matches no model parameter.')
+            parsed.update({name: value for name in matches})
+        else:
+            parsed[key] = value
     return parsed

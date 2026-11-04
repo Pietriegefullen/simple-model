@@ -208,52 +208,74 @@ def get_pathways(model_type):
 
 class Model():
     @classmethod
-    def default_model_parameters(cls, normalize_parameters):
+    def default_model_parameters(cls, normalize):
+        # TODO: death rate units?
+        #
+        # TODO: always consider M * v combined if either v_max or M is const = 1
+
+        # v_max has units micromol/(L d) and includes microbe pool
+        # 
+
+        # no source for 
+        # Ferm_inhibition
+        # death_rate
+        # Hydrolysis_Kmb
+        # Ferm_CUE
+        # Homo_CUE
+
         p = [
-             Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize_parameters),
-             Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize_parameters),
-             
-             Parameter('Ferm_v_max',     .525, [0.0001, 5], 'log', normalize = normalize_parameters),
-             #Variable('Ferm_Kmb',       890, [0.0005, 2000]),
-             Parameter('Ferm_Km',        83, [0.0001, 100], 'log', normalize = normalize_parameters), #833
-             Parameter('Ferm_inhibition', 16, [0.001, 200], 'log', normalize = normalize_parameters),
-             Parameter('Ferm_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
-             
-             Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize_parameters),
-             
-             Parameter('Hydro_Km_CO2',   500, [.0005, 1000], 'log', normalize = normalize_parameters),
-             Parameter('Hydro_v_max',    .17, [0.003, 1.], 'log', normalize = normalize_parameters),
-             Parameter('Hydro_CUE',       .5, [0, 1], 'linear', normalize = normalize_parameters),
-             Parameter('Hydro_Km_H2',    500, [.0005, 1000], 'log', normalize = normalize_parameters),
-             
-             Parameter('Homo_Km_H2',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-             Parameter('Homo_Km_CO2',    500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-             Parameter('Homo_v_max',      .5, [0.005, 1.], 'log', normalize = normalize_parameters),
-             Parameter('Homo_CUE',        .5, [0, 1], 'linear', normalize = normalize_parameters),
-             
-             Parameter('Aceto_Km_Ac',    25, [0.5, 500], 'log', normalize = normalize_parameters), #166
-             Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize_parameters),
-             Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize_parameters), 
-             
-             Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], 'log',  normalize = normalize_parameters),#500
-             Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], 'log', normalize = normalize_parameters),
-             Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize_parameters), 
-             Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize_parameters),
-             
-             Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize_parameters),
-             Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize_parameters),
-            
-            # biomass in units milligrams per gram dry weight of soil!!!
-             Parameter('M_Ferm',         .42, [1e-8, 5],'log',  normalize = normalize_parameters),
-             Parameter('M_Hydro',       .083, [1e-8, 5], 'log', normalize = normalize_parameters),
-             Parameter('M_Fe3',          .25, [1e-8, 5], 'log',  normalize = normalize_parameters),
-             Parameter('M_Homo',         .25, [1e-8, 5], 'log', normalize = normalize_parameters),
-             Parameter('M_Ac',         .0033, [1e-8, 5], 'log', normalize = normalize_parameters),
-             
-             Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-             Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-             Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
-             Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize),
+
+         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize),
+         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize),
+        
+
+         Parameter('Ferm_v_max',     10, [2, 17], 'log', normalize = normalize), # Xu 2015
+         Parameter('Ferm_Km',        20_000, [8_500, 60_000], scale= 'log', normalize = normalize),  # Grant1998
+         # TODO: Song2020 and Xu2015 differ greatly
+
+         Parameter('Ferm_inhibition', 1, [1e-3, 1e3], 'log', normalize = normalize),
+         Parameter('Ferm_CUE',        .1, [0.01, .5], 'linear', normalize = normalize),
+         
+         
+         Parameter('Hydro_v_max',    1_728, scale = 'log', normalize = normalize), # Van 2001
+         #Parameter('Hydro_v_max',    1_728, [420, 3_000], scale = 'log', normalize = normalize), #Song 2020
+
+         Parameter('Hydro_CUE',       .08, scale = 'linear', normalize = normalize), # Kettunen2003/Grant1998
+         #Parameter('Hydro_CUE',       .08, [0.11, 0.36], scale = 'linear', normalize = normalize), # Xu 2015
+         Parameter('Hydro_Km_CO2',   100, [29,1000], scale = 'log', normalize = normalize),    # Grant1998/Song 2020
+         Parameter('Hydro_Km_H2',    50, [13, 200], scale = 'log', normalize = normalize),     # Grant1998, Van 2001, Song 2020
+         
+         Parameter('Homo_Km_H2',     100, [29, 200], scale = 'log', normalize = normalize), #Song 2020
+         Parameter('Homo_Km_CO2',    500, [140, 1_000], scale = 'log', normalize = normalize), #Song 2020
+         Parameter('Homo_v_max',     1_000, [420, 3_000], scale = 'log', normalize = normalize),
+         Parameter('Homo_CUE',        .05, [0.01, .5], 'linear', normalize = normalize),
+         
+         Parameter('Aceto_Km_Ac',    500_000, [0.5, 500], 'log', normalize = normalize), 
+         Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize), # Grant1998
+         Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize), 
+         
+         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], 'log',  normalize = normalize),
+         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], 'log', normalize = normalize),
+         Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize), 
+         Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize),
+         
+         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize),
+         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize),
+        
+        # biomass in units milligrams per gram dry weight of soil!!!
+        # v_max already contains biomas in many models
+        # also, for identifyability, avoid using M_<Pathway> parameters
+         Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
+         Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
+         Parameter('M_Fe3',         1., scale = 'log', normalize = normalize),
+         Parameter('M_Homo',        1., scale = 'log', normalize = normalize),
+         Parameter('M_Ac',          1., scale = 'log', normalize = normalize),
+         
+         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
             ]
             
         par = parameters.ModelParameters(p)
@@ -307,10 +329,11 @@ class Model():
 
     def compute_dissolved(self, S):
         dissolved_S = S.copy()
+
         rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
         m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
         total_gas_volume = self.replica.total_gas_volume # ml
-        sample_weight = self.replica.dry_weight # g
+        sample_weight = self.replica.dry_weight # gdw
         gas_volume = 1e-3 * total_gas_volume/sample_weight # L/gdw
 
         water_volume = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
@@ -322,17 +345,30 @@ class Model():
         return dissolved_S
 
     def __call__(self, t, S):
-        S = np.maximum(S, 0) 
-        
-        dissolved_S = self.compute_dissolved(S)
+        S = np.maximum(S, 0)
+
+        dissolved_S = self.compute_dissolved(S) # micromol dissolved per gdw
+
+        molar_mass_H2O = CONSTANTS.MOLAR_MASS_H2O
+        density_H2O = CONSTANTS.DENSITY_WATER_4_DEGC
+        water_volume = S[system.index('H2O')] * 1e-6 * molar_mass_H2O / density_H2O # L/gdw
+       
+        # change reference from gram dry weight to liters H2O
+        dissolved_S /= water_volume # micromol / L
+
+        # convert microbes from milligram to micromol
+        dissolved_S[system.MICROBES] /= CONSTANTS.MOLAR_MASS_C # micromol/L
+
+        # compute rates
         dSj_dt = np.stack([pathway_j(t, dissolved_S)
                             for pathway_j in self.contributing_pathways], axis = -1)
-
         dS_dt = np.sum(dSj_dt, axis = -1)
         dS_dt = np.where(S == 0, np.maximum(0, dS_dt), dS_dt)
 
-        #for dSi_dt, pool_name in zip(dS_dt, system.SYSTEM):
-        #    self.system_change_log.log_snap(pool_name, t, dSi_dt)
+        # convert rates back to micromol/gdw (and mg/gdw for microbes)
+        dS_dt *= water_volume
+        dS_dt[system.MICROBES] *= CONSTANTS.MOLAR_MASS_C
+
         return dS_dt
 
     def add_t(self, t):

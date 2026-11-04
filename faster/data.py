@@ -374,6 +374,7 @@ class KnoblauchData():
                 new_replica = Replica(replica_name[-1])
                 new_replica.events = {event:day for (day, event) in replica_data['events']}
                 new_replica.dry_weight = replica_data['dry weight']
+                new_replica.sample_volume = replica_data['sample_volume']
                 new_replica.total_gas_volume = replica_data['total_gas_volume']
                 new_replica.incubation = {'days': np.reshape(replica_data['days'], (-1,)),
                                           'CO2': np.reshape(replica_data['CO2'], (-1,)),
@@ -391,6 +392,7 @@ class KnoblauchData():
                     subreplica = Replica(replica_name[-1])
                     subreplica.water_content = new_replica.water_content
                     subreplica.dry_weight = new_replica.dry_weight
+                    subreplica.sample_volume = new_replica.sample_volume
                     subreplica.total_gas_volume = new_replica.total_gas_volume
                     inoc_data = self.inocculation_days[str(replica_name)]
                     inoc_day = inoc_data['day']
@@ -584,12 +586,14 @@ class Replica():
                  events = None,
                  incubation = None,
                  last_day = None, 
-                 total_gas_volume = None):
+                 total_gas_volume = None, 
+                 sample_volume = None):
         self.sample = None
         self.replica_number = replica_number
         
         self.dry_weight = dry_weight # directly from Knoblauch, unit is g
         self.total_gas_volume = total_gas_volume # ml
+        self.sample_volume = sample_volume
         self.water_content = water_content # directly from Knoblauch, ml 
         if temperature is None:
             temperature = CONSTANTS.SPECIMEN_TEMPERATURE
@@ -615,8 +619,10 @@ class Replica():
 
     def initial_H2O(self):
         # micro mol per g dw
-        relative_water_content = self.water_content/self.dry_weight # g_H2O/g_dw
-        return relative_water_content/CONSTANTS.MOLAR_MASS_H2O*1e6 
+        water_mass = 1e-3*self.water_content*CONSTANTS.DENSITY_WATER_4DEGC # g
+        relative_water_content = water_mass/self.dry_weight # g H2O per g dry weight
+        h2o = relative_water_content/CONSTANTS.MOLAR_MASS_H2O # mol/gdw
+        return h2o*1e6 # micromol/gdw
     
     
     def CO2(self, rate = False):
@@ -776,6 +782,7 @@ class Replica():
                'dry_weight': self.dry_weight,
                'total_gas_volume': self.total_gas_volume,
                'water_content': self.water_content,
+               'sample_volume': self.sample_volume,
                'temperature': self.temperature,
                'events': self.events,
                'incubation': {k:v.tolist() for k, v in self.incubation.items()},
@@ -850,6 +857,8 @@ def check_replica(replica):
     assert replica.water_content > 0
 
     assert replica.total_gas_volume > 0, str(replica)
+
+    assert replica.sample_volume > 0, str(replica)
     
     assert replica.temperature == 277.15
 
@@ -860,6 +869,29 @@ def save_data(d):
 
 if __name__ == '__main__':
     d = get_data_before_day()
+
+    f_L = []
+    f_m = []
+    for sample in d.samples:
+        for replica in sample.replicas:
+            print(replica)
+            water_content_ml = replica.water_content
+            dry_weight_gdw = replica.dry_weight
+            sample_volume = replica.sample_volume
+            f_L.append(water_content_ml/dry_weight_gdw*1e-3)
+            f_m.append(sample_volume*1e-6/dry_weight_gdw)
+    import matplotlib.pyplot as plt
+    import numpy as np
+    print('L')
+    print(np.min(f_L), np.max(f_L))
+    print('m')
+    print(np.min(f_m), np.max(f_m))
+    plt.boxplot(f_L)
+    plt.figure()
+    plt.boxplot(f_m)
+    plt.title('m')
+    plt.show()
+    1/0
     
     import os
     home = os.getenv('HOME')

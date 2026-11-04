@@ -4,12 +4,12 @@ import unittest
 from unittest import mock
 
 import checkpoint_report as plot_best
-from model_factory import build_model
+from model_factory import build_model, current_version
 import parameters
 
 
 def multi_checkpoint(loss, checkpoint_id, replicas):
-    version = 
+    version = current_version()
     pathway_model = build_model(version, ['Hydro'], normalized=True)
     run_config = {
         'model': pathway_model.get_config(only_structure=True),

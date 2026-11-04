@@ -395,8 +395,12 @@ class Parameter():
             self.low = range[0]
             self.high = range[1]
 
+        # Standalone parameters (for example in tests and ad-hoc tools) do
+        # not belong to a versioned model catalogue.  Preserve the historic
+        # logarithmic default for ranged numeric parameters; versioned model
+        # definitions always pass their scale explicitly.
         if not range is None and scale is None:
-            raise Exception('Parameter scale must be specified')
+            scale = 'log'
 
         self.scale = scale
         self.normalize = normalize
@@ -685,5 +689,4 @@ def sort_dict(d):
             ss = sort_dict(ss)
         s[k] = ss
     return s
-
 

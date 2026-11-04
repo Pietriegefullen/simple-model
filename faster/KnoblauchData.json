@@ -8,6 +8,7 @@
                     "dry_weight": 12.803648802736603,
                     "total_gas_volume": 106.86879513492968,
                     "water_content": 4.796351197263398,
+                    "sample_volume": 10.131204865070316,
                     "temperature": 277.15,
                     "events": {
                         "carex": 1524.9666666666672,
@@ -232,6 +233,7 @@
                     "dry_weight": 12.432633979475485,
                     "total_gas_volume": 107.1623698213607,
                     "water_content": 4.657366020524515,
+                    "sample_volume": 9.837630178639301,
                     "temperature": 277.15,
                     "events": {
                         "carex": 1524.965277777781,
@@ -457,6 +459,7 @@
                     "dry_weight": 10.242919042189282,
                     "total_gas_volume": 108.89503610794375,
                     "water_content": 3.8370809578107186,
+                    "sample_volume": 8.104963892056253,
                     "temperature": 277.15,
                     "events": {
                         "carex": 1524.9618055555547,
@@ -692,6 +695,7 @@
                     "dry_weight": 7.258716,
                     "total_gas_volume": 101.674251,
                     "water_content": 12.301283999999999,
+                    "sample_volume": 15.325748999999998,
                     "temperature": 277.15,
                     "events": {
                         "reintegriert": 775.9284722222219,
@@ -888,6 +892,7 @@
                     "dry_weight": 7.255004999999999,
                     "total_gas_volume": 101.68208625,
                     "water_content": 12.294995000000002,
+                    "sample_volume": 15.317913750000002,
                     "temperature": 277.15,
                     "events": {
                         "reintegriert": 726.1305555555591,
@@ -1094,6 +1099,7 @@
                     "dry_weight": 9.8906,
                     "total_gas_volume": 105.76951666666666,
                     "water_content": 7.109400000000001,
+                    "sample_volume": 11.230483333333334,
                     "temperature": 277.15,
                     "events": {
                         "reintegriert": 573.9743055555591,
@@ -1314,6 +1320,7 @@
                     "dry_weight": 10.146592000000002,
                     "total_gas_volume": 105.47884533333334,
                     "water_content": 7.293408,
+                    "sample_volume": 11.521154666666668,
                     "temperature": 277.15,
                     "events": {
                         "reintegriert": 726.1145833333358,
@@ -1544,6 +1551,7 @@
                     "dry_weight": 20.28,
                     "total_gas_volume": 13.803075,
                     "water_content": 45.25,
+                    "sample_volume": 9.1767,
                     "temperature": 277.15,
                     "events": {
                         "flush": 1274.9243055555562,
@@ -1687,6 +1695,7 @@
                     "dry_weight": 19.72,
                     "total_gas_volume": 13.421924999999998,
                     "water_content": 45.25,
+                    "sample_volume": 8.9233,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2945.8041666666613
@@ -1839,6 +1848,7 @@
                     "dry_weight": 19.28,
                     "total_gas_volume": 11.185774,
                     "water_content": 28.03,
+                    "sample_volume": 5.404184,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2759.82916666667,
@@ -1982,6 +1992,7 @@
                     "dry_weight": 19.57,
                     "total_gas_volume": 11.35402475,
                     "water_content": 28.03,
+                    "sample_volume": 5.485471,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2759.827083333337,
@@ -2135,6 +2146,7 @@
                     "dry_weight": 20.01,
                     "total_gas_volume": 12.708851250000002,
                     "water_content": 37.45,
+                    "sample_volume": 7.493745000000001,
                     "temperature": 277.15,
                     "events": {
                         "aerob?": 8.009027777778101,
@@ -2314,6 +2326,7 @@
                     "dry_weight": 20.07,
                     "total_gas_volume": 12.746958750000001,
                     "water_content": 37.45,
+                    "sample_volume": 7.516215000000001,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2502.038888888892,
@@ -2490,6 +2503,7 @@
                     "dry_weight": 20.01,
                     "total_gas_volume": 12.708851250000002,
                     "water_content": 37.45,
+                    "sample_volume": 7.493745000000001,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.037500000005820766,
@@ -2550,6 +2564,7 @@
                     "dry_weight": 20.07,
                     "total_gas_volume": 12.746958750000001,
                     "water_content": 37.45,
+                    "sample_volume": 7.516215000000001,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.03888888889196096,
@@ -2609,6 +2624,7 @@
                     "dry_weight": 19.15,
                     "total_gas_volume": 11.400792916666667,
                     "water_content": 30.63,
+                    "sample_volume": 5.865645,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2945.7659722222234
@@ -2751,6 +2767,7 @@
                     "dry_weight": 19.68,
                     "total_gas_volume": 11.716324,
                     "water_content": 30.63,
+                    "sample_volume": 6.027984,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2945.759027777778
@@ -2903,6 +2920,7 @@
                     "dry_weight": 11.24,
                     "total_gas_volume": 6.342170000000001,
                     "water_content": 25.3,
+                    "sample_volume": 2.8437200000000002,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2501.259027777778,
@@ -3096,6 +3114,7 @@
                     "dry_weight": 11.16,
                     "total_gas_volume": 6.29703,
                     "water_content": 25.3,
+                    "sample_volume": 2.82348,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2501.256944444438,
@@ -3284,6 +3303,7 @@
                     "dry_weight": 11.24,
                     "total_gas_volume": 6.342170000000001,
                     "water_content": 25.3,
+                    "sample_volume": 2.8437200000000002,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.25902777777810115,
@@ -3360,6 +3380,7 @@
                     "dry_weight": 11.16,
                     "total_gas_volume": 6.29703,
                     "water_content": 25.3,
+                    "sample_volume": 2.82348,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.2569444444379769,
@@ -3431,6 +3452,7 @@
                     "dry_weight": 20.08,
                     "total_gas_volume": 11.046677333333331,
                     "water_content": 22.88,
+                    "sample_volume": 4.594303999999999,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2501.247916666667,
@@ -3609,6 +3631,7 @@
                     "dry_weight": 19.86,
                     "total_gas_volume": 10.925647999999999,
                     "water_content": 22.88,
+                    "sample_volume": 4.543968,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2501.2472222222204,
@@ -3797,6 +3820,7 @@
                     "dry_weight": 20.08,
                     "total_gas_volume": 11.046677333333331,
                     "water_content": 22.88,
+                    "sample_volume": 4.594303999999999,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.24791666666715173,
@@ -3858,6 +3882,7 @@
                     "dry_weight": 19.86,
                     "total_gas_volume": 10.925647999999999,
                     "water_content": 22.88,
+                    "sample_volume": 4.543968,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.24722222222044365,
@@ -3929,6 +3954,7 @@
                     "dry_weight": 20,
                     "total_gas_volume": 11.747,
                     "water_content": 29.26,
+                    "sample_volume": 5.852,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 2501.23541666667,
@@ -4116,6 +4142,7 @@
                     "dry_weight": 20,
                     "total_gas_volume": 11.747,
                     "water_content": 29.26,
+                    "sample_volume": 5.852,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 63/4": 0.2354166666700621,
@@ -4186,6 +4213,7 @@
                     "dry_weight": 18.26,
                     "total_gas_volume": 12.644441333333335,
                     "water_content": 47.28,
+                    "sample_volume": 8.633328,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2944.9583333333358
@@ -4328,6 +4356,7 @@
                     "dry_weight": 15.6,
                     "total_gas_volume": 10.80248,
                     "water_content": 47.28,
+                    "sample_volume": 7.37568,
                     "temperature": 277.15,
                     "events": {
                         "Temperatur 22/3": 1,
@@ -4493,6 +4522,7 @@
                     "dry_weight": 19.63,
                     "total_gas_volume": 11.712893833333332,
                     "water_content": 30.86,
+                    "sample_volume": 6.057818,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2934.9381944444467
@@ -4671,6 +4701,7 @@
                     "dry_weight": 19.68,
                     "total_gas_volume": 11.742728,
                     "water_content": 30.86,
+                    "sample_volume": 6.0732479999999995,
                     "temperature": 277.15,
                     "events": {
                         "Temperatur 24/3": 1,
@@ -4865,6 +4896,7 @@
                     "dry_weight": 19.68,
                     "total_gas_volume": 11.742728,
                     "water_content": 30.86,
+                    "sample_volume": 6.0732479999999995,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 62/4": 0.20833333333575865,
@@ -4938,6 +4970,7 @@
                     "dry_weight": 20.05,
                     "total_gas_volume": 13.40978494623656,
                     "water_content": 43.225806451612904,
+                    "sample_volume": 8.666774193548388,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2934.931944444441
@@ -5116,6 +5149,7 @@
                     "dry_weight": 19.43,
                     "total_gas_volume": 12.995118279569894,
                     "water_content": 43.225806451612904,
+                    "sample_volume": 8.398774193548388,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2944.9333333333343
@@ -5268,6 +5302,7 @@
                     "dry_weight": 18.92,
                     "total_gas_volume": 9.951604666666668,
                     "water_content": 18.74,
+                    "sample_volume": 3.545608,
                     "temperature": 277.15,
                     "events": {
                         "flush": 2501.1833333333343,
@@ -5459,6 +5494,7 @@
                     "dry_weight": 18.52,
                     "total_gas_volume": 9.741211333333332,
                     "water_content": 18.74,
+                    "sample_volume": 3.4706479999999997,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 64/4": 2501.179861111108,
@@ -5649,6 +5685,7 @@
                     "dry_weight": 18.52,
                     "total_gas_volume": 9.741211333333332,
                     "water_content": 18.74,
+                    "sample_volume": 3.4706479999999997,
                     "temperature": 277.15,
                     "events": {
                         "beimpft mit 1.5 ml 64/4": 0.17986111110803904,
@@ -5722,6 +5759,7 @@
                     "dry_weight": 19.78,
                     "total_gas_volume": 14.075721710974781,
                     "water_content": 50.56237218813906,
+                    "sample_volume": 10.001237218813907,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.8451388888934,
@@ -5865,6 +5903,7 @@
                     "dry_weight": 19.65,
                     "total_gas_volume": 13.983211912065439,
                     "water_content": 50.56237218813906,
+                    "sample_volume": 9.935506134969325,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.8430555555606,
@@ -6008,6 +6047,7 @@
                     "dry_weight": 21.5,
                     "total_gas_volume": 15.299697511929105,
                     "water_content": 50.56237218813906,
+                    "sample_volume": 10.870910020449896,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.8409722222277,
@@ -6161,6 +6201,7 @@
                     "dry_weight": 20.35,
                     "total_gas_volume": 13.635856666666667,
                     "water_content": 43.44,
+                    "sample_volume": 8.84004,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2944.8284722222234
@@ -6303,6 +6344,7 @@
                     "dry_weight": 19.18,
                     "total_gas_volume": 12.851878666666668,
                     "water_content": 43.44,
+                    "sample_volume": 8.331792,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2944.8284722222234
@@ -6455,6 +6497,7 @@
                     "dry_weight": 13.564684,
                     "total_gas_volume": 104.64273233333333,
                     "water_content": 6.705315999999999,
+                    "sample_volume": 12.357267666666665,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.799305555556,
@@ -6680,6 +6723,7 @@
                     "dry_weight": 12.634495999999999,
                     "total_gas_volume": 105.49012266666666,
                     "water_content": 6.2455039999999995,
+                    "sample_volume": 11.509877333333332,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.799305555556,
@@ -6905,6 +6949,7 @@
                     "dry_weight": 12.995864000000001,
                     "total_gas_volume": 105.16092066666667,
                     "water_content": 6.424136,
+                    "sample_volume": 11.839079333333334,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.800000000003,
@@ -7140,6 +7185,7 @@
                     "dry_weight": 19.58,
                     "total_gas_volume": 13.260311780190852,
                     "water_content": 44.669299111549854,
+                    "sample_volume": 8.746248766041461,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.807638888895,
@@ -7289,6 +7335,7 @@
                     "dry_weight": 22.34,
                     "total_gas_volume": 15.129487495886806,
                     "water_content": 44.669299111549854,
+                    "sample_volume": 9.979121421520238,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.8055555555547,
@@ -7435,6 +7482,7 @@
                     "dry_weight": 20.17,
                     "total_gas_volume": 13.659881951299772,
                     "water_content": 44.669299111549854,
+                    "sample_volume": 9.009797630799607,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2758.803472222222,
@@ -7594,6 +7642,7 @@
                     "dry_weight": 12.171384,
                     "total_gas_volume": 104.659974,
                     "water_content": 7.268616000000001,
+                    "sample_volume": 12.340026000000002,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.7861111111124,
@@ -7828,6 +7877,7 @@
                     "dry_weight": 12.196428000000001,
                     "total_gas_volume": 104.63458299999999,
                     "water_content": 7.283572,
+                    "sample_volume": 12.365417,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.7861111111124,
@@ -8065,6 +8115,7 @@
                     "dry_weight": 12.309126,
                     "total_gas_volume": 104.5203235,
                     "water_content": 7.350874,
+                    "sample_volume": 12.4796765,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.7881944444453,
@@ -8306,6 +8357,7 @@
                     "dry_weight": 13.499275,
                     "total_gas_volume": 105.32457708333334,
                     "water_content": 6.050725,
+                    "sample_volume": 11.675422916666667,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.78125,
@@ -8543,6 +8595,7 @@
                     "dry_weight": 13.78238,
                     "total_gas_volume": 105.07972166666667,
                     "water_content": 6.177620000000001,
+                    "sample_volume": 11.920278333333336,
                     "temperature": 277.15,
                     "events": {
                         "diese inlubation ist ": 75.79375000000437,
@@ -8779,6 +8832,7 @@
                     "dry_weight": 14.155249999999999,
                     "total_gas_volume": 104.75722916666666,
                     "water_content": 6.34475,
+                    "sample_volume": 12.242770833333333,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2925.7826388888934,
@@ -9023,6 +9077,7 @@
                     "dry_weight": 17.791904000000002,
                     "total_gas_volume": 104.86861066666667,
                     "water_content": 4.718096,
+                    "sample_volume": 12.131389333333335,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8472222222263,
@@ -9254,6 +9309,7 @@
                     "dry_weight": 17.570592,
                     "total_gas_volume": 105.01951199999999,
                     "water_content": 4.659408,
+                    "sample_volume": 11.980488000000001,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8479166666657,
@@ -9485,6 +9541,7 @@
                     "dry_weight": 17.957887999999997,
                     "total_gas_volume": 104.75543466666667,
                     "water_content": 4.762112,
+                    "sample_volume": 12.244565333333332,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.847916666673,
@@ -9726,6 +9783,7 @@
                     "dry_weight": 14.429163,
                     "total_gas_volume": 104.20701174999999,
                     "water_content": 6.780837,
+                    "sample_volume": 12.79298825,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.842361111114,
@@ -9957,6 +10015,7 @@
                     "dry_weight": 13.660423999999999,
                     "total_gas_volume": 104.88858066666667,
                     "water_content": 6.419575999999999,
+                    "sample_volume": 12.111419333333332,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8430555555606,
@@ -10191,6 +10250,7 @@
                     "dry_weight": 14.592435,
                     "total_gas_volume": 104.06225375,
                     "water_content": 6.857564999999999,
+                    "sample_volume": 12.93774625,
                     "temperature": 277.15,
                     "events": {
                         "CO2 peak \u00fcber Wasser": 558.9395833333401,
@@ -10433,6 +10493,7 @@
                     "dry_weight": 8.109405999999998,
                     "total_gas_volume": 99.04048683333333,
                     "water_content": 14.580594000000001,
+                    "sample_volume": 17.959513166666667,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8395833333343,
@@ -10664,6 +10725,7 @@
                     "dry_weight": 7.058649999999998,
                     "total_gas_volume": 101.36754583333334,
                     "water_content": 12.69135,
+                    "sample_volume": 15.632454166666665,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8402777777737,
@@ -10898,6 +10960,7 @@
                     "dry_weight": 7.147999999999998,
                     "total_gas_volume": 101.16966666666667,
                     "water_content": 12.852,
+                    "sample_volume": 15.830333333333332,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.8402777777737,
@@ -11142,6 +11205,7 @@
                     "dry_weight": 9.470304,
                     "total_gas_volume": 102.184344,
                     "water_content": 10.869696,
+                    "sample_volume": 14.815656,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.898611111108,
@@ -11373,6 +11437,7 @@
                     "dry_weight": 9.786912000000001,
                     "total_gas_volume": 101.689032,
                     "water_content": 11.233088,
+                    "sample_volume": 15.310968,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.904166666667,
@@ -11604,6 +11669,7 @@
                     "dry_weight": 10.63896,
                     "total_gas_volume": 100.35606,
                     "water_content": 12.21104,
+                    "sample_volume": 16.64394,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.90625,
@@ -11845,6 +11911,7 @@
                     "dry_weight": 23.25,
                     "total_gas_volume": 16.997687499999998,
                     "water_content": 53.9,
+                    "sample_volume": 12.531749999999999,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.768055555556
@@ -11993,6 +12060,7 @@
                     "dry_weight": 20.63,
                     "total_gas_volume": 15.082249166666667,
                     "water_content": 53.9,
+                    "sample_volume": 11.11957,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.7673611111168
@@ -12141,6 +12209,7 @@
                     "dry_weight": 22.79,
                     "total_gas_volume": 16.661389166666666,
                     "water_content": 53.9,
+                    "sample_volume": 12.283809999999999,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.76666666667
@@ -12299,6 +12368,7 @@
                     "dry_weight": 9.360312,
                     "total_gas_volume": 102.700182,
                     "water_content": 10.399688000000001,
+                    "sample_volume": 14.299818000000002,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.909722222219,
@@ -12533,6 +12603,7 @@
                     "dry_weight": 9.867170999999999,
                     "total_gas_volume": 101.92584975,
                     "water_content": 10.962829,
+                    "sample_volume": 15.074150249999999,
                     "temperature": 277.15,
                     "events": {
                         "CO2 und Wasserpeak": 465.839583333327,
@@ -12765,6 +12836,7 @@
                     "dry_weight": 9.781904999999998,
                     "total_gas_volume": 102.05611125,
                     "water_content": 10.868095,
+                    "sample_volume": 14.94388875,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.9159722222175,
@@ -13006,6 +13078,7 @@
                     "dry_weight": 8.210517,
                     "total_gas_volume": 101.31946825,
                     "water_content": 12.259483,
+                    "sample_volume": 15.68053175,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.9270833333285,
@@ -13240,6 +13313,7 @@
                     "dry_weight": 9.141069,
                     "total_gas_volume": 99.54229025000001,
                     "water_content": 13.648931,
+                    "sample_volume": 17.45770975,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.928472222222,
@@ -13474,6 +13548,7 @@
                     "dry_weight": 8.635683,
                     "total_gas_volume": 100.50748175,
                     "water_content": 12.894317000000001,
+                    "sample_volume": 16.49251825,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2911.9305555555547,
@@ -13718,6 +13793,7 @@
                     "dry_weight": 17.04,
                     "total_gas_volume": 11.881139999999998,
                     "water_content": 48.1,
+                    "sample_volume": 8.19624,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2744.0048611111124,
@@ -13864,6 +13940,7 @@
                     "dry_weight": 17.3,
                     "total_gas_volume": 12.062425000000001,
                     "water_content": 48.1,
+                    "sample_volume": 8.3213,
                     "temperature": 277.15,
                     "events": {
                         "Probe f\u00fcr Fetts\u00e4ureanalyse / gesp\u00fclt": 2744.0027777777796,
@@ -14023,6 +14100,7 @@
                     "dry_weight": 22.81,
                     "total_gas_volume": 11.132800666666665,
                     "water_content": 12.24,
+                    "sample_volume": 2.7919439999999995,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.027777777781
@@ -14171,6 +14249,7 @@
                     "dry_weight": 20.47,
                     "total_gas_volume": 9.990724666666667,
                     "water_content": 12.24,
+                    "sample_volume": 2.505528,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.0284722222204
@@ -14316,6 +14395,7 @@
                     "dry_weight": 20.24,
                     "total_gas_volume": 9.878469333333333,
                     "water_content": 12.24,
+                    "sample_volume": 2.477376,
                     "temperature": 277.15,
                     "events": {
                         "flushed": 2930.0284722222277

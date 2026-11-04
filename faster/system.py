@@ -17,6 +17,7 @@ SYSTEM = [
             'H2O',
             ]
 
+MICROBES = np.array([pool_name.startswith('M_') for pool_name in system.SYSTEM])
 
 def index(name):
     return SYSTEM.index(str(name))

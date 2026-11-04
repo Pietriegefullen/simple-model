@@ -157,7 +157,7 @@ def select_shared_default_parameters(reference, shared_names):
     return shared
 
 
-def build_parameter_template(version, pathways, normalized_parameters=True):
+def build_parameter_template(version, pathways=None, normalized_parameters=True):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -165,6 +165,14 @@ def build_parameter_template(version, pathways, normalized_parameters=True):
     parameter catalogue, just as ``fit_sample`` does; otherwise valid local
     parameters such as biomass and initial Fe3 would silently stay constant.
     """
+    # Accept the historic ``(pathways, normalized)`` shape while callers are
+    # migrated.  New code always supplies a version so the defaults come from
+    # the same model implementation as the checkpoint/run.
+    if pathways is None or isinstance(pathways, bool):
+        if isinstance(pathways, bool):
+            normalized_parameters = pathways
+        pathways = version
+        version = current_version()
     pathway_model = build_model(version, pathways, normalized_parameters)
     return pathway_model
 
@@ -194,7 +202,7 @@ def select_default_fixed_parameters(reference, requested, shared_names=()):
     return {name: reference[name].value for name in names if name not in shared_names}
 
 
-def parse_fixed_parameters(requested, shared_names=()):
+def parse_fixed_parameters(requested, shared_names=(), available_names=None):
     """Parse ``--p`` pairs, allowing shared parameters to escape globs.
 
     A wildcard is normally a convenient way to set a family of constants.  If
@@ -208,7 +216,7 @@ def parse_fixed_parameters(requested, shared_names=()):
     if requested is None:
         return fixed, direct_shared
     for name, value in zip(requested[::2], requested[1::2]):
-        pair = user_input.parse_override([name, value])
+        pair = user_input.parse_override([name, value], available_names)
         shared_matches = set(pair) & shared_names
         if '*' in name:
             for shared_name in shared_matches:
@@ -673,6 +681,9 @@ class SharedReplicaObjective(optimizer.Addable):
         if workers == 1:
             return None, None
         if self._local_pool is None:
+            worker_text = ('all available CPU cores' if workers == -1
+                           else f'{workers} worker processes')
+            print(f'   Starting inner parallel pool ({worker_text})...', flush=True)
             self._local_pool = ProcessPoolExecutor(
                 max_workers=None if workers == -1 else workers)
         return None, self._local_pool
@@ -1233,7 +1244,8 @@ def run(args):
     reference = build_parameter_template(version, pathways, True).parameters()
 
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
-    args.fixed, overlap = parse_fixed_parameters(args.fixed_arguments, shared_names)
+    args.fixed, overlap = parse_fixed_parameters(
+        args.fixed_arguments, shared_names, reference.as_dict())
     if overlap:
         raise ValueError('--shared and --p cannot both name ' + ', '.join(sorted(overlap)))
     unavailable = set(shared_names) & REPLICA_PROVIDED_PARAMETERS
