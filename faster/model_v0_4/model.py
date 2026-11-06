@@ -354,10 +354,10 @@ class Model():
         water_volume = S[system.index('H2O')] * 1e-6 * molar_mass_H2O / density_H2O # L/gdw
        
         # change reference from gram dry weight to liters H2O
-        dissolved_S /= water_volume # micromol / L
+        dissolved_S /= water_volume # micromol/L (for substances) and mg/L (for biomass)
 
         # convert microbes from milligram to micromol
-        dissolved_S[system.MICROBES] /= CONSTANTS.MOLAR_MASS_C # micromol/L
+        dissolved_S[system.MICROBES] /= CONSTANTS.MOLAR_MASS_BIOMASS # micromol/L
 
         # compute rates
         dSj_dt = np.stack([pathway_j(t, dissolved_S)
@@ -367,7 +367,7 @@ class Model():
 
         # convert rates back to micromol/gdw (and mg/gdw for microbes)
         dS_dt *= water_volume
-        dS_dt[system.MICROBES] *= CONSTANTS.MOLAR_MASS_C
+        dS_dt[system.MICROBES] *= CONSTANTS.MOLAR_MASS_BIOMASS
 
         return dS_dt
 

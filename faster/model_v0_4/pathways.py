@@ -201,11 +201,11 @@ class Pathway():
         S is the dissolved species vector
         in micromoles per L
         """
-        biomass = S[self.microbe_index] # in units micromol/L
+        M = S[self.microbe_index] # in units micromol/L
         v = self.compute_v(t, S) # in units of v_max
 
-        dS_dt = biomass * v * self.stoichiometry
-        dS_dt = biomass * v * self.anabolism - biomass * self.death_rate
+        dS_dt = M * v * self.stoichiometry
+        dS_dt = M * v * self.anabolism - M * self.death_rate
 
         return np.reshape(dS_dt, (-1,))
 

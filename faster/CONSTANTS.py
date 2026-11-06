@@ -1,8 +1,10 @@
 
 MOLAR_MASS_C = 12.011*1e-3  # mg/micromol, molar mass of carbon
 MOLAR_MASS_C_g_mol = MOLAR_MASS_C*1e3
-MOLAR_MASS_GLUCOSE = 180    # g/mol
 MOLAR_MASS_H2O = 18.01528   # g/mol
+MOLAR_MASS_C5H7O2N = 113.116 * 1e3 * 1e-6 # mg/micromol
+
+MOLAR_MASS_BIOMASS = MOLAR_MASS_C5H7O2N
 
 DENSITY_WATER_4_DEGC = 0.99997 * 10**3 # g/L
 
