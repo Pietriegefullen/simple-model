@@ -224,48 +224,51 @@ class Model():
         # Homo_CUE
 
         p = [
-         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize),
+         Parameter('death_rate',  1.29e-4, [1.29e-4,6e-2], scale = 'log', normalize = normalize),
 
-         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize),
-         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize),
+         Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize), # no source
+         Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize), # no source
         
 
-         Parameter('Ferm_v_max',     10, [2, 17], 'log', normalize = normalize), # Xu 2015
-         Parameter('Ferm_Km',        20_000, [8_500, 60_000], scale= 'log', normalize = normalize),  # Grant1998
-         # TODO: Song2020 and Xu2015 differ greatly
-
-         Parameter('Ferm_inhibition', 1, [1e-3, 1e3], 'log', normalize = normalize),
-         Parameter('Ferm_CUE',        .1, [0.01, .5], 'linear', normalize = normalize),
+         Parameter('Ferm_v_max',     0.5533, [0.5533, 97.7322], 'log', normalize = normalize),
+         Parameter('Ferm_Km',        999, [54, 15_000], scale= 'log', normalize = normalize),
+         Parameter('Ferm_inhibition', 1, [1e-3, 1e3], 'log', normalize = normalize), # no source
+         Parameter('Ferm_CUE',        .0812, scale = 'linear', normalize = normalize),
          
          
-         Parameter('Hydro_v_max',    1_728, scale = 'log', normalize = normalize), # Van 2001
-         #Parameter('Hydro_v_max',    1_728, [420, 3_000], scale = 'log', normalize = normalize), #Song 2020
-
-         Parameter('Hydro_CUE',       .08, scale = 'linear', normalize = normalize), # Kettunen2003/Grant1998
-         #Parameter('Hydro_CUE',       .08, [0.11, 0.36], scale = 'linear', normalize = normalize), # Xu 2015
-         Parameter('Hydro_Km_CO2',   100, [29,1000], scale = 'log', normalize = normalize),    # Grant1998/Song 2020
-         Parameter('Hydro_Km_H2',    50, [13, 200], scale = 'log', normalize = normalize),     # Grant1998, Van 2001, Song 2020
+         Parameter('Hydro_v_max',    1_728, scale = 'log', normalize = normalize),
+         Parameter('Hydro_CUE',       .08, scale = 'linear', normalize = normalize), 
+         Parameter('Hydro_Km_CO2',   100, [29,1000], scale = 'log', normalize = normalize),
+         Parameter('Hydro_Km_H2',    50, [13, 200], scale = 'log', normalize = normalize),
          
-         Parameter('Homo_Km_H2',     100, [29, 200], scale = 'log', normalize = normalize), #Song 2020
-         Parameter('Homo_Km_CO2',    500, [140, 1_000], scale = 'log', normalize = normalize), #Song 2020
-         Parameter('Homo_v_max',     1_000, [420, 3_000], scale = 'log', normalize = normalize),
-         Parameter('Homo_CUE',        .05, [0.01, .5], 'linear', normalize = normalize),
+         Parameter('Homo_Km_H2',     10, [10, 100], scale = 'log', normalize = normalize),
+         Parameter('Homo_Km_CO2',    10, [10, 100], scale = 'log', normalize = normalize),
+         Parameter('Homo_v_max',     10, [1e-3, 1e3], scale = 'log', normalize = normalize), # no source
+         Parameter('Homo_CUE',        .2, scale = 'linear', normalize = normalize),
          
-         Parameter('Aceto_Km_Ac',    500_000, [0.5, 500], 'log', normalize = normalize), 
-         Parameter('Ac_v_max',       .0083, [0.005, 1.], 'log', normalize = normalize), # Grant1998
-         Parameter('Ac_CUE',          .5, [0, 1], 'linear', normalize = normalize), 
+         Parameter('Aceto_Km_Ac',    10, [10, 23], 'log', normalize = normalize),
+         Parameter('Ac_v_max',       0.977322, [0.977322, 97.7322],scale = 'log', normalize = normalize),
+         Parameter('Ac_CUE',          0.00876, [0.00876, 0.3], scale = 'linear', normalize = normalize), 
          
-         Parameter('Fe3_Km_Ac',      50, [0.0005, 1000], 'log',  normalize = normalize),
-         Parameter('Fe3_Km_Fe3',     500, [0.0005, 1000], 'log', normalize = normalize),
-         Parameter('Fe3_v_max',      1.5, [0.2, 3.], 'log', normalize = normalize), 
-         Parameter('Fe3_CUE',        0.5, [0, 1], 'linear', normalize = normalize),
+         Parameter('Fe3_Km_Ac',      11.99, [11.99, 230], 'log',  normalize = normalize),
+         Parameter('Fe3_Km_Fe3',     230, [230, 5_400_000], 'log', normalize = normalize),
+         Parameter('Fe3_v_max',      0.1296, [0.1296, 47.6], 'log', normalize = normalize), 
+         Parameter('Fe3_CUE',        0.05, scale ='linear', normalize = normalize),
          
-         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize),
-         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize),
+         Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize), # no source
+         Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize), # no source
         
         # biomass in units milligrams per gram dry weight of soil!!!
         # v_max already contains biomas in many models
         # also, for identifyability, avoid using M_<Pathway> parameters
+        
+        # TODO: microbe amount should be given in micromoles per Liter, like all
+        # others.
+        # => in model, do not convert microbes back to gdw?
+        # => substances (at least CH4 and CO2) must be converted b/c the
+        # incubation data uses gdw as reference
+
+
          Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
          Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
          Parameter('M_Fe3',         1., scale = 'log', normalize = normalize),
