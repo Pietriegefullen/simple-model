@@ -545,7 +545,8 @@ class Objective(Addable):
         try:
             compute_loss = t_eval is None
             t_eval = self.t_eval() if t_eval is None else t_eval
-            run_log = self._model.predict(self._replica, t_eval = t_eval)
+            run_log = self._model.predict(self._replica, t_eval = t_eval,
+                                          reference = 'gdw')
 
             replica_loss = 0
             if compute_loss:

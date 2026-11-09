@@ -619,7 +619,7 @@ class Replica():
 
     def initial_H2O(self):
         # micro mol per g dw
-        water_mass = 1e-3*self.water_content*CONSTANTS.DENSITY_WATER_4DEGC # g
+        water_mass = 1e-3*self.water_content*CONSTANTS.DENSITY_WATER_4_DEGC # g
         relative_water_content = water_mass/self.dry_weight # g H2O per g dry weight
         h2o = relative_water_content/CONSTANTS.MOLAR_MASS_H2O # mol/gdw
         return h2o*1e6 # micromol/gdw

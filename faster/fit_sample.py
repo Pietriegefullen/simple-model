@@ -174,7 +174,7 @@ def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
                     'Cannot choose a diagnostic replay grid: the fit log has '
                     'neither a replica nor any pool trajectory.')
         run_log = pathway_model.predict_with_logging(
-            replica, t_eval=pool_time)
+            replica, t_eval=pool_time, reference = 'gdw', microbe_unit = 'mg')
     return pathway_model, objective, run_log
 
 def fit(chosen, objective_config, algo_config, init_config, model_version,

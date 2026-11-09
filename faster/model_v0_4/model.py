@@ -209,8 +209,6 @@ def get_pathways(model_type):
 class Model():
     @classmethod
     def default_model_parameters(cls, normalize):
-        # TODO: death rate units?
-        #
         # TODO: always consider M * v combined if either v_max or M is const = 1
 
         # v_max has units micromol/(L d) and includes microbe pool
@@ -261,13 +259,6 @@ class Model():
         # biomass in units milligrams per gram dry weight of soil!!!
         # v_max already contains biomas in many models
         # also, for identifyability, avoid using M_<Pathway> parameters
-        
-        # TODO: microbe amount should be given in micromoles per Liter, like all
-        # others.
-        # => in model, do not convert microbes back to gdw?
-        # => substances (at least CH4 and CO2) must be converted b/c the
-        # incubation data uses gdw as reference
-
 
          Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
          Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
@@ -333,44 +324,25 @@ class Model():
     def compute_dissolved(self, S):
         dissolved_S = S.copy()
 
-        rho_H2O = CONSTANTS.DENSITY_WATER_4_DEGC # g/L
-        m_H2O = CONSTANTS.MOLAR_MASS_H2O # g/mol
-        total_gas_volume = self.replica.total_gas_volume # ml
-        sample_weight = self.replica.dry_weight # gdw
-        gas_volume = 1e-3 * total_gas_volume/sample_weight # L/gdw
-
-        water_volume = 10**-6 * S[system.index('H2O')]*m_H2O/rho_H2O #  L/gdw
+        gas_volume = 1e-3 * self.replica.total_gas_volume  # L
+        water_volume = 1e-3*self.replica.water_content # L
         lam =  self.HCC_s * water_volume/gas_volume
         dissolved_fractions = lam/(1+lam)
         for pool in ['CO2', 'CH4', 'H2']:
             i = system.index(pool)
             dissolved_S[i] = dissolved_fractions[i] * S[i]
+
         return dissolved_S
 
     def __call__(self, t, S):
         S = np.maximum(S, 0)
-
-        dissolved_S = self.compute_dissolved(S) # micromol dissolved per gdw
-
-        molar_mass_H2O = CONSTANTS.MOLAR_MASS_H2O
-        density_H2O = CONSTANTS.DENSITY_WATER_4_DEGC
-        water_volume = S[system.index('H2O')] * 1e-6 * molar_mass_H2O / density_H2O # L/gdw
-       
-        # change reference from gram dry weight to liters H2O
-        dissolved_S /= water_volume # micromol/L (for substances) and mg/L (for biomass)
-
-        # convert microbes from milligram to micromol
-        dissolved_S[system.MICROBES] /= CONSTANTS.MOLAR_MASS_BIOMASS # micromol/L
+        dissolved_S = self.compute_dissolved(S) # micromol dissolved per Liter
 
         # compute rates
         dSj_dt = np.stack([pathway_j(t, dissolved_S)
                             for pathway_j in self.contributing_pathways], axis = -1)
         dS_dt = np.sum(dSj_dt, axis = -1)
         dS_dt = np.where(S == 0, np.maximum(0, dS_dt), dS_dt)
-
-        # convert rates back to micromol/gdw (and mg/gdw for microbes)
-        dS_dt *= water_volume
-        dS_dt[system.MICROBES] *= CONSTANTS.MOLAR_MASS_BIOMASS
 
         return dS_dt
 
@@ -471,7 +443,7 @@ class Model():
 
     def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False,
                 reset_Fe3 = None, days_beyond_reset = 1000,
-                initial_mean_days = 0):
+                initial_mean_days = 0, reference = 'gdw', microbe_unit = 'mg'):
         if t is not None and t_eval is not None:
             raise ValueError('Specify either t or t_eval, not both.')
 
@@ -526,28 +498,30 @@ class Model():
         solver_result.y = np.maximum(solver_result.y, 1e-24)
 
         # add pool values to log
+        
+        specific_water_volume = replica.water_content*1e3/replica.dry_weight # L/gdw
+        biomass_molar_mass = CONSTANTS.MOLAR_MASS_BIOMASS # mg/micromol
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
+            if reference == 'gdw':
+                Si *= specific_water_volume # transform pools from micromol L-1 to micromol gdw-1
+                
+            elif reference == 'L':
+                pass
+
+            else:
+                raise NotImplementedError()
+
+            if pool_name.startswith('M_'):
+                if microbe_unit == 'mg':
+                    Si *= biomass_molar_mass
+
+                elif microbe_unit == 'micromol':
+                    pass
+
+                else:
+                    raise NotImplementedError()
+                
             self.system_state_log.log(pool_name, solver_result.t, Si)
-
-        #self.log_accepted_thermodynamics(solver_result.t, solver_result.y)
-        #self.log_accepted_kinetics(solver_result.t, solver_result.y)
-
-        #self.system_state_log._log['CO2_on_measured'] = t_eval, predicted_CO2_on_measured
-        #self.system_state_log._log['CH4_on_measured'] = t_eval, predicted_CH4_on_measured
-        #self.system_state_log._log['R2'] = {'CO2': co2_r2,
-        #                                    'CH4': ch4_r2}
-
-        #add_to_log = []
-        #for k, val in self.system_state_log._log.items():
-        #    if 'CH4 from' in k:
-        #        t, v = val
-        #        delta_t = np.diff(t)
-        #        integral = delta_t*(v[:-1]+v[1:])*0.5 # trapezoidal rule
-        #        n = k + ' (integrated)'
-        #        add_to_log.append((n, t[1:], np.cumsum(integral)))
-
-        #for name, ts, vs in add_to_log:
-        #    self.system_state_log.log(name, ts, vs)
 
         self.system_state_log._parameters = self.parameters()
 
@@ -555,7 +529,8 @@ class Model():
 
     def predict_with_logging(self, replica, t = None, t_eval = None, quiet = False,
                              parallel = False, reset_Fe3 = None,
-                             days_beyond_reset = 1000, initial_mean_days = 0):
+                             days_beyond_reset = 1000, initial_mean_days = 0, 
+                             reference = 'gdw', microbe_unit = 'mg'):
         """Predict a trajectory and add diagnostics used by replay plots.
 
         ``predict`` deliberately records only pool trajectories, keeping
@@ -567,7 +542,7 @@ class Model():
         run_log = self.predict(
             replica, t=t, t_eval=t_eval, quiet=quiet, parallel=parallel,
             reset_Fe3=reset_Fe3, days_beyond_reset=days_beyond_reset,
-            initial_mean_days=initial_mean_days)
+            initial_mean_days=initial_mean_days, reference = 'L', microbe_unit = 'micromol')
         missing_pools = [pool for pool in system.SYSTEM if pool not in run_log.keys()]
         if missing_pools:
             raise RuntimeError(
@@ -575,9 +550,17 @@ class Model():
                 + ', '.join(missing_pools))
         pool_time, _ = run_log[system.SYSTEM[0]]
         states = np.vstack([run_log[pool][1] for pool in system.SYSTEM])
+
         self.log_accepted_states(pool_time, states)
         self.log_accepted_thermodynamics(pool_time, states)
         self.log_accepted_kinetics(pool_time, states)
+
+        run_log = self.system_state_log
+
+        for key, value in run_log:
+            print(key, value.shape)
+            #raise NotImplementedError()
+        1/0
         return run_log
 
     def parameters(self):

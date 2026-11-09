@@ -150,7 +150,7 @@ def replay(run_config, values, replica, target, stat):
                                 run_config['chosen']['pathways'],
                                 run_config['chosen']['normalized_parameters'])
     pathway_model.parameters().set(parameters.ModelParameters(values))
-    run_log = pathway_model.predict(replica)
+    run_log = pathway_model.predict(replica, reference = 'gdw', microbe_unit = 'mg')
     times, series = target_series(run_log, target)
     if stat == 'final':
         return float(series[-1])

@@ -166,7 +166,7 @@ MODEL_CONFIG_SCHEMA = {
     '*': {
         'microbe': {
             'name': str,
-            'death_rate': as_float,
+            'death_rate': as_float_or_variable,
             'v_max': as_float_or_variable,
             'Kmb': as_float_or_variable,
             'CUE': as_float_or_variable,
