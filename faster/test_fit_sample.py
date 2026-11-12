@@ -56,17 +56,35 @@ class OptimizerArgumentTest(unittest.TestCase):
               self.assertRaises(SystemExit)):
             user_input.parse_args_fit(['1351', '4', '--default', '--estimate'])
 
+    def test_converted_envelope_is_a_fresh_parameter_source(self):
+        args = user_input.parse_args_fit(['1351', '4', '--converted-envelope'])
+
+        self.assertTrue(args.converted_envelope)
+        with (redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()),
+              self.assertRaises(SystemExit)):
+            user_input.parse_args_fit(
+                ['1351', '4', '--default', '--converted-envelope'])
+
     def test_cma_es_options_are_available_for_single_sample_fits(self):
         args = user_input.parse_args_fit([
             '1351', '4', '--algorithm', 'cma-es', '--cma-sigma', '0.1',
-            '--cma-restarts', '1', '--popsize', '12',
+            '--cma-restarts', '1', '--cma-restart-strategy', 'bipop', '--funtol', '0.002', '--popsize', '12',
             '--max-evaluations', '300'])
 
         self.assertEqual(args.algorithm, 'cma-es')
         self.assertEqual(args.cma_sigma, 0.1)
         self.assertEqual(args.cma_restarts, 1)
+        self.assertEqual(args.cma_restart_strategy, 'bipop')
+        self.assertEqual(args.funtol, 0.002)
         self.assertEqual(args.popsize, 12)
         self.assertEqual(args.max_evaluations, 300)
+
+    def test_gas_limits_are_opt_in(self):
+        default = user_input.parse_args_fit(['1351', '4'])
+        enabled = user_input.parse_args_fit(['1351', '4', '--gas-limits'])
+
+        self.assertFalse(default.gas_limits)
+        self.assertTrue(enabled.gas_limits)
 
 
 if __name__ == '__main__':

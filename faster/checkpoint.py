@@ -6,6 +6,8 @@ import base64
 import pickle
 from contextlib import contextmanager
 
+import numpy as np
+
 import hashing
 import parameters
 
@@ -310,6 +312,7 @@ class Interrupt(Callback):
 
 
 class CheckpointCallback(Callback):
+    _CMA_RESTART_MARKER = '_restart-'
     def __init__(self, run_config, keep_only_n = None, verbose = False, legacy = False,
                  target = None, overwrite_existing = False,
                  ignore_existing = False):
@@ -331,9 +334,11 @@ class CheckpointCallback(Callback):
             raise NotImplementedError()
 
     def checkpoints(self, save_dir):
+        """Return ordinary ranked checkpoints, excluding retained restart minima."""
         checkpoints = []
         for entry in os.scandir(save_dir):
-            if not entry.is_file() or entry.name.startswith('.'):
+            if (not entry.is_file() or entry.name.startswith('.')
+                    or self._CMA_RESTART_MARKER in entry.name):
                 continue
             try:
                 with open(entry.path) as checkpoint_file:
@@ -463,6 +468,54 @@ class CheckpointCallback(Callback):
                 and self._existing_best_loss is not None
                 and self._current_run_best_loss is not None
                 and self._existing_best_loss < self._current_run_best_loss)
+
+    def save_cma_restart_minimum(self, variables, transformed_values, loss,
+                                 restart, restart_kind):
+        """Persist one CMA-ES restart minimum without affecting global ranking.
+
+        Ordinary checkpoints retain only the best objective value across a
+        run.  Restart minima use the same directory, payload, and filename
+        convention, with an appended restart marker.  They are deliberately
+        excluded from ordinary checkpoint ranking and cleanup, so every basin
+        remains inspectable even when it is worse than the overall winner.
+        """
+        if not np.isfinite(loss):
+            return
+        self.objective.set_parameters(
+            variables, transformed_values, transformed=True)
+        checkpoint_data = {
+            'parameters': self.objective.model().parameters().get_values(),
+            'total_loss': float(loss),
+            'run_config': self.run_config,
+            'cma_restart': {'index': int(restart), 'kind': restart_kind},
+        }
+        metadata = getattr(self.objective, 'checkpoint_metadata', None)
+        if callable(metadata):
+            checkpoint_data.update(metadata())
+        checkpoint_data = hashing.normalize_checkpoint_config(checkpoint_data)
+
+        cp_id = hashing.build_checkpoint_id(checkpoint_data)
+        f_loss = f'{checkpoint_data["total_loss"]:.6f}'.replace('.', '')
+        f_loss = '9' * 8 if len(f_loss) > 8 else f_loss.zfill(8)
+        file_name = '_'.join([
+            self.run_dir_name(), f'loss-{f_loss}', self.run_id, cp_id,
+            f'restart-{restart:03d}-{restart_kind}',
+        ])
+        with self.locked_directory() as save_dir:
+            checkpoint_file = os.path.join(save_dir, file_name)
+            file_descriptor, temporary_file = tempfile.mkstemp(
+                dir=save_dir, prefix='.checkpoint-', text=True)
+            try:
+                with os.fdopen(file_descriptor, 'w') as checkpoint_file_handle:
+                    json.dump(checkpoint_data, checkpoint_file_handle, indent=4,
+                              sort_keys=True)
+                os.replace(temporary_file, checkpoint_file)
+            finally:
+                if os.path.exists(temporary_file):
+                    os.remove(temporary_file)
+
+        if self.verbose:
+            print(f'\nSaved CMA-ES restart checkpoint {checkpoint_file}')
         
     def __call__(self):
         cp_transformed_parameters, _, last_loss = self.objective.last_call()

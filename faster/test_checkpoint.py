@@ -30,6 +30,9 @@ class _Objective:
     def model(self):
         return _Model()
 
+    def set_parameters(self, variables, values, transformed=False):
+        self.saved_parameters = variables, values, transformed
+
 
 class _PrintObjective:
     def __init__(self, calls):
@@ -171,6 +174,26 @@ class ExistingCheckpointTest(unittest.TestCase):
             self.assertIs(contents['run_config']['model']['Hydro']['use_thermodynamics'], True)
             self.assertEqual(
                 contents['run_config']['model']['Hydro']['microbe']['death_rate'], 0.0)
+
+    def test_cma_restart_minima_use_normal_format_but_survive_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            callback = self._callback(directory)
+            callback.keep_only_n = 1
+            callback.save_cma_restart_minimum([], [], 2.0, 3, 'small')
+
+            restart_files = [name for name in os.listdir(directory)
+                             if '_restart-003-small' in name]
+            self.assertEqual(len(restart_files), 1)
+            restart_file = os.path.join(directory, restart_files[0])
+            with open(restart_file) as handle:
+                contents = json.load(handle)
+
+            self.assertEqual(contents['total_loss'], 2.0)
+            self.assertEqual(contents['cma_restart'],
+                             {'index': 3, 'kind': 'small'})
+            self.assertEqual(callback.checkpoints(directory), [])
+            callback.cleanup(directory)
+            self.assertTrue(os.path.exists(restart_file))
 
     def test_print_callback_keeps_r2_from_the_best_loss_evaluation(self):
         objective = _PrintObjective(((3.0, 0.1), (4.0, 0.9), (2.0, 0.2)))

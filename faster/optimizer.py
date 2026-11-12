@@ -31,6 +31,15 @@ class IntegrationFailure(NonFiniteLoss):
     """The model trajectory terminated before it could produce a fit."""
 
 
+def _report_worker_exception(error):
+    """Make an exception in a parallel objective visible at its source."""
+    process = multiprocessing.current_process()
+    if process.name != 'MainProcess':
+        message = str(error) or '(no detail supplied)'
+        print(f'\nOptimisation worker {process.name} failed: '
+              f'{type(error).__name__}: {message}', flush=True)
+
+
 class _IndexedObjective:
     """Return a candidate index with its loss from a pool worker."""
 
@@ -247,6 +256,7 @@ class Loss():
     
     def __call__(self, replica, run_log):
         pool_pred, pool_true = self.get_values(replica, run_log)
+
         if pool_pred.size == 0 or pool_true.size == 0:
             raise NonFiniteLoss(f'{self} has no usable values')
         if not np.all(np.isfinite(pool_pred)):
@@ -373,31 +383,35 @@ class Addable():
         self._global_call_lock = None
     
     def __call__(self, args, **kwargs):
-        if self._global_call_counter is not None:
-            with self._global_call_lock:
-                self._global_call_counter.value += 1
-        value = self._call(args, **kwargs)
-        self._record_evaluation_result(value)
-        self._call_log.append((args, kwargs, value))
-        last_r2 = self.last_R2()
-        if self._best_local_loss is None or value < self._best_local_loss:
-            self._best_local_loss = value
-            self._best_local_r2 = last_r2
+        try:
+            if self._global_call_counter is not None:
+                with self._global_call_lock:
+                    self._global_call_counter.value += 1
+            value = self._call(args, **kwargs)
+            self._record_evaluation_result(value)
+            self._call_log.append((args, kwargs, value))
+            last_r2 = self.last_R2()
+            if self._best_local_loss is None or value < self._best_local_loss:
+                self._best_local_loss = value
+                self._best_local_r2 = last_r2
 
-        # Each worker has its own call log.  Publish the minimum before
-        # callbacks run so they all report the same best loss/R² pair.
-        if self._global_best_loss is not None:
-            with self._global_call_lock:
-                if value < self._global_best_loss.value:
-                    self._global_best_loss.value = value
-                    if self._global_best_r2 is not None:
-                        self._global_best_r2.value = (
-                            float('nan') if last_r2 is None else float(last_r2))
+            # Each worker has its own call log.  Publish the minimum before
+            # callbacks run so they all report the same best loss/R² pair.
+            if self._global_best_loss is not None:
+                with self._global_call_lock:
+                    if value < self._global_best_loss.value:
+                        self._global_best_loss.value = value
+                        if self._global_best_r2 is not None:
+                            self._global_best_r2.value = (
+                                float('nan') if last_r2 is None else float(last_r2))
 
-        for callback in self._callbacks:
-            callback()
-            
-        return value
+            for callback in self._callbacks:
+                callback()
+
+            return value
+        except BaseException as error:
+            _report_worker_exception(error)
+            raise
     
     def call_count(self):
         if self._global_call_counter is not None:
@@ -545,8 +559,7 @@ class Objective(Addable):
         try:
             compute_loss = t_eval is None
             t_eval = self.t_eval() if t_eval is None else t_eval
-            run_log = self._model.predict(self._replica, t_eval = t_eval,
-                                          reference = 'gdw')
+            run_log = self._model.predict(self._replica, t_eval = t_eval, reference = 'gdw')
 
             replica_loss = 0
             if compute_loss:
@@ -637,26 +650,41 @@ class Algorithm(ABC):
         return bounds
 
     def minimize(self, objective, initial_parameters, verbose = True):
-        objective.model().parameters().set(initial_parameters)
-        if verbose:
-            print('Fitting with ' + self.__class__.__name__)
-            print(objective.model())
-            print()
-            print('Objective = ' + str(objective))
-            print()
-            print('Callbacks:')
-            for cb in objective._callbacks:
-                pth = cb.target_directory()
-                if not pth is None:
-                    print('\n'.join(set([cb.__class__.__name__ + ': ' + os.path.join(*pth.split(os.sep)[-2:])
-                                    for cb in objective._callbacks])))
-                else:
-                    print(cb.__class__.__name__)
+        try:
+            objective.model().parameters().set(initial_parameters)
+            if verbose:
+                print('Fitting with ' + self.__class__.__name__)
+                print(objective.model())
+                print()
+                print('Objective = ' + str(objective))
+                print()
+                print('Callbacks:')
+                for cb in objective._callbacks:
+                    pth = cb.target_directory()
+                    if not pth is None:
+                        print('\n'.join(set([cb.__class__.__name__ + ': ' + os.path.join(*pth.split(os.sep)[-2:])
+                                        for cb in objective._callbacks])))
+                    else:
+                        print(cb.__class__.__name__)
 
-            print()
-        if len(objective.model().parameters().variables()) == 0:
-            raise Exception('Model has no variables. Check initial parameters.')
-        self._minimize(objective, initial_parameters)
+                print()
+            if len(objective.model().parameters().variables()) == 0:
+                raise Exception('Model has no variables. Check initial parameters.')
+            self._minimize(objective, initial_parameters)
+        except BaseException as error:
+            message = str(error) or '(no detail supplied)'
+            print(f'\nOptimisation failed: {type(error).__name__}: {message}',
+                  flush=True)
+            raise
+
+    def _report_stop_reason(self, reason):
+        """Print a visible terminator after the in-place progress display.
+
+        Objective callbacks deliberately update one terminal line using a
+        carriage return.  Without an explicit trailing line, a normal solver
+        return is indistinguishable from an unexpectedly aborted fit.
+        """
+        print('\nOptimisation stopped: ' + str(reason))
     
     @abstractmethod
     def _minimize(self, objective, initial_parameters):
@@ -742,11 +770,10 @@ class DifferentialEvolution(Algorithm):
             del scipy_kwargs['max_evaluations']
             if self._worker_map is not None:
                 scipy_kwargs['workers'] = self._worker_map
-            _ = scipy.optimize.differential_evolution(objective,
-                                                      bounds = self.get_bounds(variables),
-                                                      callback = self.generation_counter,
-                                                      **scipy_kwargs
-                                                      )
+            result = scipy.optimize.differential_evolution(
+                objective, bounds=self.get_bounds(variables),
+                callback=self.generation_counter, **scipy_kwargs)
+            self._report_stop_reason(result.message)
         #except KeyboardInterrupt:
         #    return
 
@@ -766,14 +793,20 @@ class DifferentialEvolution(Algorithm):
                 and self._objective.call_count() >= self._max_evaluations)
 
 class CMAEvolutionStrategy(Algorithm):
-    """Bounded CMA-ES backed by the maintained :mod:`pycma` package."""
+    """Bounded CMA-ES backed by the maintained :mod:`pycma` package.
+
+    ``restart_strategy='ipop'`` grows the population on every restart.
+    ``'bipop'`` additionally schedules randomized small-population restarts
+    until their evaluation cost catches up with the large-population runs.
+    """
     def __init__(self):
         super().__init__(popsize=None, sigma0=0.30, restarts=0,
-                         restart_multiplier=2, seed=None, workers=1,
-                         max_evaluations=None, x0=None, tolx=1e-8)
+                         restart_multiplier=2, restart_strategy='ipop', seed=None, workers=1,
+                         max_evaluations=None, x0=None, tolx=1e-8, funtol=1e-4)
         self._process_manager = None
         self._worker_map = None
         self._state_checkpoint = None
+        self._restart_checkpoint = None
 
     def set_process_manager(self, manager):
         self._process_manager = manager
@@ -789,6 +822,14 @@ class CMAEvolutionStrategy(Algorithm):
         implementation.  ``None`` disables state persistence.
         """
         self._state_checkpoint = state_checkpoint
+
+    def set_restart_checkpoint(self, restart_checkpoint):
+        """Store the best candidate from every completed CMA-ES restart.
+
+        ``restart_checkpoint`` implements ``save_cma_restart_minimum``; the
+        narrow protocol keeps this optimizer independent of checkpoint layout.
+        """
+        self._restart_checkpoint = restart_checkpoint
 
     def _minimize(self, objective, initial_parameters):
         variables = objective.model().parameters().variables()
@@ -809,12 +850,18 @@ class CMAEvolutionStrategy(Algorithm):
         restart_multiplier = self._kwargs['restart_multiplier']
         if restart_multiplier < 1:
             raise ValueError('restart_multiplier must be at least 1')
+        restart_strategy = self._kwargs['restart_strategy']
+        if restart_strategy not in {'ipop', 'bipop'}:
+            raise ValueError("restart_strategy must be either 'ipop' or 'bipop'")
         sigma0 = float(self._kwargs['sigma0'])
         if not np.isfinite(sigma0) or sigma0 <= 0:
             raise ValueError('sigma0 must be a finite positive number')
         tolx = float(self._kwargs['tolx'])
         if not np.isfinite(tolx) or tolx <= 0:
             raise ValueError('tolx must be a finite positive number')
+        funtol = float(self._kwargs['funtol'])
+        if not np.isfinite(funtol) or funtol <= 0:
+            raise ValueError('funtol must be a finite positive number')
         workers = self._kwargs['workers']
         if not isinstance(workers, (int, np.integer)) or workers == 0 or workers < -1:
             raise ValueError('CMA-ES workers must be 1, -1, or a positive integer')
@@ -860,11 +907,25 @@ class CMAEvolutionStrategy(Algorithm):
         pending_population = None
         pending_losses = None
         pending_restart = None
+        stop_reason = None
+        large_evaluations = 0
+        small_evaluations = 0
+        large_runs = 0
+        current_restart_kind = None
+        restart_best_loss = float('inf')
+        restart_best_x = None
         if self._state_checkpoint is not None:
             saved_state = self._state_checkpoint.load()
             if isinstance(saved_state, dict):
                 expected_bounds = bounds.tolist()
-                if (saved_state.get('version') == 1
+                compatible_restart_state = (
+                    (saved_state.get('version') == 2
+                     and saved_state.get('restart_strategy') == restart_strategy)
+                    # BIPOP adds regime accounting, but existing IPOP state
+                    # contains everything needed to continue an IPOP run.
+                    or (saved_state.get('version') == 1
+                        and restart_strategy == 'ipop'))
+                if (compatible_restart_state
                         and saved_state.get('dimension') == dimension
                         and saved_state.get('bounds') == expected_bounds
                         and saved_state.get('base_popsize') == base_popsize
@@ -878,6 +939,13 @@ class CMAEvolutionStrategy(Algorithm):
                     pending_population = saved_state.get('pending_population')
                     pending_losses = saved_state.get('pending_losses')
                     pending_restart = saved_state.get('pending_restart')
+                    large_evaluations = saved_state.get('large_evaluations', 0)
+                    small_evaluations = saved_state.get('small_evaluations', 0)
+                    large_runs = saved_state.get('large_runs', 0)
+                    current_restart_kind = saved_state.get('restart_kind')
+                    restart_best_loss = saved_state.get(
+                        'restart_best_loss', restart_best_loss)
+                    restart_best_x = saved_state.get('restart_best_x')
                     # pycma's default sampler uses NumPy's legacy global RNG.
                     # Restoring it makes the next ``ask`` identical to an
                     # uninterrupted run, rather than merely warm-started.
@@ -891,16 +959,23 @@ class CMAEvolutionStrategy(Algorithm):
             if self._state_checkpoint is None:
                 return
             self._state_checkpoint.save({
-                'version': 1,
+                'version': 2,
                 'dimension': dimension,
                 'bounds': bounds.tolist(),
                 'base_popsize': base_popsize,
                 'restart_multiplier': restart_multiplier,
+                'restart_strategy': restart_strategy,
                 'restart': restart,
                 'evaluations': evaluations,
                 'generation': generation,
                 'best_loss': best_loss,
                 'best_x': best_x,
+                'large_evaluations': large_evaluations,
+                'small_evaluations': small_evaluations,
+                'large_runs': large_runs,
+                'restart_kind': current_restart_kind,
+                'restart_best_loss': restart_best_loss,
+                'restart_best_x': restart_best_x,
                 'numpy_random_state': np.random.get_state(),
                 'strategy': strategy,
                 # ``strategy`` is saved after ``ask`` but before ``tell``
@@ -916,25 +991,61 @@ class CMAEvolutionStrategy(Algorithm):
             for restart in range(start_restart, restarts + 1):
                 if max_evaluations is not None and evaluations >= max_evaluations:
                     break
-                population_size = int(base_popsize * (restart_multiplier ** restart))
+                if resumed_strategy is not None:
+                    # The serialised strategy contains its population and
+                    # sampling state.  Keep the already selected BIPOP regime.
+                    restart_kind = current_restart_kind or 'large'
+                    population_size = resumed_strategy.popsize
+                    run_sigma0 = sigma0
+                    mean = best_x if best_x is not None else mean0
+                elif restart_strategy == 'bipop' and restart > 0:
+                    restart_kind = ('small' if small_evaluations < large_evaluations
+                                    else 'large')
+                    if restart_kind == 'small':
+                        # Hansen's BIPOP small regime samples both population
+                        # size and initial scale.  The squared draw favours
+                        # inexpensive local probes while retaining occasional
+                        # broader searches.
+                        large_popsize = int(base_popsize * (
+                            restart_multiplier ** max(0, large_runs - 1)))
+                        exponent = np.random.uniform() ** 2
+                        population_size = max(2, int(round(
+                            base_popsize * ((large_popsize / base_popsize) ** exponent))))
+                        run_sigma0 = sigma0 * (10 ** (-2 * np.random.uniform()))
+                    else:
+                        population_size = int(base_popsize * (
+                            restart_multiplier ** large_runs))
+                        run_sigma0 = sigma0
+                    mean = np.random.uniform(0.0, 1.0, dimension)
+                else:
+                    restart_kind = 'large'
+                    population_size = int(base_popsize * (restart_multiplier ** restart))
+                    run_sigma0 = sigma0
+                    mean = best_x if best_x is not None else mean0
+                current_restart_kind = restart_kind
+                if resumed_strategy is None:
+                    restart_best_loss = float('inf')
+                    restart_best_x = None
+                if restart_kind == 'large' and resumed_strategy is None:
+                    large_runs += 1
                 options = {
                     # pycma performs its own boundary transformation instead
                     # of piling out-of-bounds samples onto box corners.
                     'bounds': [0.0, 1.0],
                     'popsize': population_size,
                     'tolx': tolx,
+                    'tolfun': funtol,
                     'verbose': -9,
                     'verb_disp': 0,
                     'verb_log': 0,
                 }
                 if self._kwargs['seed'] is not None and resumed_strategy is None:
                     options['seed'] = int(self._kwargs['seed']) + restart
-                mean = best_x if best_x is not None else mean0
                 if resumed_strategy is not None:
                     strategy = resumed_strategy
                     resumed_strategy = None
                 else:
-                    strategy = cma.CMAEvolutionStrategy(mean, sigma0, options)
+                    strategy = cma.CMAEvolutionStrategy(mean, run_sigma0, options)
 
                 while not strategy.stop():
                     continuing_pending = (
@@ -977,9 +1088,16 @@ class CMAEvolutionStrategy(Algorithm):
                             loss = objective(candidate)
                             losses[index] = loss
                             evaluations += 1
+                            if restart_kind == 'small':
+                                small_evaluations += 1
+                            else:
+                                large_evaluations += 1
                             if np.isfinite(loss) and loss < best_loss:
                                 best_loss = float(loss)
                                 best_x = population[index].copy()
+                            if np.isfinite(loss) and loss < restart_best_loss:
+                                restart_best_loss = float(loss)
+                                restart_best_x = population[index].copy()
                             if batch_size == population_size:
                                 save_state(strategy, restart, population, losses)
                     elif self._worker_map is not None:
@@ -990,6 +1108,10 @@ class CMAEvolutionStrategy(Algorithm):
                         for index, loss in zip(missing, mapped_losses):
                             losses[index] = loss
                         evaluations += len(missing)
+                        if restart_kind == 'small':
+                            small_evaluations += len(missing)
+                        else:
+                            large_evaluations += len(missing)
                         if batch_size == population_size:
                             save_state(strategy, restart, population, losses)
                     else:
@@ -1005,6 +1127,10 @@ class CMAEvolutionStrategy(Algorithm):
                         for index, loss in zip(missing, mapped_losses):
                             losses[index] = loss
                         evaluations += len(missing)
+                        if restart_kind == 'small':
+                            small_evaluations += len(missing)
+                        else:
+                            large_evaluations += len(missing)
                         if batch_size == population_size:
                             save_state(strategy, restart, population, losses)
                     losses = np.where(np.isfinite(losses), losses, INVALID_OBJECTIVE_PENALTY)
@@ -1012,6 +1138,11 @@ class CMAEvolutionStrategy(Algorithm):
                     if losses[chosen] < best_loss:
                         best_loss = float(losses[chosen])
                         best_x = population[chosen].copy()
+                    if losses[chosen] < restart_best_loss:
+                        restart_best_loss = float(losses[chosen])
+                        restart_best_x = population[chosen].copy()
+                    if batch_size == population_size:
+                        save_state(strategy, restart, population, losses)
                     if batch_size == population_size:
                         strategy.tell(population, losses.tolist())
                         # Objective callbacks only persist model results.  A
@@ -1025,6 +1156,23 @@ class CMAEvolutionStrategy(Algorithm):
                         # ``tell`` cannot safely be resumed without a full
                         # population of losses.
                         break
+                criteria = dict(strategy.stop())
+                if restart_best_x is not None and self._restart_checkpoint is not None:
+                    self._restart_checkpoint.save_cma_restart_minimum(
+                        variables, bounds[:, 0] + restart_best_x * widths,
+                        restart_best_loss, restart, restart_kind)
+                if criteria:
+                    stop_reason = 'CMA-ES convergence criteria: ' + ', '.join(
+                        f'{name}={value!r}' for name, value in criteria.items())
+                elif max_evaluations is not None and evaluations >= max_evaluations:
+                    stop_reason = (
+                        f'reached the evaluation limit ({max_evaluations})')
+                # A stopped run is complete.  Persist a boundary state so a
+                # later larger evaluation budget starts the next BIPOP regime
+                # instead of replaying this finished strategy.
+                if criteria and restart < restarts:
+                    current_restart_kind = None
+                    save_state(None, restart + 1)
         finally:
             if manager is not None:
                 objective.finalize_global_call_counter()
@@ -1034,6 +1182,9 @@ class CMAEvolutionStrategy(Algorithm):
         if best_x is not None:
             best_transformed = bounds[:, 0] + best_x * widths
             objective.set_parameters(variables, best_transformed, transformed=True)
+        if stop_reason is None and max_evaluations is not None and evaluations >= max_evaluations:
+            stop_reason = f'reached the evaluation limit ({max_evaluations})'
+        self._report_stop_reason(stop_reason or 'completed all configured CMA-ES restarts')
 
 
 class InitialSampling(Algorithm):
@@ -1136,12 +1287,14 @@ class InitialSampling(Algorithm):
         # Leave the model in the selected state without another objective call:
         # callbacks have already checkpointed every evaluated candidate.
         objective.set_parameters(variables, self.best_x, transformed=True)
+        self._report_stop_reason(f'evaluated the requested sample population ({samples})')
 
 
 class Powell(Algorithm):
     def _minimize(self, objective, initial_parameters):
         variables = objective.model().parameters().variables()
         x0 = np.reshape([v.transform(v.value) for v in variables], (-1,))
-        _ = scipy.optimize.minimize(objective, x0, method = 'Powell', 
-                                    bounds = self.get_bounds(variables),
-                                    **self._kwargs)
+        result = scipy.optimize.minimize(objective, x0, method = 'Powell',
+                                         bounds = self.get_bounds(variables),
+                                         **self._kwargs)
+        self._report_stop_reason(result.message)

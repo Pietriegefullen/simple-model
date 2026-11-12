@@ -1,6 +1,8 @@
 import argparse
 import fnmatch
 
+import numpy as np
+
 def numeric(value):
     numbers = '0123456789'
     if value.strip().lower() == 'inf':
@@ -36,6 +38,9 @@ def parse_args_fit(argv=None):
         '--default', action='store_true',
         help='start a fresh fit from the default model parameters')
     parameter_source.add_argument(
+        '--converted-envelope', action='store_true',
+        help='start a fresh fit from the converted-envelope model parameters')
+    parameter_source.add_argument(
         '--estimate', action='store_true',
         help='start a fresh fit from the estimated model parameters')
     parser.add_argument(
@@ -56,13 +61,20 @@ def parse_args_fit(argv=None):
                         help='Population size for DE or CMA-ES.')
     parser.add_argument('--cma-sigma', type=float,
                         help='Initial CMA-ES step size in unit-bound coordinates (default: 0.30).')
+    parser.add_argument('--funtol', type=float, default=1e-4,
+                        help='CMA-ES function-value convergence tolerance (default: 1e-4).')
     parser.add_argument('--cma-restarts', type=int, default=0,
                         help='Number of CMA-ES restarts (default: 0).')
+    parser.add_argument('--cma-restart-strategy', choices=('ipop', 'bipop'), default='ipop',
+                        help='CMA-ES restart schedule: IPOP growth or BIPOP mixed populations (default: ipop).')
     parser.add_argument('--max-evaluations', type=int,
                         help='Maximum completed DE/CMA-ES evaluations.')
     parser.add_argument('--best', default = None)
     parser.add_argument('--workers', default = -1)
     parser.add_argument('--dry', action = 'store_true')
+    parser.add_argument('--gas-limits', action='store_true',
+                        help=('stop integrations when CO2 or CH4 exceeds a '
+                              'replica-specific runaway limit; disabled by default'))
     parser.add_argument('--overwrite-checkpoints', '--overwrite', action = 'store_true',
                         help = 'replace checkpoints already stored for this run')
     parser.add_argument('--checkpoint', '--initial', dest='checkpoint', metavar='PATH',
@@ -99,6 +111,8 @@ def parse_args_fit(argv=None):
         parser.error('--popsize must be positive.')
     if args.cma_sigma is not None and args.cma_sigma <= 0:
         parser.error('--cma-sigma must be positive.')
+    if not np.isfinite(args.funtol) or args.funtol <= 0:
+        parser.error('--funtol must be finite and positive.')
     if args.cma_restarts < 0:
         parser.error('--cma-restarts cannot be negative.')
     if args.max_evaluations is not None and args.max_evaluations <= 0:

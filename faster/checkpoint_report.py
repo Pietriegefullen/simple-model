@@ -60,6 +60,35 @@ PATHWAY_QUANTITY_ORDER = (
     'thermodynamic_factor', 'deltaG_r', 'MM', 'microbe_pool', 'v',
 )
 
+
+def checkpoint_filename_metadata(file_path):
+    """Extract catalogue fields embedded in a canonical checkpoint filename.
+
+    Checkpoint filenames are generated from the same configuration that is
+    stored in their JSON payload.  Reading these fields avoids normalising and
+    hashing that payload merely to populate or filter the catalogue.  Older
+    or manually renamed files simply return no value for the missing fields
+    and fall back to the stored configuration.
+    """
+    parts = os.path.basename(file_path).split('_')
+    metadata = {}
+    for part in parts:
+        if part.startswith('model-'):
+            metadata['model_id'] = part
+        elif part.startswith('run-'):
+            metadata['run_id'] = part
+        elif part.startswith('cp-'):
+            metadata['checkpoint_id'] = part
+    for position, part in enumerate(parts):
+        if part in {'single', 'split', 'multi'} and position >= 2:
+            metadata.update({
+                'sample': parts[position - 2],
+                'replica': parts[position - 1],
+                'fit_mode': part,
+            })
+            break
+    return metadata
+
 @dataclass
 class Checkpoint:
     """A loaded checkpoint and the metadata used to group it."""
@@ -70,9 +99,12 @@ class Checkpoint:
     id: str
     source: str = None
     metadata: dict = None
+    filename_metadata: dict = None
 
     @cached_property
     def model_id(self):
+        if self.filename_metadata and self.filename_metadata.get('model_id'):
+            return self.filename_metadata['model_id']
         return hashing.build_model_id(self.run_config['model'])
 
     @cached_property
@@ -81,6 +113,10 @@ class Checkpoint:
 
     @cached_property
     def replica(self):
+        if (self.filename_metadata and self.filename_metadata.get('sample')
+                and self.filename_metadata.get('replica')):
+            return (str(self.filename_metadata['sample']),
+                    str(self.filename_metadata['replica']))
         chosen = self.run_config['chosen']
         return str(chosen['sample']), str(chosen['validation_replica'])
 
@@ -90,6 +126,8 @@ class Checkpoint:
 
     @cached_property
     def fit_mode(self):
+        if self.filename_metadata and self.filename_metadata.get('fit_mode'):
+            return self.filename_metadata['fit_mode']
         return self.run_config['chosen']['fit_mode']
 
     @cached_property
@@ -120,6 +158,8 @@ class Checkpoint:
     @cached_property
     def run_id(self):
         """The full configuration identity, including the multi-fit setup."""
+        if self.filename_metadata and self.filename_metadata.get('run_id'):
+            return self.filename_metadata['run_id']
         return hashing.build_run_id(self.run_config)
     
     def __str__(self):
@@ -147,8 +187,14 @@ def collect_all(results_directory=RESULTS_DIRECTORY, verbose = True):
                 continue
 
             file_path = os.path.join(root, filename)
+            # Read JSON exactly once.  The former implementation first read
+            # this file through ``load_parameter_file`` and then opened it a
+            # second time just to obtain joint-fit metadata.
             try:
-                loaded_parameters, loss, run_config = parameters.load_parameter_file(file_path)
+                contents = parameters.load_file(file_path)
+                loaded_parameters = parameters.ModelParameters(contents['parameters'])
+                loss = float(contents['total_loss'])
+                run_config = contents['run_config']
             except Exception as error:
                 raise ValueError(f'Could not load checkpoint {file_path}') from error
             if not run_config:
@@ -158,11 +204,11 @@ def collect_all(results_directory=RESULTS_DIRECTORY, verbose = True):
             # parameter/loss/config triple.  Joint fits additionally persist
             # a per-replica solution in the annotated JSON, which is needed
             # to reproduce every curve in the combined fit.
-            contents = parameters.load_file(file_path)
             metadata = {'replicas': contents.get('replicas', [])} \
                 if isinstance(contents, dict) else {}
             collected.append(Checkpoint(loaded_parameters, loss, run_config,
-                                        checkpoint_ids[0], file_path, metadata))
+                                        checkpoint_ids[0], file_path, metadata,
+                                        checkpoint_filename_metadata(file_path)))
     if verbose:
         print('done')
     return collected
@@ -400,6 +446,12 @@ def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
         result = (name, time, values)
         return result + (pathway,) if include_pathway else result
 
+    def is_constant(values):
+        """Return whether a diagnostic carries no time-varying information."""
+        values = np.asarray(values, dtype=float)
+        finite = values[np.isfinite(values)]
+        return finite.size > 0 and np.allclose(finite, finite[0])
+
     keys = _run_log_keys(run_log)
 
     for pool in POOL_PLOT_ORDER:
@@ -440,6 +492,12 @@ def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
         # Add every remaining pathway diagnostic (for example ``v``,
         # inhibition, and methane production) in a stable order.
         for name in sorted(pathway_keys - handled):
+            # Effective Michaelis--Menten constants are logged so the model
+            # diagnostics remain inspectable, but a horizontal Km line adds
+            # nothing to a checkpoint report.  Keep it if a future model
+            # makes the effective value time-dependent.
+            if '_Km_' in name and is_constant(run_log[name][1]):
+                continue
             yield emitted_quantity(name, *run_log[name], pathway)
 
 
@@ -726,16 +784,27 @@ def _pathway_from_model(pathway_model, pathway_name):
     return pathway
 
 
+def _activity_stoichiometry(pathway):
+    """Return the pool change per unit pathway activity.
+
+    Model v0.4 represents the reaction and growth-associated anabolism as
+    separate vectors.  Older checkpoint models retain their combined vector.
+    """
+    if hasattr(pathway, 'stoichiometry'):
+        return (np.asarray(pathway.stoichiometry, dtype=float)
+                + np.asarray(getattr(pathway, 'anabolism', 0.), dtype=float))
+    return np.asarray(pathway.pathway_vector, dtype=float)
+
+
 def pathway_substrate_consumption_rate(pathway_model, run_log, pathway_name,
                                        substrate):
     """Return a pathway's positive net consumption rate of one substrate.
 
-    ``pathway_vector`` includes both reaction stoichiometry and the carbon
-    assimilated into biomass, so acetate uptake is reported as the total model
-    consumption attributed to that pathway.
+    Growth-associated carbon assimilation is included, so acetate uptake is
+    reported as the total model consumption attributed to that pathway.
     """
     pathway = _pathway_from_model(pathway_model, pathway_name)
-    coefficient = -float(pathway.pathway_vector[system.index(substrate)])
+    coefficient = -float(_activity_stoichiometry(pathway)[system.index(substrate)])
     if coefficient <= 0:
         raise ValueError(f'{pathway_name} does not consume {substrate}.')
 
@@ -765,7 +834,7 @@ def pathway_substance_rate(pathway_model, run_log, pathway_name, substance):
     integrating diagnostic rates from rejected solver trial states.
     """
     pathway = _pathway_from_model(pathway_model, pathway_name)
-    coefficient = float(pathway.pathway_vector[system.index(substance)])
+    coefficient = float(_activity_stoichiometry(pathway)[system.index(substance)])
 
     keys = _run_log_keys(run_log)
     if (hasattr(pathway_model, 'compute_dissolved') and
@@ -822,7 +891,7 @@ def pathway_substance_production_rate(pathway_model, run_log, pathway_name,
                                       substance):
     """Return a pathway's positive net production rate of one substance."""
     pathway = _pathway_from_model(pathway_model, pathway_name)
-    if float(pathway.pathway_vector[system.index(substance)]) <= 0:
+    if float(_activity_stoichiometry(pathway)[system.index(substance)]) <= 0:
         raise ValueError(f'{pathway_name} does not produce {substance}.')
     return pathway_substance_rate(pathway_model, run_log, pathway_name,
                                   substance)
@@ -870,8 +939,8 @@ def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
                 pathway_model, run_log, pathway, gas)
         except ValueError:
             continue
-        coefficient = float(_pathway_from_model(
-            pathway_model, pathway).pathway_vector[system.index(gas)])
+        coefficient = float(_activity_stoichiometry(_pathway_from_model(
+            pathway_model, pathway))[system.index(gas)])
         if coefficient > 0:
             time, cumulative = cumulative_pathway_production(rate_time, rate)
             if len(time):
@@ -1435,6 +1504,7 @@ def multi_replica_model_run(checkpoint, record, dataset):
     pathway_model = joint_fit.build_parameter_template(
         checkpoint.run_config['model']['version'], chosen['pathways'],
         chosen['normalized_parameters'])
+    pathway_model.use_gas_limits = bool(chosen.get('gas_limits', False))
     # The outer checkpoint contains shared values.  The record stores all
     # remaining values from the same outer evaluation, including initial pools
     # and per-replica local parameters.

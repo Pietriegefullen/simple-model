@@ -22,7 +22,8 @@ import numpy as np
 import checkpoint
 import data
 import hashing
-from model_factory import build_model, current_version
+from model_factory import (build_model, current_version,
+                           envelope_converted_model_parameters)
 import optimizer
 import parameters
 import user_input
@@ -157,7 +158,8 @@ def select_shared_default_parameters(reference, shared_names):
     return shared
 
 
-def build_parameter_template(version, pathways=None, normalized_parameters=True):
+def build_parameter_template(version, pathways=None, normalized_parameters=True,
+                             converted_envelope=False):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -174,6 +176,9 @@ def build_parameter_template(version, pathways=None, normalized_parameters=True)
         pathways = version
         version = current_version()
     pathway_model = build_model(version, pathways, normalized_parameters)
+    if converted_envelope:
+        pathway_model.parameters().set(envelope_converted_model_parameters(
+            version, normalized_parameters))
     return pathway_model
 
 
@@ -315,6 +320,7 @@ def checkpoint_r2(candidate, pathways, normalized_parameters, objective):
     replica = sample[str(chosen['validation_replica'])]
     version = run_config['model']['version']
     pathway_model = build_model(version, pathways, normalized_parameters)
+    pathway_model.use_gas_limits = bool(chosen.get('gas_limits', False))
     pathway_model.parameters().set(candidate_parameters)
     candidate_objective = optimizer.build_objective_function(
         pathway_model, [replica], objective)
@@ -642,7 +648,7 @@ class SharedReplicaObjective(optimizer.Addable):
                  prepared_local_parameters=None, local_r2_threshold=None,
                  local_loss_threshold=None, max_failed_inner_runs=5,
                  resume=True, local_warm_start=True, use_cython=False,
-                 version = None):
+                 version = None, gas_limits=False):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -671,6 +677,7 @@ class SharedReplicaObjective(optimizer.Addable):
         self.resume = resume
         self.local_warm_start = local_warm_start
         self.use_cython = use_cython
+        self.gas_limits = bool(gas_limits)
         self._local_warm_starts = {}
         self._local_pool = None
         self._failed_inner_runs = 0
@@ -715,6 +722,7 @@ class SharedReplicaObjective(optimizer.Addable):
                 'parameter_override': {**self.fixed_parameters, **shared_values},
                 'normalized_parameters': self.normalized_parameters,
                 'algorithm': self.local_algorithm_name,
+                'gas_limits': self.gas_limits,
             },
             'objective': self.objective_config,
             'algo': self.local_algorithm,
@@ -759,6 +767,7 @@ class SharedReplicaObjective(optimizer.Addable):
 
             local_model = build_model(self.model_version,
                                       self.pathways, self.normalized_parameters)
+            local_model.use_gas_limits = self.gas_limits
             local_model.parameters().set(local_parameters)
 
             local_objective = optimizer.build_objective_function(
@@ -827,6 +836,8 @@ class SharedReplicaObjective(optimizer.Addable):
 
             local_optimizer = optimizer.get(self.local_algorithm_name)
             local_optimizer.configure(local_algorithm)
+            if self.local_algorithm_name == 'cma_es':
+                local_optimizer.set_restart_checkpoint(inner_checkpoints)
             if self.resume and self.local_algorithm_name == 'cma_es':
                 local_optimizer.set_state_checkpoint(inner_cma_state)
 
@@ -990,7 +1001,8 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_best=None, checkpoint_source=None, store_checkpoints=True,
         checkpoint_target=None, prepared_local_parameters=None,
         local_r2_threshold=None, local_loss_threshold=None, resume=True,
-        local_warm_start=True, max_failed_inner_runs=5, use_cython=False):
+        local_warm_start=True, max_failed_inner_runs=5, use_cython=False,
+        gas_limits=False, converted_envelope=False):
     """Run the nested shared/local fit and return its outer objective."""
     model_version = current_version()
     if objective is None:
@@ -1032,7 +1044,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_loss_threshold=local_loss_threshold,
         max_failed_inner_runs=max_failed_inner_runs, resume=resume,
         local_warm_start=local_warm_start, use_cython=use_cython,
-        version = model_version)
+        version=model_version, gas_limits=gas_limits)
     run_config = {
         'model': build_parameter_template(model_version, pathways, normalized_parameters).get_config(
             only_structure=True),
@@ -1042,7 +1054,8 @@ def fit(replicas, shared_parameters, shared_names, local_template,
                    't_end': None, 'fit_mode': 'multi', 'pathways': list(pathways),
                    'parameter_override': fixed_parameters,
                    'normalized_parameters': normalized_parameters,
-                   'algorithm': outer_algorithm_name},
+                   'algorithm': outer_algorithm_name,
+                   'gas_limits': bool(gas_limits)},
         'objective': objective,
         'algo': dict(outer_algorithm),
         'range': shared_parameters.get_config(only_range=True),
@@ -1056,6 +1069,9 @@ def fit(replicas, shared_parameters, shared_names, local_template,
                           'local_loss_threshold': local_loss_threshold,
                           'max_failed_inner_runs': max_failed_inner_runs,
                           'local_warm_start': local_warm_start,
+                          'parameter_catalogue': ('converted-envelope'
+                                                  if converted_envelope else 'default'),
+                          'gas_limits': bool(gas_limits),
                           'rhs_backend': 'cython' if use_cython else 'python'
                           },
     }
@@ -1098,9 +1114,14 @@ def fit(replicas, shared_parameters, shared_names, local_template,
 
     outer_optimizer = optimizer.get(outer_algorithm_name)
     outer_optimizer.configure(outer_algorithm)
+    if outer_algorithm_name == 'cma_es' and outer_checkpoints is not None:
+        outer_optimizer.set_restart_checkpoint(outer_checkpoints)
     if resume and outer_algorithm_name == 'cma_es' and outer_cma_state is not None:
         outer_optimizer.set_state_checkpoint(outer_cma_state)
     try:
+        # Inner replica fits have their own derived identities.  Report only
+        # the enclosing joint-fit identity, once, before its optimisation.
+        print(f'Run ID: {hashing.build_run_id(run_config)}')
         outer_optimizer.minimize(outer_objective, shared_parameters)
     finally:
         outer_objective.close_parallel_resources()
@@ -1113,6 +1134,11 @@ def parse_args(argv=None):
         description='Jointly fit replicas with independently selectable outer and inner DE/CMA-ES searches.')
     parser.add_argument('--shared', nargs='+', required=True,
                         help='Shared parameter names or globs, e.g. Hydro_v_max M_*.')
+    parameter_source = parser.add_mutually_exclusive_group()
+    parameter_source.add_argument('--default', action='store_true',
+                                  help='Use the default model parameter catalogue (default).')
+    parameter_source.add_argument('--converted-envelope', action='store_true',
+                                  help='Use the converted-envelope model parameter catalogue.')
     parser.add_argument('--p', nargs='+', dest='fixed',
                         help='Fixed parameter/value pairs, as in fit_sample.')
     parser.add_argument('--fix-default', nargs='+', metavar='PARAMETER',
@@ -1159,10 +1185,18 @@ def parse_args(argv=None):
                         help='Initial CMA-ES step size in unit-bound coordinates (default: 0.30).')
     parser.add_argument('--local-cma-sigma', type=float,
                         help='Initial local CMA-ES step size in unit-bound coordinates (default: 0.30).')
+    parser.add_argument('--outer-funtol', type=float, default=1e-4,
+                        help='Outer CMA-ES function-value convergence tolerance (default: 1e-4).')
+    parser.add_argument('--local-funtol', type=float, default=1e-4,
+                        help='Local CMA-ES function-value convergence tolerance (default: 1e-4).')
     parser.add_argument('--outer-cma-restarts', type=int, default=0,
                         help='Number of CMA-ES restarts after its first outer run (default: 0).')
     parser.add_argument('--local-cma-restarts', type=int, default=0,
                         help='Number of CMA-ES restarts after each first local run (default: 0).')
+    parser.add_argument('--outer-cma-restart-strategy', choices=('ipop', 'bipop'), default='ipop',
+                        help='Outer CMA-ES restart schedule (default: ipop).')
+    parser.add_argument('--local-cma-restart-strategy', choices=('ipop', 'bipop'), default='ipop',
+                        help='Per-replica CMA-ES restart schedule (default: ipop).')
     parser.add_argument('--local-call-budget', '--local-max-evaluations',
                         dest='local_max_evaluations', type=int, default=3000,
                         help=('Maximum completed inner-optimiser evaluations for each '
@@ -1192,6 +1226,9 @@ def parse_args(argv=None):
                         help='Do not use saved optimiser-state or best-candidate checkpoints.')
     parser.add_argument('--dry', action='store_true',
                         help='Select inputs and derive bounds, but do not run or save a fit.')
+    parser.add_argument('--gas-limits', action='store_true',
+                        help=('stop integrations when CO2 or CH4 exceeds a '
+                              'replica-specific runaway limit; disabled by default'))
     parser.add_argument('--yes', action='store_true',
                         help='Start without the interactive confirmation prompt.')
     args = parser.parse_args(argv)
@@ -1224,6 +1261,10 @@ def parse_args(argv=None):
         value = getattr(args, name)
         if value is not None and (not np.isfinite(value) or value <= 0):
             parser.error('--' + name.replace('_', '-') + ' must be finite and positive.')
+    for name in ('outer_funtol', 'local_funtol'):
+        value = getattr(args, name)
+        if not np.isfinite(value) or value <= 0:
+            parser.error('--' + name.replace('_', '-') + ' must be finite and positive.')
     for name in ('outer_cma_restarts', 'local_cma_restarts'):
         if getattr(args, name) < 0:
             parser.error('--' + name.replace('_', '-') + ' cannot be negative.')
@@ -1241,7 +1282,8 @@ def run(args):
     pathways = [pathway for pathway in PATHWAYS if pathway not in args.omit]
     if not pathways:
         raise ValueError('At least one pathway must remain after --omit.')
-    reference = build_parameter_template(version, pathways, True).parameters()
+    reference = build_parameter_template(
+        version, pathways, True, args.converted_envelope).parameters()
 
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
     args.fixed, overlap = parse_fixed_parameters(
@@ -1273,9 +1315,12 @@ def run(args):
         shared_parameters = select_shared_default_parameters(reference, shared_names)
         qualifying = []
         shared_bounds_source = 'full declared model ranges (default)'
-    template = build_parameter_template(version, pathways, True).parameters()
+    template = build_parameter_template(
+        version, pathways, True, args.converted_envelope).parameters()
     model_id = hashing.build_model_id(
-        build_parameter_template(version, pathways, True).get_config(only_structure=True))
+        build_parameter_template(
+            version, pathways, True, args.converted_envelope).get_config(
+                only_structure=True))
     prepared_local_parameters = prepare_local_parameters(
         replicas, template, shared_names, fixed_parameters, model_id,
         args.local_best, args.checkpoint_source)
@@ -1304,10 +1349,14 @@ def run(args):
         if args.outer_cma_sigma is not None:
             outer_algorithm['sigma0'] = args.outer_cma_sigma
         outer_algorithm['restarts'] = args.outer_cma_restarts
+        outer_algorithm['funtol'] = args.outer_funtol
+        outer_algorithm['restart_strategy'] = args.outer_cma_restart_strategy
     if local_algorithm_name == 'cma_es':
         if args.local_cma_sigma is not None:
             local_algorithm['sigma0'] = args.local_cma_sigma
         local_algorithm['restarts'] = args.local_cma_restarts
+        local_algorithm['funtol'] = args.local_funtol
+        local_algorithm['restart_strategy'] = args.local_cma_restart_strategy
     if args.outer_max_evaluations is not None:
         outer_algorithm['max_evaluations'] = args.outer_max_evaluations
     local_algorithm['max_evaluations'] = args.local_max_evaluations
@@ -1322,7 +1371,9 @@ def run(args):
         max_failed_inner_runs=args.max_failed_inner_runs,
         outer_algorithm_name=outer_algorithm_name,
         local_algorithm_name=local_algorithm_name,
-        local_warm_start=args.local_warm_start)
+        local_warm_start=args.local_warm_start,
+        gas_limits=args.gas_limits,
+        converted_envelope=args.converted_envelope)
 
 
 if __name__ == '__main__':

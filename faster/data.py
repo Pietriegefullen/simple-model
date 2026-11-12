@@ -873,6 +873,8 @@ if __name__ == '__main__':
     f_L = []
     f_m = []
     for sample in d.samples:
+        print(sample)
+        continue
         for replica in sample.replicas:
             print(replica)
             water_content_ml = replica.water_content
@@ -880,6 +882,7 @@ if __name__ == '__main__':
             sample_volume = replica.sample_volume
             f_L.append(water_content_ml/dry_weight_gdw*1e-3)
             f_m.append(sample_volume*1e-6/dry_weight_gdw)
+    1/0
     import matplotlib.pyplot as plt
     import numpy as np
     print('L')

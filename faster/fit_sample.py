@@ -8,7 +8,8 @@ import parameters
 import checkpoint
 import hashing
 import numpy as np
-from model_factory import build_model, current_version
+from model_factory import (build_model, current_version,
+                           envelope_converted_model_parameters)
 
 
 class ExistingFitGoodEnough(Exception):
@@ -199,6 +200,7 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
     if model_version is None:
         model_version = current_version()
     pathway_model = build_model(model_version, chosen['pathways'], chosen['normalized_parameters'])
+    pathway_model.use_gas_limits = bool(chosen.get('gas_limits', False))
 
     requested_checkpoint_path = init_config.get('file')
     if requested_checkpoint_path is not None:
@@ -227,6 +229,9 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
     # populate this fit from the versioned model we just built, then overlay
     # any saved/selected values.
     initial_parameters = parameters.ModelParameters(pathway_model.parameters())
+    if chosen.get('converted_envelope', False):
+        initial_parameters.set(envelope_converted_model_parameters(
+            model_version, chosen['normalized_parameters']))
     initial_parameters.set(loaded_parameters)
 
     if chosen.get('fix_v_max_except') is not None:
@@ -315,6 +320,8 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
                 raise ExistingFitGoodEnough(existing_best_r2)
 
         total_objective.add_callback(checkpoint_callback)
+        if isinstance(algo, optimizer.CMAEvolutionStrategy):
+            algo.set_restart_checkpoint(checkpoint_callback)
     total_objective.add_callback(checkpoint.PrintCallback(
         run_config,
         initial_best_loss=(None if existing_best is None
@@ -336,6 +343,7 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
         print()
 
     else:    
+        print(f'Run ID: {hashing.build_run_id(run_config)}')
         algo.minimize(total_objective, initial_parameters)
     
     run_log = total_objective.model().system_state_log
@@ -367,8 +375,10 @@ if __name__ == '__main__':
             'parameter_override':       args.override,  # e.g. 'Homo_thermodynamics': False
             'fix_v_max_except':         args.fix_v_max_except,
             'fix_v_max_value':          args.fix_v_max_value,
+            'converted_envelope':        args.converted_envelope,
             'normalized_parameters':    True,
             'algorithm':                algorithm_name,
+            'gas_limits':               args.gas_limits,
             }
 
     objective_config = {
@@ -390,7 +400,9 @@ if __name__ == '__main__':
     if algorithm_name == 'cma_es':
         if args.cma_sigma is not None:
             algo_options['sigma0'] = args.cma_sigma
+        algo_options['funtol'] = args.funtol
         algo_options['restarts'] = args.cma_restarts
+        algo_options['restart_strategy'] = args.cma_restart_strategy
     algo_config = {algorithm_name: algo_options}
     
     if args.checkpoint is not None:
@@ -398,9 +410,9 @@ if __name__ == '__main__':
         # from the selected checkpoint.
         init_config = {'file': args.checkpoint, 'range': 'default'}
     else:
-        fresh_parameters = args.default or args.estimate
+        fresh_parameters = args.default or args.converted_envelope or args.estimate
         init_config = {
-                'default':                  args.default,
+                'default':                  args.default or args.converted_envelope,
                 'estimate':                 args.estimate,
                 'best_N':                   None if fresh_parameters else args.best,
                 'sample':                   None if fresh_parameters else chosen['sample'],
@@ -419,6 +431,7 @@ if __name__ == '__main__':
         # ``--default`` and ``--estimate`` are fresh searches from declared
         # parameter catalogues.  Do not resume or rank against files already
         # stored for the same run configuration.
-        ignore_existing_checkpoints = args.default or args.estimate)
+        ignore_existing_checkpoints = (args.default or args.converted_envelope
+                                       or args.estimate))
     
     

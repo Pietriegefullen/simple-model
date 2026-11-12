@@ -67,6 +67,35 @@ def pathway_by_name(name):
     return pwys[name]
 
 
+def initial_state(replica, model_parameters, initial_mean_days=0):
+    """Build a checkpoint-era v0.3 state in micromol/gdw.
+
+    v0.3 checkpoints predate the switch to litre-based internal pools.  Do
+    not delegate to ``system.initial_state``, which implements that newer
+    convention for v0.4.
+    """
+    state = np.zeros(len(system.SYSTEM))
+    if replica is not None:
+        model_parameters['TOC'].constant(replica.initial_TOC())
+        model_parameters['DOC'].constant(replica.initial_DOC())
+        model_parameters['H2O'].constant(replica.initial_H2O())
+
+    for pool in system.SYSTEM:
+        state += system.vector(0, pool, model_parameters[pool])
+
+    if replica is not None and str(replica.sample.sample_name).startswith('2'):
+        state[system.index('Fe3')] = model_parameters['Fe3'].constant(0)
+        state[system.index('Acetate')] = model_parameters['Acetate'].constant(0)
+        state[system.index('DOC')] = model_parameters['DOC'].constant(0)
+    elif replica is not None:
+        for pool in ('CO2', 'CH4'):
+            times, values = getattr(replica, pool)()
+            day = int(np.nonzero(times >= initial_mean_days)[0][0])
+            state[system.index(pool)] = (
+                values[0] if day == 0 else np.mean(values[:day]))
+    return state
+
+
 def gas_upper_limits(replica, initial_state):
     """Return conservative, replica-specific CO2 and CH4 abort limits."""
     limits = {}
@@ -299,7 +328,12 @@ class Model():
         normalize = self.normalize_parameters
         default_values = Model.default_model_parameters(normalize)
         for used_parameter in self.model_parameters:
-            used_parameter.set(default_values[used_parameter.name])
+            # Rebuilding before an integration must refresh pathway objects,
+            # but it must not replace checkpoint values with current defaults.
+            # The default catalogue is needed only while the model is first
+            # constructed, before a fit or replay has supplied its values.
+            if used_parameter.is_unset():
+                used_parameter.set(default_values[used_parameter.name])
 
         self.model_parameters['CO2'].constant(0)
         self.model_parameters['H2'].constant(0)
@@ -433,7 +467,7 @@ class Model():
 
     def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False,
                 reset_Fe3 = None, days_beyond_reset = 1000,
-                initial_mean_days = 0):
+                initial_mean_days = 0, **kwargs):
         if t is not None and t_eval is not None:
             raise ValueError('Specify either t or t_eval, not both.')
 
@@ -449,7 +483,7 @@ class Model():
 
         # prepare for solving
         self.build(quiet = quiet)
-        S0 = system.initial_state(replica, self.parameters(), initial_mean_days)
+        S0 = initial_state(replica, self.parameters(), initial_mean_days)
         self.replica = replica
         self.parameters().check()
         self.system_state_log.reset(replica)
@@ -517,7 +551,7 @@ class Model():
 
     def predict_with_logging(self, replica, t = None, t_eval = None, quiet = False,
                              parallel = False, reset_Fe3 = None,
-                             days_beyond_reset = 1000, initial_mean_days = 0):
+                             days_beyond_reset = 1000, initial_mean_days = 0, **kwargs):
         """Predict a trajectory and add diagnostics used by replay plots.
 
         ``predict`` deliberately records only pool trajectories, keeping
@@ -591,4 +625,3 @@ class Model():
 
         self.__init__(cfg['pathways'])
         self.model_parameters.set(cfg['parameters'])
-

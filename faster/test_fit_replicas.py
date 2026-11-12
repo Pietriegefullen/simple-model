@@ -1,5 +1,5 @@
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 import io
 from unittest.mock import patch
 
@@ -272,6 +272,14 @@ class LocalR2ThresholdTest(unittest.TestCase):
         self.assertTrue(default.resume)
         self.assertFalse(disabled.resume)
 
+    def test_gas_limits_are_opt_in(self):
+        default = fit_replicas.parse_args(['--shared', 'Hydro_v_max'])
+        enabled = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--gas-limits'])
+
+        self.assertFalse(default.gas_limits)
+        self.assertTrue(enabled.gas_limits)
+
     def test_checkpoint_shared_bounds_are_opt_in(self):
         default = fit_replicas.parse_args(['--shared', 'Hydro_v_max'])
         restricted = fit_replicas.parse_args([
@@ -292,11 +300,31 @@ class LocalR2ThresholdTest(unittest.TestCase):
         self.assertEqual(args.local_popsize, 12)
         self.assertTrue(args.local_warm_start)
 
+    def test_parser_accepts_independent_bipop_restart_strategies(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--outer-cma-restart-strategy', 'bipop',
+            '--local-cma-restart-strategy', 'bipop', '--outer-funtol', '0.002',
+            '--local-funtol', '0.003'])
+
+        self.assertEqual(args.outer_cma_restart_strategy, 'bipop')
+        self.assertEqual(args.local_cma_restart_strategy, 'bipop')
+        self.assertEqual(args.outer_funtol, 0.002)
+        self.assertEqual(args.local_funtol, 0.003)
+
     def test_parser_accepts_default_fixed_parameter_globs(self):
         args = fit_replicas.parse_args([
             '--shared', 'Hydrolysis_v_max', '--fix-default', '*_v_max'])
 
         self.assertEqual(args.fix_default, ['*_v_max'])
+
+    def test_converted_envelope_is_mutually_exclusive_with_default(self):
+        args = fit_replicas.parse_args([
+            '--shared', 'Hydro_v_max', '--converted-envelope'])
+        self.assertTrue(args.converted_envelope)
+        with (redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()),
+              self.assertRaises(SystemExit)):
+            fit_replicas.parse_args([
+                '--shared', 'Hydro_v_max', '--default', '--converted-envelope'])
 
 
 class InnerCheckpointRecoveryTest(unittest.TestCase):

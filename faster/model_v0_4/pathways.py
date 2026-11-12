@@ -142,19 +142,19 @@ class Pathway():
 
     def kinetic_factors(self, S):
         Km = self.Km
+        if S.ndim > 1:
+            Km = Km[:,np.newaxis]
         return np.where(Km == 0, 1., S/(Km + S + EPS))
 
     def kinetic_half_saturation_constants(self, S):
         """Return effective Km values in the same units as ``S``.
 
-        Stored half-saturation constants are per litre of pore water.  The
-        solver state is per gram dry soil, so this water-content conversion is
-        the physical Km used in the Michaelis--Menten calculation.  It is
-        public so diagnostic replays can log exactly the quantities used by
-        the RHS without adding any work to normal optimisation calls.
+        Both the stored half-saturation constants and the solver state are in
+        micromol per litre of pore water.  This helper also gives the
+        constants a time axis when evaluating accepted solver-state series.
         """
-        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis] # in micromol/L
-        return Km
+        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis]
+        return np.broadcast_to(Km, np.shape(S))
 
     def kinetic_factor_names(self):
         """Return the pool names with an active Michaelis--Menten term."""
@@ -205,7 +205,7 @@ class Pathway():
         v = self.compute_v(t, S) # in units of v_max
 
         dS_dt = M * v * self.stoichiometry
-        dS_dt = M * v * self.anabolism - M * self.death_rate
+        dS_dt += M * v * self.anabolism - M * self.death_rate
 
         return np.reshape(dS_dt, (-1,))
 

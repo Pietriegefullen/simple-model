@@ -41,9 +41,11 @@ GAS_RUNAWAY_FLOOR = 1.0
 
 
 version_major = '0'
-version_minor = '4' # minor 2: Henry's law adjusted
-                    #       3: allow zero pool values.
-                    #       4: convert Km values to micromoles per liter water per dry weight
+version_minor = '4.2' # minor 2: Henry's law adjusted
+                      #       3: allow zero pool values.
+                      #       4: use micromoles per litre of solvent internally.
+                      #     4.1: retain evaluated parameter values across rebuilds.
+                      #     4.2: keep replica pools out of the optimiser state.
 __version__ = '.'.join([version_major, version_minor])
 
 # exposed:
@@ -69,12 +71,13 @@ def pathway_by_name(name):
 def gas_upper_limits(replica, initial_state):
     """Return conservative, replica-specific CO2 and CH4 abort limits."""
     limits = {}
+    L_per_gdw = (replica.water_content*1e-3)/replica.dry_weight # L/gdw
     for pool in ('CO2', 'CH4'):
         _, measured = getattr(replica, pool)()
         measured = np.asarray(measured, dtype=float)
         finite_measured = measured[np.isfinite(measured)]
         observed_peak = (np.max(np.abs(finite_measured))
-                         if finite_measured.size else 0.0)
+                         if finite_measured.size else 0.0)/L_per_gdw
         initial_value = initial_state[system.index(pool)]
         scale = max(GAS_RUNAWAY_FLOOR, observed_peak, abs(initial_value))
         limits[pool] = GAS_RUNAWAY_MULTIPLIER * scale
@@ -127,7 +130,7 @@ def _solve_segment(f, t_span, initial_state, t_eval, events):
 
 def integrate(f, t, S0, solver_result, reset_Fe3, gas_limits):
     #print('solving IVP')
-    events = gas_runaway_events(gas_limits)
+    events = [] if gas_limits is None else gas_runaway_events(gas_limits)
 
     t_after = None
     if isinstance(reset_Fe3, int):
@@ -207,30 +210,88 @@ def get_pathways(model_type):
         raise NotImplementedError()
 
 class Model():
+
+    @classmethod
+    def envelope_converted_model_parameters(cls, normalize):
+        p = [
+         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize),
+
+         Parameter('Hydrolysis_v_max', 0.01, [0.01, 0.1], 'log', normalize = normalize), 
+         Parameter('Hydrolysis_Kmb', 10_000, [1_113, 59_222_344], 'log',  normalize = normalize), # no source
+
+
+         Parameter('Ferm_v_max',     0.01, [0.01, 0.1], 'log', normalize = normalize),
+         Parameter('Ferm_Km',        1_000, [0.47, 315_000], scale= 'log', normalize = normalize),
+         Parameter('Ferm_inhibition', 1., [0.698, 754_000], 'log', normalize = normalize), # no source
+         Parameter('Ferm_CUE',        .0812, [2e-9, 0.5], scale = 'linear', normalize = normalize),
+         
+         
+         Parameter('Hydro_v_max',    0.01, [0.01, 0.1], scale = 'log', normalize = normalize),
+         Parameter('Hydro_CUE',       .08, [0.01, 0.5], scale = 'linear', normalize = normalize), 
+         Parameter('Hydro_Km_CO2',   100, [0.2,2_650_000], scale = 'log', normalize = normalize),
+         Parameter('Hydro_Km_H2',    50, [13, 3_210_000], scale = 'log', normalize = normalize),
+         
+         Parameter('Homo_Km_H2',     10, [2, 1_970_000], scale = 'log', normalize = normalize),
+         Parameter('Homo_Km_CO2',    10, [1.88, 2_230_000], scale = 'log', normalize = normalize),
+         Parameter('Homo_v_max',     0.01, [0.01, 0.1], scale = 'log', normalize = normalize), # no source
+         Parameter('Homo_CUE',        .2, [0.03, 0.5],  scale = 'linear', normalize = normalize),
+         
+         Parameter('Aceto_Km_Ac',    10, [170, 1_010_000], 'log', normalize = normalize),
+         Parameter('Ac_v_max',       0.01, [0.01, 0.1], scale = 'log', normalize = normalize),
+         Parameter('Ac_CUE',          0.00876, [0.00069, 0.5], scale = 'linear', normalize = normalize), 
+         
+         Parameter('Fe3_Km_Ac',      11.99, [0.315, 3_720_000], scale = 'log',  normalize = normalize),
+         Parameter('Fe3_Km_Fe3',     230, [0.285, 3_730_000], scale = 'log', normalize = normalize),
+         Parameter('Fe3_v_max',      0.01, [0.01, 0.1], scale = 'log', normalize = normalize), 
+         Parameter('Fe3_CUE',        0.05, scale ='linear', normalize = normalize),
+         
+         Parameter('Acetate',         20, [0.01, 162_000], scale = 'linear', normalize = normalize), # no source
+         Parameter('Fe3',            150, [1_110, 659_000], scale = 'linear', normalize = normalize), # no source
+        
+        # if biomass is variable, it must be in micromol per liter
+         Parameter('M_Ferm',        1., [5e-4, 6e5], scale = 'log',  normalize = normalize),
+         Parameter('M_Hydro',       5., [2e-4, 9e5], scale = 'log', normalize = normalize),
+         Parameter('M_Fe3',         1., [1e-2, 9e5], scale = 'log', normalize = normalize),
+         Parameter('M_Homo',        1., [4e-4, 2e6], scale = 'log', normalize = normalize),
+         Parameter('M_Ac',          4., [3e-4, 5e3], scale = 'log', normalize = normalize),
+         
+         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+            ]
+            
+        par = parameters.ModelParameters(p)
+        return par
+
     @classmethod
     def default_model_parameters(cls, normalize):
-        # TODO: always consider M * v combined if either v_max or M is const = 1
-
-        # v_max has units micromol/(L d) and includes microbe pool
-        # 
-
-        # no source for 
+        # no source for:
+        # =============
         # Ferm_inhibition
         # death_rate
         # Hydrolysis_Kmb
+        # Hydrolysis_v_max
         # Ferm_CUE
         # Homo_CUE
+        # Homo_v_max
+        # Fe3
+        # Acetate
+        # 
+        # Ferm_inhibition has a large influence on inhibition!
+        # for large values, there is almost full inhibition.
+
 
         p = [
          Parameter('death_rate',  1.29e-4, [1.29e-4,6e-2], scale = 'log', normalize = normalize),
 
          Parameter('Hydrolysis_v_max', .0083, [1e-8, 0.1], 'log', normalize = normalize), # no source
          Parameter('Hydrolysis_Kmb', 20, [1e-10, 200], 'log',  normalize = normalize), # no source
-        
+
 
          Parameter('Ferm_v_max',     0.5533, [0.5533, 97.7322], 'log', normalize = normalize),
          Parameter('Ferm_Km',        999, [54, 15_000], scale= 'log', normalize = normalize),
-         Parameter('Ferm_inhibition', 1, [1e-3, 1e3], 'log', normalize = normalize), # no source
+         Parameter('Ferm_inhibition', 1e-3, [1e-6, 1e-1], 'log', normalize = normalize), # no source
          Parameter('Ferm_CUE',        .0812, scale = 'linear', normalize = normalize),
          
          
@@ -245,7 +306,7 @@ class Model():
          Parameter('Homo_CUE',        .2, scale = 'linear', normalize = normalize),
          
          Parameter('Aceto_Km_Ac',    10, [10, 23], 'log', normalize = normalize),
-         Parameter('Ac_v_max',       0.977322, [0.977322, 97.7322],scale = 'log', normalize = normalize),
+         Parameter('Ac_v_max',       0.977322, [0.977322, 97.7322], scale = 'log', normalize = normalize),
          Parameter('Ac_CUE',          0.00876, [0.00876, 0.3], scale = 'linear', normalize = normalize), 
          
          Parameter('Fe3_Km_Ac',      11.99, [11.99, 230], 'log',  normalize = normalize),
@@ -256,15 +317,12 @@ class Model():
          Parameter('Acetate',         20, [0, 100], 'linear', normalize = normalize), # no source
          Parameter('Fe3',            150, [0, 300], 'linear', normalize = normalize), # no source
         
-        # biomass in units milligrams per gram dry weight of soil!!!
-        # v_max already contains biomas in many models
-        # also, for identifyability, avoid using M_<Pathway> parameters
-
-         Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
-         Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
-         Parameter('M_Fe3',         1., scale = 'log', normalize = normalize),
-         Parameter('M_Homo',        1., scale = 'log', normalize = normalize),
-         Parameter('M_Ac',          1., scale = 'log', normalize = normalize),
+        # if biomass is variable, it must be in micromol per liter
+         Parameter('M_Ferm',        1., [0.3, 300], scale = 'log',  normalize = normalize),
+         Parameter('M_Hydro',       5., [5, 500], scale = 'log', normalize = normalize),
+         Parameter('M_Fe3',         1., [0.0002, 360], scale = 'log', normalize = normalize),
+         Parameter('M_Homo',        1., [.0002, 500], scale = 'log', normalize = normalize),
+         Parameter('M_Ac',          4., [4, 1_000], scale = 'log', normalize = normalize),
          
          Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
          Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
@@ -288,6 +346,7 @@ class Model():
 
         self.t = None
         self.replica = None
+        self.use_gas_limits = False
 
         self.normalize_parameters = normalized_parameters
 
@@ -314,12 +373,17 @@ class Model():
         normalize = self.normalize_parameters
         default_values = Model.default_model_parameters(normalize)
         for used_parameter in self.model_parameters:
-            used_parameter.set(default_values[used_parameter.name])
+            # ``predict`` rebuilds pathways so that numerical arrays such as
+            # Km and anabolism reflect the current candidate.  Rebuilding
+            # must never reset a candidate back to its catalogue default:
+            # optimisation and checkpointing both depend on the parameter
+            # collection retaining the evaluated values.
+            if used_parameter.is_unset():
+                used_parameter.set(default_values[used_parameter.name])
 
-        self.model_parameters['CO2'].constant(0)
-        self.model_parameters['H2'].constant(0)
-        self.model_parameters['CH4'].constant(0)
-        self.model_parameters['Fe2'].constant(0)
+        for pool in ('CO2', 'H2', 'CH4', 'Fe2'):
+            if self.model_parameters[pool].is_unset():
+                self.model_parameters[pool].constant(0)
 
     def compute_dissolved(self, S):
         dissolved_S = S.copy()
@@ -344,6 +408,11 @@ class Model():
         dS_dt = np.sum(dSj_dt, axis = -1)
         dS_dt = np.where(S == 0, np.maximum(0, dS_dt), dS_dt)
 
+        #print()
+        #y = system.SYSTEM
+        ##y = ['CH4']
+        #for i, p in enumerate(y):
+        #    print(f'{t:8.3}', f'{p:20s}',  f'{S[system.index(p)]:8.3}', f'{dS_dt[system.index(p)]:8.3}')
         return dS_dt
 
     def add_t(self, t):
@@ -396,28 +465,27 @@ class Model():
             self.system_state_log.log(
                 pathway_name + '_capacity_rate', t, biomass * float(pathway.v_max))
             for pool_index, pool_name in enumerate(system.SYSTEM):
-                coefficient = pathway.pathway_vector[pool_index]
+                coefficient = (pathway.stoichiometry + pathway.anabolism)[pool_index]
                 if coefficient != 0:
                     self.system_state_log.log(
                         f'{pathway_name}_rate_{pool_name}', t,
                         coefficient * biomass * specific_rate)
             if 'CH4' in pathway.products:
                 rates = biomass * (
-                    specific_rate * pathway.pathway_vector[:, np.newaxis]
+                    specific_rate * (pathway.stoichiometry + pathway.anabolism)[:, np.newaxis]
                     - pathway.death_rate[:, np.newaxis])
                 self.system_state_log.log(
                     pathway_name + '_CH4 from ' + pathway.microbe.name, t,
                     rates[system.index('CH4')])
 
-    def log_accepted_states(self, t, states):
+    def log_accepted_states(self, t, states, *, record_pools=True):
         """Record all accepted pools and their dissolved gas equivalents."""
         dissolved_states = np.column_stack([
             self.compute_dissolved(state) for state in states.T
         ])
         for pool_index, pool_name in enumerate(system.SYSTEM):
-            # Re-log raw pools in the diagnostic path, making the complete-log
-            # contract explicit even if a future lean predictor changes.
-            self.system_state_log.log(pool_name, t, states[pool_index])
+            if record_pools:
+                self.system_state_log.log(pool_name, t, states[pool_index])
             self.system_state_log.log(
                 f'{pool_name}_dissolved', t, dissolved_states[pool_index])
 
@@ -443,7 +511,8 @@ class Model():
 
     def predict(self, replica, t = None, t_eval = None, quiet = False, parallel = False,
                 reset_Fe3 = None, days_beyond_reset = 1000,
-                initial_mean_days = 0, reference = 'gdw', microbe_unit = 'mg'):
+                initial_mean_days = 0, reference = 'gdw', microbe_unit = 'mg',
+                gas_limits = None):
         if t is not None and t_eval is not None:
             raise ValueError('Specify either t or t_eval, not both.')
 
@@ -459,12 +528,16 @@ class Model():
 
         # prepare for solving
         self.build(quiet = quiet)
-        S0 = system.initial_state(replica, self.parameters(), initial_mean_days)
+        # The v0.4 RHS operates on micromol/L states.  Experimental starting
+        # pools are recorded per gdw, so convert them before integration.
+        S0 = system.initial_state(
+            replica, self.parameters(), initial_mean_days, reference='L')
         self.replica = replica
-        self.parameters().check()
+        self.parameters().check(ignore=('TOC', 'DOC', 'H2O'))
         self.system_state_log.reset(replica)
         self.system_change_log.reset(replica)
-        gas_limits = gas_upper_limits(replica, S0)
+        use_gas_limits = self.use_gas_limits if gas_limits is None else bool(gas_limits)
+        runaway_limits = gas_upper_limits(replica, S0) if use_gas_limits else None
 
         # A process watchdog is necessary because LSODA offers neither a
         # wall-clock nor a function-evaluation limit.  The ``parallel``
@@ -474,7 +547,7 @@ class Model():
         try:
             process = multiprocessing.Process(
                 target=_integration_worker,
-                args=(self, t_eval, S0, result_queue, reset_Fe3, gas_limits))
+                args=(self, t_eval, S0, result_queue, reset_Fe3, runaway_limits))
             process.daemon = True
             process.start()
             try:
@@ -498,12 +571,11 @@ class Model():
         solver_result.y = np.maximum(solver_result.y, 1e-24)
 
         # add pool values to log
-        
-        specific_water_volume = replica.water_content*1e3/replica.dry_weight # L/gdw
+        L_per_gdw = (replica.water_content*1e-3)/replica.dry_weight # L/gdw
         biomass_molar_mass = CONSTANTS.MOLAR_MASS_BIOMASS # mg/micromol
         for Si, pool_name in zip(solver_result.y, system.SYSTEM):
             if reference == 'gdw':
-                Si *= specific_water_volume # transform pools from micromol L-1 to micromol gdw-1
+                Si *= L_per_gdw # transform pools from micromol L-1 to micromol gdw-1
                 
             elif reference == 'L':
                 pass
@@ -542,7 +614,8 @@ class Model():
         run_log = self.predict(
             replica, t=t, t_eval=t_eval, quiet=quiet, parallel=parallel,
             reset_Fe3=reset_Fe3, days_beyond_reset=days_beyond_reset,
-            initial_mean_days=initial_mean_days, reference = 'L', microbe_unit = 'micromol')
+            initial_mean_days=initial_mean_days, reference=reference,
+            microbe_unit=microbe_unit)
         missing_pools = [pool for pool in system.SYSTEM if pool not in run_log.keys()]
         if missing_pools:
             raise RuntimeError(
@@ -550,17 +623,31 @@ class Model():
                 + ', '.join(missing_pools))
         pool_time, _ = run_log[system.SYSTEM[0]]
         states = np.vstack([run_log[pool][1] for pool in system.SYSTEM])
+        # Diagnostics evaluate the RHS in its native micromol/L basis, while
+        # the returned pool trajectories honour the caller's display units.
+        if microbe_unit == 'mg':
+            biomass_molar_mass = CONSTANTS.MOLAR_MASS_BIOMASS
+            for pool_index, pool_name in enumerate(system.SYSTEM):
+                if pool_name.startswith('M_'):
+                    states[pool_index] /= biomass_molar_mass
+        elif microbe_unit != 'micromol':
+            raise NotImplementedError()
 
-        self.log_accepted_states(pool_time, states)
+        if reference == 'gdw':
+            L_per_gdw = (replica.water_content * 1e-3) / replica.dry_weight
+            states /= L_per_gdw
+        elif reference != 'L':
+            raise NotImplementedError()
+
+        # The lean prediction has already logged pools in the requested output
+        # units.  Add dissolved concentrations without overwriting them with
+        # the internal solver-state representation.
+        self.log_accepted_states(pool_time, states, record_pools=False)
         self.log_accepted_thermodynamics(pool_time, states)
         self.log_accepted_kinetics(pool_time, states)
 
-        run_log = self.system_state_log
+        #run_log = self.system_state_log
 
-        for key, value in run_log:
-            print(key, value.shape)
-            #raise NotImplementedError()
-        1/0
         return run_log
 
     def parameters(self):
@@ -612,4 +699,3 @@ class Model():
 
         self.__init__(cfg['pathways'])
         self.model_parameters.set(cfg['parameters'])
-

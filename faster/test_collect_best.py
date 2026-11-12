@@ -192,8 +192,9 @@ class Fe3AcetoDiagnosticsTest(unittest.TestCase):
     def test_diagnostics_combine_the_two_pathways_and_acetate_uptake(self):
         def pathway(name, acetate_coefficient):
             instance = type(name, (), {})()
-            instance.pathway_vector = [0.0] * len(system.SYSTEM)
-            instance.pathway_vector[system.index('Acetate')] = acetate_coefficient
+            instance.stoichiometry = [0.0] * len(system.SYSTEM)
+            instance.anabolism = [0.0] * len(system.SYSTEM)
+            instance.stoichiometry[system.index('Acetate')] = acetate_coefficient
             return instance
 
         pathway_model = type('Model', (), {
@@ -353,6 +354,20 @@ class PathwayQuantityPlotTest(unittest.TestCase):
 
         self.assertEqual(axis.get_title(), 'Dissolved H2')
 
+    def test_constant_km_diagnostics_are_not_emitted_as_plots(self):
+        run_log = {
+            'Hydro_v': ([0, 1], [.2, .3]),
+            'Hydro_Km_CO2': ([0, 1], [500., 500.]),
+            'Hydro_Km_H2': ([0, 1], [100., 200.]),
+            'Hydro_Km_total': ([0, 1], [600., 700.]),
+        }
+
+        names = [name for name, *_ in plot_best.pathway_plot_quantities(run_log)]
+
+        self.assertNotIn('Hydro_Km_CO2', names)
+        self.assertIn('Hydro_Km_H2', names)
+        self.assertIn('Hydro_Km_total', names)
+
     def test_reaction_rate_uses_biomass_on_the_specific_rate_grid(self):
         run_log = {
             'Hydro_v': ([0., .5, 1.5, 2.], [.1, .2, .4, .5]),
@@ -442,8 +457,9 @@ class PathwayQuantityPlotTest(unittest.TestCase):
     def test_co2_pathway_production_includes_all_producers_on_both_scales(self):
         def pathway(name, co2_coefficient):
             instance = type(name, (), {})()
-            instance.pathway_vector = [0.] * len(system.SYSTEM)
-            instance.pathway_vector[system.index('CO2')] = co2_coefficient
+            instance.stoichiometry = [0.] * len(system.SYSTEM)
+            instance.anabolism = [0.] * len(system.SYSTEM)
+            instance.stoichiometry[system.index('CO2')] = co2_coefficient
             return instance
 
         pathway_model = type('Model', (), {
@@ -487,12 +503,13 @@ class PathwayQuantityPlotTest(unittest.TestCase):
 
     def test_co2_production_uses_accepted_states_not_trial_rate_logs(self):
         class Fermentation:
-            pathway_vector = np.zeros(len(system.SYSTEM))
+            stoichiometry = np.zeros(len(system.SYSTEM))
+            anabolism = np.zeros(len(system.SYSTEM))
 
             def __call__(self, time, state):
                 return system.vector(0., 'CO2', state[system.index('DOC')])
 
-        Fermentation.pathway_vector[system.index('CO2')] = 1.
+        Fermentation.stoichiometry[system.index('CO2')] = 1.
         pathway_model = type('Model', (), {
             'contributing_pathways': [Fermentation()],
             'compute_dissolved': staticmethod(lambda state: state),

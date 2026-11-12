@@ -4,6 +4,8 @@ from importlib import import_module
 BUNDLES = {
     "0.3": "model_v0_3.model",
     "0.4": "model_v0_4.model",
+    "0.4.1": "model_v0_4.model",
+    "0.4.2": "model_v0_4.model",
 }
 
 def current_version():
@@ -30,6 +32,17 @@ def build_model(version, pathway_names=None, normalized=True):
         pathway_names = version
         version = current_version()
     return implementation(version).build_model(pathway_names, normalized)
+
+
+def envelope_converted_model_parameters(version, normalized=True):
+    """Return the versioned parameter catalogue for converted envelopes."""
+    model_class = implementation(version).Model
+    try:
+        return model_class.envelope_converted_model_parameters(normalized)
+    except AttributeError as error:
+        raise ValueError(
+            f'Model version {version!r} has no converted-envelope parameter catalogue.'
+        ) from error
 
 def pathway_by_name(version, name):
     return implementation(version).pathway_by_name(name)

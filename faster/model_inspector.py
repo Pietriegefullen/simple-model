@@ -3,6 +3,8 @@
 Run from the project root with::
 
     python faster/model_inspector.py
+    python faster/model_inspector.py PARTIAL-CP-ID
+    python faster/model_inspector.py converted_checkpoints/model-.../CHECKPOINT
 
 The inspector is deliberately a local Tk application: it needs no web server,
 and it calls the same checkpoint replay and report plotting code used by
@@ -13,6 +15,7 @@ a clearly labelled manual replay in memory.
 from __future__ import annotations
 
 import copy
+import argparse
 import math
 import traceback
 from dataclasses import dataclass
@@ -29,9 +32,106 @@ from tkinter import messagebox, ttk
 import data
 import parameters
 import checkpoint_report as report
+import converted_checkpoint
 import plot_checkpoint
+from checkpoint_io import checkpoint_id, replay_inputs, resolve_checkpoint
 from fit_sample import run
 from model_factory import build_model
+
+
+FILTER_DEBOUNCE_MS = 250
+MAXIMUM_CATALOGUE_ROWS = 500
+
+
+def load_checkpoint(identifier):
+    """Load one checkpoint identified by a path or a unique partial CP ID.
+
+    This deliberately does not use :func:`checkpoint_report.collect_all`:
+    resolving an explicitly requested checkpoint should not deserialize the
+    rest of the results catalogue first.
+    """
+    source = resolve_checkpoint(identifier)
+    _, run_config, loaded_parameters, contents = replay_inputs(source)
+    identifier = checkpoint_id(source)
+    checkpoint_name = f"cp-{identifier}" if identifier is not None else source.name
+    metadata = {'replicas': contents.get('replicas', [])} \
+        if isinstance(contents, dict) else {}
+    converted_metadata = converted_checkpoint.metadata_for_document(contents)
+    if converted_metadata is not None:
+        metadata.update(converted_metadata)
+        version, pathways, normalized = converted_checkpoint.replay_spec(metadata)
+        # The stored config is source provenance.  Give the inspector an
+        # effective display configuration so labels, comparisons, and manual
+        # values use the converted file's one-replica replay contract.
+        run_config = copy.deepcopy(run_config)
+        run_config['model']['version'] = version
+        chosen = run_config['chosen']
+        chosen.update({'pathways': list(pathways), 'normalized_parameters': normalized,
+                       'fit_mode': 'single'})
+        replica = metadata['unit_conversion']['replica']
+        chosen['sample'] = replica['sample']
+        chosen['validation_replica'] = replica['replica_number']
+    try:
+        loss = float(contents['total_loss'])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f'Checkpoint {source} does not contain a total loss') from error
+    return report.Checkpoint(
+        loaded_parameters, loss, run_config, checkpoint_name, str(source), metadata,
+        report.checkpoint_filename_metadata(str(source)))
+
+
+def checkpoint_details(checkpoint) -> str:
+    """Return the selected checkpoint's provenance in a popup-friendly form."""
+    sample, replica = checkpoint.replica
+    metadata = getattr(checkpoint, 'metadata', None)
+    converted = converted_checkpoint.replay_spec(metadata)
+    fields = (
+        ('Checkpoint ID', checkpoint.id),
+        ('Format', 'Converted, litre-normalized' if converted else 'Saved checkpoint'),
+        ('Loss', f'{checkpoint.loss:.12g}'),
+        ('Source model version',
+         (metadata or {}).get('converted_checkpoint', {}).get(
+             'source_model_version', checkpoint.run_config['model'].get('version', '?'))),
+        ('Model ID', checkpoint.model_id),
+        ('Run ID', checkpoint.run_id),
+        ('Sample', sample),
+        ('Replica', replica),
+        ('Fit mode', checkpoint.fit_mode),
+        ('Source', checkpoint.source or '(not recorded)'),
+    )
+    if converted:
+        version, pathways, normalized = converted
+        fields = fields[:2] + (
+            ('Replay model version', version),
+            ('Replay pathways', ', '.join(pathways)),
+            ('Normalized parameters', normalized),
+        ) + fields[2:]
+    return '\n'.join(f'{label}: {value}' for label, value in fields)
+
+
+def replay_model_settings(checkpoint):
+    """Return the model contract that should render this checkpoint."""
+    converted = converted_checkpoint.replay_spec(getattr(checkpoint, 'metadata', None))
+    if converted:
+        return converted
+    chosen = checkpoint.run_config['chosen']
+    return (checkpoint.run_config['model']['version'], tuple(chosen['pathways']),
+            chosen.get('normalized_parameters', True))
+
+
+def is_converted_checkpoint(checkpoint):
+    return converted_checkpoint.replay_spec(getattr(checkpoint, 'metadata', None)) is not None
+
+
+def manual_converted_result(checkpoint, model_run):
+    """Wrap an edited converted replay without requiring an objective call."""
+    pathway_model, _, _ = model_run
+    manual_checkpoint = report.Checkpoint(
+        parameters=pathway_model.parameters(), loss=checkpoint.loss,
+        run_config=copy.deepcopy(checkpoint.run_config), id='manual',
+        source=checkpoint.source, metadata=checkpoint.metadata)
+    return plot_checkpoint.CheckpointPlot(
+        manual_checkpoint, model_run, comparison_name="manual values")
 
 
 def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
@@ -42,16 +142,73 @@ def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
     if not details:
         return "  |  ".join(fields)
     sample, replica = checkpoint.replica
+    replay_version, _, _ = replay_model_settings(checkpoint)
     details = (
-        ("model_version", f"version {checkpoint.run_config['model'].get('version', '?')}"),
+        ("model_version", f"version {replay_version}"),
+        ("converted", "converted → v" + replay_version) if is_converted_checkpoint(checkpoint) else ("converted", ""),
         ("sample", f"sample {sample}"),
         ("replica", f"replica {replica}"),
         ("fit_mode", checkpoint.fit_mode),
         ("model_id", checkpoint.model_id),
         ("run_id", checkpoint.run_id),
     )
-    fields.extend(value for name, value in details if name not in hidden)
+    fields.extend(value for name, value in details if name not in hidden and value)
     return "  |  ".join(fields)
+
+
+def checkpoint_filter_value(checkpoint, name):
+    """Return one catalogue field, calculating an ID only if it is requested."""
+    if name == 'model_version':
+        return replay_model_settings(checkpoint)[0]
+    if name == 'sample':
+        return checkpoint.replica[0]
+    if name == 'replica':
+        return checkpoint.replica[1]
+    if name == 'fit_mode':
+        return checkpoint.fit_mode
+    if name == 'model_id':
+        return checkpoint.model_id
+    if name == 'checkpoint_id':
+        return checkpoint.id
+    if name == 'run_id':
+        return checkpoint.run_id
+    raise KeyError(f'Unknown checkpoint filter field: {name}')
+
+
+def filter_checkpoints(checkpoints, filters, best_per_run=False):
+    """Return matching checkpoints in their existing order.
+
+    ``checkpoints`` is already loss-sorted by :meth:`reload_catalogue`.
+    Keeping that order means filtering does not need another full sort.  IDs
+    are deliberately accessed only for active ID filters or best-per-run.
+    """
+    candidates = checkpoints
+    if best_per_run:
+        best_by_run = {}
+        for checkpoint in candidates:
+            prior = best_by_run.get(checkpoint.run_id)
+            if prior is None or checkpoint.loss < prior.loss:
+                best_by_run[checkpoint.run_id] = checkpoint
+        candidates = list(best_by_run.values())
+
+    matches = []
+    for checkpoint in candidates:
+        for name, requested in filters.items():
+            if requested and requested not in str(
+                    checkpoint_filter_value(checkpoint, name)).casefold():
+                break
+        else:
+            matches.append(checkpoint)
+    return matches
+
+
+def prioritise_new_checkpoints(checkpoints, new_sources):
+    """Keep freshly discovered matching checkpoints visible after Reload."""
+    fresh = [checkpoint for checkpoint in checkpoints
+             if checkpoint.source in new_sources]
+    existing = [checkpoint for checkpoint in checkpoints
+                if checkpoint.source not in new_sources]
+    return fresh + existing
 
 
 def is_log_slider(parameter) -> bool:
@@ -113,12 +270,16 @@ class FigurePane:
 class ModelInspector(ttk.Frame):
     """Checkpoint catalogue, parameter editor, and reusable report viewer."""
 
-    def __init__(self, root):
+    def __init__(self, root, checkpoint_id=None):
         super().__init__(root, padding=8)
         self.root = root
+        self.requested_checkpoint_id = checkpoint_id
         self.dataset = None
         self.checkpoints = []
         self.filtered = []
+        self.displayed = []
+        self.new_checkpoint_sources = set()
+        self._filter_after_id = None
         self.active_checkpoint = None
         self.working_parameters = None
         self.controls: dict[str, ParameterControl] = {}
@@ -168,12 +329,14 @@ class ModelInspector(ttk.Frame):
             ttk.Label(filter_row, text=label).grid(row=row, column=0, sticky="w", padx=(0, 4))
             entry = ttk.Entry(filter_row, textvariable=variable, width=20)
             entry.grid(row=row, column=1, sticky="ew", pady=1)
-            entry.bind("<KeyRelease>", lambda _: self.apply_filter())
+            entry.bind("<KeyRelease>", lambda _: self.schedule_filter())
         options = ttk.Frame(panel)
         options.grid(row=1, column=0, sticky="ew", pady=5)
         self.best_per_run = tk.BooleanVar(value=False)
         ttk.Checkbutton(options, text="Best loss per run", variable=self.best_per_run,
                         command=self.apply_filter).pack(side="left")
+        ttk.Button(options, text="Checkpoint details…", command=self.show_checkpoint_details).pack(
+            side="left", padx=(5, 0))
         ttk.Button(options, text="Reload", command=self.reload_catalogue).pack(side="right")
 
         self.catalogue = tk.Listbox(panel, selectmode="extended", exportselection=False,
@@ -230,17 +393,59 @@ class ModelInspector(ttk.Frame):
         self.viewer.grid(row=1, column=0, sticky="nsew")
 
     def reload_catalogue(self):
+        if self.requested_checkpoint_id:
+            self._reload_requested_checkpoint()
+            return
+        known_sources = {checkpoint.source for checkpoint in self.checkpoints}
         try:
-            self.checkpoints = report.collect_all()
+            reloaded = sorted(report.collect_all(verbose=False),
+                              key=lambda checkpoint: checkpoint.loss)
 
         except Exception as error:
             traceback.print_exc()
             messagebox.showerror("Could not load checkpoints", str(error))
-            self.checkpoints = []
+            # A file from a separate, running optimiser should not make the
+            # already usable catalogue disappear if its reload fails.
+            return
+        self.new_checkpoint_sources = (
+            {checkpoint.source for checkpoint in reloaded} - known_sources
+            if known_sources else set())
+        self.checkpoints = reloaded
         self._clear_caches()
         self.apply_filter()
 
+    def _reload_requested_checkpoint(self):
+        """Show the requested checkpoint without constructing a catalogue."""
+        try:
+            checkpoint = load_checkpoint(self.requested_checkpoint_id)
+        except Exception as error:
+            traceback.print_exc()
+            messagebox.showerror("Could not load checkpoint", str(error))
+            return
+        self.checkpoints = [checkpoint]
+        self.filtered = [checkpoint]
+        self.displayed = [checkpoint]
+        self.new_checkpoint_sources = set()
+        self._clear_caches()
+        self._render_catalogue()
+        self.catalogue.selection_set(0)
+        self._checkpoint_selected()
+
+    def schedule_filter(self):
+        """Wait for a pause in typing before scanning the catalogue."""
+        if self._filter_after_id is not None:
+            self.after_cancel(self._filter_after_id)
+        self._filter_after_id = self.after(
+            FILTER_DEBOUNCE_MS, self._apply_scheduled_filter)
+
+    def _apply_scheduled_filter(self):
+        self._filter_after_id = None
+        self.apply_filter()
+
     def apply_filter(self):
+        if self._filter_after_id is not None:
+            self.after_cancel(self._filter_after_id)
+            self._filter_after_id = None
         filters = {name: variable.get().casefold().strip()
                    for name, variable in self.filters.items()}
 
@@ -250,45 +455,53 @@ class ModelInspector(ttk.Frame):
         # it belongs in the unfiltered list.
         if not any(filters.values()) and not self.best_per_run.get():
             self.filtered = list(self.checkpoints)
-            self.catalogue.delete(0, "end")
-            for checkpoint in self.filtered:
-                self.catalogue.insert("end", checkpoint_label(checkpoint, details=False))
-            self.catalogue_status.configure(
-                text=f"{len(self.filtered)} of {len(self.checkpoints)} checkpoint(s)")
+            self._render_catalogue(details=False)
             return
 
-        def matches(checkpoint):
-            sample, replica = checkpoint.replica
-            values = {
-                "model_version": checkpoint.run_config['model'].get('version', ''),
-                "sample": sample,
-                "replica": replica,
-                "fit_mode": checkpoint.fit_mode,
-                "model_id": checkpoint.model_id,
-                "checkpoint_id": checkpoint.id,
-                "run_id": checkpoint.run_id,
-            }
-            return all(not requested or requested in str(values[name]).casefold()
-                       for name, requested in filters.items())
-
-        candidates = self.checkpoints
-        if self.best_per_run.get():
-            best_by_run = {}
-            for checkpoint in candidates:
-                prior = best_by_run.get(checkpoint.run_id)
-                if prior is None or checkpoint.loss < prior.loss:
-                    best_by_run[checkpoint.run_id] = checkpoint
-            candidates = list(best_by_run.values())
-        self.filtered = sorted((checkpoint for checkpoint in candidates if matches(checkpoint)),
-                               key=lambda checkpoint: checkpoint.loss)
-        self.catalogue.delete(0, "end")
+        self.filtered = filter_checkpoints(
+            self.checkpoints, filters, best_per_run=self.best_per_run.get())
         hidden = {name for name, requested in filters.items() if requested}
-        for checkpoint in self.filtered:
-            self.catalogue.insert("end", checkpoint_label(checkpoint, hidden))
-        self.catalogue_status.configure(text=f"{len(self.filtered)} of {len(self.checkpoints)} checkpoint(s)")
+        self._render_catalogue(hidden=hidden)
+
+    def _render_catalogue(self, hidden=(), details=True):
+        """Render a bounded window while retaining every filtered checkpoint."""
+        ordered = prioritise_new_checkpoints(
+            self.filtered, self.new_checkpoint_sources)
+        self.displayed = ordered[:MAXIMUM_CATALOGUE_ROWS]
+        self.catalogue.delete(0, "end")
+        for checkpoint in self.displayed:
+            self.catalogue.insert("end", checkpoint_label(
+                checkpoint, hidden=hidden, details=details))
+        text = f"{len(self.filtered)} of {len(self.checkpoints)} checkpoint(s)"
+        new_count = sum(checkpoint.source in self.new_checkpoint_sources
+                        for checkpoint in self.filtered)
+        if new_count:
+            text += f" ({new_count} new since reload)"
+        if len(self.displayed) < len(self.filtered):
+            text += f" (showing first {len(self.displayed)}; refine the filters)"
+        self.catalogue_status.configure(text=text)
 
     def selected_checkpoints(self):
-        return [self.filtered[index] for index in self.catalogue.curselection()]
+        return [self.displayed[index] for index in self.catalogue.curselection()]
+
+    def show_checkpoint_details(self):
+        """Open selected-checkpoint provenance without consuming main-window space."""
+        selected = self.selected_checkpoints()
+        checkpoint = selected[0] if selected else self.active_checkpoint
+        if checkpoint is None:
+            messagebox.showinfo("Checkpoint details", "Select a checkpoint first.")
+            return
+        window = tk.Toplevel(self.root)
+        window.title(f"Checkpoint details — {checkpoint.id}")
+        window.geometry("720x300")
+        window.minsize(480, 220)
+        body = ttk.Frame(window, padding=10)
+        body.pack(fill="both", expand=True)
+        text = tk.Text(body, wrap="word", height=12, padx=4, pady=4)
+        text.insert("1.0", checkpoint_details(checkpoint))
+        text.configure(state="disabled")
+        text.pack(fill="both", expand=True)
+        ttk.Button(body, text="Close", command=window.destroy).pack(anchor="e", pady=(8, 0))
 
     def _checkpoint_selected(self, _event=None):
         selected = self.selected_checkpoints()
@@ -305,10 +518,9 @@ class ModelInspector(ttk.Frame):
         # Persisted checkpoint values intentionally omit their fitting ranges.
         # Reapply the model defaults so every numerical model parameter remains
         # editable, while preserving its physical/logarithmic scale.
-        chosen = checkpoint.run_config['chosen']
+        version, pathways, normalized = replay_model_settings(checkpoint)
         self.working_parameters = parameters.ModelParameters(build_model(
-            checkpoint.run_config['model']['version'], chosen['pathways'],
-            chosen.get('normalized_parameters', True)).parameters())
+            version, pathways, normalized).parameters())
         for saved in checkpoint.parameters:
             if saved.name in self.working_parameters:
                 self.working_parameters[saved.name].set(saved.value)
@@ -413,7 +625,18 @@ class ModelInspector(ttk.Frame):
         """Replay edited values while keeping the checkpoint's data selection/config."""
         checkpoint = self.active_checkpoint
         parameter_values = parameters.ModelParameters(self.working_parameters.get_config())
-        model_run = run(copy.deepcopy(checkpoint.run_config), parameter_values, log_prediction=True)
+        if is_converted_checkpoint(checkpoint):
+            if self.dataset is None:
+                self.dataset = data.get_data_before_day()
+            model_run = converted_checkpoint.replay(
+                checkpoint, self.dataset, parameter_values)
+            # The converted replay directly predicts the selected replica; it
+            # intentionally does not call the optimisation objective.  Do not
+            # use ``plotted_checkpoint`` here because it expects a recorded
+            # objective call in order to index ``last_call()`` for a loss.
+            return manual_converted_result(checkpoint, model_run)
+        else:
+            model_run = run(copy.deepcopy(checkpoint.run_config), parameter_values, log_prediction=True)
         result = plot_checkpoint.plotted_checkpoint(
             "manual", checkpoint.source, checkpoint.metadata, checkpoint.run_config, model_run,
             comparison_name="manual values")
@@ -442,7 +665,15 @@ class ModelInspector(ttk.Frame):
         selected = self.selected_checkpoints()
         if not selected and self.active_checkpoint is not None:
             selected = [self.active_checkpoint]
-        results = [plot_checkpoint.replay_saved_checkpoint(checkpoint) for checkpoint in selected]
+        if self.dataset is None:
+            self.dataset = data.get_data_before_day()
+        results = [
+            plot_checkpoint.CheckpointPlot(
+                checkpoint, converted_checkpoint.replay(checkpoint, self.dataset))
+            if is_converted_checkpoint(checkpoint)
+            else plot_checkpoint.replay_saved_checkpoint(checkpoint)
+            for checkpoint in selected
+        ]
         if self.include_manual.get() and self.active_checkpoint is not None:
             results.append(self._manual_result())
         self._result_cache[cache_key] = results
@@ -562,9 +793,14 @@ class ModelInspector(ttk.Frame):
         window.destroy()
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        'checkpoint_id', nargs='?',
+        help='checkpoint path or unique full/partial CP ID to inspect without loading the full catalogue')
+    arguments = parser.parse_args(argv)
     root = tk.Tk()
-    ModelInspector(root)
+    ModelInspector(root, checkpoint_id=arguments.checkpoint_id)
     root.mainloop()
 
 

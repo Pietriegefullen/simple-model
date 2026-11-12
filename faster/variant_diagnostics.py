@@ -42,6 +42,18 @@ def _microbe_pool(pathway_name):
             'Hydrolysis': 'M_Ferm'}[pathway_name]
 
 
+def _activity_stoichiometry(pathway):
+    """Return the pool change per unit pathway activity.
+
+    Model v0.4 stores reaction stoichiometry and growth-associated anabolism
+    separately.  Older saved model variants retain their combined vector.
+    """
+    if hasattr(pathway, 'stoichiometry'):
+        return (np.asarray(pathway.stoichiometry, dtype=float)
+                + np.asarray(getattr(pathway, 'anabolism', 0.), dtype=float))
+    return np.asarray(pathway.pathway_vector, dtype=float)
+
+
 def available_pathways(pathway_model, names):
     """Return requested pathway names that are active in a model."""
     present = {candidate.__class__.__name__
@@ -66,7 +78,7 @@ def pathway_pool_rate(pathway_model, run_log, pathway_name, pool):
     """Return one pathway's signed contribution to a pool's change rate."""
     pathway = _pathway(pathway_model, pathway_name)
     time, activity = pathway_activity(pathway_model, run_log, pathway_name)
-    coefficient = float(pathway.pathway_vector[system.index(pool)])
+    coefficient = float(_activity_stoichiometry(pathway)[system.index(pool)])
     return time, activity * coefficient
 
 

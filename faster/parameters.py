@@ -347,8 +347,15 @@ class ModelParameters():
     def unset(self):
         return [p for p in self._parameters.values() if p.is_unset()]
     
-    def check(self):
-        nan_pars = [v for v in self._parameters.values() if v.is_unset()]
+    def check(self, ignore=()):
+        """Raise when a required model parameter has no finite value.
+
+        ``ignore`` is for values supplied directly by a replica at prediction
+        time, which do not need a persistent value in the shared collection.
+        """
+        ignored = set(ignore)
+        nan_pars = [v for v in self._parameters.values()
+                    if v.name not in ignored and v.is_unset()]
         if len(nan_pars) > 0:
             raise Exception('Model parameters are NaN:\n' + '\n'.join([str(p) for p in nan_pars]) )
     
@@ -402,7 +409,7 @@ class Parameter():
         if not range is None and scale is None:
             scale = 'log'
 
-        self.scale = scale
+        self.scale = scale if not scale is None else 'linear'
         self.normalize = normalize
         self.transformer = None
         
@@ -583,7 +590,7 @@ class Parameter():
     def __str__(self):
         var = ''
         if self.is_variable():
-            var = f'  ({self.low:8.3g}, {self.high:8.3g})   {self.scale:6s}   norm.: {self.normalize}'
+            var = f'  ({self.low:8.3g}, {self.high:8.3g})   {str(self.scale):6s}   norm.: {self.normalize}'
         return f'{self.name[:15]:15} = {self.value:8.3g}' + var
     
     def __float__(self):
@@ -689,4 +696,3 @@ def sort_dict(d):
             ss = sort_dict(ss)
         s[k] = ss
     return s
-

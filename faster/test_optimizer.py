@@ -66,6 +66,9 @@ class SamplingParameters:
     def variables(self):
         return self._variables
 
+    def set(self, initial_parameters):
+        pass
+
 
 class SamplingModel:
     def __init__(self):
@@ -93,6 +96,9 @@ class SamplingObjective:
         self.selected = np.asarray(values).copy()
         self.selected_was_transformed = transformed
 
+    def set_generation(self, generation):
+        self.generation = generation
+
 
 class InterruptingSamplingObjective(SamplingObjective):
     def __init__(self, interrupt_after):
@@ -103,6 +109,41 @@ class InterruptingSamplingObjective(SamplingObjective):
         if len(self.evaluated) >= self.interrupt_after:
             raise KeyboardInterrupt()
         return super().__call__(candidate)
+
+
+class OneGenerationCMA:
+    """Small pycma stand-in that makes each configured restart observable."""
+    instances = []
+
+    def __init__(self, mean, sigma0, options):
+        self.mean = np.asarray(mean).copy()
+        self.sigma0 = sigma0
+        self.options = options
+        self.popsize = options['popsize']
+        self._stopped = False
+        type(self).instances.append(self)
+
+    def ask(self):
+        return [self.mean.copy() for _ in range(self.popsize)]
+
+    def tell(self, population, losses):
+        self._stopped = True
+
+    def stop(self):
+        return {'test': True} if self._stopped else {}
+
+
+class RestartMinimumRecorder:
+    def __init__(self):
+        self.records = []
+
+    def save_cma_restart_minimum(self, variables, values, loss, restart, kind):
+        self.records.append((restart, kind, np.asarray(values).copy(), loss))
+
+
+class FailingAlgorithm(optimizer.Algorithm):
+    def _minimize(self, objective, initial_parameters):
+        raise RuntimeError('solver backend rejected the candidate')
 
 
 class _NoVariables:
@@ -201,6 +242,32 @@ class GlobalBestLossTest(unittest.TestCase):
         self.assertAlmostEqual(second_worker.best_R2(), 0.9)
 
 
+class ExceptionReportingTest(unittest.TestCase):
+    def test_controller_reports_and_reraises_an_optimisation_exception(self):
+        output = io.StringIO()
+        with redirect_stdout(output), self.assertRaisesRegex(
+                RuntimeError, 'solver backend rejected'):
+            FailingAlgorithm().minimize(SamplingObjective(), None, verbose=False)
+
+        self.assertIn('Optimisation failed: RuntimeError: '
+                      'solver backend rejected the candidate', output.getvalue())
+
+    def test_worker_reports_an_objective_exception_before_reraising(self):
+        objective = ValueObjective()
+        objective._call = mock.Mock(side_effect=ValueError('bad model state'))
+        worker = mock.Mock()
+        worker.name = 'ProcessPoolWorker-2'
+        output = io.StringIO()
+
+        with mock.patch.object(optimizer.multiprocessing, 'current_process',
+                               return_value=worker), redirect_stdout(output), \
+                self.assertRaisesRegex(ValueError, 'bad model state'):
+            objective(1.0)
+
+        self.assertIn('Optimisation worker ProcessPoolWorker-2 failed: '
+                      'ValueError: bad model state', output.getvalue())
+
+
 class InitialSamplingTest(unittest.TestCase):
     def test_evaluates_exact_population_without_differential_evolution(self):
         objective = SamplingObjective()
@@ -219,6 +286,18 @@ class InitialSamplingTest(unittest.TestCase):
             objective.selected, objective.evaluated[np.argmin(losses)]))
         self.assertTrue(objective.selected_was_transformed)
         self.assertEqual(algorithm.best_fun, min(losses))
+
+    def test_reports_that_sampling_completed(self):
+        objective = SamplingObjective()
+        algorithm = optimizer.InitialSampling()
+        algorithm.configure({'samples': 3, 'seed': 4})
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            algorithm._minimize(objective, None)
+
+        self.assertIn('Optimisation stopped: evaluated the requested '
+                      'sample population (3)', output.getvalue())
 
 
 class DifferentialEvolutionBudgetTest(unittest.TestCase):
@@ -242,8 +321,71 @@ class DifferentialEvolutionBudgetTest(unittest.TestCase):
 
         self.assertTrue(algorithm.generation_counter())
 
+    def test_reports_scipy_termination_message(self):
+        algorithm = optimizer.DifferentialEvolution()
+        algorithm.configure({'workers': 1})
+        objective = SamplingObjective()
+        result = mock.Mock(message='Optimization terminated successfully.')
+
+        output = io.StringIO()
+        with mock.patch.object(optimizer.scipy.optimize,
+                               'differential_evolution', return_value=result), \
+                redirect_stdout(output):
+            algorithm._minimize(objective, None)
+
+        self.assertIn('Optimisation stopped: Optimization terminated successfully.',
+                      output.getvalue())
+
 
 class CMAEvolutionStrategyTest(unittest.TestCase):
+    def test_bipop_interleaves_small_and_growing_large_populations(self):
+        OneGenerationCMA.instances = []
+        objective = SamplingObjective()
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'seed': 9, 'popsize': 4, 'sigma0': 0.3,
+                             'restarts': 2, 'restart_strategy': 'bipop'})
+
+        with mock.patch.object(optimizer.cma, 'CMAEvolutionStrategy', OneGenerationCMA):
+            algorithm._minimize(objective, None)
+
+        # Initial large run, a small BIPOP probe, then the next large run.
+        self.assertEqual([run.popsize for run in OneGenerationCMA.instances], [4, 4, 8])
+        self.assertFalse(np.array_equal(OneGenerationCMA.instances[1].mean,
+                                        OneGenerationCMA.instances[0].mean))
+        self.assertLessEqual(OneGenerationCMA.instances[1].sigma0, 0.3)
+
+    def test_records_the_best_candidate_from_each_restart(self):
+        OneGenerationCMA.instances = []
+        recorder = RestartMinimumRecorder()
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'seed': 9, 'popsize': 4, 'restarts': 2,
+                             'restart_strategy': 'bipop'})
+        algorithm.set_restart_checkpoint(recorder)
+
+        with mock.patch.object(optimizer.cma, 'CMAEvolutionStrategy', OneGenerationCMA):
+            algorithm._minimize(SamplingObjective(), None)
+
+        self.assertEqual([(restart, kind) for restart, kind, _, _ in recorder.records],
+                         [(0, 'large'), (1, 'small'), (2, 'large')])
+        self.assertTrue(all(np.isfinite(loss) for _, _, _, loss in recorder.records))
+
+    def test_rejects_an_unknown_restart_strategy(self):
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'restart_strategy': 'unknown'})
+
+        with self.assertRaisesRegex(ValueError, 'restart_strategy'):
+            algorithm._minimize(SamplingObjective(), None)
+
+    def test_passes_function_tolerance_to_pycma(self):
+        OneGenerationCMA.instances = []
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'popsize': 4, 'funtol': 0.0125})
+
+        with mock.patch.object(optimizer.cma, 'CMAEvolutionStrategy', OneGenerationCMA):
+            algorithm._minimize(SamplingObjective(), None)
+
+        self.assertEqual(OneGenerationCMA.instances[0].options['tolfun'], 0.0125)
+
     def test_respects_budget_and_leaves_objective_at_best_candidate(self):
         objective = SamplingObjective()
         algorithm = optimizer.CMAEvolutionStrategy()
@@ -267,6 +409,18 @@ class CMAEvolutionStrategyTest(unittest.TestCase):
         algorithm._minimize(objective, None)
 
         self.assertEqual(len(objective.evaluated), 3)
+
+    def test_reports_an_evaluation_budget_stop(self):
+        objective = SamplingObjective()
+        algorithm = optimizer.CMAEvolutionStrategy()
+        algorithm.configure({'seed': 2, 'popsize': 8, 'max_evaluations': 3})
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            algorithm._minimize(objective, None)
+
+        self.assertIn('Optimisation stopped: reached the evaluation limit (3)',
+                      output.getvalue())
 
     def test_continues_from_a_generation_state_checkpoint(self):
         """A resumed CMA run has the same next populations as an intact run."""
@@ -323,6 +477,21 @@ class CMAEvolutionStrategyTest(unittest.TestCase):
 
         combined = np.vstack(interrupted_objective.evaluated + resumed_objective.evaluated)
         self.assertTrue(np.array_equal(combined, np.vstack(whole.evaluated)))
+
+
+class PowellTest(unittest.TestCase):
+    def test_reports_scipy_termination_message(self):
+        algorithm = optimizer.Powell()
+        objective = SamplingObjective()
+        result = mock.Mock(message='Optimization terminated successfully.')
+
+        output = io.StringIO()
+        with mock.patch.object(optimizer.scipy.optimize, 'minimize',
+                               return_value=result), redirect_stdout(output):
+            algorithm._minimize(objective, None)
+
+        self.assertIn('Optimisation stopped: Optimization terminated successfully.',
+                      output.getvalue())
 
 
 class CombinedObjectiveTest(unittest.TestCase):

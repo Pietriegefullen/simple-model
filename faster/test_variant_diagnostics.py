@@ -9,9 +9,10 @@ import variant_diagnostics
 
 def pathway(name, coefficients):
     instance = type(name, (), {})()
-    instance.pathway_vector = [0.0] * len(system.SYSTEM)
+    instance.stoichiometry = [0.0] * len(system.SYSTEM)
+    instance.anabolism = [0.0] * len(system.SYSTEM)
     for pool, value in coefficients.items():
-        instance.pathway_vector[system.index(pool)] = value
+        instance.stoichiometry[system.index(pool)] = value
     return instance
 
 
