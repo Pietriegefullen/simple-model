@@ -14,6 +14,12 @@
   type=symbols,
   sort=2-Si
 }
+\newglossaryentry{dissolved_chemical_species}{%
+  name={\ensuremath{\Sdis_i}},
+  description={chemical/microbe species},
+  type=symbols,
+  sort=2-Si
+}
 \newglossaryentry{gas_constant}{%
   name={\ensuremath{R}},
   description={gas constant},
@@ -46,7 +52,7 @@
 }
 \newglossaryentry{species_index}{%
   name={\ensuremath{i}},
-  description={index over chemical/microbe species},
+  description={index over chemical species},
   type=symbols,
   sort=2-i
 }
@@ -83,7 +89,7 @@
 }
 \newglossaryentry{v_max}{%
   name={\ensuremath{v_{\mathrm{max}}}},
-  description={maximum pathway turnover velocity},
+  description={maximum pathway turnover rate},
   type=symbols,
   sort=2-vmax
 }
@@ -107,6 +113,9 @@
 
 \section{Methods}
 
+
+Note: pathway production rates are per reaction, i.e. not normalised. Hence, the actual production per day must take the stoichiometry into account.
+
 \subsection{Pathways}
 
 The model takes into account $N_P$ pathways, each characterized by a reaction equation and associated with a group of microbes.
@@ -120,11 +129,25 @@ Each pathway is characterized by a reaction equation.
 \ce{CH3COOH + H2O + 8 Fe^3+ <=> 8 Fe^2+ + 2CO2}
 
 
+\subsubsection{Fermentation}
+\ce{10 DOC <=> 3.5 CH3COOH + 3 CO2 + 6 H2}
+
+
+\subsubsection{Hydrolysis}
+\ce{TOC -> DOC}
+
+
+\subsubsection{Hydrogenotrophic methanogenesis}
+\ce{4 H2 + CO2 <=> CH4 + 2 H2O}
+
+\subsubsection{Homoacetogenesis}
+\ce{4 H2 + 2 CO2 <=> CH3COOH + 2 H2O}
+
 
 \subsection{System}
 
 The system is composed of several substances and microbe populations, both changing over time.
-The amount of the $i$-th substance (chemical or microbial species) that is present in the system at time $t$ is 
+The amount of the $i$-th substance that is present in the system at time $t$ is 
 \begin{equation}
 S_i = S_i(t).
 \end{equation}
@@ -132,35 +155,27 @@ The amount of biomass for the microbial pools are given by
 \begin{equation}
 M_j = M_j(t).
 \end{equation}
-The entire system state is described by the array
+Biomass is \ce{C5H7O2N}.
+
+The entire system state is described by the arrays
 \begin{equation}
-\bm{S} = \begin{bmatrix}
+ \bm{S} = \begin{bmatrix}
         S_0\\
         S_1\\
-        \ldots
-        S_{N_S}\\
+        \ldots\\
+        S_{N_S}
+        \end{bmatrix}\text{ and }
+        \bm{M} = \begin{bmatrix}
         M_0\\
         M_1\\
         \ldots\\
         M_{N_P}
         \end{bmatrix}
 \end{equation}
-\\
 
-The microbes' metabolism is composed of an anabolistic and a catabolistic fraction.
-The reaction equation describes the catabolism. 
-In addition, the microbes use one substance as carbon source for the anabolism.
-The carbon-use-efficiency $\cuej$ indicates the fraction of carbon turnover which goes into growth.
-Hence, the carbon turnover of the total metabolism is composed of the stoichiometric coefficient for the respective carbon source and additional terms describing the anabolism, i.e.
 \begin{equation}
-\cuej = \frac{A_j}{A_j + |\Gamma_j|}, 
+\mathcal{S} = \begin{bmatrix}\bm{S}\\\bm{M}\end{bmatrix}
 \end{equation}
-where $|\Gamma_j|$ is the stoichiometric coefficient of the substance used as carbon source by the microbes of the $j$-th pathway.
-Rearranging yields the effective stoichiometric contribution of the anabolism for the $j$-th pathway
-\begin{equation}
-\alpha_{j} = |\Gamma_j| \frac{\cuej}{1 - \cuej}.
-\end{equation}
-This term describes the reduction of substance used as carbon source for the anabolism by the $j$-th pathway's microbes.
 \\
 
 The evolution of the system is described via the rates of change
@@ -170,16 +185,8 @@ The evolution of the system is described via the rates of change
 \end{align}
 for the substances and microbes, respectively.
 The stoichiometric coefficients for the $i$-th substance, $\gamma_{ij}$, are negative for reactants and positive for products.
-Furthermore,
-\begin{equation}
-\alpha_{ij} = \begin{cases} A_j & \mathrm{if}\ i = \mathrm{carbon\ source\ index}\\
-                        0 & \mathrm{otherwise},
-            \end{cases}
-\end{equation}
-describes the anabolism, transferring carbon from the source to the driving microbe group of the $j$-th pathway.
-The diminishing rate $\delta$ is constant for all microbe groups.
+Furthermore, $\alpha_{ij}$ and $\delta$ describe the growth and diminishing rates of the biomass, respectively.
 \\
-
 
 The $j$-th pathway's turnover rate is governed by the velocity
 \begin{equation}
@@ -189,19 +196,21 @@ with the constant maximum turnover rate $v_{\mathrm{max}}$ and the time-dependen
 
 The forward and inverse kinetics are modelled by the factors
 \begin{equation}
-f_{\mathrm{MM},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{m,ij}}
+f_{\mathrm{MM},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{\Sdis_i}{\Sdis_i + K_{m,ij}}
 \end{equation}
 and 
 \begin{equation}
-f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{S_i}{S_i + K_{\mathrm{inhib},ij}},
+f_{\mathrm{inhib},j} = \prod_{i = 1}^{N_{\mathrm{S}}} \frac{K_{\mathrm{inhib},ij}}{\Sdis_i + K_{\mathrm{inhib},ij}},
 \end{equation}
 respectively, where $K_{m,ij}$ and $K_{\mathrm{inhib}, ij}$ are the half-saturation coefficients with respect to the $i$-th substance in the $j$-th pathway.
 If the $i$-th pool is irrelevant for the $j$-th pathway, $K_{m,ij} = 0$.
+
 Numerics: Add $\varepsilon = 10^{-12}$ in the denominator, to avoid division by zero.
+\\
 
 The thermodynamics is taken into account by the factor
 \begin{equation}
-f_{\mathrm{thermo},j} = 1 - e^{\frac{\min(0, \Delta G_{r,j} - \Delta G_{r,\min})}{RT}},
+f_{\mathrm{thermo},j} = 1 - \exp\left[\frac{1}{RT}\min(0, \Delta G_{r,j} - \Delta G_{r,\min})\right],
 \end{equation}
 with the energy
 \begin{equation}
@@ -212,14 +221,92 @@ defined via the reaction quotient of the species' activities $a_i$ for each path
 Q_j = \prod_{i =1}^{N_P} a_{i}^{\gamma_{ij}},
 \end{equation}
 and the constant formation energies $\Delta G_{f,i}$.
-The Gibbs minimum $\Delta G_{r,\min} = -26 \cdot 10^3 \_ \frac{\mathrm{kJ}}{\mathrm{mol}}$ defines the boundary of thermodynamic viability.
+The Gibbs minimum \mbox{$\Delta G_{r,\min} = -26 \cdot 10^3 \frac{\mathrm{J}}{\mathrm{mol}}$} defines the boundary of thermodynamic viability.
+
+The activities are approximated as
+\begin{equation}
+a_i = \Sdis_i,
+\end{equation}
+where $\Sdis_i$ is the dissolved fraction of the $i$-th substance per reference volume of solvent ($1$ liter \ce{H2O}).
 \\
+
+
+\subsubsection{Growth}
+
+The microbes' metabolism is composed of an anabolic and a catabolic fraction.
+The reaction equation describes the catabolism. 
+In addition, the microbes use one substance as carbon source for the anabolism.
+The carbon-use-efficiency $\cuej$ indicates the fraction of carbon turnover which goes into growth of the biomass associated with the $j$-th pathway.
+Hence, the carbon turnover of the total metabolism is composed of the stoichiometric coefficient for the respective carbon source and additional terms describing the anabolism, i.e.
+\begin{equation}
+\cuej = \frac{A_j}{A_j + |\Gamma_j|}, 
+\end{equation}
+where $|\Gamma_j|$ is the stoichiometric coefficient of the substance used as carbon source by the microbes of the $j$-th pathway.
+Rearranging yields the effective stoichiometric contribution of the anabolism for the $j$-th pathway
+\begin{equation}
+A_{j} = |\Gamma_j| \frac{\cuej}{1 - \cuej},
+\end{equation}
+which describes the reduction of substance used as carbon source for the anabolism by the $j$-th pathway's microbes.
+Hence, 
+\begin{equation}
+\alpha_{ij} = \begin{cases} A_j & \mathrm{if}\ i = \mathrm{carbon\ source\ index}\\
+                        0 & \mathrm{otherwise}.
+            \end{cases}
+\end{equation}
+\\
+
+
+\subsection{Model parameters}
 
 The system behaviour is parametrised by a set of model parameters $\bm{\theta}$
 \begin{equation}
-\frac{\mathrm{d} \bm{S}}{\mathrm{d}t} = f(t, \bm{S}; \bm{\theta})
+\frac{\mathrm{d} \mathcal{S}}{\mathrm{d}t} = f(t, \mathcal{S}; \bm{\theta}).
 \end{equation}
-and can be integrated numerically using an initial system state $\bm{S}_0$ to yield $\bm{S}(t)$.
+
+The parameters are
+\begin{equation}
+\bm{\theta} = \begin{pmatrix}
+                K_{m,\mathrm{Ferm},\mathrm{Hydrolysis}}\\
+                K_{m,\mathrm{DOC},\mathrm{Ferm}}\\
+                K_{m,\mathrm{\htwo},\mathrm{Hydro}}\\
+                K_{m,\mathrm{\cotwo},\mathrm{Hydro}}\\
+                K_{m,\mathrm{\htwo},\mathrm{Homo}}\\
+                K_{m,\mathrm{\cotwo},\mathrm{Homo}}\\
+                K_{m,\mathrm{Ac},\mathrm{Aceto}}\\
+                K_{m,\mathrm{Ac},\mathrm{\fethree}}\\
+                K_{m,\mathrm{\fethree},\mathrm{\fethree}}\\
+                K_{\mathrm{inhib},Ac,\mathrm{Ferm}}\\
+                \mathrm{CUE}_{\mathrm{Ferm}}\\
+                \mathrm{CUE}_{\mathrm{Hydro}}\\
+                \mathrm{CUE}_{\mathrm{Homo}}\\
+                \mathrm{CUE}_{\mathrm{Aceto}}\\
+                \mathrm{CUE}_{\mathrm{Fe3}}\\
+                v_{\max,\mathrm{Hydrolysis}}\\
+                v_{\max,\mathrm{Ferm}}\\
+                v_{\max,\mathrm{Fe3}}\\
+                v_{\max,\mathrm{Hydro}}\\
+                v_{\max,\mathrm{Homo}}\\
+                v_{\max,\mathrm{Homo}}\\
+                \delta
+                \end{pmatrix}.
+\end{equation} % 15 KM and CUE
+
+
+Together with the initial parameters
+\begin{equation}
+\bm{\theta}_0 = \begin{bmatrix}
+S_{\mathrm{Fe},0}\\
+S_{\mathrm{Ac},0}\\
+M_{\mathrm{Ferm},0}\\
+M_{\mathrm{Fe3},0}\\
+M_{\mathrm{Homo},0}\\
+M_{\mathrm{Hydro},0}\\
+M_{\mathrm{Aceto},0}
+\end{bmatrix}
+\end{equation}
+
+The sample data provides initial values for the TOC and DOC pools (estimated as $2\,\%$ of TOC).
+All other chemical pools are initially set to zero.
 
 % constants (7)
 % v_max (6)
@@ -232,6 +319,7 @@ and can be integrated numerically using an initial system state $\bm{S}_0$ to yi
 % Acetate
 % Fe3
 
+
 % initial microbes (5)
 % Fermentation
 % Hydrogenotrophes
@@ -239,30 +327,19 @@ and can be integrated numerically using an initial system state $\bm{S}_0$ to yi
 % Homoacetogenesis
 % Acetoclasts
 
+\subsection{Numerical treatment}
+
+The system constitutes an initial value problem (IVP).
+Initial values are provided from data and as model parameters.
+The system is then integrated using a % adaptive?
+Runge-Kutta scheme\footnote{scipy version $1.13.1$ solve\_ivp function}.
+
+In order to avoid negative pools, 
 \begin{equation}
-\bm{x} = \begin{bmatrix}
-        \bm{\theta}\\
-        S_{\mathrm{Fe},0}\\
-        S_{\mathrm{Ac},0}\\
-        M_{\mathrm{j},0}\\
-        \end{bmatrix}
+S_i = \max(0, S_i)
 \end{equation}
 
-\begin{equation}
-\bm{\theta} = \begin{pmatrix}
-                K_{m,\mathrm{Ferm},\mathrm{Hydrolysis}}\\
-                K_{m,\mathrm{DOC},\mathrm{Ferm}}\\
-                K_{m,\mathrm{\htwo},\mathrm{Hydro}}\\
-                K_{m,\mathrm{\cotwo},\mathrm{Hydro}}\\
-                K_{m,\mathrm{\htwo},\mathrm{Homo}}\\
-                K_{m,\mathrm{\cotwo},\mathrm{Homo}}\\
-                K_{m,\mathrm{Ac},\mathrm{Aceto}}\\
-                K_{m,\mathrm{Ac},\mathrm{\fethree}}\\
-                K_{m,\mathrm{\fethree},\mathrm{\fethree}}\\
-                K_{\mathrm{inhib},ij}\\
-                \cuej\\
-                \end{pmatrix}
-\end{equation}
+is enforced at each time step.
 
 
 \section{Fit}
@@ -278,10 +355,14 @@ For a given set of model parameters $\bm{x}$,
 
 \appendix
 
-\section{Thermodynamics}
+\section{Henry's law}
 \begin{equation}
- H_{cc,i} = H_{cp}^{\circ} RT e^{C_{cp} \left(\frac{1}{T} - \frac{1}{T^{\circ}}\right)}
+ H_{cc,i} = H_{cp}^{\circ} RT \exp\left[C_{cp} \left(\frac{1}{T} - \frac{1}{T^{\circ}}\right)\right]
 \end{equation}
+
+$H_{cp}^{\circ}$, $C_{cp}$ tabulated for $\ce{CO2}$, $\ce{CH4}$, $\ce{H2}$.
+$R$ is the gas constant, $T = 273.15 + 4$ is the sample temperature.
+
 
 \begin{equation}
 \lambda_i = H_{cc,i} \frac{V_{\mathrm{aq}}}{V_{\mathrm{gas}}}
@@ -291,20 +372,13 @@ For a given set of model parameters $\bm{x}$,
 \Sdis_i = S_i\frac{\lambda_i}{1+\lambda_i}
 \end{equation}
 
-\begin{equation}
-a_i = \frac{\Sdis_i}{w}
-\end{equation}
 
-\begin{equation}
-\Delta G_{s,j} = \sum_{i = 1}^{N_P} \gamma_{ij}\Delta G_{f,i}
-\end{equation}
+%\begin{equation}
+%\Delta G_{s,j} = \sum_{i = 1}^{N_P} \gamma_{ij}\Delta G_{f,i}
+%\end{equation}
 
 
 
 
-In order to avoid negative pools, 
-\begin{equation}
-S_i = \max(0, S_i)
-\end{equation}
 
 \end{document}
