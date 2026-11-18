@@ -2,3 +2,11 @@
 cma>=4.5,<5
 # Optional compiled RHS selected by ``python faster/fit_replicas.py --c``.
 Cython>=3.0,<4
+# Keep compatibility with installed binary scientific packages.
+numpy>=1.26,<2
+# Discretized functional PCA for vector-valued pathway activity signatures.
+# 0.10 requires Python 3.10; the soil environment currently uses Python 3.9.
+scikit-fda==0.9.1; python_version < '3.10'
+scikit-fda>=0.10,<0.11; python_version >= '3.10'
+# scikit-fda 0.10.x currently requires the 1.x multimethod interface.
+multimethod>=1.5,<2

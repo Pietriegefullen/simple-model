@@ -1,0 +1,326 @@
+[
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 0.9868333751099456,
+    "converted_low": 0.000693166979400611,
+    "default_high": 0.3,
+    "default_low": 0.00876,
+    "parameter": "Ac_CUE",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": 97.7322,
+    "default_low": 0.977322,
+    "parameter": "Ac_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 161632.2619904368,
+    "converted_low": 0.014968574041595817,
+    "default_high": 100,
+    "default_low": 0,
+    "parameter": "Acetate",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 1013354.5334280444,
+    "converted_low": 179.9245866275898,
+    "default_high": 23,
+    "default_low": 10,
+    "parameter": "Aceto_Km_Ac",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.0,
+    "converted_low": 0.0,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "CH4",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.0,
+    "converted_low": 0.0,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "CO2",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 172377.83078203417,
+    "converted_low": 9495.06708853775,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "DOC",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.0,
+    "converted_low": 0.0,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Fe2",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 658744.425059435,
+    "converted_low": 1110.9347990899416,
+    "default_high": 300,
+    "default_low": 0,
+    "parameter": "Fe3",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.9971056698814006,
+    "converted_low": 0.016257417713784916,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Fe3_CUE",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 3716436.104540284,
+    "converted_low": 0.3153300985936875,
+    "default_high": 230,
+    "default_low": 11.99,
+    "parameter": "Fe3_Km_Ac",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 3729567.8667731755,
+    "converted_low": 0.28527276931435386,
+    "default_high": 5400000,
+    "default_low": 230,
+    "parameter": "Fe3_Km_Fe3",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": 47.6,
+    "default_low": 0.1296,
+    "parameter": "Fe3_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.9944015950435162,
+    "converted_low": 2.3636009336767944e-09,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Ferm_CUE",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 315061.0200415359,
+    "converted_low": 0.47023905684690337,
+    "default_high": 15000,
+    "default_low": 54,
+    "parameter": "Ferm_Km",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 753827.6376715385,
+    "converted_low": 0.6981447257049047,
+    "default_high": 0.1,
+    "default_low": 1e-06,
+    "parameter": "Ferm_inhibition",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": 97.7322,
+    "default_low": 0.5533,
+    "parameter": "Ferm_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.0,
+    "converted_low": 0.0,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "H2",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 55508435.061792,
+    "converted_low": 55508435.06179198,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "H2O",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.9999998515090823,
+    "converted_low": 0.03229425564061644,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Homo_CUE",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 2221864.842132445,
+    "converted_low": 1.8849796860690125,
+    "default_high": 100,
+    "default_low": 10,
+    "parameter": "Homo_Km_CO2",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 1967495.6130824534,
+    "converted_low": 2.065994936412758,
+    "default_high": 100,
+    "default_low": 10,
+    "parameter": "Homo_Km_H2",
+    "value_count": 92
+  },
+  {
+    "comparison": "inside_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": 1000.0,
+    "default_low": 0.001,
+    "parameter": "Homo_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.9996001340311964,
+    "converted_low": 0.015189225577350295,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Hydro_CUE",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 2648050.0915899393,
+    "converted_low": 0.20155579360150386,
+    "default_high": 1000,
+    "default_low": 29,
+    "parameter": "Hydro_Km_CO2",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 3207769.4597583325,
+    "converted_low": 13.071598541313355,
+    "default_high": 200,
+    "default_low": 13,
+    "parameter": "Hydro_Km_H2",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "Hydro_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 59222344.21989432,
+    "converted_low": 1113.7496967662296,
+    "default_high": 200,
+    "default_low": 1e-10,
+    "parameter": "Hydrolysis_Kmb",
+    "value_count": 92
+  },
+  {
+    "comparison": "inside_default_bounds",
+    "converted_high": 0.012010999999999999,
+    "converted_low": 0.012010999999999999,
+    "default_high": 0.1,
+    "default_low": 1e-08,
+    "parameter": "Hydrolysis_v_max",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 4592.230241986968,
+    "converted_low": 0.0003018438530137917,
+    "default_high": 1000,
+    "default_low": 4,
+    "parameter": "M_Ac",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 802148.0457556155,
+    "converted_low": 0.01161643758945716,
+    "default_high": 360,
+    "default_low": 0.0002,
+    "parameter": "M_Fe3",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 579057.8700660238,
+    "converted_low": 0.0005921768824273846,
+    "default_high": 300,
+    "default_low": 0.3,
+    "parameter": "M_Ferm",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 1561942.6999397692,
+    "converted_low": 0.00044625790989620594,
+    "default_high": 500,
+    "default_low": 0.0002,
+    "parameter": "M_Homo",
+    "value_count": 92
+  },
+  {
+    "comparison": "overlaps_default_bounds",
+    "converted_high": 868918.5362087482,
+    "converted_low": 0.00027508175467145867,
+    "default_high": 500,
+    "default_low": 5,
+    "parameter": "M_Hydro",
+    "value_count": 92
+  },
+  {
+    "comparison": "no_default_bounds",
+    "converted_high": 8618891.539101709,
+    "converted_low": 474753.35442688747,
+    "default_high": null,
+    "default_low": null,
+    "parameter": "TOC",
+    "value_count": 92
+  },
+  {
+    "comparison": "outside_default_bounds",
+    "converted_high": 8.3e-05,
+    "converted_low": 8.3e-05,
+    "default_high": 0.06,
+    "default_low": 0.000129,
+    "parameter": "death_rate",
+    "value_count": 92
+  }
+]

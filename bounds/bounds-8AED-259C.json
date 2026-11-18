@@ -1,0 +1,341 @@
+{
+  "bounds_id": "8AED-259C",
+  "checkpoint_count": 3,
+  "checkpoint_ids": [
+    "cp-7YLZ-VMTG",
+    "cp-KT6B-DIBP",
+    "cp-6K4R-NNNN"
+  ],
+  "checkpoints": [
+    {
+      "checkpoint_id": "cp-7YLZ-VMTG",
+      "model_id": "model-RV3C-CBBV",
+      "run_id": "run-CWA-KT5",
+      "sample_replicas": [
+        "1351-4"
+      ],
+      "source": "/Users/martinlegeland/Code/soil/simple-model/results/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single_loss-00087821_run-CWA-KT5_cp-7YLZ-VMTG"
+    },
+    {
+      "checkpoint_id": "cp-KT6B-DIBP",
+      "model_id": "model-RV3C-CBBV",
+      "run_id": "run-XIE-332",
+      "sample_replicas": [
+        "1351-4"
+      ],
+      "source": "/Users/martinlegeland/Code/soil/simple-model/results/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single_loss-00059578_run-XIE-332_cp-KT6B-DIBP"
+    },
+    {
+      "checkpoint_id": "cp-6K4R-NNNN",
+      "model_id": "model-RV3C-CBBV",
+      "run_id": "run-Y2E-ARH",
+      "sample_replicas": [
+        "1351-4"
+      ],
+      "source": "/Users/martinlegeland/Code/soil/simple-model/results/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single/loss-KC7Z-ZD6L_model-RV3C-CBBV_1351_4_single_loss-00440723_run-Y2E-ARH_cp-6K4R-NNNN"
+    }
+  ],
+  "parameters": [
+    {
+      "high": 0.22817313185253976,
+      "high_checkpoint_id": "cp-6K4R-NNNN",
+      "low": 0.11992866183540975,
+      "low_checkpoint_id": "cp-KT6B-DIBP",
+      "parameter": "Ac_CUE",
+      "value_count": 3
+    },
+    {
+      "high": 0.02054354187775553,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.011983875077161255,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Ac_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 964.7520505600154,
+      "high_checkpoint_id": "cp-6K4R-NNNN",
+      "low": 187.41073700213323,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Acetate",
+      "value_count": 3
+    },
+    {
+      "high": 100.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 100.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Aceto_Km_Ac",
+      "value_count": 3
+    },
+    {
+      "high": 0.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "CH4",
+      "value_count": 3
+    },
+    {
+      "high": 0.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "CO2",
+      "value_count": 3
+    },
+    {
+      "high": 172377.83078203417,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 172377.83078203417,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "DOC",
+      "value_count": 3
+    },
+    {
+      "high": 0.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Fe2",
+      "value_count": 3
+    },
+    {
+      "high": 247.03049733255057,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 109.26714871156481,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Fe3",
+      "value_count": 3
+    },
+    {
+      "high": 0.05,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.05,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Fe3_CUE",
+      "value_count": 3
+    },
+    {
+      "high": 100.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 100.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Fe3_Km_Ac",
+      "value_count": 3
+    },
+    {
+      "high": 100.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 100.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Fe3_Km_Fe3",
+      "value_count": 3
+    },
+    {
+      "high": 0.0869313504877308,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.011303836049889143,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Fe3_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 0.4168770534158993,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.026125783899333947,
+      "low_checkpoint_id": "cp-KT6B-DIBP",
+      "parameter": "Ferm_CUE",
+      "value_count": 3
+    },
+    {
+      "high": 4747.5,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 4747.5,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Ferm_Km",
+      "value_count": 3
+    },
+    {
+      "high": 204420.9033707574,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.8405062523571848,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Ferm_inhibition",
+      "value_count": 3
+    },
+    {
+      "high": 0.0998433121509823,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.01000346181583647,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Ferm_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 0.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "H2",
+      "value_count": 3
+    },
+    {
+      "high": 55506769.80874013,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 55506769.80874013,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "H2O",
+      "value_count": 3
+    },
+    {
+      "high": 0.38069187980841457,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.14409719637109172,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Homo_CUE",
+      "value_count": 3
+    },
+    {
+      "high": 47300.07694860732,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 36164.2595247452,
+      "low_checkpoint_id": "cp-KT6B-DIBP",
+      "parameter": "Homo_Km_CO2",
+      "value_count": 3
+    },
+    {
+      "high": 1960079.040441243,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 32693.55356378673,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Homo_Km_H2",
+      "value_count": 3
+    },
+    {
+      "high": 0.021578030943830668,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.01095662215843045,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Homo_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 0.2617583695263022,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 0.037261839466530236,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Hydro_CUE",
+      "value_count": 3
+    },
+    {
+      "high": 207.6906142063926,
+      "high_checkpoint_id": "cp-6K4R-NNNN",
+      "low": 0.35926084565043365,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Hydro_Km_CO2",
+      "value_count": 3
+    },
+    {
+      "high": 2792075.6271900004,
+      "high_checkpoint_id": "cp-KT6B-DIBP",
+      "low": 2316.835846378677,
+      "low_checkpoint_id": "cp-6K4R-NNNN",
+      "parameter": "Hydro_Km_H2",
+      "value_count": 3
+    },
+    {
+      "high": 0.02236156616275876,
+      "high_checkpoint_id": "cp-6K4R-NNNN",
+      "low": 0.01006433974265424,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Hydro_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 10.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 10.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "Hydrolysis_Kmb",
+      "value_count": 3
+    },
+    {
+      "high": 0.07573722006697131,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 0.010001347485653553,
+      "low_checkpoint_id": "cp-KT6B-DIBP",
+      "parameter": "Hydrolysis_v_max",
+      "value_count": 3
+    },
+    {
+      "high": 1.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 1.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "M_Ac",
+      "value_count": 3
+    },
+    {
+      "high": 1.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 1.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "M_Fe3",
+      "value_count": 3
+    },
+    {
+      "high": 1.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 1.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "M_Ferm",
+      "value_count": 3
+    },
+    {
+      "high": 1.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 1.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "M_Homo",
+      "value_count": 3
+    },
+    {
+      "high": 1.0,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 1.0,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "M_Hydro",
+      "value_count": 3
+    },
+    {
+      "high": 8618891.539101709,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 8618891.539101709,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "TOC",
+      "value_count": 3
+    },
+    {
+      "high": 8.3e-05,
+      "high_checkpoint_id": "cp-7YLZ-VMTG",
+      "low": 8.3e-05,
+      "low_checkpoint_id": "cp-7YLZ-VMTG",
+      "parameter": "death_rate",
+      "value_count": 3
+    }
+  ],
+  "selection": {
+    "best_restart": true,
+    "excluded_ids": null,
+    "fit_modes": null,
+    "loss_upper": 1e+99,
+    "model_ids": [
+      "RV3C"
+    ],
+    "origins": null,
+    "replicas": null,
+    "samples": null,
+    "sites": null
+  }
+}

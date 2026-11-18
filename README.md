@@ -67,6 +67,7 @@ python faster/plot_checkpoint.py KRQY --output-dir checkpoint_plots/KRQY
 python faster/plot_checkpoint.py KRQY LMRT --output-dir checkpoint_plots/comparison
 python faster/plot_checkpoint.py KRQY --compare D "*_thermodynamics" False
 python faster/plot_checkpoint.py --best --sample 1351 --fit-mode split
+python faster/plot_checkpoint.py --best-restart --sample 1351 --fit-mode split
 ```
 
 `--best` selects the lowest-loss checkpoint for every matching model, fit mode,
@@ -74,6 +75,10 @@ sample, and validation replica. It writes one report per checkpoint. The
 older `plot_best.py` is only a short compatibility shortcut for
 `plot_checkpoint.py --best`; `run_checkpoint.py` is likewise retained only as
 a compatibility entry point, so there is one plotting interface to learn.
+
+`--best-restart` instead selects the lowest-loss saved result from each CMA-ES
+restart. For matching groups without restart records, it selects the ordinary
+best checkpoint. Invalid-objective penalty checkpoints are not plotted.
 
 Without `--output-dir`, reports are written below
 `USER_VARIABLES.PLOT_DIRECTORY`: `checkpoint/<fit-mode>/<sample>-<replica>/<id>`
@@ -251,6 +256,28 @@ python faster/replot_sensitivity.py results/sensitivity/1352-5/cp-ABCD_CO2_final
 python faster/replot_sensitivity.py results/sensitivity/1352-5/cp-ABCD_CO2_final \
   --plot elasticity --output parameter_elasticity.png
 ```
+
+## Conditional $M(0)$–$v_{max}$ loss surfaces
+
+`faster/plot_m0_vmax_surface.py` maps the objective near a saved checkpoint
+while holding every parameter fixed except a pathway's initial microbial
+biomass and specific maximum rate. It does not re-optimise at each cell, so a
+low-loss diagonal directly shows their conditional non-identifiability. The
+white dashed line marks constant initial capacity,
+`M(0) * v_max = M(0)_opt * v_max_opt`.
+
+```sh
+python faster/plot_m0_vmax_surface.py 6LND Hydro --grid-density 81
+python faster/plot_m0_vmax_surface.py IUPI Fe3 --grid-density 61 --log-span 1.5
+```
+
+The checkpoint can be given by a uniquely resolvable partial ID. Pathways
+`Aceto`, `Fe3`, `Homo`, and `Hydro` are supported. Hydrolysis and fermentation
+are deliberately excluded because they share `M_Ferm`; changing it would also
+alter the other pathway. Results are stored separately below
+`results/m0_vmax_surfaces/<sample>-<replica>/` as a PNG heatmap, a CSV grid,
+and a JSON provenance record. `--log-span` sets the half-width in decades
+(default: one); grid values are clipped to the model's bounds.
 
 ## Parameter distributions for successful single fits
 
