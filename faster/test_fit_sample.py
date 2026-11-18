@@ -65,6 +65,22 @@ class OptimizerArgumentTest(unittest.TestCase):
             user_input.parse_args_fit(
                 ['1351', '4', '--default', '--converted-envelope'])
 
+    def test_hypothesis_is_a_fresh_parameter_source(self):
+        args = user_input.parse_args_fit(['1351', '4', '--hypothesis'])
+
+        self.assertTrue(args.hypothesis)
+        with (redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()),
+              self.assertRaises(SystemExit)):
+            user_input.parse_args_fit(['1351', '4', '--default', '--hypothesis'])
+
+    def test_bounds_is_a_parameter_source(self):
+        args = user_input.parse_args_fit(['1351', '4', '--bounds', 'ABCD'])
+
+        self.assertEqual(args.bounds, 'ABCD')
+        with (redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()),
+              self.assertRaises(SystemExit)):
+            user_input.parse_args_fit(['1351', '4', '--default', '--bounds', 'ABCD'])
+
     def test_cma_es_options_are_available_for_single_sample_fits(self):
         args = user_input.parse_args_fit([
             '1351', '4', '--algorithm', 'cma-es', '--cma-sigma', '0.1',

@@ -4,6 +4,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from matplotlib.figure import Figure
+
 import checkpoint_report
 import model_inspector
 
@@ -43,6 +45,19 @@ class CheckpointFilenameMetadataTest(unittest.TestCase):
 
         self.assertEqual(len(checkpoints), 1)
         load_file.assert_called_once()
+
+    def test_collect_with_failures_keeps_an_unreadable_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory, 'loss-X_model-Y_1351_4_single_run-Z_cp-BAD')
+            source.write_text('not checkpoint data')
+
+            checkpoints, failures = checkpoint_report.collect_all_with_failures(
+                directory, verbose=False)
+
+        self.assertEqual(checkpoints, [])
+        self.assertEqual(len(failures), 1)
+        self.assertEqual(failures[0].checkpoint_id, 'cp-BAD')
+        self.assertEqual(failures[0].source, str(source))
 
 
 class InspectorFilterTest(unittest.TestCase):
@@ -84,6 +99,99 @@ class InspectorFilterTest(unittest.TestCase):
             [older, newer], {'newer.json'})
 
         self.assertEqual(ordered, [newer, older])
+
+    def test_broken_checkpoint_remains_visible_despite_filters(self):
+        failed = model_inspector.FailedCheckpoint(
+            '/results/cp-BAD', 'cp-BAD', 'invalid JSON',
+            {'sample': '1351', 'replica': '4', 'fit_mode': 'single'})
+
+        matched = model_inspector.filter_checkpoints(
+            [failed], {'sample': 'other', 'model_id': '', 'run_id': '',
+                       'replica': '', 'fit_mode': '', 'model_version': '',
+                       'checkpoint_id': ''})
+
+        self.assertEqual(matched, [failed])
+        self.assertIn('[ERROR] cp-BAD: invalid JSON',
+                      model_inspector.checkpoint_label(failed))
+        self.assertIn('Error: invalid JSON', model_inspector.checkpoint_details(failed))
+
+    def test_catalogue_sorting_supports_ids_losses_and_keeps_failures_last(self):
+        def checkpoint(identifier, loss, run_id):
+            return SimpleNamespace(
+                id=identifier, loss=loss, run_id=run_id, model_id='model-X',
+                replica=('1351', '4'), fit_mode='single', metadata=None,
+                run_config={'model': {'version': '0.4'},
+                            'chosen': {'pathways': [], 'normalized_parameters': True}},
+            )
+
+        first = checkpoint('cp-B', .2, 'run-A')
+        second = checkpoint('cp-A', .1, 'run-B')
+        failed = model_inspector.FailedCheckpoint('/results/cp-BAD', 'cp-BAD', 'bad', {})
+
+        self.assertEqual(
+            model_inspector.sort_checkpoints([first, second, failed], 'checkpoint_id'),
+            [second, first, failed])
+        self.assertEqual(
+            model_inspector.sort_checkpoints([first, second, failed], 'loss', descending=True),
+            [first, second, failed])
+        self.assertEqual(
+            model_inspector.sort_checkpoints([first, second], 'run_id'),
+            [first, second])
+
+    def test_saved_replay_is_reused_across_comparison_selections(self):
+        inspector = object.__new__(model_inspector.ModelInspector)
+        inspector._saved_result_cache = {}
+        inspector.dataset = object()
+        checkpoint = SimpleNamespace(source='/results/cp-ONE', metadata=None)
+        result = object()
+
+        with patch.object(model_inspector.plot_checkpoint, 'replay_saved_checkpoint',
+                          return_value=result) as replay:
+            self.assertIs(inspector._saved_result(checkpoint), result)
+            self.assertIs(inspector._saved_result(checkpoint), result)
+
+        replay.assert_called_once_with(checkpoint)
+
+
+class ParameterOrderingTest(unittest.TestCase):
+    def test_groups_fe3_and_acetate_first_then_sorts_each_group(self):
+        names = [
+            'death_rate', 'Hydrolysis_v_max', 'Ferm_v_max', 'Fe3_v_max',
+            'Fe3_CUE', 'Aceto_Km_Ac', 'Ac_CUE', 'M_Ac', 'Hydro_Km_H2',
+            'Homo_CUE', 'M_Ferm',
+        ]
+
+        ordered = sorted(names, key=model_inspector.parameter_sort_key)
+
+        self.assertEqual(ordered, [
+            'Fe3_CUE', 'Fe3_v_max', 'Ac_CUE', 'Aceto_Km_Ac', 'M_Ac',
+            'Ferm_v_max', 'Homo_CUE', 'Hydro_Km_H2', 'Hydrolysis_v_max',
+            'death_rate', 'M_Ferm',
+        ])
+
+
+class PlotScaleTest(unittest.TestCase):
+    def test_log_y_applies_to_every_axis_with_positive_data(self):
+        figure = Figure()
+        first = figure.add_subplot(121)
+        second = figure.add_subplot(122)
+        first.plot([0, 1], [1, 2])
+        second.plot([0, 1], [3, 4])
+
+        model_inspector.apply_plot_y_scale(figure, log_y=True)
+
+        self.assertEqual(first.get_yscale(), 'log')
+        self.assertEqual(second.get_yscale(), 'log')
+
+    def test_linear_y_toggle_overrides_plot_checkpoint_axis_choices(self):
+        figure = Figure()
+        axis = figure.add_subplot()
+        axis.plot([0, 1], [1, 2])
+        axis.set_yscale('log')
+
+        model_inspector.apply_plot_y_scale(figure, log_y=False)
+
+        self.assertEqual(axis.get_yscale(), 'linear')
 
 
 class DirectCheckpointTest(unittest.TestCase):

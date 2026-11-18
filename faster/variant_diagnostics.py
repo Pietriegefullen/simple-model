@@ -124,7 +124,7 @@ def plot_flux_partition(specifications, model_runs, suptitle):
                           label=_curve_label(variant, pathway))
         axis.set_title(rf'$\mathrm{{{pool}\ consumption}}$')
         axis.set_ylabel(
-            rf'$\mathrm{{{pool}\ consumption\ [\mu mol/g\ dry\ weight/d]}}$')
+            rf'$\mathrm{{{pool}\ consumption\ [{plot.SUBSTANCE_RATE_UNIT}]}}$')
     _finish(figure, axes, suptitle)
     figure.subplots_adjust(left=.10, right=.98, bottom=.16, top=.78, wspace=.32)
     return figure
@@ -235,7 +235,7 @@ def plot_ac_pathway_removal_response(specifications, model_runs, suptitle):
                   linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.5,
                   label=rf'$\mathrm{{model\ {variant}}}$')
     axis.set_title(r'$\mathrm{Homo\ H_2\ consumption}$')
-    axis.set_ylabel(r'$\mathrm{H_2\ consumption\ [\mu mol/g\ dry\ weight/d]}$')
+    axis.set_ylabel(rf'$\mathrm{{H_2\ consumption\ [{plot.SUBSTANCE_RATE_UNIT}]}}$')
     _finish(figure, axes, suptitle)
     figure.subplots_adjust(left=.12, right=.98, bottom=.11, top=.84,
                             hspace=.32, wspace=.30)
@@ -284,7 +284,7 @@ def plot_ac_homo_activity_and_delta_g(specifications, model_runs, suptitle):
 
     activity_axis.set_title(r'$\mathrm{Homo\ pathway\ activity}$')
     activity_axis.set_ylabel(
-        r'$M(t)v\ [\mu mol/g\ dry\ weight/d]$')
+        rf'$M(t)v\ [{plot.SUBSTANCE_RATE_UNIT}]$')
     delta_g_axis.set_title(r'$\mathrm{Homo\ reaction\ Gibbs\ energy}$')
     delta_g_axis.set_ylabel(
         rf'$\Delta G_\mathrm{{r}}\ [{plot.GIBBS_ENERGY_UNIT}]$')
@@ -312,9 +312,9 @@ def plot_substrate_flux_phase(specifications, model_runs, suptitle):
                 axis.plot(state, rate, color=pathway_color(pathway),
                           linestyle=plot.MODEL_VARIANT_LINESTYLES[variant], linewidth=1.4,
                           label=_curve_label(variant, pathway))
-        axis.set_xlabel(rf'$\mathrm{{{pool}\ [\mu mol/g\ dry\ weight]}}$')
+        axis.set_xlabel(rf'$\mathrm{{{pool}\ [{plot.SUBSTANCE_UNIT}]}}$')
         axis.set_ylabel(
-            rf'$\mathrm{{{pool}\ consumption\ [\mu mol/g\ dry\ weight/d]}}$')
+            rf'$\mathrm{{{pool}\ consumption\ [{plot.SUBSTANCE_RATE_UNIT}]}}$')
         axis.set_title(rf'$\mathrm{{{pool}\ availability\ and\ pathway\ flux}}$')
         plot.format_ax(axis)
         axis.legend(fancybox=False, edgecolor='k', loc='best', fontsize=8)
@@ -367,7 +367,7 @@ def plot_mass_balance_attribution(specifications, model_runs, suptitle):
         axis.set_xticks(positions, [rf'$\mathrm{{model\ {variant}}}$'
                                     for variant in variants])
         axis.set_title(rf'$\mathrm{{{pool}\ turnover}}$')
-        axis.set_ylabel(r'$\mathrm{cumulative\ change\ [\mu mol/g\ dry\ weight]}$')
+        axis.set_ylabel(rf'$\mathrm{{cumulative\ change\ [{plot.SUBSTANCE_UNIT}]}}$')
         plot.format_ax(axis)
     handles, labels = axes.flat[0].get_legend_handles_labels()
     figure.legend(handles, labels, loc='lower center', ncol=min(4, len(handles)),

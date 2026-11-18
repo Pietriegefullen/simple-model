@@ -191,15 +191,20 @@ class Loss():
         # can legitimately contain one observation; ``squeeze`` would turn
         # its index into a scalar and make the subsequent time filtering try
         # to iterate over a numpy float.
+        def nearest_match(times, target):
+            """Return one tolerance match, preferring the closest timestamp."""
+            matches = np.flatnonzero(np.isclose(times, target))
+            return matches[np.argmin(np.abs(times[matches] - target))]
+
         ind = np.asarray([
-            np.nonzero(np.isclose(t_pred, t))[0].item()
+            nearest_match(t_pred, t)
             for t in t_true if np.any(np.isclose(t, t_pred))
         ], dtype=int)
         t_pred = t_pred[ind]
         pool_pred = pool_pred[ind]
 
         ind = np.asarray([
-            np.nonzero(np.isclose(t_true, t))[0].item()
+            nearest_match(t_true, t)
             for t in t_pred if np.any(np.isclose(t, t_true))
         ], dtype=int)
 

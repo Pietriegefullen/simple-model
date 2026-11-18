@@ -89,6 +89,20 @@ class FitStatusTest(unittest.TestCase):
         self.assertEqual(len(positive), len(negative))
         self.assertEqual(positive.index('.'), negative.index('.'))
 
+    def test_report_shows_local_minima_count_only_when_there_are_restarts(self):
+        results = [
+            fit_status.FitResult('1000', '4', 'single', 'A', .875, None, 3),
+            fit_status.FitResult('1000', '5', 'single', 'A', .825, None),
+        ]
+
+        report = fit_status.format_report(results, self.dataset)
+
+        row = next(line for line in report.splitlines() if line.startswith('  1000'))
+        self.assertIn('0.875 (3)', row)
+        self.assertIn('0.825', row)
+        self.assertNotIn('0.825 (1)', row)
+        self.assertIn('local minima found', report)
+
     def test_report_accepts_a_different_highlight_threshold(self):
         result = fit_status.FitResult('1000', '4', 'single', 'A', .875, None)
         report = fit_status.format_report(
@@ -138,6 +152,36 @@ class FitStatusTest(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].path, Path('matching.json'))
+
+    def test_best_results_counts_restart_minima_from_the_selected_run(self):
+        def checkpoint(loss, restart=None):
+            saved = {
+                'parameters': {}, 'total_loss': loss,
+                'run_config': {
+                    'model': {'name': 'matching'},
+                    'chosen': {'sample': '1000', 'validation_replica': '4',
+                               'fit_mode': 'single'},
+                    'objective': self.objective,
+                },
+            }
+            if restart is not None:
+                saved['cma_restart'] = {'index': restart, 'kind': 'large'}
+            return saved
+
+        with mock.patch.object(
+                fit_status, 'checkpoint_files',
+                return_value=[(Path('ordinary'), checkpoint(.1)),
+                              (Path('restart-0'), checkpoint(.3, 0)),
+                              (Path('restart-1'), checkpoint(.2, 1))]), \
+                mock.patch.object(fit_status.hashing, 'build_model_id',
+                                  return_value='model-MATCHING'), \
+                mock.patch.object(fit_status.hashing, 'build_run_id',
+                                  return_value='run-MATCHING'), \
+                mock.patch.object(fit_status, 'observed_variance', return_value=1.0):
+            results, errors = fit_status.best_results('unused', self.dataset)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(results[0].local_minima, 2)
 
     def test_multi_results_use_every_replica_score_from_best_global_checkpoint(self):
         def multi_checkpoint(loss, r2_values):

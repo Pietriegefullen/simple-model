@@ -11,11 +11,15 @@ from fit_sample import _requested_checkpoint
 from USER_VARIABLES import RESULTS_DIRECTORY
 
 
-CHECKPOINT_ID_PATTERN = re.compile(r'(?:^|[_-])cp-([a-z0-9-]+)$', re.IGNORECASE)
+# A normal checkpoint ends with its ID; CMA restart minima append their
+# restart label after it.  Keep the ID capture fixed-width so the label cannot
+# be consumed as part of an otherwise hyphen-tolerant identifier.
+CHECKPOINT_ID_PATTERN = re.compile(
+    r'(?:^|[_-])cp-([a-z0-9]{4}-[a-z0-9]{4})(?=$|_restart-)', re.IGNORECASE)
 
 
 def checkpoint_id(path):
-    """Return the short checkpoint ID embedded in a result filename."""
+    """Return an ID from a normal or CMA-restart checkpoint filename."""
     match = CHECKPOINT_ID_PATTERN.search(Path(path).name)
     return None if match is None else match.group(1)
 

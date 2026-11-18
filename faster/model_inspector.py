@@ -41,6 +41,80 @@ from model_factory import build_model
 
 FILTER_DEBOUNCE_MS = 250
 MAXIMUM_CATALOGUE_ROWS = 500
+CATALOGUE_SORT_OPTIONS = {
+    'Loss': 'loss',
+    'Checkpoint ID': 'checkpoint_id',
+    'Run ID': 'run_id',
+    'Model ID': 'model_id',
+    'Sample': 'sample',
+    'Replica': 'replica',
+    'Fit mode': 'fit_mode',
+    'Model version': 'model_version',
+}
+
+# Keep controls for one biological pathway together.  Fe3 reduction and
+# acetate conversion are the most commonly inspected first, then the remaining
+# pathway groups follow alphabetically.  Values shared across pathways come
+# last rather than being arbitrarily assigned to one of them.
+PARAMETER_PATHWAY_ORDER = (
+    ('Fe3', ('Fe3', 'M_Fe3')),
+    ('Acetate', ('Aceto_', 'Ac_', 'M_Ac', 'Acetate')),
+    ('Fermentation', ('Ferm_',)),
+    ('Homo', ('Homo_', 'M_Homo')),
+    ('Hydro', ('Hydro_', 'M_Hydro')),
+    ('Hydrolysis', ('Hydrolysis_',)),
+)
+
+
+@dataclass(frozen=True)
+class FailedCheckpoint:
+    """A catalogue entry retained solely to explain a load failure."""
+
+    source: str
+    id: str
+    error: str
+    filename_metadata: dict
+
+    @property
+    def replica(self):
+        metadata = self.filename_metadata or {}
+        return str(metadata.get('sample', '?')), str(metadata.get('replica', '?'))
+
+    @property
+    def fit_mode(self):
+        return (self.filename_metadata or {}).get('fit_mode', '?')
+
+    @property
+    def model_id(self):
+        return (self.filename_metadata or {}).get('model_id', '?')
+
+    @property
+    def run_id(self):
+        return (self.filename_metadata or {}).get('run_id', self.source)
+
+
+def is_failed_checkpoint(checkpoint):
+    return isinstance(checkpoint, FailedCheckpoint)
+
+
+def parameter_sort_key(parameter):
+    """Group a control by pathway, then retain alphabetical order within it."""
+    name = parameter.name if hasattr(parameter, 'name') else str(parameter)
+    for position, (_, prefixes) in enumerate(PARAMETER_PATHWAY_ORDER):
+        if name.startswith(prefixes):
+            return position, name.casefold()
+    return len(PARAMETER_PATHWAY_ORDER), name.casefold()
+
+
+def apply_plot_y_scale(figure, log_y):
+    """Apply the inspector-wide y-axis scale selection to every axis."""
+    import plot
+    for axis in figure.axes:
+        if not log_y:
+            axis.set_yscale('linear')
+        # format_ax declines log scaling for non-positive data, which is the
+        # only safe exception to applying the toggle.
+        plot.format_ax(axis, log_scale=log_y)
 
 
 def load_checkpoint(identifier):
@@ -82,6 +156,13 @@ def load_checkpoint(identifier):
 
 def checkpoint_details(checkpoint) -> str:
     """Return the selected checkpoint's provenance in a popup-friendly form."""
+    if is_failed_checkpoint(checkpoint):
+        return '\n'.join((
+            f'Checkpoint ID: {checkpoint.id}',
+            'Format: Could not load checkpoint',
+            f'Error: {checkpoint.error}',
+            f'Source: {checkpoint.source}',
+        ))
     sample, replica = checkpoint.replica
     metadata = getattr(checkpoint, 'metadata', None)
     converted = converted_checkpoint.replay_spec(metadata)
@@ -136,6 +217,8 @@ def manual_converted_result(checkpoint, model_run):
 
 def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
     """Show useful catalogue metadata, omitting dimensions already filtered."""
+    if is_failed_checkpoint(checkpoint):
+        return f"[ERROR] {checkpoint.id}: {checkpoint.error}"
     hidden = set(hidden)
     fields = [] if "checkpoint_id" in hidden else [f"{checkpoint.id}"]
     fields.append(f"loss {checkpoint.loss:.7g}")
@@ -158,6 +241,17 @@ def checkpoint_label(checkpoint, hidden=(), details=True) -> str:
 
 def checkpoint_filter_value(checkpoint, name):
     """Return one catalogue field, calculating an ID only if it is requested."""
+    if is_failed_checkpoint(checkpoint):
+        values = {
+            'model_version': '',
+            'sample': checkpoint.replica[0],
+            'replica': checkpoint.replica[1],
+            'fit_mode': checkpoint.fit_mode,
+            'model_id': checkpoint.model_id,
+            'checkpoint_id': checkpoint.id,
+            'run_id': checkpoint.run_id,
+        }
+        return values[name]
     if name == 'model_version':
         return replay_model_settings(checkpoint)[0]
     if name == 'sample':
@@ -182,7 +276,8 @@ def filter_checkpoints(checkpoints, filters, best_per_run=False):
     Keeping that order means filtering does not need another full sort.  IDs
     are deliberately accessed only for active ID filters or best-per-run.
     """
-    candidates = checkpoints
+    failures = [checkpoint for checkpoint in checkpoints if is_failed_checkpoint(checkpoint)]
+    candidates = [checkpoint for checkpoint in checkpoints if not is_failed_checkpoint(checkpoint)]
     if best_per_run:
         best_by_run = {}
         for checkpoint in candidates:
@@ -199,6 +294,9 @@ def filter_checkpoints(checkpoints, filters, best_per_run=False):
                 break
         else:
             matches.append(checkpoint)
+    # Keep broken files visible so a filter cannot hide the reason that a
+    # checkpoint catalogue is incomplete.
+    matches.extend(failures)
     return matches
 
 
@@ -209,6 +307,20 @@ def prioritise_new_checkpoints(checkpoints, new_sources):
     existing = [checkpoint for checkpoint in checkpoints
                 if checkpoint.source not in new_sources]
     return fresh + existing
+
+
+def sort_checkpoints(checkpoints, field, descending=False):
+    """Sort usable entries by one catalogue field, retaining failures last."""
+    usable = [checkpoint for checkpoint in checkpoints if not is_failed_checkpoint(checkpoint)]
+    failures = [checkpoint for checkpoint in checkpoints if is_failed_checkpoint(checkpoint)]
+
+    def key(checkpoint):
+        if field == 'loss':
+            return checkpoint.loss, checkpoint.id.casefold()
+        return (str(checkpoint_filter_value(checkpoint, field)).casefold(),
+                checkpoint.id.casefold())
+
+    return sorted(usable, key=key, reverse=descending) + failures
 
 
 def is_log_slider(parameter) -> bool:
@@ -278,19 +390,23 @@ class ModelInspector(ttk.Frame):
         self.checkpoints = []
         self.filtered = []
         self.displayed = []
+        self.failed_checkpoints = 0
         self.new_checkpoint_sources = set()
         self._filter_after_id = None
         self.active_checkpoint = None
         self.working_parameters = None
         self.controls: dict[str, ParameterControl] = {}
-        self.plot_names: list[str] = ["fit"]
-        self.current_plot = tk.StringVar(value="fit")
+        self.plot_names: list[str] = ["fit_CO2", "fit_CH4"]
+        self.current_plot = tk.StringVar(value="fit_CO2")
         self.log_y = tk.BooleanVar(value=False)
         # A newly loaded checkpoint is already one of the comparison curves.
         # Turn this on automatically as soon as a value is edited.
         self.include_manual = tk.BooleanVar(value=False)
         self._main_pane = None
         self._detached: list[tuple[tk.Toplevel, FigurePane]] = []
+        # Each persisted checkpoint is replayed at most once per catalogue
+        # load.  Comparison selections then only assemble cached run logs.
+        self._saved_result_cache = {}
         self._result_cache = {}
 
         self._build()
@@ -300,16 +416,32 @@ class ModelInspector(ttk.Frame):
         self.pack(fill="both", expand=True)
         self.root.title("Soil model inspector")
         self.root.geometry("1450x930")
-        self.columnconfigure(2, weight=1)
+        self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
-        self._build_catalogue(self)
-        self._build_parameters(self)
-        self._build_viewer(self)
+        # Sashes let the catalogue, parameter editor, and plot viewer each
+        # take as much space as the current inspection task needs.
+        self.panes = ttk.Panedwindow(self, orient="horizontal")
+        self.panes.grid(row=0, column=0, sticky="nsew")
+        catalogue = self._build_catalogue(self.panes)
+        parameters_panel = self._build_parameters(self.panes)
+        viewer = self._build_viewer(self.panes)
+        self.panes.add(catalogue, weight=1)
+        self.panes.add(parameters_panel, weight=2)
+        self.panes.add(viewer, weight=3)
+        self.after_idle(self._set_initial_pane_widths)
+
+    def _set_initial_pane_widths(self):
+        """Start with the former layout proportions while retaining sashes."""
+        try:
+            self.panes.sashpos(0, 270)
+            self.panes.sashpos(1, 780)
+        except tk.TclError:
+            # The window can be destroyed before its first idle cycle.
+            pass
 
     def _build_catalogue(self, parent):
         panel = ttk.LabelFrame(parent, text="Checkpoints", padding=6)
-        panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         panel.rowconfigure(2, weight=1)
         panel.columnconfigure(0, weight=1)
 
@@ -332,12 +464,24 @@ class ModelInspector(ttk.Frame):
             entry.bind("<KeyRelease>", lambda _: self.schedule_filter())
         options = ttk.Frame(panel)
         options.grid(row=1, column=0, sticky="ew", pady=5)
+        options.columnconfigure(1, weight=1)
         self.best_per_run = tk.BooleanVar(value=False)
         ttk.Checkbutton(options, text="Best loss per run", variable=self.best_per_run,
-                        command=self.apply_filter).pack(side="left")
-        ttk.Button(options, text="Checkpoint details…", command=self.show_checkpoint_details).pack(
-            side="left", padx=(5, 0))
-        ttk.Button(options, text="Reload", command=self.reload_catalogue).pack(side="right")
+                        command=self.apply_filter).grid(row=0, column=0, sticky="w")
+        ttk.Button(options, text="Reload", command=self.reload_catalogue).grid(
+            row=0, column=1, sticky="e")
+        self.sort_by = tk.StringVar(value='Loss')
+        ttk.Label(options, text="Sort").grid(row=1, column=0, sticky="w", pady=(3, 0))
+        sort_picker = ttk.Combobox(
+            options, state="readonly", textvariable=self.sort_by,
+            values=tuple(CATALOGUE_SORT_OPTIONS), width=13)
+        sort_picker.grid(row=1, column=1, sticky="ew", pady=(3, 0))
+        sort_picker.bind("<<ComboboxSelected>>", lambda _: self.apply_filter())
+        self.sort_descending = tk.BooleanVar(value=False)
+        ttk.Checkbutton(options, text="Descending", variable=self.sort_descending,
+                        command=self.apply_filter).grid(row=2, column=0, sticky="w", pady=(3, 0))
+        ttk.Button(options, text="Checkpoint details…", command=self.show_checkpoint_details).grid(
+            row=2, column=1, sticky="e", pady=(3, 0))
 
         self.catalogue = tk.Listbox(panel, selectmode="extended", exportselection=False,
                                     width=21, height=28)
@@ -348,10 +492,10 @@ class ModelInspector(ttk.Frame):
         self.catalogue.configure(yscrollcommand=scroll.set)
         self.catalogue_status = ttk.Label(panel, text="Loading checkpoint catalogue…")
         self.catalogue_status.grid(row=3, column=0, sticky="w", pady=(5, 0))
+        return panel
 
     def _build_parameters(self, parent):
         panel = ttk.LabelFrame(parent, text="Parameter values", padding=6)
-        panel.grid(row=0, column=1, sticky="nsew", padx=(0, 6))
         panel.rowconfigure(1, weight=1)
         panel.columnconfigure(0, weight=1)
         toolbar = ttk.Frame(panel)
@@ -369,10 +513,10 @@ class ModelInspector(ttk.Frame):
         self.parameter_window = canvas.create_window((0, 0), window=self.parameter_body, anchor="nw")
         self.parameter_body.bind("<Configure>", lambda _: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind("<Configure>", lambda event: canvas.itemconfigure(self.parameter_window, width=event.width))
+        return panel
 
     def _build_viewer(self, parent):
         panel = ttk.LabelFrame(parent, text="Plots", padding=6)
-        panel.grid(row=0, column=2, sticky="nsew")
         panel.rowconfigure(1, weight=1)
         panel.columnconfigure(0, weight=1)
         toolbar = ttk.Frame(panel)
@@ -382,15 +526,20 @@ class ModelInspector(ttk.Frame):
         self.plot_picker = ttk.Combobox(toolbar, state="readonly", textvariable=self.current_plot,
                                         values=self.plot_names)
         self.plot_picker.grid(row=0, column=1, sticky="ew", padx=(5, 0))
-        self.plot_picker.bind("<<ComboboxSelected>>", lambda _: self.refresh_main_plot())
+        self.plot_picker.bind("<<ComboboxSelected>>", self._plot_selected)
         ttk.Checkbutton(toolbar, text="Log y", variable=self.log_y,
                         command=self.refresh_main_plot).grid(row=1, column=0, sticky="w", pady=(3, 0))
         ttk.Checkbutton(toolbar, text="Include manual values", variable=self.include_manual,
                         command=self.refresh_main_plot).grid(row=1, column=1, sticky="w", pady=(3, 0))
-        ttk.Button(toolbar, text="Detach / compare", command=self.detach_plot).grid(
+        ttk.Button(toolbar, text="Reset plot", command=self.reset_plot).grid(
             row=2, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+        ttk.Button(toolbar, text="Detach / compare", command=self.detach_plot).grid(
+            row=3, column=0, columnspan=2, sticky="ew", pady=(3, 0))
+        ttk.Button(toolbar, text="Compare selected", command=self.compare_selected).grid(
+            row=4, column=0, columnspan=2, sticky="ew", pady=(3, 0))
         self.viewer = ttk.Frame(panel)
         self.viewer.grid(row=1, column=0, sticky="nsew")
+        return panel
 
     def reload_catalogue(self):
         if self.requested_checkpoint_id:
@@ -398,8 +547,8 @@ class ModelInspector(ttk.Frame):
             return
         known_sources = {checkpoint.source for checkpoint in self.checkpoints}
         try:
-            reloaded = sorted(report.collect_all(verbose=False),
-                              key=lambda checkpoint: checkpoint.loss)
+            loaded, failures = report.collect_all_with_failures(verbose=False)
+            reloaded = sorted(loaded, key=lambda checkpoint: checkpoint.loss)
 
         except Exception as error:
             traceback.print_exc()
@@ -407,11 +556,15 @@ class ModelInspector(ttk.Frame):
             # A file from a separate, running optimiser should not make the
             # already usable catalogue disappear if its reload fails.
             return
+        failed_entries = [FailedCheckpoint(
+            failure.source, failure.checkpoint_id, failure.error,
+            failure.filename_metadata) for failure in failures]
         self.new_checkpoint_sources = (
             {checkpoint.source for checkpoint in reloaded} - known_sources
             if known_sources else set())
-        self.checkpoints = reloaded
-        self._clear_caches()
+        self.checkpoints = reloaded + failed_entries
+        self.failed_checkpoints = len(failed_entries)
+        self._clear_caches(saved=True)
         self.apply_filter()
 
     def _reload_requested_checkpoint(self):
@@ -426,7 +579,8 @@ class ModelInspector(ttk.Frame):
         self.filtered = [checkpoint]
         self.displayed = [checkpoint]
         self.new_checkpoint_sources = set()
-        self._clear_caches()
+        self.failed_checkpoints = 0
+        self._clear_caches(saved=True)
         self._render_catalogue()
         self.catalogue.selection_set(0)
         self._checkpoint_selected()
@@ -465,8 +619,9 @@ class ModelInspector(ttk.Frame):
 
     def _render_catalogue(self, hidden=(), details=True):
         """Render a bounded window while retaining every filtered checkpoint."""
-        ordered = prioritise_new_checkpoints(
-            self.filtered, self.new_checkpoint_sources)
+        ordered = sort_checkpoints(
+            self.filtered, CATALOGUE_SORT_OPTIONS[self.sort_by.get()],
+            self.sort_descending.get())
         self.displayed = ordered[:MAXIMUM_CATALOGUE_ROWS]
         self.catalogue.delete(0, "end")
         for checkpoint in self.displayed:
@@ -477,16 +632,22 @@ class ModelInspector(ttk.Frame):
                         for checkpoint in self.filtered)
         if new_count:
             text += f" ({new_count} new since reload)"
+        if self.failed_checkpoints:
+            text += f" ({self.failed_checkpoints} could not be loaded; marked [ERROR])"
         if len(self.displayed) < len(self.filtered):
             text += f" (showing first {len(self.displayed)}; refine the filters)"
         self.catalogue_status.configure(text=text)
 
-    def selected_checkpoints(self):
+    def selected_catalogue_entries(self):
         return [self.displayed[index] for index in self.catalogue.curselection()]
+
+    def selected_checkpoints(self):
+        return [checkpoint for checkpoint in self.selected_catalogue_entries()
+                if not is_failed_checkpoint(checkpoint)]
 
     def show_checkpoint_details(self):
         """Open selected-checkpoint provenance without consuming main-window space."""
-        selected = self.selected_checkpoints()
+        selected = self.selected_catalogue_entries()
         checkpoint = selected[0] if selected else self.active_checkpoint
         if checkpoint is None:
             messagebox.showinfo("Checkpoint details", "Select a checkpoint first.")
@@ -510,9 +671,20 @@ class ModelInspector(ttk.Frame):
         # The first selected item supplies editable values; all selected items are
         # retained as comparison curves when opening or refreshing a plot.
         checkpoint = selected[0]
+        if is_failed_checkpoint(checkpoint):
+            return
         if checkpoint is not self.active_checkpoint:
             self.active_checkpoint = checkpoint
             self.load_parameters(checkpoint)
+
+    def compare_selected(self):
+        """Draw every selected checkpoint as a labelled curve on shared axes."""
+        if len(self.selected_checkpoints()) < 2:
+            messagebox.showinfo(
+                'Compare checkpoints',
+                'Select two or more checkpoints (Shift-click or Command/Ctrl-click) first.')
+            return
+        self.refresh_main_plot()
 
     def load_parameters(self, checkpoint):
         # Persisted checkpoint values intentionally omit their fitting ranges.
@@ -537,7 +709,6 @@ class ModelInspector(ttk.Frame):
         self.include_manual.set(False)
         self._clear_caches()
         self._build_parameter_controls()
-        self.refresh_main_plot()
 
     def restore_checkpoint(self):
         if self.active_checkpoint is not None:
@@ -549,7 +720,7 @@ class ModelInspector(ttk.Frame):
         self.controls.clear()
         if self.working_parameters is None:
             return
-        for row, parameter in enumerate(sorted(self.working_parameters, key=lambda item: item.name)):
+        for row, parameter in enumerate(sorted(self.working_parameters, key=parameter_sort_key)):
             if not parameter.is_variable() or parameter.options is not None:
                 continue
             self._add_parameter_control(row, parameter)
@@ -642,9 +813,27 @@ class ModelInspector(ttk.Frame):
             comparison_name="manual values")
         return result
 
-    def _clear_caches(self):
-        """Discard stale replay/figure data after a source or value changes."""
+    def _clear_caches(self, *, saved=False):
+        """Discard composite results, and optionally persisted replay logs."""
         self._result_cache.clear()
+        if saved:
+            self._saved_result_cache.clear()
+
+    def _saved_result(self, checkpoint):
+        """Replay a saved checkpoint once, then reuse its logged trajectories."""
+        cached = self._saved_result_cache.get(checkpoint.source)
+        if cached is not None:
+            return cached
+        if self.dataset is None:
+            self.dataset = data.get_data_before_day()
+        result = (
+            plot_checkpoint.CheckpointPlot(
+                checkpoint, converted_checkpoint.replay(checkpoint, self.dataset))
+            if is_converted_checkpoint(checkpoint)
+            else plot_checkpoint.replay_saved_checkpoint(checkpoint)
+        )
+        self._saved_result_cache[checkpoint.source] = result
+        return result
 
     def _result_cache_key(self):
         selected = self.selected_checkpoints()
@@ -665,15 +854,7 @@ class ModelInspector(ttk.Frame):
         selected = self.selected_checkpoints()
         if not selected and self.active_checkpoint is not None:
             selected = [self.active_checkpoint]
-        if self.dataset is None:
-            self.dataset = data.get_data_before_day()
-        results = [
-            plot_checkpoint.CheckpointPlot(
-                checkpoint, converted_checkpoint.replay(checkpoint, self.dataset))
-            if is_converted_checkpoint(checkpoint)
-            else plot_checkpoint.replay_saved_checkpoint(checkpoint)
-            for checkpoint in selected
-        ]
+        results = [self._saved_result(checkpoint) for checkpoint in selected]
         if self.include_manual.get() and self.active_checkpoint is not None:
             results.append(self._manual_result())
         self._result_cache[cache_key] = results
@@ -685,7 +866,7 @@ class ModelInspector(ttk.Frame):
         results = self._comparison_results()
         if not results:
             raise ValueError("Select one or more checkpoints first.")
-        names = plot_checkpoint.comparison_plot_names(results)
+        names = plot_checkpoint.comparison_plot_names(results, split_fit=True)
         if names != self.plot_names:
             current = self.current_plot.get()
             self.plot_names = names
@@ -697,17 +878,16 @@ class ModelInspector(ttk.Frame):
         """Return plot keys for a fixed set of replay results without drawing."""
         if self.dataset is None:
             self.dataset = data.get_data_before_day()
-        return plot_checkpoint.comparison_plot_names(results)
+        return plot_checkpoint.comparison_plot_names(results, split_fit=True)
 
     def _apply_y_scale(self, figure, log_y=None):
         log_y = self.log_y.get() if log_y is None else log_y
-        for axis in figure.axes:
-            if log_y:
-                # The shared formatter safely refuses log scale for negative data.
-                import plot
-                plot.format_ax(axis, log_scale=True)
-            else:
-                axis.set_yscale("linear")
+        apply_plot_y_scale(figure, log_y)
+
+    def _plot_selected(self, _event=None):
+        """Use the native logarithmic scale when opening the CH4 fit view."""
+        self.log_y.set(self.current_plot.get() == 'fit_CH4')
+        self.refresh_main_plot()
 
     def _choose_figure(self, name=None, log_y=None):
         results = self._build_figures()
@@ -718,8 +898,13 @@ class ModelInspector(ttk.Frame):
             self.dataset = data.get_data_before_day()
         figure, _ = plot_checkpoint.comparison_figure(results, self.dataset, name)
         self._apply_y_scale(figure, log_y)
-        figure.tight_layout(rect=(0, 0, 1, .92))
         return figure, name
+
+    def reset_plot(self):
+        """Restore the initial CO2 fit view and its linear y-axis."""
+        self.current_plot.set('fit_CO2')
+        self.log_y.set(False)
+        self.refresh_main_plot()
 
     def refresh_main_plot(self):
         if self.active_checkpoint is None:
@@ -770,13 +955,15 @@ class ModelInspector(ttk.Frame):
                 figure, _ = plot_checkpoint.comparison_figure(
                     frozen_results, self.dataset, selected_name)
                 self._apply_y_scale(figure, detached_log_y.get())
-                figure.tight_layout(rect=(0, 0, 1, .92))
                 figure.suptitle(f"{selected_name} | {identity}", fontsize=10)
                 if state["pane"] is not None:
                     state["pane"].destroy()
                 state["pane"] = FigurePane(canvas_host, figure)
 
-            picker.bind("<<ComboboxSelected>>", redraw)
+            def selected_plot(*_):
+                detached_log_y.set(plot_name.get() == 'fit_CH4')
+
+            picker.bind("<<ComboboxSelected>>", selected_plot)
             detached_log_y.trace_add("write", redraw)
             redraw()
             self._detached.append((window, state))

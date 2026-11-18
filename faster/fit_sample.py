@@ -5,11 +5,13 @@ import data
 import system
 import optimizer
 import parameters
+import parameter_bounds
 import checkpoint
 import hashing
 import numpy as np
 from model_factory import (build_model, current_version,
-                           envelope_converted_model_parameters)
+                           envelope_converted_model_parameters,
+                           hypothesis_model_parameters)
 
 
 class ExistingFitGoodEnough(Exception):
@@ -174,6 +176,21 @@ def run(run_config, initial_parameters, *, log_prediction=False, **kwargs):
                 raise RuntimeError(
                     'Cannot choose a diagnostic replay grid: the fit log has '
                     'neither a replica nor any pool trajectory.')
+        # Pathway contributions are time integrals of reaction rates.  The
+        # measurement grid is generally too sparse for an accurate quadrature,
+        # so replay diagnostics at least once per day while retaining every
+        # original (possibly fractional-day) observation time.
+        finite_time = pool_time[np.isfinite(pool_time)]
+        if finite_time.size:
+            daily_time = np.arange(
+                np.floor(finite_time.min()), np.ceil(finite_time.max()) + 1.)
+            # A measured time such as 0.999999999999 and an added daily time
+            # of 1.0 are distinct to ``unique`` but indistinguishable to the
+            # objective's tolerance-based observation lookup.  Retain the
+            # measured point and add only genuinely new daily grid points.
+            daily_time = daily_time[
+                ~np.any(np.isclose(daily_time[:, np.newaxis], finite_time), axis=1)]
+            pool_time = np.sort(np.concatenate((pool_time, daily_time)))
         run_log = pathway_model.predict_with_logging(
             replica, t_eval=pool_time, reference = 'gdw', microbe_unit = 'mg')
     return pathway_model, objective, run_log
@@ -232,7 +249,13 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
     if chosen.get('converted_envelope', False):
         initial_parameters.set(envelope_converted_model_parameters(
             model_version, chosen['normalized_parameters']))
+    elif chosen.get('hypothesis', False):
+        initial_parameters.set(hypothesis_model_parameters(
+            model_version, chosen['normalized_parameters']))
     initial_parameters.set(loaded_parameters)
+    if chosen.get('bounds') is not None:
+        _, bounds_document = parameter_bounds.load_bounds(chosen['bounds'])
+        parameter_bounds.apply_bounds(initial_parameters, bounds_document)
 
     if chosen.get('fix_v_max_except') is not None:
         fix_v_max_except(
@@ -273,6 +296,8 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
                  'algo': algo.get_config(),
                  'range': initial_parameters.get_config(only_range = True)
                  }
+    if store_checkpoints and minimize:
+        run_config['run_started_at'] = hashing.new_run_started_at()
     if not legacy_path is None:
         run_config.update({'legacy': legacy_path, 'legacy_file': legacy_file})
     
@@ -376,6 +401,8 @@ if __name__ == '__main__':
             'fix_v_max_except':         args.fix_v_max_except,
             'fix_v_max_value':          args.fix_v_max_value,
             'converted_envelope':        args.converted_envelope,
+            'hypothesis':                args.hypothesis,
+            'bounds':                    args.bounds,
             'normalized_parameters':    True,
             'algorithm':                algorithm_name,
             'gas_limits':               args.gas_limits,
@@ -410,9 +437,11 @@ if __name__ == '__main__':
         # from the selected checkpoint.
         init_config = {'file': args.checkpoint, 'range': 'default'}
     else:
-        fresh_parameters = args.default or args.converted_envelope or args.estimate
+        fresh_parameters = (args.default or args.converted_envelope or args.hypothesis or args.estimate
+                            or args.bounds is not None)
         init_config = {
-                'default':                  args.default or args.converted_envelope,
+                'default':                  (args.default or args.converted_envelope or args.hypothesis
+                                             or args.bounds is not None),
                 'estimate':                 args.estimate,
                 'best_N':                   None if fresh_parameters else args.best,
                 'sample':                   None if fresh_parameters else chosen['sample'],
@@ -428,10 +457,10 @@ if __name__ == '__main__':
     fit(chosen, objective_config, algo_config, init_config, model_version = None,
         store_checkpoints = not args.dry,
         overwrite_existing_checkpoints = args.overwrite_checkpoints,
-        # ``--default`` and ``--estimate`` are fresh searches from declared
+        # Catalogue-based starts and ``--estimate`` are fresh searches from declared
         # parameter catalogues.  Do not resume or rank against files already
         # stored for the same run configuration.
-        ignore_existing_checkpoints = (args.default or args.converted_envelope
+        ignore_existing_checkpoints = (args.default or args.converted_envelope or args.hypothesis
                                        or args.estimate))
     
     

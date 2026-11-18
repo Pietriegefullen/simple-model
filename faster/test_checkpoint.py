@@ -1,4 +1,5 @@
 from contextlib import redirect_stdout
+import copy
 import io
 import json
 import os
@@ -194,6 +195,29 @@ class ExistingCheckpointTest(unittest.TestCase):
             self.assertEqual(callback.checkpoints(directory), [])
             callback.cleanup(directory)
             self.assertTrue(os.path.exists(restart_file))
+
+    def test_timestamped_run_keeps_prior_run_checkpoints_out_of_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first_config = copy.deepcopy(checkpoint_with()['run_config'])
+            first_config['run_started_at'] = '20261112T100000000000Z'
+            first = checkpoint.CheckpointCallback(
+                first_config, keep_only_n=1, target=directory)
+            first.set_objective(_Objective(0.1))
+            first()
+
+            second_config = copy.deepcopy(first_config)
+            second_config['run_started_at'] = '20261112T110000000000Z'
+            second = checkpoint.CheckpointCallback(
+                second_config, keep_only_n=1, target=directory)
+            second.set_objective(_Objective(2.0))
+            second()
+
+            ordinary = second.checkpoints(directory)
+            self.assertEqual(len(ordinary), 2)
+            self.assertEqual(len(second.current_run_checkpoints(directory)), 1)
+            self.assertEqual(second.load_best_existing_checkpoint()[1]['total_loss'], 2.0)
+            second.cleanup(directory, second.checkpoints(directory))
+            self.assertEqual(len(second.checkpoints(directory)), 2)
 
     def test_print_callback_keeps_r2_from_the_best_loss_evaluation(self):
         objective = _PrintObjective(((3.0, 0.1), (4.0, 0.9), (2.0, 0.2)))

@@ -23,9 +23,11 @@ import checkpoint
 import data
 import hashing
 from model_factory import (build_model, current_version,
-                           envelope_converted_model_parameters)
+                           envelope_converted_model_parameters,
+                           hypothesis_model_parameters)
 import optimizer
 import parameters
+import parameter_bounds
 import user_input
 
 
@@ -159,7 +161,7 @@ def select_shared_default_parameters(reference, shared_names):
 
 
 def build_parameter_template(version, pathways=None, normalized_parameters=True,
-                             converted_envelope=False):
+                             converted_envelope=False, hypothesis=False):
     """Build a model and apply every declared default fitting range.
 
     ``Model.build`` creates several initial-state pools as constants before
@@ -178,6 +180,9 @@ def build_parameter_template(version, pathways=None, normalized_parameters=True,
     pathway_model = build_model(version, pathways, normalized_parameters)
     if converted_envelope:
         pathway_model.parameters().set(envelope_converted_model_parameters(
+            version, normalized_parameters))
+    elif hypothesis:
+        pathway_model.parameters().set(hypothesis_model_parameters(
             version, normalized_parameters))
     return pathway_model
 
@@ -648,7 +653,8 @@ class SharedReplicaObjective(optimizer.Addable):
                  prepared_local_parameters=None, local_r2_threshold=None,
                  local_loss_threshold=None, max_failed_inner_runs=5,
                  resume=True, local_warm_start=True, use_cython=False,
-                 version = None, gas_limits=False):
+                 version = None, gas_limits=False, converted_envelope=False,
+                 hypothesis=False):
         super().__init__()
         self._model = _SharedModel(shared_parameters)
         self.replicas = list(replicas)
@@ -666,7 +672,9 @@ class SharedReplicaObjective(optimizer.Addable):
             version = current_version()
         self.model_version = version
         self.model_id = hashing.build_model_id(
-            build_parameter_template(self.model_version, pathways, normalized_parameters).get_config(only_structure=True))
+            build_parameter_template(self.model_version, pathways, normalized_parameters,
+                                     converted_envelope, hypothesis).get_config(
+                                         only_structure=True))
         self._last_results = []
         self._last_weighted_mse = (None, None)
         self._aborted_by_loss_guard = False
@@ -711,6 +719,7 @@ class SharedReplicaObjective(optimizer.Addable):
         """Build an ordinary annotated-checkpoint configuration for one inner fit."""
         shared_values = {name: shared[name].value for name in self.shared_names}
         return {
+            'run_started_at': hashing.new_run_started_at(),
             'model': local_model.get_config(only_structure=True),
             'chosen': {
                 'sample': int(replica.sample.sample_name),
@@ -1002,7 +1011,7 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         checkpoint_target=None, prepared_local_parameters=None,
         local_r2_threshold=None, local_loss_threshold=None, resume=True,
         local_warm_start=True, max_failed_inner_runs=5, use_cython=False,
-        gas_limits=False, converted_envelope=False):
+        gas_limits=False, converted_envelope=False, hypothesis=False):
     """Run the nested shared/local fit and return its outer objective."""
     model_version = current_version()
     if objective is None:
@@ -1029,7 +1038,8 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         raise ValueError('max_failed_inner_runs must be a non-negative integer.')
 
     model_id = hashing.build_model_id(
-        build_parameter_template(model_version, pathways, normalized_parameters).get_config(only_structure=True))
+        build_parameter_template(model_version, pathways, normalized_parameters,
+                                 converted_envelope, hypothesis).get_config(only_structure=True))
     if prepared_local_parameters is None:
         prepared_local_parameters = prepare_local_parameters(
             replicas, local_template, shared_names, fixed_parameters, model_id,
@@ -1044,9 +1054,12 @@ def fit(replicas, shared_parameters, shared_names, local_template,
         local_loss_threshold=local_loss_threshold,
         max_failed_inner_runs=max_failed_inner_runs, resume=resume,
         local_warm_start=local_warm_start, use_cython=use_cython,
-        version=model_version, gas_limits=gas_limits)
+        version=model_version, gas_limits=gas_limits,
+        converted_envelope=converted_envelope, hypothesis=hypothesis)
     run_config = {
-        'model': build_parameter_template(model_version, pathways, normalized_parameters).get_config(
+        'run_started_at': hashing.new_run_started_at(),
+        'model': build_parameter_template(model_version, pathways, normalized_parameters,
+                                          converted_envelope, hypothesis).get_config(
             only_structure=True),
         # The legacy checkpoint directory naming convention requires these
         # fields.  The real selection is preserved in ``multi_replica``.
@@ -1069,8 +1082,8 @@ def fit(replicas, shared_parameters, shared_names, local_template,
                           'local_loss_threshold': local_loss_threshold,
                           'max_failed_inner_runs': max_failed_inner_runs,
                           'local_warm_start': local_warm_start,
-                          'parameter_catalogue': ('converted-envelope'
-                                                  if converted_envelope else 'default'),
+                          'parameter_catalogue': ('converted-envelope' if converted_envelope
+                                                  else 'hypothesis' if hypothesis else 'default'),
                           'gas_limits': bool(gas_limits),
                           'rhs_backend': 'cython' if use_cython else 'python'
                           },
@@ -1139,6 +1152,10 @@ def parse_args(argv=None):
                                   help='Use the default model parameter catalogue (default).')
     parameter_source.add_argument('--converted-envelope', action='store_true',
                                   help='Use the converted-envelope model parameter catalogue.')
+    parameter_source.add_argument('--hypothesis', action='store_true',
+                                  help='Use the hypothesis model parameter catalogue.')
+    parameter_source.add_argument('--bounds', metavar='ID',
+                                  help='Use bounds stored by parameter_envelope.py (full or partial ID).')
     parser.add_argument('--p', nargs='+', dest='fixed',
                         help='Fixed parameter/value pairs, as in fit_sample.')
     parser.add_argument('--fix-default', nargs='+', metavar='PARAMETER',
@@ -1283,7 +1300,10 @@ def run(args):
     if not pathways:
         raise ValueError('At least one pathway must remain after --omit.')
     reference = build_parameter_template(
-        version, pathways, True, args.converted_envelope).parameters()
+        version, pathways, True, args.converted_envelope, args.hypothesis).parameters()
+    if args.bounds is not None:
+        _, bounds_document = parameter_bounds.load_bounds(args.bounds)
+        parameter_bounds.apply_bounds(reference, bounds_document)
 
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
     args.fixed, overlap = parse_fixed_parameters(
@@ -1316,10 +1336,12 @@ def run(args):
         qualifying = []
         shared_bounds_source = 'full declared model ranges (default)'
     template = build_parameter_template(
-        version, pathways, True, args.converted_envelope).parameters()
+        version, pathways, True, args.converted_envelope, args.hypothesis).parameters()
+    if args.bounds is not None:
+        parameter_bounds.apply_bounds(template, bounds_document)
     model_id = hashing.build_model_id(
         build_parameter_template(
-            version, pathways, True, args.converted_envelope).get_config(
+            version, pathways, True, args.converted_envelope, args.hypothesis).get_config(
                 only_structure=True))
     prepared_local_parameters = prepare_local_parameters(
         replicas, template, shared_names, fixed_parameters, model_id,
@@ -1373,7 +1395,8 @@ def run(args):
         local_algorithm_name=local_algorithm_name,
         local_warm_start=args.local_warm_start,
         gas_limits=args.gas_limits,
-        converted_envelope=args.converted_envelope)
+        converted_envelope=args.converted_envelope,
+        hypothesis=args.hypothesis)
 
 
 if __name__ == '__main__':

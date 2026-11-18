@@ -35,6 +35,15 @@ class CheckpointInputTest(unittest.TestCase):
         self.assertEqual(checkpoint_io.checkpoint_id(
             'fit_loss-1_cp-ABCD-EFGH'), 'ABCD-EFGH')
 
+    def test_extracts_and_resolves_restart_checkpoint_ids(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            checkpoint = root / 'fit_loss-1_run-AB-CD_cp-ABCD-EFGH_restart-003-small'
+            checkpoint.touch()
+
+            self.assertEqual(checkpoint_io.checkpoint_id(checkpoint), 'ABCD-EFGH')
+            self.assertEqual(checkpoint_io.resolve_checkpoint('efgh', root), checkpoint)
+
 
 if __name__ == '__main__':
     unittest.main()

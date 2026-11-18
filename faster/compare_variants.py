@@ -323,7 +323,7 @@ def plot_h2_consumption_comparison(specifications, model_runs=None):
     axis.set_title(r'$\mathrm{H_2\ consumption\ rate}$')
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
     axis.set_ylabel(
-        r'$\mathrm{H_2\ consumption\ [\mu mol/g\ dry\ weight/d]}$')
+        rf'$\mathrm{{H_2\ consumption\ [{plot.SUBSTANCE_RATE_UNIT}]}}$')
     plot.format_ax(axis)
     axis.legend(fancybox=False, edgecolor='k', loc='best')
     figure.suptitle(
@@ -482,8 +482,8 @@ def plot_ab_replica_detail(specifications, model_runs, replica, *, detail=None,
                       linestyle=plot.MODEL_VARIANT_LINESTYLES['A'], linewidth=1.5)
         top_axis.plot(b_time, b_values, color=plot.pool_color(pool),
                       linestyle=plot.MODEL_VARIANT_LINESTYLES['B'], linewidth=1.5)
-        top_axis.set_title(rf'$\mathrm{{{pool[:-1]}_{pool[-1]}}}$')
-        top_axis.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
+        top_axis.set_title(plot.pool_title(pool))
+        top_axis.set_ylabel(rf'$\mathrm{{substance\ [{plot.SUBSTANCE_UNIT}]}}$')
         plot.format_ax(
             top_axis,
             log_scale='log' in a_specification.run_config['objective']['transform'][pool],

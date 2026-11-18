@@ -1,0 +1,362 @@
+import numpy as np
+
+import system
+import CONSTANTS
+
+from .import chemistry
+
+from CONSTANTS import EPS, GIBBS_MINIMUM, C_ATOMS_BIOMASS
+
+def flat(parameter, only_structure = False):
+    if isinstance(parameter, (str, int, float, bool)) or type(parameter) == type(None):
+        return parameter
+    if only_structure and hasattr(parameter, 'is_variable') and parameter.is_variable():
+        return 'variable'
+    if hasattr(parameter, 'value'):
+        return parameter.value
+    print(parameter, type(parameter), parameter.__class__.__name__)
+    raise NotImplementedError()
+
+class Pathway():
+    def __init__(self, microbe, educts, products, use_thermodynamics):
+        self.educts = educts
+        self.products = products
+        self.microbe = microbe
+
+        self.use_thermodynamics = use_thermodynamics
+
+        self.Km = np.sum(np.stack([system.vector(0, educt, educt['Km'])
+                                   for educt in educts], axis = -1), axis = -1)
+        self.Km += system.vector(0, microbe, microbe['Kmb'])
+
+        stoich_vector = np.sum(np.stack([system.vector(0, subst, -subst['stoichiometry'])
+                                         for subst in educts], axis = -1), axis = -1)
+        stoich_vector += np.sum(np.stack([system.vector(0, subst, subst['stoichiometry'])
+                                         for subst in products], axis = -1), axis = -1)
+        self.stoichiometry = stoich_vector
+
+        self.inhibition = system.vector(np.inf)
+        for product in products:
+            self.inhibition[system.index(product)] = product['inhibition']
+
+        self.use_inhib = np.any(np.isfinite(self.inhibition))
+
+        self.v_max = microbe['v_max']
+        self.death_rate = system.vector(0, microbe, microbe['death_rate'])
+
+        self.microbe_index = system.index(microbe)
+
+        C_source = microbe['C_source']
+        self.anabolism = system.vector(0)
+        if not C_source is None:
+            C_atoms = chemistry.C_atoms(C_source)
+            C_source_stoich = [educt for educt in educts
+                               if str(educt) == C_source][0]['stoichiometry']
+            CUE = microbe['CUE'] # dimensionless
+            anabolism_fraction = C_source_stoich*CUE/(1.-CUE + EPS) # dimensionless
+
+            self.anabolism[self.microbe_index] += C_atoms*anabolism_fraction/C_ATOMS_BIOMASS
+            self.anabolism[system.index(C_source)] -= anabolism_fraction
+
+        if float(self.use_thermodynamics) == 1:
+            self.deltaG_f = np.sum(np.stack(
+                    [system.vector(0, str(subst), chemistry.GIBBS_FORMATION[str(subst)])
+                     for subst in (educts + products)],
+                                             axis = -1), axis = -1)
+            self.deltaG_s = np.sum(self.stoichiometry*self.deltaG_f)
+
+        self.state_logger = None
+
+    def get_config(self, only_structure = False):
+        cfg = {'microbe': self.microbe.get_config(only_structure),
+               'educts': {e.name: e.get_config(only_structure) for e in sorted(self.educts)},
+               'products': {e.name: e.get_config(only_structure) for e in sorted(self.products)},
+               'use_thermodynamics': flat(self.use_thermodynamics, only_structure)
+               }
+        return cfg
+
+    def system(self):
+        syst = [self.microbe.name] + [e.name for e in self.educts] + [p.name for p in self.products]
+        return list(set(syst))
+
+    def inject_logger(self, state_logger):
+        self.state_logger = state_logger
+
+    def log(self, name, t, value):
+        if not self.state_logger is None:
+            if np.ndim(value) == 0:
+                self.state_logger.log_snap(self.__class__.__name__ + '_' + name, t, value)
+            else:
+                self.state_logger.log(self.__class__.__name__ + '_' + name, t, value)
+
+    def deltaG_r(self, S):
+        """Return reaction Gibbs energy for one state or an accepted state series.
+        ``S`` is either a single system-state vector or an array with system
+        pools along axis zero and time along axis one.  Keeping this calculation
+        free of logging allows diagnostics to be evaluated from the accepted
+        solver output rather than from LSODA's intermediate trial states.
+        """
+
+        R = CONSTANTS.GAS_CONSTANT
+        T = 4. + CONSTANTS.KELVIN
+
+        contributes = self.stoichiometry != 0
+        contributes[system.index('H2O')] = False # water never contributes in thermodynamics
+
+        # approximate dimensionless activities as
+        # a = S/(1 mol/L)
+        activities = S * 1e-6 # mol/L
+
+        stoichiometry = self.stoichiometry[contributes]
+        with np.errstate(divide = 'ignore'):
+            log_activities = np.log(activities[contributes])
+
+        if log_activities.ndim == 1:
+            log_Qj = stoichiometry * log_activities
+        else:
+            log_Qj = stoichiometry[:, np.newaxis]*log_activities
+
+        # NOTE: numpy returns nan if sum() contains both +inf and -inf.
+        # If any +inf is present (any reactant is zero), set log(Q) to inf
+        if np.any(log_Qj == np.inf):
+            log_Q = np.inf
+        else:
+            log_Q = np.sum(log_Qj, axis = 0)
+    
+        return self.deltaG_s + R*T*log_Q
+
+    def thermodynamics(self, t, S): # hier berechnet sich der thermodynamische faktor
+        """
+        S is the dissolved species vector
+        """
+
+        R = CONSTANTS.GAS_CONSTANT
+        T = 4. + CONSTANTS.KELVIN
+        deltaG_r = self.deltaG_r(S)
+        deltaG_rmin = GIBBS_MINIMUM
+        thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
+
+        #self.log('thermodynamic_factor', t, thermodynamic_factor)
+        return thermodynamic_factor
+
+    def kinetic_factors(self, S):
+        Km = self.Km
+        if S.ndim > 1:
+            Km = Km[:,np.newaxis]
+        return np.where(Km == 0, 1., S/(Km + S + EPS))
+
+    def kinetic_half_saturation_constants(self, S):
+        """Return effective Km values in the same units as ``S``.
+
+        Both the stored half-saturation constants and the solver state are in
+        micromol per litre of pore water.  This helper also gives the
+        constants a time axis when evaluating accepted solver-state series.
+        """
+        Km = self.Km if S.ndim == 1 else self.Km[:, np.newaxis]
+        return np.broadcast_to(Km, np.shape(S))
+
+    def kinetic_factor_names(self):
+        """Return the pool names with an active Michaelis--Menten term."""
+        return tuple(pool for pool, Km in zip(system.SYSTEM, self.Km)
+                     if float(Km) != 0.)
+
+    def kinetics(self, S):
+        MM = self.kinetic_factors(S)
+        return np.prod(MM, axis=None if S.ndim == 1 else 0)
+
+    def kinetic_inhibition(self, S):
+        if S.ndim == 1:
+            inhibition = self.inhibition
+            ax = None
+        else:
+            inhibition = self.inhibition[:, np.newaxis]
+            ax = 0
+
+        # inhib = 1 - S/(S+Ki) = Ki/(S+Ki)
+        inhib = 1 - np.where(np.isinf(inhibition), 0,
+                             S/(inhibition + S + EPS))
+        inhib_factor = np.prod(inhib, axis = ax)
+        return inhib_factor
+
+    def compute_v(self, t, S):
+        f_MM = self.kinetics(S)
+
+        v = float(self.v_max) * f_MM
+
+        f_inhib = None
+        if self.use_inhib:
+            f_inhib = self.kinetic_inhibition(S)
+            v *= f_inhib
+
+        f_thermo = None
+        if float(self.use_thermodynamics) == 1:
+            f_thermo = self.thermodynamics(t, S)
+            v *= f_thermo
+
+        return v
+
+    def __call__(self, t, S): # hier rechnen wir die MM Faktoren
+        """
+        S is the dissolved species vector
+        in micromoles per L
+        """
+        M = S[self.microbe_index] # in units micromol/L
+        v = self.compute_v(t, S) # in units of v_max
+
+        dS_dt = M * v * self.stoichiometry
+        dS_dt += M * v * self.anabolism - M * self.death_rate
+
+        return np.reshape(dS_dt, (-1,))
+
+    def __str__(self): # schreibt nur den pathway auf, tut aber nix
+        educts = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.educts])
+        products = ' + '.join([str(s.stoichiometry) + ' ' + str(s) for s in self.products])
+        pwy_string = f'{self.__class__.__name__: <12s}: {educts} -> {products}'
+        return pwy_string
+
+
+class Microbe():
+    def __init__(self, name, v_max,
+                 death_rate = 0,
+                 Kmb = 0,
+                 CUE = 0,
+                 C_source = None):
+
+        if not CUE == 0:
+            assert C_source is not None
+
+        self.name = name
+        self.death_rate = death_rate
+        self.v_max = v_max
+        self.Kmb = Kmb
+        self.CUE = CUE
+        self.C_source = C_source
+
+    def __getitem__(self, key):
+        return getattr(self,key)
+
+    def __str__(self):
+        return self.name
+
+    def get_config(self, only_structure = False):
+        return {'name': self.name,
+                'death_rate': flat(self.death_rate, only_structure),
+                'v_max':flat(self.v_max, only_structure),
+                'Kmb': flat(self.Kmb, only_structure),
+                'CUE': flat(self.CUE, only_structure),
+                'C_source': flat(self.C_source, only_structure)}
+
+class Substance():
+    def __init__(self, stoichiometry, name,
+                 Km = None,
+                 inhibition = None):
+        assert not (Km is not None and inhibition is not None)
+
+        self.name = name
+        self.stoichiometry = stoichiometry
+        self.Km = Km if not Km is None else 0
+        self.inhibition = np.inf if inhibition is None else inhibition
+
+    def __getitem__(self, key):
+        return getattr(self,key)
+
+    def __str__(self):
+        return self.name
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.name == other
+        raise NotImplementedError()
+
+    def get_config(self, only_structure):
+        return {'name': self.name,
+                'stoichiometry': flat(self.stoichiometry, only_structure),
+                'Km': flat(self.Km, only_structure),
+                'inhibition': flat(self.inhibition, only_structure)}
+
+    def __lt__(self, other):
+        return self.name < other.name
+
+
+class Hydrolysis(Pathway):
+    def __init__(self, model_parameters):
+        educts = [Substance(1, 'TOC')]
+        products = [Substance(1, 'DOC')]
+        microbe = Microbe(name = 'M_Ferm',
+                          v_max = model_parameters['Hydrolysis_v_max'],
+                          Kmb = model_parameters['Hydrolysis_Kmb'])
+        super().__init__(microbe, educts, products, False)
+
+class Fermentation(Pathway):
+    def __init__(self, model_parameters):
+        educts = [Substance(10, 'DOC',
+                            Km = model_parameters['Ferm_Km'])]
+        products = [Substance(3.5, 'Acetate',
+                              inhibition = model_parameters['Ferm_inhibition']),
+                    Substance(3, 'CO2'),
+                    Substance(6, 'H2')]
+        microbe = Microbe(name = 'M_Ferm',
+                          v_max = model_parameters['Ferm_v_max'],
+                          CUE = model_parameters['Ferm_CUE'],
+                          death_rate = model_parameters['death_rate'],
+                          C_source = 'DOC')
+        super().__init__(microbe, educts, products, False)
+
+class Hydro(Pathway):
+     def __init__(self, model_parameters):
+        educts = [Substance(4, 'H2',
+                            Km = model_parameters['Hydro_Km_H2']),
+                  Substance(1, 'CO2',
+                            Km = model_parameters['Hydro_Km_CO2'])]
+        products = [Substance(1, 'CH4'),
+                    Substance(2, 'H2O')]
+        microbe = Microbe(name = 'M_Hydro',
+                          v_max = model_parameters['Hydro_v_max'],
+                          CUE = model_parameters['Hydro_CUE'],
+                          death_rate = model_parameters['death_rate'],
+                          C_source = 'CO2')
+        super().__init__(microbe, educts, products, model_parameters['Hydro_thermodynamics'])
+
+class Homo(Pathway):
+    def __init__(self, model_parameters):
+        educts = [Substance(4, 'H2',
+                            Km = model_parameters['Homo_Km_H2']),
+                  Substance(2, 'CO2',
+                            Km = model_parameters['Homo_Km_CO2'])]
+        products = [Substance(1, 'Acetate'),
+                    Substance(2, 'H2O')]
+        microbe = Microbe(name = 'M_Homo',
+                          v_max = model_parameters['Homo_v_max'],
+                          CUE = model_parameters['Homo_CUE'],
+                          death_rate = model_parameters['death_rate'],
+                          C_source = 'CO2')
+        super().__init__(microbe, educts, products, model_parameters['Homo_thermodynamics'])
+
+class Aceto(Pathway):
+    def __init__(self, model_parameters):
+        educts = [Substance(1, 'Acetate',
+                            Km = model_parameters['Aceto_Km_Ac'])]
+        products = [Substance(1, 'CH4'),
+                    Substance(1, 'CO2')]
+        microbe = Microbe(name = 'M_Ac',
+                          v_max = model_parameters['Ac_v_max'],
+                          CUE = model_parameters['Ac_CUE'],
+                          death_rate = model_parameters['death_rate'],
+                          C_source = 'Acetate')
+        super().__init__(microbe, educts, products, model_parameters['Aceto_thermodynamics'])
+
+class Fe3(Pathway):
+    def __init__(self, model_parameters):
+        educts = [Substance(1, 'Acetate',
+                            Km = model_parameters['Fe3_Km_Ac']),
+                  Substance(1, 'H2O'),
+                  Substance(8, 'Fe3',
+                            Km = model_parameters['Fe3_Km_Fe3'])]
+        products = [Substance(8, 'Fe2'),
+                    Substance(2, 'CO2')]
+        microbe = Microbe(name = 'M_Fe3',
+                          v_max = model_parameters['Fe3_v_max'],
+                          CUE = model_parameters['Fe3_CUE'],
+                          death_rate = model_parameters['death_rate'],
+                          C_source = 'Acetate')
+        super().__init__(microbe, educts, products, model_parameters['Fe3_thermodynamics'])

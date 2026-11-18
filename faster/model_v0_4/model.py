@@ -210,9 +210,111 @@ def get_pathways(model_type):
         raise NotImplementedError()
 
 class Model():
+    @classmethod
+    def hypothesis_model_parameters(cls, normalize):
+        # Ferm_Km: choose half pool size of minimum TOC content
+        #           => ensure f_MM = 1 at t = 0 for ferm 
+
+        # Hydrolysis_Kmb: if M_0 == 1 (i.e. 100%), Hydrolysis_Kmb is relative,
+        #                 i.e. 200% for 2.0, 1000% for 10 etc.
+        #                 Hence, the actual value depends on the actual amount
+        #                 of microbes in each replica, which will remain unknown.
+
+
+        # Acetate range inspired by bhz data
+        # 
+
+        HYDROLYSIS_KMB = None #[1_113, 59_222_344]
+        FERM_KM =  None #[0.47, 315_000]
+
+        HYDRO_KM_CO2 = [0.2,2_650_000]
+        HOMO_KM_CO2 = [1.88, 2_230_000]
+
+         # sehr affin zu H2 -> eher kleiner Km-Wert?
+        HYDRO_KM_H2 =  [13, 3_210_000]
+        HOMO_KM_H2 = [2, 1_970_000]
+
+        ACETO_KM_AC = None #[170, 1_010_000]
+
+        FE3_KM_AC = None #[0.315, 3_720_000]
+        FE3_KM_FE3 = None #[0.285, 3_730_000]
+
+        p = [
+         Parameter('Hydrolysis_Kmb', 10, HYDROLYSIS_KMB, 'log',  normalize = normalize), 
+         Parameter('Ferm_Km',        9495/2, FERM_KM, scale= 'log', normalize = normalize),
+
+         Parameter('Fe3_Km_Fe3',     100, FE3_KM_FE3, scale = 'log', normalize = normalize),
+         Parameter('Fe3_Km_Ac',      100, FE3_KM_AC, scale = 'log',  normalize = normalize),
+         Parameter('Aceto_Km_Ac',    100, ACETO_KM_AC, 'log', normalize = normalize),
+
+         Parameter('Hydro_Km_CO2',   10_000, HYDRO_KM_CO2, scale = 'log', normalize = normalize),
+         Parameter('Hydro_Km_H2',    10_000, HYDRO_KM_H2, scale = 'log', normalize = normalize),
+         Parameter('Homo_Km_H2',     10_000, HOMO_KM_H2, scale = 'log', normalize = normalize),
+         Parameter('Homo_Km_CO2',    10_000, HOMO_KM_CO2, scale = 'log', normalize = normalize),
+         Parameter('Ferm_inhibition', 1., [0.698, 754_000], 'log', normalize = normalize), # no source
+
+
+         Parameter('Hydrolysis_v_max', 0.01, [0.01, 0.1], 'log', normalize = normalize), 
+
+         Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize),
+
+         Parameter('Ferm_v_max',     0.01, [0.01, 0.1], 'log', normalize = normalize),
+         Parameter('Ferm_CUE',        .0812, [2e-9, 0.15], scale = 'linear', normalize = normalize),
+         
+         
+         Parameter('Hydro_v_max',    0.01, [0.01, 0.1], scale = 'log', normalize = normalize),
+         Parameter('Hydro_CUE',       .08, [0.01, 0.5], scale = 'linear', normalize = normalize), 
+         
+         Parameter('Homo_v_max',     0.01, [0.01, 0.1], scale = 'log', normalize = normalize), # no source
+         Parameter('Homo_CUE',        .2, [0.03, 0.5],  scale = 'linear', normalize = normalize),
+         
+         Parameter('Ac_v_max',       0.01, [0.01, 0.1], scale = 'log', normalize = normalize),
+         Parameter('Ac_CUE',          0.00876, [0.00069, 0.5], scale = 'linear', normalize = normalize), 
+         
+         Parameter('Fe3_v_max',      0.01, [0.01, 0.1], scale = 'log', normalize = normalize), 
+         Parameter('Fe3_CUE',        0.05, scale ='linear', normalize = normalize),
+         
+         Parameter('Acetate',         200, [100, 2_000], scale = 'log', normalize = normalize),
+         Parameter('Fe3',            150, [100, 100_000], scale = 'log', normalize = normalize),
+        
+        # if biomass is variable, it must be in micromol per liter
+         Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
+         Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
+         Parameter('M_Fe3',         1., scale = 'log', normalize = normalize),
+         Parameter('M_Homo',        1., scale = 'log', normalize = normalize),
+         Parameter('M_Ac',          1., scale = 'log', normalize = normalize),
+         
+         Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Aceto_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+         Parameter('Fe3_thermodynamics', True, {True}, scale = 'linear', normalize = False),
+            ]
+            
+        par = parameters.ModelParameters(p)
+        return par
+
 
     @classmethod
     def envelope_converted_model_parameters(cls, normalize):
+
+
+        # (nearly) unidentifiable:
+        # M_Ac * Ac_v_max * f_MM(Ac; Aceto_Km_Ac)
+        # M_Hydro * Hydro_v_max * f_MM(CO2; Hydro_Km_CO2) * f_MM(H2; Hydro_Km_H2)
+        # M_Homo * Homo_v_max * f_MM(CO2; Homo_Km_CO2) * f_MM(H2; Homo_Km_H2)
+        # M_Fe3 * Fe3_v_max * f_MM(Fe3; Fe3_Km_Fe3) * f_MM(Ac; Fe3_Km_Ac)
+
+        # M_Ferm * Ferm_v_max * f_MM(DOC; Ferm_Km)
+        # M_Ferm * Hydrolysis_v_max
+
+        # => fixed Km's: eliminates 8 unidentifiable parameters, 
+        #                11 remain. Can they be sufficiently restricted?
+
+
+        # => merge M and v_max: eliminates 6 and 
+        #                   => identifiable for fixed Km.
+
+
         p = [
          Parameter('death_rate',  8.3e-5, scale = 'log', normalize = normalize),
 
@@ -290,27 +392,27 @@ class Model():
 
 
          Parameter('Ferm_v_max',     0.5533, [0.5533, 97.7322], 'log', normalize = normalize),
-         Parameter('Ferm_Km',        999, [54, 15_000], scale= 'log', normalize = normalize),
+         Parameter('Ferm_Km',        999, [10, 15_000], scale= 'log', normalize = normalize),
          Parameter('Ferm_inhibition', 1e-3, [1e-6, 1e-1], 'log', normalize = normalize), # no source
          Parameter('Ferm_CUE',        .0812, scale = 'linear', normalize = normalize),
          
          
          Parameter('Hydro_v_max',    1_728, scale = 'log', normalize = normalize),
          Parameter('Hydro_CUE',       .08, scale = 'linear', normalize = normalize), 
-         Parameter('Hydro_Km_CO2',   100, [29,1000], scale = 'log', normalize = normalize),
-         Parameter('Hydro_Km_H2',    50, [13, 200], scale = 'log', normalize = normalize),
+         Parameter('Hydro_Km_CO2',   50, [29,100], scale = 'log', normalize = normalize),
+         Parameter('Hydro_Km_H2',    50, [.1, 100], scale = 'log', normalize = normalize),
          
          Parameter('Homo_Km_H2',     10, [10, 100], scale = 'log', normalize = normalize),
          Parameter('Homo_Km_CO2',    10, [10, 100], scale = 'log', normalize = normalize),
          Parameter('Homo_v_max',     10, [1e-3, 1e3], scale = 'log', normalize = normalize), # no source
          Parameter('Homo_CUE',        .2, scale = 'linear', normalize = normalize),
          
-         Parameter('Aceto_Km_Ac',    10, [10, 23], 'log', normalize = normalize),
+         Parameter('Aceto_Km_Ac',    10, [10, 40], scale = 'log', normalize = normalize),
          Parameter('Ac_v_max',       0.977322, [0.977322, 97.7322], scale = 'log', normalize = normalize),
          Parameter('Ac_CUE',          0.00876, [0.00876, 0.3], scale = 'linear', normalize = normalize), 
          
          Parameter('Fe3_Km_Ac',      11.99, [11.99, 230], 'log',  normalize = normalize),
-         Parameter('Fe3_Km_Fe3',     230, [230, 5_400_000], 'log', normalize = normalize),
+         Parameter('Fe3_Km_Fe3',     230, [230, 5_400_000], 'log', normalize = normalize), # Sulman2022: 1e-7
          Parameter('Fe3_v_max',      0.1296, [0.1296, 47.6], 'log', normalize = normalize), 
          Parameter('Fe3_CUE',        0.05, scale ='linear', normalize = normalize),
          
@@ -596,6 +698,8 @@ class Model():
             self.system_state_log.log(pool_name, solver_result.t, Si)
 
         self.system_state_log._parameters = self.parameters()
+        self.system_state_log._reference = reference
+        self.system_state_log._microbe_unit = microbe_unit
 
         return self.system_state_log
 

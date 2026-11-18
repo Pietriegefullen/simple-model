@@ -39,12 +39,18 @@ from typing import Any, Callable, Mapping, Sequence
 import numpy as np
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import AutoMinorLocator, FuncFormatter, MaxNLocator
 
 CO2_COLOR = 'tab:blue'
 CH4_COLOR = 'tab:orange'
 POOL_NAMES = ('CO2', 'CH4')
 GIBBS_ENERGY_SCALE = 1e-3
-GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
+GIBBS_ENERGY_UNIT = r'\mathrm{kJ}/\mathrm{mol}'
+FIT_SUBSTANCE_UNIT = r'\mu\mathrm{mol}/\mathrm{g}_{\mathrm{dry\ weight}}'
+GAS_SUBSTANCE_UNIT = FIT_SUBSTANCE_UNIT
+SUBSTANCE_UNIT = r'\mu\mathrm{mol}/\mathrm{L}'
+SUBSTANCE_RATE_UNIT = SUBSTANCE_UNIT + r'/\mathrm{d}'
+REACTION_RATE_UNIT = SUBSTANCE_RATE_UNIT
 # Model identity is always encoded by line style in variant-comparison plots.
 # Pathway identity is encoded by ``pathways.pathway_color``.
 MODEL_VARIANT_LINESTYLES = {
@@ -78,6 +84,10 @@ def configure_latex() -> None:
     ``label('time', 'd')`` gives ``time [$\\mathrm{d}$]``.
     """
     plt.rcParams['text.usetex'] = True
+    preamble = plt.rcParams['text.latex.preamble']
+    if 'amsmath' not in str(preamble):
+        plt.rcParams['text.latex.preamble'] = (
+            f'{preamble}\n' if preamble else '') + r'\usepackage{amsmath}'
 
 
 def math(expression: str) -> str:
@@ -91,6 +101,58 @@ def label(text: str, unit: str | None = None) -> str:
         return text
     unit_text = rf'\mathrm{{{unit}}}'
     return f'{text} [{math(unit_text)}]'
+
+
+def chemical_formula(name: str) -> str:
+    """Return an upright TeX representation of a displayed pool name."""
+    formulas = {
+        'CO2': r'\mathrm{CO_2}', 'CH4': r'\mathrm{CH_4}',
+        'H2': r'\mathrm{H_2}', 'H2O': r'\mathrm{H_2O}',
+        'Fe3': r'\mathrm{Fe}^{3+}', 'Fe2': r'\mathrm{Fe}^{2+}',
+        'TOC': r'\mathrm{TOC}', 'DOC': r'\mathrm{DOC}',
+        'Acetate': r'\mathrm{Acetate}',
+    }
+    # Internal run-log keys use underscores as separators.  Preserve them
+    # literally in a fallback display label rather than letting TeX parse
+    # successive separators as invalid nested subscripts.
+    escaped_name = name.replace('_', r'\_')
+    return formulas.get(name, rf'\mathrm{{{escaped_name}}}')
+
+
+def pool_title(name: str) -> str:
+    """Return the standard TeX title for a modeled pool."""
+    return math(chemical_formula(name))
+
+
+def pathway_name(name: str) -> str:
+    """Return a TeX name for a pathway, including chemical pathways."""
+    if name in {'Fe3', 'Fe2'}:
+        return chemical_formula(name)
+    return rf'\mathrm{{{name}}}'
+
+
+def time_limits(times, *, padding=0.03):
+    """Return a zero-based range with room to see the final observation."""
+    arrays = [np.asarray(time, dtype=float).ravel() for time in times]
+    if not arrays:
+        return None
+    values = np.concatenate(arrays)
+    values = values[np.isfinite(values)]
+    if not values.size:
+        return None
+    upper = max(0., float(np.max(values)))
+    if upper == 0.:
+        upper = 1.
+    return 0., upper * (1. + padding)
+
+
+def format_time_axis(ax, limits):
+    """Apply report-wide time limits and matching major/minor divisions."""
+    if limits is None:
+        return
+    ax.set_xlim(limits)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=6))
+    ax.xaxis.set_minor_locator(AutoMinorLocator())
 
 
 configure_latex()
@@ -360,6 +422,21 @@ def pool_color(pool):
         raise NotImplementedError()
     return c
 
+
+def latex_thousands(value, _position=None):
+    """Format a linear tick with LaTeX-safe grouped thousands."""
+    value = float(value)
+    if not np.isfinite(value):
+        return ''
+    if np.isclose(value, np.rint(value), rtol=0.,
+                  atol=max(1e-12, abs(value) * 1e-10)):
+        text = f'{value:,.0f}'
+    else:
+        text = f'{value:,.6f}'.rstrip('0').rstrip('.')
+    # Bracing the separator is the conventional TeX form for grouped digits.
+    # It is supported by both LaTeX and Matplotlib's built-in math renderer.
+    return '$' + text.replace(',', '{,}') + '$'
+
 def format_ax(ax, log_scale=False):
     """Apply shared axes styling and an optional safe logarithmic y scale.
 
@@ -371,6 +448,9 @@ def format_ax(ax, log_scale=False):
     ax.spines['right'].set_visible(False)
 
     if not log_scale:
+        lower, upper = ax.get_ylim()
+        ax.set_ylim(min(0., lower), upper)
+        ax.yaxis.set_major_formatter(FuncFormatter(latex_thousands))
         return False
     lower, upper = ax.dataLim.intervaly
     if not (np.isfinite(lower) and np.isfinite(upper) and lower >= 0 and upper > 0):
@@ -387,7 +467,12 @@ def format_ax(ax, log_scale=False):
     positive_lower = (min(np.min(values) for values in positive_values)
                       if positive_values else upper * 1e-6)
     ax.set_yscale('log')
-    ax.set_ylim(positive_lower / 1.05, upper * 1.05)
+    # Keep near-zero behavior comparable across diagnostic panels.  For
+    # quantities entirely above one, retain a data-tight view instead.
+    lower = positive_lower / 1.05
+    if positive_lower <= 1. and upper > 1e-6:
+        lower = 1e-6
+    ax.set_ylim(lower, upper * 1.05)
     return True
 
 def plot_pool_data(replica, pool, ax, **kwargs):
@@ -399,8 +484,8 @@ def plot_pool_data(replica, pool, ax, **kwargs):
     options.update(kwargs)
     ax.plot(time, values, color=pool_color(pool), label='incubation data',
             clip_on=False, **options)
-    ax.set_title(rf'$\mathrm{{{pool[:-1]}_{pool[-1]}}}$')
-    ax.set_ylabel(r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$')
+    ax.set_title(pool_title(pool))
+    ax.set_ylabel(rf'$\mathrm{{substance\ [{FIT_SUBSTANCE_UNIT}]}}$')
     ax.set_xlabel(r'$\mathrm{time\ [d]}$')
     return ax
 

@@ -82,6 +82,13 @@ class CommandLineTest(unittest.TestCase):
 
         self.assertEqual(args.output_dir, 'chosen')
 
+    def test_best_restart_is_an_alternative_to_best(self):
+        args = plot_checkpoint.parse_args(['--best-restart'])
+
+        self.assertTrue(args.best_restart)
+        with self.assertRaises(SystemExit):
+            plot_checkpoint.parse_args(['--best', '--best-restart'])
+
     def test_named_comparison_uses_a_comparison_directory(self):
         args = plot_checkpoint.parse_args([
             'ABCD', '--compare', 'D', '*_thermodynamics', 'False'])
@@ -123,6 +130,51 @@ class CommandLineTest(unittest.TestCase):
                     [object()], temporary, dataset={}, overwrite=True)
 
         self.assertEqual(written, [path])
+
+
+class BestRestartCheckpointTest(unittest.TestCase):
+    class Checkpoint:
+        is_multi_replica = False
+
+        def __init__(self, identifier, loss, *, run_id='run-A', restart=None,
+                     replica=('1351', '4')):
+            self.id = identifier
+            self.loss = loss
+            self.run_id = run_id
+            self.model_id = 'model-A'
+            self.fit_mode = 'single'
+            self.replica = replica
+            self.metadata = ({} if restart is None
+                             else {'cma_restart': {'index': restart}})
+
+    def test_uses_ordinary_best_when_no_restarts_were_saved(self):
+        selected = plot_checkpoint.best_restart_checkpoints([
+            self.Checkpoint('older', 3.), self.Checkpoint('best', 1.),
+        ])
+
+        self.assertEqual([checkpoint.id for checkpoint in selected], ['best'])
+
+    def test_uses_best_usable_checkpoint_from_each_restart(self):
+        selected = plot_checkpoint.best_restart_checkpoints([
+            self.Checkpoint('ordinary-best', .1),
+            self.Checkpoint('restart-0-old', 4., restart=0),
+            self.Checkpoint('restart-0-best', 2., restart=0),
+            self.Checkpoint('restart-1-best', 3., restart=1),
+            self.Checkpoint('restart-2-penalty', 1e100, restart=2),
+        ])
+
+        self.assertEqual(
+            {checkpoint.id for checkpoint in selected},
+            {'restart-0-best', 'restart-1-best'})
+
+    def test_keeps_restart_numbers_from_independent_runs_separate(self):
+        selected = plot_checkpoint.best_restart_checkpoints([
+            self.Checkpoint('first-run', 1., run_id='run-A', restart=0),
+            self.Checkpoint('second-run', 2., run_id='run-B', restart=0),
+        ])
+
+        self.assertEqual(
+            {checkpoint.id for checkpoint in selected}, {'first-run', 'second-run'})
 
 
 class ComparisonReplayTest(unittest.TestCase):
@@ -184,6 +236,23 @@ class ComparisonQuantityTest(unittest.TestCase):
                          ['cp-ONE', 'cp-TWO'])
         self.assertEqual(figures['Hydro_MM'].axes[0].get_ylim(), (0.0, 1.0))
 
+    def test_single_result_diagnostic_keeps_its_legend(self):
+        result = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ONE'), (None, None, {'TOC': ([0, 1], [3., 2.])}))
+
+        figure = plot_checkpoint._comparison_quantities([result])['TOC']
+
+        self.assertEqual([text.get_text() for text in figure.axes[0].get_legend().texts],
+                         ['cp-ONE'])
+
+    def test_split_fit_names_are_available_for_interactive_viewers(self):
+        result = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ONE'), (None, None, {}))
+
+        names = plot_checkpoint.comparison_plot_names([result], split_fit=True)
+
+        self.assertEqual(names[:2], ['fit_CO2', 'fit_CH4'])
+
     def test_limitation_factors_share_one_pathway_figure(self):
         first = plot_checkpoint.CheckpointPlot(
             Checkpoint('ONE'), (None, None, {
@@ -202,6 +271,59 @@ class ComparisonQuantityTest(unittest.TestCase):
         # One MM line and one all-factor line per checkpoint, plus reference.
         self.assertEqual(len(axis.lines), 5)
         self.assertIn('cp-ONE', [text.get_text() for text in axis.get_legend().texts])
+
+    def test_reaction_rate_signature_replaces_per_pathway_comparison_plots(self):
+        class RunLog(dict):
+            pass
+
+        run_log = RunLog({
+            'Hydro_v': ([0, 1], [.2, .3]),
+            'M_Hydro': ([0, 1], [2., 3.]),
+        })
+        run_log._parameters = type('Parameters', (), {
+            '__contains__': lambda self, name: name == 'Hydro_v_max',
+            '__getitem__': lambda self, name: type('Parameter', (), {
+                '__float__': lambda self: 1.,
+                'is_constant': lambda self: True,
+            })(),
+        })()
+
+        result = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ONE'), (None, None, run_log))
+        names = plot_checkpoint.comparison_plot_names([result])
+        figures = plot_checkpoint._comparison_reaction_rate_signatures([result])
+
+        self.assertIn('reaction_rate_signature', names)
+        self.assertIn('reaction_rate_signature_log', names)
+        self.assertNotIn('Hydro_reaction_rate', names)
+        self.assertEqual(figures['reaction_rate_signature'].axes[0].get_yscale(), 'linear')
+        self.assertEqual(figures['reaction_rate_signature_log'].axes[0].get_yscale(), 'log')
+
+    def test_pathway_plot_flag_removes_that_pathway_from_the_suite(self):
+        class RunLog(dict):
+            pass
+
+        run_log = RunLog({
+            'Hydro_v': ([0, 1], [.2, .3]),
+            'M_Hydro': ([0, 1], [2., 3.]),
+        })
+        run_log._parameters = type('Parameters', (), {
+            '__contains__': lambda self, name: name == 'Hydro_v_max',
+            '__getitem__': lambda self, name: type('Parameter', (), {
+                '__float__': lambda self: 1.,
+                'is_constant': lambda self: True,
+            })(),
+        })()
+        result = plot_checkpoint.CheckpointPlot(
+            Checkpoint('ONE'), (None, None, run_log))
+
+        with mock.patch.dict(
+                plot_checkpoint.report.PATHWAY_PLOT_FLAGS, {'Hydro': False}):
+            names = plot_checkpoint.comparison_plot_names([result])
+
+        self.assertNotIn('Hydro_v', names)
+        self.assertNotIn('reaction_rate_signature', names)
+        self.assertNotIn('Hydro_limitation_factors', names)
 
 
 if __name__ == '__main__':

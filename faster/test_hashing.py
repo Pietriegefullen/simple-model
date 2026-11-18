@@ -106,6 +106,15 @@ class HashingTest(unittest.TestCase):
         self.assertEqual(hashing.build_run_id(canonical['run_config']),
                          hashing.build_run_id(alternate['run_config']))
 
+    def test_run_start_timestamp_changes_the_hashed_run_id(self):
+        first = checkpoint_with()['run_config']
+        second = copy.deepcopy(first)
+        first['run_started_at'] = '20261112T101112123456Z'
+        second['run_started_at'] = '20261112T101113123456Z'
+
+        self.assertNotEqual(hashing.build_run_id(first), hashing.build_run_id(second))
+        self.assertRegex(hashing.build_run_id(first), r'^run-[A-Z0-9]{3}-[A-Z0-9]{3}$')
+
     def test_boolean_conversion_is_explicit(self):
         self.assertTrue(hashing.as_bool('TRUE'))
         self.assertTrue(hashing.as_bool('1.0'))

@@ -40,11 +40,14 @@ from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 import plot
 
 LOSS_PATTERN = re.compile(r"loss[-_]\s*([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?\d+)?)")
-CHECKPOINT_ID_PATTERN = re.compile(r"(?:^|[_-])cp-([a-z0-9-]+)$", re.IGNORECASE)
+# Checkpoint IDs normally terminate the name, while CMA restart minima append
+# ``_restart-###-kind``.  Match the fixed-width ID in either position.
+CHECKPOINT_ID_PATTERN = re.compile(
+    r"(?:^|[_-])cp-([a-z0-9]{4}-[a-z0-9]{4})(?=$|_restart-)", re.IGNORECASE)
 
 
 def checkpoint_id(path):
-    """Extract the short checkpoint identifier from a results filename."""
+    """Extract an ID from a normal or CMA-restart checkpoint filename."""
     match = CHECKPOINT_ID_PATTERN.search(Path(path).name)
     return match.group(1) if match else None
 

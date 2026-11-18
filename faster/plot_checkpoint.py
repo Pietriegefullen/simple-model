@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import math
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path
@@ -23,6 +24,7 @@ import data
 import parameters
 import plot
 import checkpoint_report as report
+import optimizer
 from checkpoint_io import checkpoint_id, resolve_checkpoint, replay_inputs
 from fit_sample import run
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY, PLOT_DIRECTORY
@@ -244,20 +246,21 @@ def _comparison_suptitle(results, subject: str) -> str:
     return subject if not common else f'{subject} | {common}'
 
 
-def _legend(axis, labels) -> None:
-    """Add the result legend only when there is more than one curve."""
-    if len(labels) > 1:
-        handles, existing_labels = axis.get_legend_handles_labels()
-        label_set = set(labels)
-        result_handles = [
-            handle for handle, existing_label in zip(handles, existing_labels)
-            if existing_label in label_set
-        ]
-        result_labels = [
-            existing_label for existing_label in existing_labels
-            if existing_label in label_set
-        ]
-        axis.legend(result_handles, result_labels,
+def _legend(axis, labels, handles=()) -> None:
+    """Add a legend for measurements and every displayed result curve."""
+    existing_handles, existing_labels = axis.get_legend_handles_labels()
+    label_set = set(labels)
+    result_handles = [
+        handle for handle, existing_label in zip(existing_handles, existing_labels)
+        if existing_label in label_set
+    ]
+    result_labels = [
+        existing_label for existing_label in existing_labels
+        if existing_label in label_set
+    ]
+    handles = [*handles, *result_handles]
+    if handles:
+        axis.legend(handles, [handle.get_label() for handle in handles],
                     fancybox=False, edgecolor='k', loc='best')
 
 
@@ -267,6 +270,7 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
     figure, axes = report.create_fit_figure()
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     measurements_drawn = set()
+    measurement_handles = []
     samples = []
 
     for index, (result, label) in enumerate(zip(results, labels)):
@@ -277,35 +281,72 @@ def comparison_fit(results: list[CheckpointPlot], dataset):
         samples.append(sample)
         measurement_key = (checkpoint.replica, checkpoint.fit_mode)
         if measurement_key not in measurements_drawn:
-            report.plot_fit_measurements(checkpoint, dataset, axes)
+            measurement_handles.extend(report.plot_fit_measurements(checkpoint, dataset, axes))
             measurements_drawn.add(measurement_key)
         colour = colours[index % len(colours)]
         for pool, axis in axes.items():
             time, values = run_log[pool]
             axis.plot(time, values, color=colour, linewidth=1.5, label=label)
 
-    # Use the broadest data limits when checkpoints use several samples.
+    # Use the broadest measured-data limits when checkpoints use several samples.
+    y_limits = {}
     for pool, axis in axes.items():
         limits = [report.sample_y_limits(sample).get(pool) for sample in samples]
         limits = [limit for limit in limits if limit is not None]
         if limits:
-            axis.set_ylim(min(limit[0] for limit in limits),
-                          max(limit[1] for limit in limits))
-        log_requested = any(
-            report.fit_uses_log_scale(result.checkpoint, pool)
-            for result in results)
-        log_applied = plot.format_ax(axis, log_scale=log_requested)
-        if limits and not log_applied:
-            axis.set_ylim(min(limit[0] for limit in limits),
-                          max(limit[1] for limit in limits))
-    _legend(axes['CH4'], labels)
+            y_limits[pool] = (min(limit[0] for limit in limits),
+                              max(limit[1] for limit in limits))
+    report.format_fit_axes(results[0].checkpoint, samples[0], axes,
+                           y_limits=y_limits)
+    for axis in axes.values():
+        _legend(axis, labels, measurement_handles)
     report.finish_fit_figure(
         figure, _comparison_suptitle(results, 'model fit'))
     return figure, axes
 
 
+def comparison_fit_pool(results: list[CheckpointPlot], dataset, pool: str):
+    """Draw one gas axis from the standard fit figure as its own figure."""
+    if pool not in ('CO2', 'CH4'):
+        raise KeyError(f'Unknown fit pool: {pool}')
+    _, labels = comparison_labels(results)
+    figure, axes = plot.create_figure(plot.FigureSpec(
+        axis_names=(pool,), figsize=(5, 5)))
+    axis = axes[pool]
+    colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    measurements_drawn = set()
+    measurement_handles = []
+    samples = []
+
+    for index, (result, label) in enumerate(zip(results, labels)):
+        checkpoint = result.checkpoint
+        _, _, run_log = result.model_run
+        sample, _, _ = report.fit_replicas(checkpoint, dataset)
+        samples.append(sample)
+        measurement_key = (checkpoint.replica, checkpoint.fit_mode)
+        if measurement_key not in measurements_drawn:
+            measurement_handles.extend(report.plot_fit_measurements(
+                checkpoint, dataset, axes, pools=(pool,)))
+            measurements_drawn.add(measurement_key)
+        time, values = run_log[pool]
+        axis.plot(time, values, color=colours[index % len(colours)],
+                  linewidth=1.5, label=label)
+
+    limits = [report.sample_y_limits(sample).get(pool) for sample in samples]
+    limits = [limit for limit in limits if limit is not None]
+    y_limits = ({pool: (min(limit[0] for limit in limits),
+                        max(limit[1] for limit in limits))} if limits else {})
+    report.format_fit_axes(results[0].checkpoint, samples[0], axes, y_limits=y_limits)
+    _legend(axis, labels, measurement_handles)
+    report.finish_fit_figure(
+        figure, _comparison_suptitle(results, f'model fit {pool}'))
+    return figure, axes
+
+
 def _comparison_quantities(results: list[CheckpointPlot], only=None):
     """Return figures for every ordinary diagnostic logged by any result."""
+    if not report.plot_enabled('quantities'):
+        return {}
     _, labels = comparison_labels(results)
     quantities = {}
     for index, result in enumerate(results):
@@ -313,9 +354,16 @@ def _comparison_quantities(results: list[CheckpointPlot], only=None):
         vmax = report.pathway_v_max_values(run_log)
         for name, time, values, pathway in report.pathway_plot_quantities(
                 run_log, include_pathway=True, pathway_model=pathway_model):
+            if not report.plot_enabled('quantities', pathway):
+                continue
+            if name in report.MODELLED_GAS_POOLS and not report.plot_enabled('gas_pools'):
+                continue
             capacity = (pathway if name.startswith('M_') and pathway is not None
                         and report.pathway_uses_capacity_parameter(
                             run_log, pathway) else None)
+            if (capacity is not None and
+                    not report.plot_enabled('pathway_capacity', capacity)):
+                continue
             key = f'{capacity}_{name}' if capacity is not None else name
             quantities.setdefault(key, []).append(
                 (index, name, time, values, vmax.get(pathway), capacity))
@@ -355,36 +403,52 @@ def _comparison_quantities(results: list[CheckpointPlot], only=None):
     return figures
 
 
-def _comparison_reaction_rates(results: list[CheckpointPlot], only=None):
-    """Return one comparison figure per biomass-scaled pathway rate."""
+def _comparison_reaction_rate_signatures(results: list[CheckpointPlot], only=None):
+    """Return linear and logarithmic FPCA-style pathway-rate signatures."""
+    if not report.plot_enabled('reaction_rate_signature'):
+        return {}
     _, labels = comparison_labels(results)
-    rates = {}
+    curves = []
     for index, result in enumerate(results):
         _, _, run_log = result.model_run
         vmax = report.pathway_v_max_values(run_log)
-        for pathway, time, actual, maximum in report.pathway_reaction_rate_curves(
-                run_log, vmax):
-            rates.setdefault(pathway, []).append((index, time, actual, maximum))
+        curves.extend((index, pathway, time, actual)
+                      for pathway, time, actual, _ in
+                      report.pathway_reaction_rate_curves(run_log, vmax)
+                      if report.plot_enabled('reaction_rate_signature', pathway))
+    if not curves:
+        return {}
 
+    styles = ('-', '--', ':', '-.')
     figures = {}
-    colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    for pathway, curves in rates.items():
-        key = f'{pathway}_reaction_rate'
+    for log_scale in (False, True):
+        key = 'reaction_rate_signature' + ('_log' if log_scale else '')
         if only is not None and key != only:
             continue
         figure, axes = plot.create_figure(plot.FigureSpec(
-            axis_names=('diagnostic',), figsize=(4, 4)))
+            axis_names=('diagnostic',), figsize=(8, 4.5)))
         axis = axes['diagnostic']
-        for index, time, actual, maximum in curves:
-            colour = colours[index % len(colours)]
-            axis.plot(time, actual, color=colour, label=labels[index])
-            axis.plot(time, maximum, color=colour, linestyle='--', linewidth=1)
-        axis.set_title(f'{pathway} reaction rate')
+        for index, pathway, time, actual in curves:
+            axis.plot(time, actual, color=plot.pathway_color(pathway),
+                      linestyle=styles[index % len(styles)], linewidth=1.5)
+        axis.set_title(r'$M(t)\,v(t)$ pathway-activity signature')
         axis.set_xlabel(plot.label('time', 'd'))
-        axis.set_ylabel(plot.label('reaction rate', r'\mu mol/g dry weight/d'))
-        plot.format_ax(axis)
-        _legend(axis, labels)
-        figure.suptitle(_comparison_suptitle(results, f'{pathway} reaction rate'))
+        axis.set_ylabel(plot.label('reaction rate', plot.REACTION_RATE_UNIT))
+        plot.format_ax(axis, log_scale=log_scale)
+        pathway_handles = [
+            Line2D([], [], color=plot.pathway_color(pathway), label=report.pathway_display_name(pathway))
+            for pathway in report.PATHWAY_PLOT_ORDER
+            if any(curve_pathway == pathway for _, curve_pathway, _, _ in curves)
+        ]
+        handles = pathway_handles
+        if len(labels) > 1:
+            handles += [
+                Line2D([], [], color='k', linestyle=styles[index % len(styles)], label=label)
+                for index, label in enumerate(labels)
+            ]
+        axis.legend(handles=handles, fancybox=False, edgecolor='k', loc='best',
+                    fontsize='small')
+        figure.suptitle(_comparison_suptitle(results, 'pathway-activity signature'))
         figure.tight_layout(rect=(0, 0, 1, .88))
         figures[key] = figure
     return figures
@@ -392,17 +456,20 @@ def _comparison_reaction_rates(results: list[CheckpointPlot], only=None):
 
 def _comparison_limitation_factors(results: list[CheckpointPlot], only=None):
     """Return one all-factor comparison for every pathway logged by a result."""
+    if not report.plot_enabled('limitation_factors'):
+        return {}
     _, labels = comparison_labels(results)
     series = {}
     for index, result in enumerate(results):
         _, _, run_log = result.model_run
         keys = set(run_log.keys())
         for pathway in report.PATHWAY_PLOT_ORDER:
-            if f'{pathway}_v' not in keys:
+            if (not report.plot_enabled('limitation_factors', pathway) or
+                    f'{pathway}_v' not in keys):
                 continue
             factors = []
-            for suffix, style in (('_MM', '-'), ('_thermodynamic_factor', '--'),
-                                  ('_inhib', '-.')):
+            for suffix, style in (('_MM', '--'), ('_thermodynamic_factor', '-.'),
+                                  ('_inhib', ':')):
                 key = f'{pathway}{suffix}'
                 if key in keys:
                     factors.append((suffix, style, run_log[key]))
@@ -412,10 +479,10 @@ def _comparison_limitation_factors(results: list[CheckpointPlot], only=None):
     figures = {}
     colours = plt.rcParams['axes.prop_cycle'].by_key()['color']
     factor_handles = [
-        Line2D([], [], color='k', linestyle='-', label='Michaelis-Menten'),
-        Line2D([], [], color='k', linestyle='--', label='thermodynamic'),
-        Line2D([], [], color='k', linestyle='-.', label='inhibition'),
-        Line2D([], [], color='k', linestyle='--', linewidth=2, label='all factors'),
+        Line2D([], [], color='k', linestyle='--', label=r'$f_{\mathrm{MM}}$'),
+        Line2D([], [], color='k', linestyle='-.', label=r'$f_{\mathrm{G}}$'),
+        Line2D([], [], color='k', linestyle=':', label=r'$f_{\mathrm{I}}$'),
+        Line2D([], [], color='k', linestyle='-', linewidth=2, label='all factors'),
     ]
     for pathway, result_factors in series.items():
         key = f'{pathway}_limitation_factors'
@@ -433,11 +500,11 @@ def _comparison_limitation_factors(results: list[CheckpointPlot], only=None):
                 axis.plot(time, factor, color=colour, linestyle=style, linewidth=1.2)
                 active.append(values)
             time, total = report._factor_product(active)
-            axis.plot(time, total, color=colour, linestyle='--', linewidth=2)
-            checkpoint_handles.append(Line2D([], [], color=colour, linestyle='--', linewidth=2,
+            axis.plot(time, total, color='k', linestyle='-', linewidth=2)
+            checkpoint_handles.append(Line2D([], [], color='k', linestyle='-', linewidth=2,
                                              label=labels[index]))
         axis.axhline(1, color='0.65', linestyle=':', linewidth=1)
-        axis.set_title(f'{pathway} limitation factors')
+        axis.set_title(rf'${plot.pathway_name(pathway)}\ \mathrm{{limitation\ factors}}$')
         axis.set_xlabel(plot.label('time', 'd'))
         axis.set_ylabel('factor')
         axis.set_ylim(0, 1.05)
@@ -454,40 +521,62 @@ def comparison_figures(results: list[CheckpointPlot], dataset):
     """Build the shared figures that can be compared curve-for-curve."""
     if not results:
         raise ValueError('At least one checkpoint is required.')
-    figures = {'fit': comparison_fit(results, dataset)}
+    figures = ({'fit': comparison_fit(results, dataset)}
+               if report.plot_enabled('fit') else {})
     figures.update({name: (figure, None)
                     for name, figure in _comparison_quantities(results).items()})
     figures.update({name: (figure, None)
-                    for name, figure in _comparison_reaction_rates(results).items()})
+                    for name, figure in _comparison_reaction_rate_signatures(results).items()})
     figures.update({name: (figure, None)
                     for name, figure in _comparison_limitation_factors(results).items()})
+    samples = [report.fit_replicas(result.checkpoint, dataset)[0]
+               for result in results]
+    x_limits = plot.time_limits([
+        time for sample in samples for replica in sample.replicas
+        for time, _ in (replica.CO2(),)
+    ])
+    for figure, _ in figures.values():
+        for axis in figure.axes:
+            plot.format_time_axis(axis, x_limits)
     return figures
 
 
-def comparison_plot_names(results: list[CheckpointPlot]) -> list[str]:
+def comparison_plot_names(results: list[CheckpointPlot], *, split_fit=False) -> list[str]:
     """Return standard comparison plot keys without creating any figures."""
     if not results:
         raise ValueError('At least one checkpoint is required.')
-    names = ['fit']
+    names = (['fit_CO2', 'fit_CH4'] if split_fit else ['fit']) if report.plot_enabled('fit') else []
     quantities = set()
-    rates = set()
+    has_reaction_rate_signature = False
     factors = set()
     for result in results:
         pathway_model, _, run_log = result.model_run
         for quantity, _, _, pathway in report.pathway_plot_quantities(
                 run_log, include_pathway=True, pathway_model=pathway_model):
+            if not report.plot_enabled('quantities', pathway):
+                continue
+            if (quantity in report.MODELLED_GAS_POOLS and
+                    not report.plot_enabled('gas_pools')):
+                continue
             capacity = (pathway if quantity.startswith('M_') and pathway is not None
                         and report.pathway_uses_capacity_parameter(run_log, pathway)
                         else None)
+            if (capacity is not None and
+                    not report.plot_enabled('pathway_capacity', capacity)):
+                continue
             quantities.add(f'{capacity}_{quantity}' if capacity is not None else quantity)
         vmax = report.pathway_v_max_values(run_log)
-        rates.update(f'{pathway}_reaction_rate' for pathway, *_ in
-                     report.pathway_reaction_rate_curves(run_log, vmax))
+        has_reaction_rate_signature |= (
+            report.plot_enabled('reaction_rate_signature') and any(
+                report.plot_enabled('reaction_rate_signature', pathway)
+                for pathway, *_ in report.pathway_reaction_rate_curves(run_log, vmax)))
         for pathway in report.PATHWAY_PLOT_ORDER:
-            if f'{pathway}_v' in run_log.keys():
+            if (report.plot_enabled('limitation_factors', pathway) and
+                    f'{pathway}_v' in run_log.keys()):
                 factors.add(f'{pathway}_limitation_factors')
     names.extend(sorted(quantities))
-    names.extend(sorted(rates))
+    if has_reaction_rate_signature:
+        names.extend(('reaction_rate_signature', 'reaction_rate_signature_log'))
     names.extend(sorted(factors))
     return names
 
@@ -499,9 +588,11 @@ def comparison_figure(results: list[CheckpointPlot], dataset, name: str):
     a checkpoint.  Diagnostic generators also accept a requested key, avoiding
     the former cost of constructing every report figure just to show one.
     """
-    if name == 'fit':
+    if name == 'fit' and report.plot_enabled('fit'):
         return comparison_fit(results, dataset)
-    for builder in (_comparison_quantities, _comparison_reaction_rates,
+    if name.startswith('fit_') and report.plot_enabled('fit'):
+        return comparison_fit_pool(results, dataset, name.removeprefix('fit_'))
+    for builder in (_comparison_quantities, _comparison_reaction_rate_signatures,
                     _comparison_limitation_factors):
         figures = builder(results, only=name)
         if name in figures:
@@ -546,18 +637,19 @@ def save_single(result: CheckpointPlot, output_directory, dataset=None, *,
                         if prepare else Path(output_directory))
     dataset = data.get_data_before_day() if dataset is None else dataset
     checkpoint, model_run = result.checkpoint, result.model_run
-    figure, _ = report.plot_fit(checkpoint, dataset, model_run=model_run)
     if target is None:
         def target(number, quantity=None):
             return Path(output_directory) / single_plot_filename(
                 number, checkpoint, quantity)
 
-    fit_path = Path(target(0, None))
     paths = []
-    if overwrite or not fit_path.exists():
-        figure.savefig(fit_path, dpi=300)
-        paths.append(fit_path)
-    plt.close(figure)
+    if report.plot_enabled('fit'):
+        figure, _ = report.plot_fit(checkpoint, dataset, model_run=model_run)
+        fit_path = Path(target(0, None))
+        if overwrite or not fit_path.exists():
+            figure.savefig(fit_path, dpi=300)
+            paths.append(fit_path)
+        plt.close(figure)
 
     sample = dataset[checkpoint.replica[0]]
     fitted_replicas = sample.get_split(
@@ -567,7 +659,7 @@ def save_single(result: CheckpointPlot, output_directory, dataset=None, *,
 
     return [*paths, *report._save_diagnostic_plots(
         checkpoint, model_run, str(output_directory), target, suptitle,
-        overwrite=overwrite)]
+        x_limits=report.sample_time_limits(sample), overwrite=overwrite)]
 
 
 def single_plot_filename(number, checkpoint, quantity=None) -> str:
@@ -639,6 +731,10 @@ def parse_args(argv=None):
                         help='checkpoint path or unique full/partial cp-ID')
     parser.add_argument('--best', action='store_true',
                         help='plot every best checkpoint selected by the filters below')
+    parser.add_argument('--best-restart', action='store_true',
+                        help=('plot the best checkpoint per CMA-ES restart; where no '
+                              'restarts were saved, plot the ordinary best checkpoint. '
+                              'Invalid-objective penalty checkpoints are excluded'))
     parser.add_argument('--output-dir', metavar='DIRECTORY',
                         help='new or empty directory for SVG figures; defaults '
                              'below USER_VARIABLES.PLOT_DIRECTORY')
@@ -649,8 +745,10 @@ def parse_args(argv=None):
     _add_best_filters(parser)
     add_comparison_argument(parser)
     args = parser.parse_args(argv)
-    if args.best == bool(args.checkpoints):
-        parser.error('give checkpoint IDs, or use --best, but not both')
+    if args.best and args.best_restart:
+        parser.error('--best and --best-restart cannot be combined')
+    if (args.best or args.best_restart) == bool(args.checkpoints):
+        parser.error('give checkpoint IDs, or use --best or --best-restart, but not both')
     args.comparisons = parse_comparisons(args.compare)
     return args
 
@@ -662,6 +760,71 @@ def best_checkpoints(args):
         samples=args.samples, model_ids=args.model_ids, fit_modes=args.fit_modes,
         replicas=args.replicas, loss_ids=args.loss_ids)
     return report.choose_best(selected)
+
+
+def _best_group(checkpoint):
+    """Return the standard ``--best`` grouping key for a checkpoint."""
+    return (checkpoint.model_id, checkpoint.fit_mode,
+            checkpoint.run_id if checkpoint.is_multi_replica else checkpoint.replica)
+
+
+def _restart_index(checkpoint):
+    """Return a checkpoint's CMA-ES restart index, when it has one."""
+    restart = (getattr(checkpoint, 'metadata', None) or {}).get('cma_restart')
+    if not isinstance(restart, dict) or restart.get('index') is None:
+        return None
+    return str(restart['index'])
+
+
+def _usable_checkpoint(checkpoint):
+    """Whether a checkpoint has a replayable, non-penalty objective value."""
+    try:
+        loss = float(checkpoint.loss)
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return math.isfinite(loss) and loss < optimizer.INVALID_OBJECTIVE_PENALTY
+
+
+def best_restart_checkpoints(checkpoints):
+    """Select restart minima, falling back to ordinary best checkpoints.
+
+    CMA-ES records a minimum for every restart, including restart zero.  For a
+    standard ``--best`` group with any such records, retain the best usable
+    result from every restart (and keep independent runs separate).  A group
+    with no restart records retains its ordinary best result instead.
+    """
+    checkpoints = list(checkpoints)
+    restart_groups = {
+        _best_group(checkpoint) for checkpoint in checkpoints
+        if _restart_index(checkpoint) is not None
+    }
+    usable = [checkpoint for checkpoint in checkpoints if _usable_checkpoint(checkpoint)]
+
+    selected = report.choose_best([
+        checkpoint for checkpoint in usable
+        if _best_group(checkpoint) not in restart_groups
+    ])
+    best_by_restart = {}
+    for checkpoint in usable:
+        index = _restart_index(checkpoint)
+        if index is None:
+            continue
+        # The same restart numbers recur in independently configured runs.
+        key = (_best_group(checkpoint), checkpoint.run_id, index)
+        prior = best_by_restart.get(key)
+        if prior is None or checkpoint.loss < prior.loss:
+            best_by_restart[key] = checkpoint
+    return [*selected, *best_by_restart.values()]
+
+
+def selected_best_checkpoints(args):
+    """Return checkpoints chosen by either best-selection command mode."""
+    selected = report.filter_checkpoints(
+        report.collect_all(args.results_directory),
+        samples=args.samples, model_ids=args.model_ids, fit_modes=args.fit_modes,
+        replicas=args.replicas, loss_ids=args.loss_ids)
+    return (best_restart_checkpoints(selected) if args.best_restart
+            else report.choose_best(selected))
 
 
 def save_best(checkpoints, args):
@@ -690,8 +853,8 @@ def save_best(checkpoints, args):
 
 def main(argv=None):
     args = parse_args(argv)
-    if args.best:
-        checkpoints = best_checkpoints(args)
+    if args.best or args.best_restart:
+        checkpoints = selected_best_checkpoints(args)
         if args.dry_run:
             for checkpoint in checkpoints:
                 print(checkpoint.id, checkpoint.model_id, checkpoint.replica_name,

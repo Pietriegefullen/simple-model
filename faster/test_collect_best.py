@@ -86,31 +86,41 @@ class FitAxesTest(unittest.TestCase):
 
         self.assertEqual(axes['CH4'].get_yscale(), 'log')
 
-    def test_loss_configuration_can_override_conventional_fit_scales(self):
+    def test_fit_scales_and_limits_ignore_loss_configuration_and_model_values(self):
         class Checkpoint:
             run_config = {'objective': {'transform': {
                 'CO2': ['log'], 'CH4': ['linear'],
             }}}
 
+        class Replica:
+            def CO2(self):
+                return [0, 1], [1.0, 2.0]
+
+            def CH4(self):
+                return [0, 1], [1e-4, 1e-2]
+
         class Sample:
-            replicas = []
+            replicas = [Replica()]
 
         _, axes = plot_best.create_fit_figure()
-        axes['CO2'].plot([0, 1], [1, 2])
-        axes['CH4'].plot([0, 1], [1e-4, 1e-2])
+        axes['CO2'].plot([0, 1], [-100, 100])
+        axes['CH4'].plot([0, 1], [-100, 100])
 
         plot_best.format_fit_axes(Checkpoint(), Sample(), axes)
 
-        self.assertEqual(axes['CO2'].get_yscale(), 'log')
-        self.assertEqual(axes['CH4'].get_yscale(), 'linear')
+        limits = plot_best.sample_y_limits(Sample())
+        self.assertEqual(axes['CO2'].get_yscale(), 'linear')
+        self.assertEqual(axes['CH4'].get_yscale(), 'log')
+        self.assertEqual(axes['CO2'].get_ylim(), (0.0, limits['CO2'][1]))
+        self.assertEqual(axes['CH4'].get_ylim(), limits['CH4'])
 
-    def test_combined_limitation_factor_is_dashed(self):
+    def test_combined_limitation_factor_is_solid(self):
         _, axis = plot_best.plot_pathway_limitation_factors(
             'Hydro', ([0, 1], [.8, .6]), None, None, None, suptitle='test')
 
         combined = next(line for line in axis.lines
                         if 'all\\ factors' in line.get_label())
-        self.assertEqual(combined.get_linestyle(), '--')
+        self.assertEqual(combined.get_linestyle(), '-')
 
 
 class CheckpointFilterTest(unittest.TestCase):
@@ -147,12 +157,25 @@ class CheckpointFilterTest(unittest.TestCase):
             checkpoints, model_ids=['3NWE'])
         self.assertEqual(selected, [matching])
 
+    def test_sample_glob_matches_sample_number(self):
+        class Checkpoint:
+            replica = ('1372', '4')
+            model_id = 'model-A'
+            fit_mode = 'single'
+            loss_id = 'loss-1'
+
+        selected = plot_best.filter_checkpoints(
+            [Checkpoint()], samples=['137*'])
+
+        self.assertEqual(len(selected), 1)
+
 
 class CheckpointCollectionTest(unittest.TestCase):
     def test_ignores_generated_report_artifacts(self):
         """Only generated checkpoint filenames are candidates for loading."""
         with tempfile.TemporaryDirectory() as directory:
-            for filename in ('parameter_influence.png', 'sensitivity.csv'):
+            for filename in ('parameter_influence.png', 'sensitivity.csv',
+                             'report_cp-ABCD-EF12.csv', 'checkpoint_cp-ABCD-EF12.bak'):
                 with open(os.path.join(directory, filename), 'w') as handle:
                     handle.write('not a checkpoint')
             with open(os.path.join(directory, 'metadata.json'), 'w') as handle:
@@ -233,7 +256,7 @@ class Fe3AcetoDiagnosticsTest(unittest.TestCase):
         self.assertLessEqual(acetate_axis.get_position().x1, .76)
         self.assertEqual(figures['Fe3_Aceto_deltaG_r'][1].lines[-1].get_linestyle(), '--')
         self.assertEqual(figures['Fe3_Aceto_MM'][1].get_ylim(), (0.0, 1.0))
-        self.assertIn('mg', figures['Fe3_Aceto_microbes'][1].get_ylabel())
+        self.assertIn('mathrm{L}', figures['Fe3_Aceto_microbes'][1].get_ylabel())
 
     def test_combined_delta_g_plots_include_all_and_hydro_homo_pathways(self):
         run_log = {
@@ -261,6 +284,19 @@ class PathwayQuantityPlotTest(unittest.TestCase):
     def tearDown(self):
         plt.close('all')
 
+    def test_cumulative_pathway_contributions_close_to_total_pool(self):
+        curves = [
+            ('producer', [0., 1., 2.], [2., 2., 2.]),
+            ('consumer', [0., 1., 2.], [-1., -1., -1.]),
+        ]
+
+        time, contributions, pool = plot_best.cumulative_pathway_contributions(
+            curves, [0., 1., 2.], [10., 12., 13.])
+
+        np.testing.assert_allclose(time, [0., 1., 2.])
+        np.testing.assert_allclose(
+            np.sum(contributions, axis=0), pool - pool[0])
+
     def test_delta_g_plot_marks_the_gibbs_minimum(self):
         _, axis = plot_best.plot_quantity(
             'Hydro_deltaG_r', [0, 1], [-20, -30], None, suptitle='test')
@@ -270,30 +306,47 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertEqual(list(axis.lines[-1].get_ydata()),
                          [1e-3*GIBBS_MINIMUM, 1e-3*GIBBS_MINIMUM])
 
-    def test_inhibition_factor_uses_a_zero_to_one_axis(self):
+    def test_delta_g_plot_caps_the_display_range(self):
         _, axis = plot_best.plot_quantity(
+            'Hydro_deltaG_r', [0, 50], [-2e6, -2e6], None, suptitle='test')
+
+        self.assertEqual(axis.get_ylim()[0], plot_best.GIBBS_Y_LIMITS[0])
+        self.assertLessEqual(axis.get_ylim()[1], plot_best.GIBBS_Y_LIMITS[1])
+
+    def test_inhibition_factor_uses_a_zero_to_one_axis(self):
+        figure, axis = plot_best.plot_quantity(
             'Fermentation_inhib', [0, 1], [.2, .8], None, suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.0))
+        self.assertEqual(axis.get_title(), r'$\mathrm{Fermentation}\ \text{inhibition}$')
+        self.assertEqual(axis.get_ylabel(), r'$f_{\mathrm{I}}\ [-]$')
+        plt.close(figure)
 
     def test_rate_plot_includes_v_max_with_headroom(self):
         _, axis = plot_best.plot_quantity(
             'Hydro_v', [0, 1], [.2, .8], None, v_max=1., suptitle='test')
 
         self.assertEqual(axis.get_ylim(), (0.0, 1.05))
+        self.assertEqual(axis.get_ylabel(),
+                         r'$v\ [\mathrm{d}^{-1}]$')
+        self.assertEqual(axis.get_title(),
+                         r'$\mathrm{Hydrogenotrophic\ methanogenesis}\ \mathrm{turnover\ rate}$')
+        self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
+                         [r'$v(t)$', r'$v_{\mathrm{max}}$'])
 
     def test_unit_constant_v_max_labels_m_pool_as_pathway_capacity(self):
         _, axis = plot_best.plot_quantity(
             'M_Hydro', [0, 1], [.2, .8], None, suptitle='test',
-            capacity_pathway='Hydro')
+            capacity_pathway='Hydro', v_max=1.)
 
         axis.figure.canvas.draw()
-        self.assertEqual(axis.get_title(), 'Hydro pathway capacity (M_Hydro)')
+        self.assertEqual(axis.get_title(),
+                         r'$\mathrm{Hydrogenotrophic\ methanogenesis}\ \mathrm{capacity\ rate}$')
         ylabel = axis.get_ylabel().replace('\\', '')
         self.assertIn('pathway capacity', ylabel)
-        self.assertIn('mg/g dry weight', ylabel)
-        self.assertTrue(any('$v_{\\max} = 1$ (constant)' in text.get_text()
-                            for text in axis.texts))
+        self.assertIn('mumathrm{mol}', ylabel)
+        self.assertIn('M(t)\\,v_{\\max}', axis.get_legend().get_texts()[0].get_text())
+        self.assertIn('\\text{(constant)}', axis.get_legend().get_texts()[1].get_text())
 
     def test_only_a_fixed_unit_v_max_marks_m_as_capacity(self):
         class RunLog(dict):
@@ -318,14 +371,16 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertFalse(
             plot_best.pathway_uses_capacity_parameter(run_log, 'Hydro'))
 
-    def test_microbe_pool_uses_mass_biomass_units(self):
+    def test_microbe_pool_uses_micromol_per_litre_units(self):
         _, axis = plot_best.plot_quantity(
             'M_Hydro', [0, 1], [.2, .8], None, suptitle='test')
 
         ylabel = axis.get_ylabel().replace('\\', '')
+        self.assertEqual(axis.get_title(),
+                         r'$\mathrm{biomass}\ \mathrm{Hydrogenotrophic\ methanogenesis}$')
+        self.assertIsNone(axis.get_legend())
         self.assertIn('microbial biomass', ylabel)
-        self.assertIn('mg/g dry weight', ylabel)
-        self.assertNotIn('μmol', ylabel)
+        self.assertIn('mumathrm{mol}/mathrm{L}', ylabel)
 
     def test_dissolved_h2_follows_total_h2_in_pool_plot_order(self):
         class PathwayModel:
@@ -348,13 +403,50 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         np.testing.assert_allclose(dissolved_h2[1], [0, 1])
         self.assertEqual(dissolved_h2[2].tolist(), [1., 2.])
 
+    def test_pool_quantities_convert_each_replica_from_gdw_to_litres(self):
+        class RunLog(dict):
+            pass
+
+        run_log = RunLog({
+            'CO2': ([0, 1], [2., 4.]),
+            'CH4': ([0, 1], [.2, .4]),
+            'TOC': ([0, 1], [2., 4.]),
+            'M_Hydro': ([0, 1], [.226232, .452464]),
+            'Hydro_v': ([0, 1], [.2, .3]),
+        })
+        run_log.replica = type('Replica', (), {
+            'water_content': 200., 'dry_weight': 10.,
+        })()
+
+        quantities = dict((name, values) for name, _, values in
+                          plot_best.pathway_plot_quantities(run_log))
+
+        self.assertEqual(list(quantities)[:2], ['CO2', 'CH4'])
+        np.testing.assert_allclose(quantities['CO2'], [100., 200.])
+        np.testing.assert_allclose(quantities['CH4'], [10., 20.])
+        np.testing.assert_allclose(quantities['TOC'], [100., 200.])
+        np.testing.assert_allclose(quantities['M_Hydro'], [100., 200.])
+
     def test_dissolved_h2_has_a_clear_plot_title(self):
         _, axis = plot_best.plot_quantity(
             'H2_dissolved', [0, 1], [.1, .2], None, suptitle='test')
 
-        self.assertEqual(axis.get_title(), 'Dissolved H2')
+        self.assertEqual(axis.get_title(), r'$\mathrm{dissolved\ H_2}$')
 
-    def test_constant_km_diagnostics_are_not_emitted_as_plots(self):
+    def test_mm_plot_uses_pathway_name_and_dimensionless_factor_label(self):
+        checkpoint = mock.Mock()
+        checkpoint.replica = ('sample', 'replica')
+        checkpoint.fit_mode = 'single'
+        checkpoint.model_id = 'model-TEST'
+        with mock.patch.object(plot_best, 'figure_suptitle', return_value='test'):
+            figure, axis = plot_best.plot_quantity(
+                'Fe3_MM', [0, 1], [.1, .8], checkpoint, log_scale=True)
+        self.assertEqual(axis.get_title(), r'$\mathrm{Iron\ reduction}$')
+        self.assertEqual(axis.get_ylabel(), r'$f_{\mathrm{MM}}\ [-]$')
+        self.assertEqual(axis.get_ylim(), (1e-6, 1.0))
+        plt.close(figure)
+
+    def test_unlisted_pathway_log_entries_are_not_emitted_as_plots(self):
         run_log = {
             'Hydro_v': ([0, 1], [.2, .3]),
             'Hydro_Km_CO2': ([0, 1], [500., 500.]),
@@ -365,8 +457,9 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         names = [name for name, *_ in plot_best.pathway_plot_quantities(run_log)]
 
         self.assertNotIn('Hydro_Km_CO2', names)
-        self.assertIn('Hydro_Km_H2', names)
-        self.assertIn('Hydro_Km_total', names)
+        self.assertNotIn('Hydro_Km_H2', names)
+        self.assertNotIn('Hydro_Km_total', names)
+        self.assertEqual(names, ['Hydro_v'])
 
     def test_reaction_rate_uses_biomass_on_the_specific_rate_grid(self):
         run_log = {
@@ -383,14 +476,41 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         np.testing.assert_allclose(actual_rate, [.2, .6, 2.4, 4.])
         np.testing.assert_allclose(maximum_rate, [1., 1.5, 3., 4.])
 
-    def test_reaction_rate_plot_marks_biomass_scaled_v_max_as_dashed(self):
-        _, axis = plot_best.plot_reaction_rate(
-            'Hydro', [0, 1], [.2, .8], [1., 2.], None, suptitle='test')
+    def test_reaction_rate_converts_gdw_biomass_with_its_own_replica_volume(self):
+        class RunLog(dict):
+            pass
 
-        self.assertEqual(len(axis.lines), 2)
-        self.assertEqual(axis.lines[0].get_ydata().tolist(), [.2, .8])
-        self.assertEqual(axis.lines[1].get_ydata().tolist(), [1., 2.])
-        self.assertEqual(axis.lines[1].get_linestyle(), '--')
+        run_log = RunLog({
+            'Hydro_v': ([0., 1.], [.2, .3]),
+            'M_Hydro': ([0., 1.], [.226232, .452464]),
+        })
+        run_log.replica = type('Replica', (), {
+            'water_content': 200., 'dry_weight': 10.,
+        })()
+
+        _, _, actual_rate, maximum_rate = next(
+            plot_best.pathway_reaction_rate_curves(run_log, {'Hydro': .5}))
+
+        np.testing.assert_allclose(actual_rate, [20., 60.])
+        np.testing.assert_allclose(maximum_rate, [50., 100.])
+
+    def test_reaction_rate_signature_uses_one_coloured_actual_rate_per_pathway(self):
+        class RunLog(dict):
+            pass
+
+        run_log = RunLog({
+            'Hydro_v': ([0, 1], [.2, .8]),
+            'M_Hydro': ([0, 1], [1., 2.]),
+        })
+        run_log._parameters = parameters.ModelParameters({
+            'Hydro_v_max': parameters.Parameter('Hydro_v_max', 1.).constant(1.),
+        })
+        _, axis = plot_best.reaction_rate_signature_figure(
+            None, run_log, suptitle='test')
+
+        self.assertEqual(len(axis.lines), 1)
+        self.assertEqual(axis.lines[0].get_ydata().tolist(), [.2, 1.6])
+        self.assertEqual(axis.lines[0].get_color(), 'tab:cyan')
 
     def test_limitation_factor_plot_combines_kinetics_and_thermodynamics(self):
         run_log = {
@@ -408,10 +528,12 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         hydro_axis = figures['Hydro_limitation_factors'][1]
 
         self.assertEqual(homo_axis.get_ylim(), (0.0, 1.05))
-        self.assertEqual(homo_axis.lines[0].get_color(), 'tab:blue')
-        self.assertEqual(homo_axis.lines[1].get_linestyle(), '--')
-        self.assertEqual(homo_axis.lines[2].get_linestyle(), '-.')
-        np.testing.assert_allclose(homo_axis.lines[3].get_ydata(), [.14, .18])
+        self.assertEqual(homo_axis.lines[0].get_color(), 'tab:orange')
+        self.assertEqual(homo_axis.lines[0].get_linestyle(), '-.')
+        self.assertEqual(homo_axis.lines[1].get_linestyle(), '-.')
+        self.assertEqual(homo_axis.lines[2].get_color(), 'k')
+        self.assertEqual(homo_axis.lines[2].get_linestyle(), '-')
+        np.testing.assert_allclose(homo_axis.lines[2].get_ydata(), [.14, .18])
         self.assertTrue(any('not logged' in text.get_text()
                             for text in hydro_axis.texts))
 
@@ -421,6 +543,8 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             'Hydro_MM': ([0, 1], [.2, .4]),
             'Hydro_MM_CO2': ([0, 1], [.4, .8]),
             'Hydro_MM_H2': ([0, 1], [.5, .5]),
+            'Hydro_Km_CO2': ([0, 1], [500., 500.]),
+            'Hydro_Km_H2': ([0, 1], [16.0837, 16.0837]),
         }
 
         figures = dict(plot_best.pathway_limitation_factor_figures(
@@ -428,9 +552,18 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         axis = figures['Hydro_limitation_factors'][1]
 
         labels = [line.get_label() for line in axis.lines]
-        self.assertIn(r'$\mathrm{MM}\ (CO2)$', labels)
-        self.assertIn(r'$\mathrm{MM}\ (H2)$', labels)
-        self.assertIn(r'$\mathrm{Michaelis\! -\! Menten\ product}$', labels)
+        self.assertIn(
+            r'$f_{\mathrm{MM}}(\mathrm{CO_2}),\ K_{M} = 500$',
+            labels)
+        self.assertIn(
+            r'$f_{\mathrm{MM}}(\mathrm{H_2}),\ K_{M} = 16.08$',
+            labels)
+        self.assertNotIn(r'$\mathrm{Michaelis\! -\! Menten\ product}$', labels)
+
+    def test_michaelis_menten_km_formatting_uses_requested_precision(self):
+        self.assertEqual(plot_best.format_michaelis_menten_km(100.), '100.00')
+        self.assertEqual(plot_best.format_michaelis_menten_km(100.01), '100')
+        self.assertEqual(plot_best.format_michaelis_menten_km(4.2), '4.20')
 
     def test_ch4_pathway_production_is_stacked_with_final_amounts(self):
         run_log = {
@@ -447,11 +580,11 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         self.assertEqual(axis.get_yscale(), 'linear')
         self.assertEqual(log_axis.get_yscale(), 'log')
         self.assertEqual(len(axis.collections), 2)
-        self.assertEqual(axis.lines[0].get_ydata().tolist(), [0, 3])
+        self.assertEqual(axis.lines[0].get_ydata().tolist(), [3, 6])
         labels = [text.get_text() for text in axis.get_legend().get_texts()]
         self.assertTrue(any('2' in label for label in labels))
         self.assertTrue(any('1' in label for label in labels))
-        self.assertIn('3', labels[-1])
+        self.assertIn('6', labels[-1])
         self.assertIsNotNone(figure)
 
     def test_co2_pathway_production_includes_all_producers_on_both_scales(self):
@@ -471,7 +604,7 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         })()
         run_log = {
             # Gross production is 6 and Hydro consumes 2, so the total pool
-            # must increase by 4 for the diagnostic mass balance to close.
+            # rises from 3 to 7 for the diagnostic mass balance to close.
             'CO2': ([0, 1], [3., 7.]),
             'Fermentation_v': ([0, 1], [.5, .5]),
             'M_Ferm': ([0, 1], [2., 2.]),
@@ -493,12 +626,11 @@ class PathwayQuantityPlotTest(unittest.TestCase):
         labels = [text.get_text() for text in axis.get_legend().get_texts()]
         self.assertTrue(any('Fermentation' in label for label in labels))
         self.assertTrue(any('Aceto' in label for label in labels))
-        self.assertFalse(any('Hydro' in label for label in labels))
-        self.assertTrue(any('CO2' in label and 'consumed' in label
+        self.assertTrue(any('Hydro' in label and 'consumed' in label
                             for label in labels))
-        self.assertTrue(any('consumed' in label and '2' in label
+        self.assertTrue(any('Hydro' in label and '-2' in label
                             for label in labels))
-        self.assertIn('4', labels[-1])
+        self.assertIn('7', labels[-1])
         self.assertIsNotNone(figure)
 
     def test_co2_production_uses_accepted_states_not_trial_rate_logs(self):
@@ -527,8 +659,8 @@ class PathwayQuantityPlotTest(unittest.TestCase):
             None, pathway_model, run_log, suptitle='test')
 
         np.testing.assert_allclose(axis.collections[0].get_paths()[0].vertices[:, 1].max(),
-                                   1.5)
-        np.testing.assert_allclose(axis.lines[0].get_ydata(), [0., 1.5])
+                                   4.5)
+        np.testing.assert_allclose(axis.lines[0].get_ydata(), [3., 4.5])
 
 
 if __name__ == '__main__':

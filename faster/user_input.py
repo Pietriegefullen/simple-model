@@ -41,8 +41,14 @@ def parse_args_fit(argv=None):
         '--converted-envelope', action='store_true',
         help='start a fresh fit from the converted-envelope model parameters')
     parameter_source.add_argument(
+        '--hypothesis', action='store_true',
+        help='start a fresh fit from the hypothesis model parameters')
+    parameter_source.add_argument(
         '--estimate', action='store_true',
         help='start a fresh fit from the estimated model parameters')
+    parameter_source.add_argument(
+        '--bounds', metavar='ID',
+        help='use parameter bounds stored by parameter_envelope.py (full or partial ID)')
     parser.add_argument(
         '--fix-v-max-except', nargs='+', metavar='PARAMETER',
         help='fix every *v_max parameter except the named parameter(s)')
@@ -119,6 +125,8 @@ def parse_args_fit(argv=None):
         parser.error('--max-evaluations must be positive.')
     if args.fix_v_max_value is not None and args.fix_v_max_except is None:
         parser.error('--fix-v-max-value requires --fix-v-max-except.')
+    if args.bounds is not None and args.checkpoint is not None:
+        parser.error('--bounds cannot be combined with --checkpoint.')
 
 
     return args

@@ -1,6 +1,7 @@
 import hashlib
 import base64
 import copy
+from datetime import datetime, timezone
 from functools import lru_cache
 import json
 import math
@@ -229,6 +230,7 @@ PARAMETER_CONFIG_SCHEMA = {
 }
 
 RUN_CONFIG_SCHEMA = {
+    'run_started_at': str,
     'model': MODEL_CONFIG_SCHEMA,
     'chosen': CHOSEN_CONFIG_SCHEMA,
     'objective': OBJECTIVE_CONFIG_SCHEMA,
@@ -285,6 +287,11 @@ def build_run_id(config):
     ignore = ['legacy', 'legacy_file', ]
     _ = [cp.pop(i,None) for i in ignore]
     return 'run-' + build_id(cp, 3, 2)
+
+
+def new_run_started_at():
+    """Return a filesystem-safe UTC timestamp that distinguishes a new run."""
+    return datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
 
 def add_missing_thermodynamics_switch(config):
     pathway_keys = [k for k in config.keys() if not k == 'version']

@@ -47,6 +47,7 @@ class FitResult:
     variant: str
     total_r2: float
     path: Path
+    local_minima: int = 1
 
 
 def checkpoint_files(results_directory):
@@ -121,8 +122,10 @@ def _variant(model_id):
 
 
 def checkpoint_identifier(path):
-    """Return the generated ``cp-`` ID at the end of a checkpoint filename."""
-    match = re.search(r'(?:^|[_-])cp-([A-Za-z0-9-]+)$', Path(path).name)
+    """Return the generated ID from a normal or CMA-restart checkpoint."""
+    match = re.search(
+        r'(?:^|[_-])cp-([A-Za-z0-9]{4}-[A-Za-z0-9]{4})(?=$|_restart-)',
+        Path(path).name)
     return None if match is None else match.group(1)
 
 
@@ -136,6 +139,10 @@ def best_results(results_directory, dataset, model_ids=None):
     """
     variances = {}
     best = {}
+    # CMA-ES saves one checkpoint per restart, including restart zero.  Keep
+    # their distinct indices per run so the displayed best result can report
+    # how many local minima that particular fit explored.
+    restart_minima = defaultdict(set)
     best_multi = {}
     errors = []
     print('scanning results')
@@ -176,9 +183,15 @@ def best_results(results_directory, dataset, model_ids=None):
             r2 = 1 - float(checkpoint['total_loss']) / denominator
             key = (str(chosen['fit_mode']), _variant(model_id),
                    str(chosen['sample']), str(chosen['validation_replica']))
+            # Unlike the generated run ID, this also works for older
+            # checkpoints whose model configuration predates ID validation.
+            run_id = json.dumps(run_config, sort_keys=True, default=str)
+            restart = checkpoint.get('cma_restart')
+            if isinstance(restart, dict) and isinstance(restart.get('index'), int):
+                restart_minima[(key, run_id)].add(restart['index'])
             result = FitResult(key[2], key[3], key[0], key[1], r2, path)
-            if key not in best or result.total_r2 > best[key].total_r2:
-                best[key] = result
+            if key not in best or result.total_r2 > best[key][0].total_r2:
+                best[key] = (result, run_id)
         except (KeyError, TypeError, ValueError, FloatingPointError) as error:
             errors.append(f'{path}: {error}')
 
@@ -195,8 +208,15 @@ def best_results(results_directory, dataset, model_ids=None):
                 errors.append(f'{path}: invalid multi-replica result {record!r}: {error}')
                 continue
             key = ('multi', _variant(model_id), sample, replica)
-            best[key] = FitResult(sample, replica, 'multi', _variant(model_id), r2, path)
-    return list(best.values()), errors
+            best[key] = (FitResult(
+                sample, replica, 'multi', _variant(model_id), r2, path), None)
+    results = []
+    for key, (result, run_id) in best.items():
+        minima = restart_minima[(key, run_id)]
+        results.append(FitResult(
+            result.sample, result.replica, result.fit_mode, result.variant,
+            result.total_r2, result.path, max(1, len(minima))))
+    return results, errors
 
 
 def polished_results(results_directory, dataset, model_ids=None,
@@ -345,24 +365,38 @@ def format_r2(r2, highlight_threshold, color=False):
     return value
 
 
+def format_result_cell(result, highlight_threshold, color, width):
+    """Format one R² cell, optionally showing the number of local minima."""
+    if result is None:
+        return MISSING.rjust(width)
+    suffix = '' if result.local_minima <= 1 else f' ({result.local_minima})'
+    value = (format_r2(result.total_r2, highlight_threshold) + suffix).rjust(width)
+    if color and result.total_r2 < highlight_threshold:
+        return f'{HIGHLIGHT_STYLE}{value}{RESET_STYLE}'
+    return value
+
+
 def format_report(results, dataset, fit_modes=None, variants=None,
                   highlight_threshold=DEFAULT_HIGHLIGHT_THRESHOLD, color=False,
                   omit_sample_prefixes=()):
     """Format a matrix of best R² values, with ``--`` for fits still missing."""
     all_replicas = expected_replicas(dataset, omit_sample_prefixes)
     columns = replica_columns(all_replicas)
-    values = {(result.fit_mode, result.variant, result.sample, result.replica):
-              result.total_r2 for result in results}
+    values = {(result.fit_mode, result.variant, result.sample, result.replica): result
+              for result in results}
     available_modes = sorted({result.fit_mode for result in results})
     available_variants = sorted({result.variant for result in results})
     modes = fit_modes if fit_modes is not None else available_modes
     labels = variants if variants is not None else available_variants
     if not modes or not labels:
         return 'No annotated checkpoints found.'
+    widest_minima = max((result.local_minima for result in results), default=1)
+    cell_width = max(7, 10 + len(str(widest_minima))) if widest_minima > 1 else 7
 
     lines = [
         'Best total R² by fitted validation replica',
         'Cell values are the highest total R² across saved checkpoints.',
+        'A number in parentheses is the number of CMA-ES local minima found.',
         f'{MISSING} = not fitted; blank = replica is not present in that sample.',
         f'Values with R² < {highlight_threshold:.3f} are highlighted and need attention.',
     ]
@@ -372,21 +406,24 @@ def format_report(results, dataset, fit_modes=None, variants=None,
             fitted = 0
             expected = sum(len(replicas) for _, replicas in all_replicas)
             lines.append(f'  model variant: {variant}')
-            lines.append('  sample' + ''.join(f'{replica:>7}' for replica in columns))
+            lines.append('  sample' + ''.join(
+                f'{replica:>{cell_width}}' for replica in columns))
             for sample, replicas in all_replicas:
                 cells = []
                 for replica in columns:
                     if replica not in replicas:
                         cells.append(NOT_APPLICABLE)
                         continue
-                    r2 = values.get((mode, variant, sample, replica))
-                    if r2 is None:
-                        cells.append(MISSING)
+                    result = values.get((mode, variant, sample, replica))
+                    if result is None:
+                        cells.append(MISSING.rjust(cell_width))
                     else:
                         fitted += 1
-                        cells.append(format_r2(r2, highlight_threshold, color))
+                        cells.append(format_result_cell(
+                            result, highlight_threshold, color, cell_width))
                 lines.append(f'  {sample:<6} ' + ' '.join(
-                    cell.rjust(6) for cell in cells))
+                    cell if len(cell) >= cell_width else cell.rjust(cell_width)
+                    for cell in cells))
             lines.append(f'  coverage: {fitted}/{expected} fitted')
     return '\n'.join(lines)
 

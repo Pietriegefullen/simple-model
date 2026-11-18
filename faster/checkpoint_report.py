@@ -7,6 +7,7 @@ loads saved checkpoints and draws their standard report figures.
 import json
 import os
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from functools import cached_property
 from itertools import cycle
 from pathlib import Path
@@ -21,7 +22,7 @@ import optimizer
 import parameters
 import plot
 import system
-from CONSTANTS import GIBBS_MINIMUM
+from CONSTANTS import GIBBS_MINIMUM, MOLAR_MASS_BIOMASS
 from fit_sample import run
 import fit_replicas as joint_fit
 from plot import pathway_color
@@ -29,15 +30,58 @@ from model_variants import model_variant_from_id
 from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
 
 GIBBS_ENERGY_SCALE = 1e-3  # Internal reaction energies are J/mol; plots use kJ/mol.
-GIBBS_ENERGY_UNIT = r'\mathrm{kJ}\,\mathrm{mol}^{-1}'
+GIBBS_ENERGY_UNIT = r'\mathrm{kJ}/\mathrm{mol}'
+GIBBS_Y_LIMITS = (-1000., 500.)
 
 # ``00`` is reserved for the data/model fit (CO2 and CH4).  The remaining
 # system pools are grouped with the pathway diagnostics below, rather than
 # duplicating the gases or a microbe pool in a separate group.
-POOL_PLOT_ORDER = ('TOC', 'DOC', 'Acetate', 'Fe3', 'H2', 'H2O', 'Fe2')
+MODELLED_GAS_POOLS = ('CO2', 'CH4')
+POOL_PLOT_ORDER = (*MODELLED_GAS_POOLS,
+                   'TOC', 'DOC', 'Acetate', 'Fe3', 'H2', 'H2O', 'Fe2')
 PATHWAY_PLOT_ORDER = (
     'Hydrolysis', 'Fermentation', 'Fe3', 'Aceto', 'Hydro', 'Homo',
 )
+
+# The complete standard plot suite. Edit these flags to suppress an entire
+# plot family without changing the report code. ``PATHWAY_PLOT_FLAGS`` is a
+# second, deliberately short layer: setting a pathway to ``False`` excludes
+# it from every pathway-specific family (including joint signature plots).
+PLOT_FLAGS = {
+    'fit': True,
+    'quantities': True,
+    'gas_pools': True,
+    'pathway_capacity': True,
+    'reaction_rate_signature': True,
+    'limitation_factors': True,
+    'pathway_delta_g': True,
+    'fe3_aceto_diagnostics': True,
+    'ch4_pathway_production': True,
+    'co2_pathway_production': True,
+}
+PATHWAY_PLOT_FLAGS = dict.fromkeys(PATHWAY_PLOT_ORDER, True)
+
+def plot_enabled(name, pathway=None):
+    """Whether one standard plot family is enabled for an optional pathway."""
+    return (PLOT_FLAGS.get(name, False) and
+            (pathway is None or PATHWAY_PLOT_FLAGS.get(pathway, True)))
+
+
+def enabled_pathways():
+    """Return active plot pathways in the shared display order."""
+    return tuple(pathway for pathway in PATHWAY_PLOT_ORDER
+                 if PATHWAY_PLOT_FLAGS.get(pathway, True))
+
+
+PATHWAY_DISPLAY_NAMES = {
+    'Hydrolysis': 'Hydrolysis',
+    'Fermentation': 'Fermentation',
+    'Ferm': 'Fermentation',
+    'Fe3': 'Iron\ reduction',
+    'Aceto': 'Acetoclastic\ methanogenesis',
+    'Hydro': 'Hydrogenotrophic\ methanogenesis',
+    'Homo': 'Homoacetogenesis',
+}
 PATHWAY_MICROBE_POOL = {
     'Hydrolysis': 'M_Ferm',
     'Fermentation': 'M_Ferm',
@@ -47,7 +91,7 @@ PATHWAY_MICROBE_POOL = {
     'Homo': 'M_Homo',
 }
 MICROBIAL_POOLS = frozenset(PATHWAY_MICROBE_POOL.values())
-MICROBIAL_BIOMASS_UNIT = r'mg/g\ dry\ weight'
+MICROBIAL_BIOMASS_UNIT = r'\mu\mathrm{mol}/\mathrm{L}'
 PATHWAY_V_MAX_PARAMETER = {
     'Hydrolysis': 'Hydrolysis_v_max',
     'Fermentation': 'Ferm_v_max',
@@ -165,12 +209,28 @@ class Checkpoint:
     def __str__(self):
         return self.key
 
-def collect_all(results_directory=RESULTS_DIRECTORY, verbose = True):
-    """Load every annotated checkpoint in ``results_directory``."""
+
+@dataclass(frozen=True)
+class CheckpointLoadFailure:
+    """A checkpoint-shaped file that could not be deserialised."""
+
+    source: str
+    checkpoint_id: str
+    error: str
+    filename_metadata: dict
+
+
+def collect_all_with_failures(results_directory=RESULTS_DIRECTORY, verbose=True):
+    """Load valid checkpoints and retain errors for each unreadable file."""
     collected = []
+    failures = []
     for root, _, files in os.walk(results_directory):
         for filename in files:
-            if filename.startswith('.') or filename.endswith('.log') or filename.endswith('.json'):
+            # Persisted checkpoints are deliberately extensionless.  Report
+            # artefacts can contain checkpoint-like IDs, so accept only a
+            # regular extensionless filename instead of maintaining a list
+            # of output extensions to exclude.
+            if filename.startswith('.') or Path(filename).suffix:
                 continue
 
             if verbose:
@@ -196,21 +256,41 @@ def collect_all(results_directory=RESULTS_DIRECTORY, verbose = True):
                 loss = float(contents['total_loss'])
                 run_config = contents['run_config']
             except Exception as error:
-                raise ValueError(f'Could not load checkpoint {file_path}') from error
+                failures.append(CheckpointLoadFailure(
+                    file_path, checkpoint_ids[0], str(error),
+                    checkpoint_filename_metadata(file_path)))
+                continue
             if not run_config:
-                raise ValueError(f'Run configuration missing from {file_path}')
+                failures.append(CheckpointLoadFailure(
+                    file_path, checkpoint_ids[0], 'Run configuration missing',
+                    checkpoint_filename_metadata(file_path)))
+                continue
 
             # ``load_parameter_file`` deliberately exposes the common
             # parameter/loss/config triple.  Joint fits additionally persist
             # a per-replica solution in the annotated JSON, which is needed
             # to reproduce every curve in the combined fit.
-            metadata = {'replicas': contents.get('replicas', [])} \
-                if isinstance(contents, dict) else {}
+            metadata = ({'replicas': contents.get('replicas', []),
+                         'cma_restart': contents.get('cma_restart')}
+                        if isinstance(contents, dict) else {})
             collected.append(Checkpoint(loaded_parameters, loss, run_config,
                                         checkpoint_ids[0], file_path, metadata,
                                         checkpoint_filename_metadata(file_path)))
     if verbose:
         print('done')
+    return collected, failures
+
+
+def collect_all(results_directory=RESULTS_DIRECTORY, verbose=True):
+    """Load every valid annotated checkpoint in ``results_directory``.
+
+    Consumers that need to present malformed files can use
+    :func:`collect_all_with_failures` alongside the usable checkpoints.
+    """
+    collected, failures = collect_all_with_failures(results_directory, verbose)
+    if failures:
+        failure = failures[0]
+        raise ValueError(f'Could not load checkpoint {failure.source}: {failure.error}')
     return collected
 
 
@@ -240,7 +320,8 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
     """Keep checkpoints matching every supplied command-line filter.
 
     Model-ID filters are substrings, so a short model hash can select all of
-    its checkpoints without requiring the full generated identifier.
+    its checkpoints without requiring the full generated identifier. Sample
+    filters also accept shell-style patterns, such as ``137*``.
     """
     filters = {
         'sample': None if samples is None else set(map(str, samples)),
@@ -265,9 +346,12 @@ def filter_checkpoints(checkpoints, samples=None, model_ids=None, fit_modes=None
             for value in (record.get('replica_number'), record.get('replica'))
             if value is not None
         }
+        matches_sample = lambda value: any(
+            fnmatchcase(value, pattern) for pattern in filters['sample'])
         if filters['sample'] is not None and (
-                (not multi_records and sample not in filters['sample'])
-                or (multi_records and not multi_samples & filters['sample'])):
+                (not multi_records and not matches_sample(sample))
+                or (multi_records and not any(matches_sample(value)
+                                               for value in multi_samples))):
             continue
         if (filters['model_id'] is not None and not any(
                 model_id in checkpoint.model_id
@@ -387,6 +471,33 @@ def _run_log_keys(run_log):
     return set(run_log.keys())
 
 
+def litres_per_gdw(run_log):
+    """Return the exact volume reference used by this run's replica."""
+    replica = getattr(run_log, 'replica', None)
+    if replica is None:
+        return None
+    return (float(replica.water_content) * 1e-3) / float(replica.dry_weight)
+
+
+def litre_pool_values(run_log, pool, values):
+    """Convert a gdw/mass display pool back to the model's µmol/L basis."""
+    scale = litres_per_gdw(run_log)
+    values = np.asarray(values, dtype=float)
+    reference = getattr(run_log, '_reference', 'gdw')
+    microbe_unit = getattr(run_log, '_microbe_unit', 'mg')
+    if reference == 'gdw':
+        if scale is None:
+            return values
+        values = values / scale
+    elif reference != 'L':
+        raise ValueError(f'Unsupported run-log reference unit: {reference!r}')
+    if pool.startswith('M_') and microbe_unit == 'mg':
+        values = values / MOLAR_MASS_BIOMASS
+    elif pool.startswith('M_') and microbe_unit != 'micromol':
+        raise ValueError(f'Unsupported run-log microbial unit: {microbe_unit!r}')
+    return values
+
+
 def dissolved_h2_series(pathway_model, run_log):
     """Return the dissolved-H2 series evaluated on the total-H2 time grid.
 
@@ -404,9 +515,9 @@ def dissolved_h2_series(pathway_model, run_log):
     time, total_h2 = run_log['H2']
     water_time, water = run_log['H2O']
     time = np.asarray(time, dtype=float)
-    total_h2 = np.asarray(total_h2, dtype=float)
+    total_h2 = litre_pool_values(run_log, 'H2', total_h2)
     water_time = np.asarray(water_time, dtype=float)
-    water = np.asarray(water, dtype=float)
+    water = litre_pool_values(run_log, 'H2O', water)
     valid_water = np.isfinite(water_time) & np.isfinite(water)
     if not np.any(valid_water):
         return None
@@ -435,22 +546,18 @@ def dissolved_h2_series(pathway_model, run_log):
 def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
     """Yield modeled quantities in the required plot-file order.
 
-    Quantities added to a pathway log in the future are appended after the
-    specified diagnostics for that pathway.  ``v_max`` is shown as a dashed
-    reference line on the corresponding ``v`` plot, not as its own plot.
-    With ``include_pathway=True``, each result also carries the pathway that
-    owns it.  This distinguishes the shared ``M_Ferm`` pool when it represents
-    a capacity for Hydrolysis versus Fermentation.
+    :data:`PATHWAY_QUANTITY_ORDER` is an explicit allowlist, rather than an
+    invitation to draw every pathway entry in ``run_log``. ``v_max`` is shown
+    as a dashed reference line on the corresponding ``v`` plot, not as its
+    own plot. With ``include_pathway=True``, each result also carries the
+    pathway that owns it. This distinguishes the shared ``M_Ferm`` pool when
+    it represents a capacity for Hydrolysis versus Fermentation.
     """
     def emitted_quantity(name, time, values, pathway=None):
+        if name in system.SYSTEM:
+            values = litre_pool_values(run_log, name, values)
         result = (name, time, values)
         return result + (pathway,) if include_pathway else result
-
-    def is_constant(values):
-        """Return whether a diagnostic carries no time-varying information."""
-        values = np.asarray(values, dtype=float)
-        finite = values[np.isfinite(values)]
-        return finite.size > 0 and np.allclose(finite, finite[0])
 
     keys = _run_log_keys(run_log)
 
@@ -479,26 +586,6 @@ def pathway_plot_quantities(run_log, include_pathway=False, pathway_model=None):
                 if name in pathway_keys:
                     yield emitted_quantity(name, *run_log[name], pathway)
 
-        handled = {
-            prefix + quantity
-            for quantity in PATHWAY_QUANTITY_ORDER
-            if quantity != 'microbe_pool'
-        }
-        # Individual MM terms are displayed together in the pathway
-        # limitation figure, where their relative magnitude reveals the
-        # limiting substance.  Do not emit redundant one-curve figures.
-        handled.update(key for key in pathway_keys
-                       if key.startswith(f'{prefix}MM_'))
-        # Add every remaining pathway diagnostic (for example ``v``,
-        # inhibition, and methane production) in a stable order.
-        for name in sorted(pathway_keys - handled):
-            # Effective Michaelis--Menten constants are logged so the model
-            # diagnostics remain inspectable, but a horizontal Km line adds
-            # nothing to a checkpoint report.  Keep it if a future model
-            # makes the effective value time-dependent.
-            if '_Km_' in name and is_constant(run_log[name][1]):
-                continue
-            yield emitted_quantity(name, *run_log[name], pathway)
 
 
 def pathway_v_max_values(run_log):
@@ -553,7 +640,7 @@ def pathway_reaction_rate_curves(run_log, v_max_values):
         time = np.asarray(time, dtype=float)
         specific_rate = np.asarray(specific_rate, dtype=float)
         biomass_time = np.asarray(biomass_time, dtype=float)
-        biomass = np.asarray(biomass, dtype=float)
+        biomass = litre_pool_values(run_log, microbe_pool, biomass)
 
         valid_biomass = np.isfinite(biomass_time) & np.isfinite(biomass)
         if not np.any(valid_biomass):
@@ -568,7 +655,14 @@ def pathway_reaction_rate_curves(run_log, v_max_values):
         biomass = biomass[unique_indices]
 
         biomass_on_rate_grid = np.interp(time, biomass_time, biomass)
-        actual_rate = biomass_on_rate_grid * specific_rate
+        reaction_rate_key = f'{pathway}_reaction_rate'
+        actual_rate = (np.asarray(run_log[reaction_rate_key][1], dtype=float)
+                       if reaction_rate_key in keys else
+                       biomass_on_rate_grid * specific_rate)
+        if reaction_rate_key in keys:
+            reaction_time = np.asarray(run_log[reaction_rate_key][0], dtype=float)
+            if not np.array_equal(reaction_time, time):
+                actual_rate = np.interp(time, reaction_time, actual_rate)
         maximum_rate = biomass_on_rate_grid * v_max_values[pathway]
         yield pathway, time, actual_rate, maximum_rate
 
@@ -576,25 +670,102 @@ def pathway_reaction_rate_curves(run_log, v_max_values):
 def quantity_ylabel(name, capacity_pathway=None):
     """Return a compact, quantity-appropriate y-axis label."""
     if capacity_pathway is not None:
-        return rf'$\mathrm{{pathway\ capacity\ [{MICROBIAL_BIOMASS_UNIT}]}}$'
+        return rf'$\mathrm{{pathway\ capacity\ [{plot.REACTION_RATE_UNIT}]}}$'
     if name in MICROBIAL_POOLS:
         return rf'$\mathrm{{microbial\ biomass\ [{MICROBIAL_BIOMASS_UNIT}]}}$'
     if name.endswith('_deltaG_r'):
         return rf'$\Delta G_\mathrm{{r}}\ [{GIBBS_ENERGY_UNIT}]$'
-    if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
-        return r'$\mathrm{factor}$'
+    if name.endswith('_MM'):
+        return r'$f_{\mathrm{MM}}\ [-]$'
+    if name.endswith('_inhib'):
+        return r'$f_{\mathrm{I}}\ [-]$'
+    if name.endswith('_thermodynamic_factor'):
+        return r'$f_{\mathrm{\Delta G}}\ [-]$'
     if name.endswith('_v') or name.endswith('_v_max'):
-        return r'$\mathrm{rate}$'
-    return r'$\mathrm{substance\ [\mu mol/g\ dry\ weight]}$'
+        return r'$v\ [\mathrm{d}^{-1}]$'
+    return rf'$\mathrm{{substance\ [{plot.SUBSTANCE_UNIT}]}}$'
 
 
-def quantity_title(name, capacity_pathway=None):
+def pathway_display_name(pathway):
+    """Return the descriptive name used in report-facing pathway labels."""
+    return PATHWAY_DISPLAY_NAMES.get(pathway, pathway)
+
+
+def _microbe_pathway(name):
+    """Return the default pathway name for a microbial-pool diagnostic."""
+    return {
+        'M_Ferm': 'Fermentation', 'M_Fe3': 'Fe3', 'M_Ac': 'Aceto',
+        'M_Hydro': 'Hydro', 'M_Homo': 'Homo',
+    }.get(name)
+
+
+def quantity_title(name, capacity_pathway=None, pathway=None):
     """Return the plot title for one modeled quantity."""
     if capacity_pathway is not None:
-        return f'{capacity_pathway} pathway capacity ({name})'
+        display_name = pathway_display_name(capacity_pathway)
+        return rf'$\mathrm{{{display_name}}}\ \mathrm{{capacity\ rate}}$'
+    if name in MICROBIAL_POOLS:
+        display_name = pathway_display_name(pathway or _microbe_pathway(name))
+        return rf'$\mathrm{{biomass}}\ \mathrm{{{display_name}}}$'
     if name == 'H2_dissolved':
-        return 'Dissolved H2'
-    return name
+        return r'$\mathrm{dissolved\ H_2}$'
+    if name.endswith('_MM'):
+        pathway = name.removesuffix('_MM')
+        display_name = pathway_display_name(pathway)
+        return rf'$\mathrm{{{display_name}}}$'
+    if name.endswith('_inhib'):
+        pathway = name.removesuffix('_inhib')
+        display_name = pathway_display_name(pathway)
+        return rf'$\mathrm{{{display_name}}}\ \text{{inhibition}}$'
+    if name.endswith('_thermodynamic_factor'):
+        pathway = name.removesuffix('_thermodynamic_factor')
+        display_name = pathway_display_name(pathway)
+        return rf'$\mathrm{{{display_name}}}\ \text{{thermodynamic factor}}$'
+    if name.endswith('_v'):
+        pathway = name.removesuffix('_v')
+        display_name = pathway_display_name(pathway)
+        return rf'$\mathrm{{{display_name}}}\ \mathrm{{turnover\ rate}}$'
+    if ' from ' in name:
+        pathway, produced = name.split('_', 1)
+        gas = produced.split(' from ', 1)[0]
+        display_name = PATHWAY_DISPLAY_NAMES.get(pathway, pathway)
+        return (rf'${plot.chemical_formula(gas)}\ \mathrm{{from}}\ '
+                rf'\mathrm{{{display_name}}}$')
+    return plot.pool_title(name)
+
+
+def delta_g_legend_label(name):
+    """Return a readable legend label for one pathway's Gibbs energy."""
+    pathway = name.removesuffix('_deltaG_r')
+    displayed = (plot.chemical_formula(pathway)
+                 if pathway in {'Fe3', 'Fe2'}
+                 else rf'\mathrm{{{PATHWAY_DISPLAY_NAMES.get(pathway, pathway)}}}')
+    return rf'$\Delta G_\mathrm{{r}}\ ({displayed})$'
+
+
+def gibbs_lower_limit(time, values, *, start_day=50., relative_padding=.05):
+    """Set the lower bound from the stable, post-transient Gibbs trajectory."""
+    time = np.asarray(time, dtype=float)
+    values = np.asarray(values, dtype=float)
+    usable = np.isfinite(time) & np.isfinite(values) & (time >= start_day)
+    if not np.any(usable):
+        usable = np.isfinite(values)
+    if not np.any(usable):
+        return None
+    lower, upper = np.min(values[usable]), np.max(values[usable])
+    padding = max((upper - lower) * relative_padding,
+                  max(abs(lower), abs(upper), 1.) * relative_padding)
+    return lower - padding
+
+
+def constrain_gibbs_axis(axis):
+    """Keep Gibbs diagnostic axes within the standard readable range."""
+    lower, upper = axis.get_ylim()
+    lower_limit, upper_limit = GIBBS_Y_LIMITS
+    lower, upper = max(lower, lower_limit), min(upper, upper_limit)
+    if lower >= upper:
+        lower, upper = GIBBS_Y_LIMITS
+    axis.set_ylim(lower, upper)
 
 
 def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
@@ -612,15 +783,24 @@ def figure_suptitle(checkpoint, fit_replicas=(), curve_replica=None):
 
 
 def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None,
-                  capacity_pathway=None, 
+                  capacity_pathway=None, pathway=None,
                   log_scale = False):
     """Plot one modeled pool or pathway quantity in the fit-plot style."""
     figure, axis = plt.subplots(figsize=(4, 4))
     if name.endswith('_deltaG_r'):
         values = np.asarray(values, dtype=float) * GIBBS_ENERGY_SCALE
-    axis.plot(time, values, '-', color='k', label=name)
-    if v_max is not None:
-        axis.axhline(v_max, color='k', linestyle='--', label='v_max')
+    if capacity_pathway is not None:
+        if v_max is None:
+            raise ValueError('A pathway-capacity plot requires v_max.')
+        values = np.asarray(values, dtype=float) * v_max
+        axis.plot(time, values, '-', color='k', label=r'$M(t)\,v_{\max}$')
+    else:
+        axis.plot(time, values, '-', color='k',
+                  label=(delta_g_legend_label(name) if name.endswith('_deltaG_r')
+                         else r'$v(t)$' if name.endswith('_v') else name))
+    if v_max is not None and capacity_pathway is None:
+        axis.axhline(v_max, color='k', linestyle='--',
+                     label=r'$v_{\mathrm{max}}$')
         if name.endswith('_v'):
             axis.set_ylim(0, v_max * 1.05)
         axis.legend(fancybox=False, edgecolor='k', loc='best')
@@ -631,38 +811,51 @@ def plot_quantity(name, time, values, checkpoint, v_max=None, suptitle=None,
         axis.legend(fancybox=False, edgecolor='k', loc='best')
     if capacity_pathway is not None:
         axis.set_title(quantity_title(name, capacity_pathway))
-        axis.text(
-            .02, .96,
-            '$v_{\\max} = 1$ (constant)\n'
-            'M represents capacity for this\n'
-            'pathway stoichiometry',
-            transform=axis.transAxes, ha='left', va='top', fontsize=8,
-            bbox={'facecolor': 'white', 'edgecolor': '0.7', 'alpha': .9},
-        )
+        axis.legend(handles=[
+            Line2D([], [], color='k', linestyle='-', label=r'$M(t)\,v_{\max}$'),
+            Line2D([], [], color='none', label=r'$v_{\max}=1\ \text{(constant)}$'),
+        ], fancybox=False, edgecolor='k', loc='best')
     else:
-        axis.set_title(quantity_title(name))
+        axis.set_title(quantity_title(name, pathway=pathway))
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
     axis.set_ylabel(quantity_ylabel(name, capacity_pathway))
     if name.endswith(('_thermodynamic_factor', '_MM', '_inhib')):
         axis.set_ylim(0, 1)
     plot.format_ax(axis, log_scale)
+    if name.endswith('_deltaG_r'):
+        lower = gibbs_lower_limit(time, values)
+        if lower is not None:
+            axis.set_ylim(lower, axis.get_ylim()[1])
+        constrain_gibbs_axis(axis)
+    if name.endswith('_MM') and axis.get_yscale() == 'log':
+        axis.set_ylim(1e-6, 1.)
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.tight_layout(rect=(0, 0, 1, 0.85))
     return figure, axis
 
 
-def plot_reaction_rate(pathway, time, actual_rate, maximum_rate, checkpoint,
-                       *, suptitle=None):
-    """Plot a pathway's biomass-scaled rate and its biomass-scaled maximum."""
-    figure, axis = plt.subplots(figsize=(4, 4))
-    axis.plot(time, actual_rate, '-', color='k', label=r'$M(t)\,v(t)$')
-    axis.plot(time, maximum_rate, '--', color='k',
-              label=r'$M(t)\,v_{\max}$')
-    axis.set_title(f'{pathway} reaction rate')
+def reaction_rate_signature_figure(checkpoint, run_log, *, suptitle=None,
+                                   log_scale=False, pathways=None):
+    """Plot the FPCA-style, biomass-scaled pathway-activity signature.
+
+    A signature contains one actual ``M*v`` curve for every active pathway.
+    It deliberately omits the separate ``M*v_max`` reference curves: those
+    are capacities rather than elements of the reaction-rate signature.
+    """
+    figure, axis = plt.subplots(figsize=(8, 4.5))
+    v_max_values = pathway_v_max_values(run_log)
+    pathways = set(enabled_pathways() if pathways is None else pathways)
+    for pathway, time, actual_rate, _ in pathway_reaction_rate_curves(
+            run_log, v_max_values):
+        if pathway not in pathways:
+            continue
+        axis.plot(time, actual_rate, color=pathway_color(pathway),
+                  label=pathway_display_name(pathway))
+    axis.set_title(r'$M(t)\,v(t)$ pathway-activity signature')
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
-    axis.set_ylabel(r'$\mathrm{reaction\ rate\ [\mu mol/g\ dry\ weight/d]}$')
+    axis.set_ylabel(rf'$\mathrm{{reaction\ rate\ [{plot.REACTION_RATE_UNIT}]}}$')
     axis.legend(fancybox=False, edgecolor='k', loc='best')
-    plot.format_ax(axis)
+    plot.format_ax(axis, log_scale=log_scale)
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.tight_layout(rect=(0, 0, 1, 0.85))
     return figure, axis
@@ -690,6 +883,12 @@ def _factor_product(factor_series):
     return time, product
 
 
+def format_michaelis_menten_km(value):
+    """Format a checkpoint's half-saturation constant for a legend."""
+    value = float(value)
+    return f'{value:.0f}' if abs(value) > 100 else f'{value:.2f}'
+
+
 def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
                                     inhibition_series, checkpoint, *,
                                     mm_component_series=(), suptitle=None):
@@ -700,20 +899,23 @@ def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
                   transform=axis.transAxes, ha='left', va='top', fontsize=8)
     else:
         time, values = mm_series
-        for (substance, (component_time, component_values)), color in zip(
+        for (substance, (component_time, component_values), km), color in zip(
                 mm_component_series,
                 plt.rcParams['axes.prop_cycle'].by_key()['color']):
+            km_label = (rf',\ K_{{M}} = '
+                        rf'{format_michaelis_menten_km(km)}'
+                        if km is not None else '')
             axis.plot(component_time, component_values, color=color, linewidth=1.25,
-                      label=rf'$\mathrm{{MM}}\ ({substance})$')
-        axis.plot(time, values, color='tab:blue', linewidth=1.8,
-                  label=r'$\mathrm{Michaelis\! -\! Menten\ product}$')
+                      linestyle='--',
+                      label=(rf'$f_{{\mathrm{{MM}}}}('
+                             rf'{plot.chemical_formula(substance)}){km_label}$'))
     if thermodynamic_series is None:
         axis.text(.02, .84, 'Thermodynamic factor not logged', color='0.45',
                   transform=axis.transAxes, ha='left', va='top', fontsize=8)
     else:
         time, values = thermodynamic_series
-        axis.plot(time, values, color='tab:orange', linestyle='--', linewidth=1.5,
-                  label=r'$\mathrm{thermodynamic}$')
+        axis.plot(time, values, color='tab:orange', linestyle='-.', linewidth=1.5,
+                  label=r'$f_{\mathrm{G}}$')
     if inhibition_series is not None:
         time, values = inhibition_series
         axis.plot(time, values, color='tab:purple', linestyle='-.', linewidth=1.5,
@@ -731,11 +933,11 @@ def plot_pathway_limitation_factors(pathway, mm_series, thermodynamic_series,
         if inhibition_series is not None:
             active_factors.append(inhibition_series)
         time, total_factor = _factor_product(active_factors)
-        axis.plot(time, total_factor, color='k', linestyle='--', linewidth=2,
+        axis.plot(time, total_factor, color='k', linestyle='-', linewidth=2,
                   label=r'$\mathrm{all\ factors}\ [M(t)v(t)]/[M(t)v_{\max}]$')
     axis.axhline(1, color='0.65', linestyle=':', linewidth=1,
                  label=r'$\mathrm{no\ limitation}$')
-    axis.set_title(f'{pathway} limitation factors')
+    axis.set_title(rf'${plot.pathway_name(pathway)}\ \mathrm{{limitation\ factors}}$')
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
     axis.set_ylabel(r'$\mathrm{factor}$')
     axis.set_ylim(0, 1.05)
@@ -757,9 +959,20 @@ def pathway_limitation_factor_figures(checkpoint, run_log, *, suptitle=None):
         thermodynamic_key = f'{pathway}_thermodynamic_factor'
         inhibition_key = f'{pathway}_inhib'
         component_prefix = f'{mm_key}_'
-        mm_components = tuple(
-            (key.removeprefix(component_prefix), run_log[key])
-            for key in sorted(keys) if key.startswith(component_prefix))
+        mm_components = []
+        for key in sorted(keys):
+            if not key.startswith(component_prefix):
+                continue
+            substance = key.removeprefix(component_prefix)
+            km_key = f'{pathway}_Km_{substance}'
+            km = None
+            if km_key in keys:
+                _, km_values = run_log[km_key]
+                finite_values = np.asarray(km_values, dtype=float)
+                finite_values = finite_values[np.isfinite(finite_values)]
+                if finite_values.size:
+                    km = finite_values[0]
+            mm_components.append((substance, run_log[key], km))
         figures.append((f'{pathway}_limitation_factors',
                         plot_pathway_limitation_factors(
                             pathway,
@@ -767,7 +980,7 @@ def pathway_limitation_factor_figures(checkpoint, run_log, *, suptitle=None):
                             (run_log[thermodynamic_key]
                              if thermodynamic_key in keys else None),
                             run_log[inhibition_key] if inhibition_key in keys else None,
-                            checkpoint, mm_component_series=mm_components,
+                            checkpoint, mm_component_series=tuple(mm_components),
                             suptitle=suptitle)))
     return figures
 
@@ -845,6 +1058,7 @@ def pathway_substance_rate(pathway_model, run_log, pathway_name, substance):
             pool_time, values = run_log[pool]
             pool_time = np.asarray(pool_time, dtype=float)
             values = np.asarray(values, dtype=float)
+            values = litre_pool_values(run_log, pool, values)
             valid = np.isfinite(pool_time) & np.isfinite(values)
             if not np.any(valid):
                 break
@@ -881,7 +1095,7 @@ def pathway_substance_rate(pathway_model, run_log, pathway_name, substance):
     time = np.asarray(time, dtype=float)
     specific_rate = np.asarray(specific_rate, dtype=float)
     biomass_time = np.asarray(biomass_time, dtype=float)
-    biomass = np.asarray(biomass, dtype=float)
+    biomass = litre_pool_values(run_log, microbe_pool, biomass)
     order = np.argsort(biomass_time)
     biomass_on_rate_grid = np.interp(time, biomass_time[order], biomass[order])
     return time, coefficient * biomass_on_rate_grid * specific_rate
@@ -920,54 +1134,97 @@ def cumulative_pathway_consumption(time, rate):
     return cumulative_pathway_production(time, -np.asarray(rate, dtype=float))
 
 
-def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
-                                  suptitle=None, log_scale=False):
-    """Show gross gas production, cumulative consumption, and net pool change.
+def cumulative_pathway_contributions(curves, total_time, total_pool):
+    """Integrate signed pathway rates and close them to a modeled pool.
 
-    Gross production is stacked by pathway.  The shaded band is cumulative
-    consumption, so the lower boundary of the band reconstructs the net total
-    gas change plotted as the dashed curve.
+    The solver advances the pool through internal time steps, whereas pathway
+    diagnostics are evaluated only at the report time grid.  Independently
+    applying the trapezoidal rule to each sparse diagnostic curve can therefore
+    fail to reproduce the solved pool.  Here every pathway is integrated on a
+    shared grid and the small interval-wise quadrature residual is distributed
+    in proportion to the pathways' absolute fluxes.  Consequently, the signed
+    cumulative contributions sum *exactly* to ``total_pool - total_pool[0]``
+    at every plotted time while preserving the rate-derived pathway shares.
+    """
+    total_time = np.asarray(total_time, dtype=float)
+    total_pool = np.asarray(total_pool, dtype=float)
+    valid_total = np.isfinite(total_time) & np.isfinite(total_pool)
+    total_time, total_pool = total_time[valid_total], total_pool[valid_total]
+    order = np.argsort(total_time)
+    total_time, total_pool = total_time[order], total_pool[order]
+    total_time, indices = np.unique(total_time, return_index=True)
+    total_pool = total_pool[indices]
+
+    time = np.unique(np.concatenate(
+        [total_time] + [np.asarray(curve_time, dtype=float)
+                        for _, curve_time, _ in curves]))
+    pool = np.interp(time, total_time, total_pool)
+    rates = np.asarray([
+        np.interp(time, np.asarray(curve_time, dtype=float),
+                  np.asarray(rate, dtype=float), left=0., right=0.)
+        for _, curve_time, rate in curves
+    ])
+    increments = np.diff(time) * (rates[:, :-1] + rates[:, 1:]) / 2
+    residual = np.diff(pool) - np.sum(increments, axis=0)
+    weights = np.abs(increments)
+    weight_sum = np.sum(weights, axis=0)
+    nonzero = weight_sum > 0
+    if np.any(nonzero):
+        increments[:, nonzero] += (
+            residual[nonzero] * weights[:, nonzero] / weight_sum[nonzero])
+    if np.any(~nonzero & (np.abs(residual) > 0)):
+        # This should be unreachable for a pool governed by these pathways,
+        # but retaining the residual makes an incomplete legacy log explicit.
+        increments[0, ~nonzero] += residual[~nonzero]
+    cumulative = np.column_stack((np.zeros(len(curves)), np.cumsum(increments, axis=1)))
+    return time, cumulative, pool
+
+
+def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
+                                  suptitle=None, log_scale=False, pathways=None):
+    """Show an absolute gas pool and its cumulative pathway contributions.
+
+    Product pathways stack above the initial pool.  Each consuming pathway is
+    a same-colour band back down from that production stack, so its lower edge
+    reconstructs the total pool shown by the dashed line.
     """
     keys = _run_log_keys(run_log)
     if gas not in keys:
         return None
 
     producers, consumers = [], []
-    for pathway in PATHWAY_PLOT_ORDER:
+    pathways = enabled_pathways() if pathways is None else pathways
+    for pathway in pathways:
         try:
             rate_time, rate = pathway_substance_rate(
                 pathway_model, run_log, pathway, gas)
         except ValueError:
             continue
+        volume_scale = litres_per_gdw(run_log)
+        if volume_scale is not None:
+            rate = np.asarray(rate, dtype=float) * volume_scale
         coefficient = float(_activity_stoichiometry(_pathway_from_model(
             pathway_model, pathway))[system.index(gas)])
         if coefficient > 0:
-            time, cumulative = cumulative_pathway_production(rate_time, rate)
-            if len(time):
-                producers.append((pathway, time, cumulative))
+            producers.append((pathway, rate_time, rate))
         elif coefficient < 0:
-            time, cumulative = cumulative_pathway_consumption(rate_time, rate)
-            if len(time):
-                consumers.append((pathway, time, cumulative))
+            consumers.append((pathway, rate_time, rate))
 
     if not producers:
         return None
 
     total_time, total_pool = run_log[gas]
     total_time = np.asarray(total_time, dtype=float)
-    total_change = np.asarray(total_pool, dtype=float) - float(total_pool[0])
-    grids = [total_time]
-    grids.extend(curve_time for _, curve_time, _ in producers + consumers)
-    time = np.unique(np.concatenate(grids))
-    contributions = [
-        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
-        for _, curve_time, cumulative in producers
+    total_pool = np.asarray(total_pool, dtype=float)
+    curves = producers + consumers
+    time, cumulative, pool = cumulative_pathway_contributions(
+        curves, total_time, total_pool)
+    contributions = [curve for curve in cumulative[:len(producers)]]
+    consumer_contributions = [
+        -curve for curve in cumulative[len(producers):]
     ]
-    gross_production = np.sum(contributions, axis=0)
-    consumption = sum(
-        (np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
-         for _, curve_time, cumulative in consumers),
-        np.zeros_like(time))
+    initial_pool = float(total_pool[0])
+    production_top = initial_pool + np.sum(contributions, axis=0)
 
     figure, axes = plot.create_figure(plot.FigureSpec(
         axis_names=('diagnostic',), figsize=(5, 4)))
@@ -976,26 +1233,32 @@ def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
         rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
         for (pathway, _, _), contribution in zip(producers, contributions)
     ]
-    axis.stackplot(
-        time, *contributions, labels=labels,
-        colors=[pathway_color(pathway) for pathway, _, _ in producers],
-        alpha=.75,
-    )
-    if np.any(consumption > 0.):
+    production_boundary = initial_pool * np.ones_like(time)
+    for (pathway, _, _), contribution, label in zip(
+            producers, contributions, labels):
+        next_boundary = production_boundary + contribution
         axis.fill_between(
-            time, gross_production - consumption, gross_production,
-            color='0.25', alpha=.22, hatch='//', linewidth=0,
-            label=(rf'$\mathrm{{{gas}\ consumed}}$'
-                   f': {consumption[-1]:.3g}'))
-    axis.plot(total_time, total_change, 'k--', linewidth=1.5,
-              label=(rf'$\mathrm{{net\ total\ {gas}\ change}}$'
-                     f': {total_change[-1]:.3g}'))
-    axis.set_title(rf'$\mathrm{{cumulative\ {gas}\ production}}$')
+            time, production_boundary, next_boundary,
+            color=pathway_color(pathway), alpha=.75, linewidth=0, label=label)
+        production_boundary = next_boundary
+    consumption_boundary = production_top.copy()
+    for (pathway, _, _), contribution in zip(consumers, consumer_contributions):
+        next_boundary = consumption_boundary - contribution
+        axis.fill_between(
+            time, next_boundary, consumption_boundary,
+            color=pathway_color(pathway), alpha=.75, linewidth=0,
+            label=(rf'$\mathrm{{{pathway}\ pathway\ ({gas}\ consumed)}}$'
+                   f': {-contribution[-1]:.3g}'))
+        consumption_boundary = next_boundary
+    axis.plot(time, pool, 'k--', linewidth=1.5,
+              label=(rf'$\mathrm{{total\ {plot.chemical_formula(gas)}}}$'
+                     f': {total_pool[-1]:.3g}'))
+    axis.set_title(rf'$\mathrm{{{plot.chemical_formula(gas)}\ pool\ and\ pathway\ contributions}}$')
     axis.set_xlabel(r'$\mathrm{time [d]}$')
-    axis.set_ylabel(rf'$\mathrm{{cumulative\ {gas}\ [\mu mol/g\ dry\ weight]}}$')
+    axis.set_ylabel(rf'$\mathrm{{{plot.chemical_formula(gas)}\ [{plot.GAS_SUBSTANCE_UNIT}]}}$')
     plot.format_ax(axis, log_scale=log_scale)
     axis.legend(
-        title=rf'$\mathrm{{final\ cumulative\ {gas}\ [\mu mol/g]}}$',
+        title=rf'$\mathrm{{final\ {plot.chemical_formula(gas)}\ [{plot.GAS_SUBSTANCE_UNIT}]}}$',
         fancybox=False, edgecolor='k', loc='best')
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
@@ -1003,29 +1266,28 @@ def gas_pathway_production_figure(checkpoint, pathway_model, run_log, gas, *,
 
 
 def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
-                                  log_scale=False):
-    """Stack cumulative methane production by pathway against total methane.
-
-    Each area is the cumulative methane produced by an active CH4-producing
-    pathway. The legend reports each pathway's final cumulative production,
-    while the dashed line is the modeled total CH4 pool increase.
-    """
+                                  log_scale=False, pathways=None):
+    """Show the absolute CH4 pool with cumulative pathway contributions."""
     keys = _run_log_keys(run_log)
     curves = []
-    for pathway in PATHWAY_PLOT_ORDER:
+    pathways = enabled_pathways() if pathways is None else pathways
+    for pathway in pathways:
         key = f'{pathway}_CH4 from {PATHWAY_MICROBE_POOL[pathway]}'
         if key in keys:
-            time, cumulative = cumulative_pathway_production(*run_log[key])
-            if len(time):
-                curves.append((pathway, time, cumulative))
+            rate_time, rate = run_log[key]
+            volume_scale = litres_per_gdw(run_log)
+            if volume_scale is not None:
+                rate = np.asarray(rate, dtype=float) * volume_scale
+            if len(rate_time):
+                curves.append((pathway, rate_time, rate))
     if not curves or 'CH4' not in keys:
         return None
 
-    time = np.unique(np.concatenate([curve_time for _, curve_time, _ in curves]))
-    contributions = [
-        np.interp(time, curve_time, cumulative, left=0., right=cumulative[-1])
-        for _, curve_time, cumulative in curves
-    ]
+    total_time, total_ch4 = run_log['CH4']
+    total_ch4 = np.asarray(total_ch4, dtype=float)
+    time, cumulative, pool = cumulative_pathway_contributions(
+        curves, total_time, total_ch4)
+    contributions = [curve for curve in cumulative]
     figure, axes = plot.create_figure(plot.FigureSpec(
         axis_names=('diagnostic',), figsize=(5, 4)))
     axis = axes['diagnostic']
@@ -1033,19 +1295,20 @@ def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
         rf'$\mathrm{{{pathway} pathway}}$' + f': {contribution[-1]:.3g}'
         for (pathway, _, _), contribution in zip(curves, contributions)
     ]
-    axis.stackplot(
-        time, *contributions, labels=labels,
-        colors=[pathway_color(pathway) for pathway, _, _ in curves], alpha=.75)
-    total_time, total_ch4 = run_log['CH4']
-    total_production = np.asarray(total_ch4, dtype=float) - float(total_ch4[0])
-    axis.plot(total_time, total_production, 'k--', linewidth=1.5,
-              label=(r'$\mathrm{net\ total\ CH_4\ change}$'
-                     f': {total_production[-1]:.3g}'))
-    axis.set_title(r'$\mathrm{cumulative\ CH_4\ production}$')
+    production_boundary = float(total_ch4[0]) * np.ones_like(time)
+    for (pathway, _, _), contribution, label in zip(curves, contributions, labels):
+        next_boundary = production_boundary + contribution
+        axis.fill_between(
+            time, production_boundary, next_boundary,
+            color=pathway_color(pathway), alpha=.75, linewidth=0, label=label)
+        production_boundary = next_boundary
+    axis.plot(time, pool, 'k--', linewidth=1.5,
+              label=(r'$\mathrm{total\ CH_4}$' f': {total_ch4[-1]:.3g}'))
+    axis.set_title(r'$\mathrm{CH_4\ pool\ and\ pathway\ contributions}$')
     axis.set_xlabel(r'$\mathrm{time\ [d]}$')
-    axis.set_ylabel(r'$\mathrm{cumulative\ CH_4\ [\mu mol/g\ dry\ weight]}$')
+    axis.set_ylabel(rf'$\mathrm{{CH_4\ [{plot.GAS_SUBSTANCE_UNIT}]}}$')
     plot.format_ax(axis, log_scale=log_scale)
-    axis.legend(title=r'$\mathrm{final\ cumulative\ CH_4\ [\mu mol/g]}$',
+    axis.legend(title=rf'$\mathrm{{final\ CH_4\ [{plot.GAS_SUBSTANCE_UNIT}]}}$',
                 fancybox=False, edgecolor='k', loc='best')
     figure.suptitle(figure_suptitle(checkpoint) if suptitle is None else suptitle)
     figure.subplots_adjust(left=.19, right=.95, bottom=.16, top=.80)
@@ -1053,15 +1316,11 @@ def ch4_pathway_production_figure(checkpoint, run_log, *, suptitle=None,
 
 
 def co2_pathway_production_figure(checkpoint, pathway_model, run_log, *,
-                                  suptitle=None, log_scale=False):
-    """Stack cumulative CO2 production by every CO2-producing pathway.
-
-    The dashed curve is the net change in the total CO2 pool.  It can differ
-    from the stack because other pathways may consume CO2.
-    """
+                                  suptitle=None, log_scale=False, pathways=None):
+    """Show the absolute CO2 pool with producing and consuming pathways."""
     return gas_pathway_production_figure(
         checkpoint, pathway_model, run_log, 'CO2', suptitle=suptitle,
-        log_scale=log_scale)
+        log_scale=log_scale, pathways=pathways)
 
 
 def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
@@ -1086,6 +1345,15 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
     if factor_limits:
         axis.set_ylim(0, 1)
     plot.format_ax(axis, log_scale=log_scale)
+    if factor_limits and log_scale and axis.get_yscale() == 'log':
+        axis.set_ylim(1e-6, 1.)
+    if gibbs_minimum:
+        lower_limits = [gibbs_lower_limit(time, values)
+                        for _, time, values in curves]
+        lower_limits = [lower for lower in lower_limits if lower is not None]
+        if lower_limits:
+            axis.set_ylim(min(lower_limits), axis.get_ylim()[1])
+        constrain_gibbs_axis(axis)
 
     handles, labels = axis.get_legend_handles_labels()
     if secondary_curve is not None:
@@ -1107,7 +1375,7 @@ def plot_pathway_pair(checkpoint, curves, title, ylabel, *, suptitle=None,
 
 
 def pathway_delta_g_figures(checkpoint, run_log, *, suptitle=None,
-                            log_scale=False):
+                            log_scale=False, pathways=None):
     """Return combined ΔGᵣ plots for all active pathways and Hydro/Homo.
 
     The Fe3/Aceto diagnostic remains intentionally separate: it is useful for
@@ -1126,7 +1394,9 @@ def pathway_delta_g_figures(checkpoint, run_log, *, suptitle=None,
             gibbs_minimum=True,
             log_scale=log_scale))
 
+    pathways = set(enabled_pathways() if pathways is None else pathways)
     active = tuple(pathway for pathway in PATHWAY_PLOT_ORDER
+                   if pathway in pathways
                    if f'{pathway}_deltaG_r' in keys)
     figures = []
     if len(active) > 2:
@@ -1135,7 +1405,8 @@ def pathway_delta_g_figures(checkpoint, run_log, *, suptitle=None,
             r'$\Delta G_\mathrm{r}$ (all pathways)'))
 
     hydro_homo = ('Hydro', 'Homo')
-    if all(f'{pathway}_deltaG_r' in keys for pathway in hydro_homo):
+    if all(pathway in pathways and f'{pathway}_deltaG_r' in keys
+           for pathway in hydro_homo):
         figures.append(figure(
             hydro_homo, 'Hydro_Homo_deltaG_r',
             r'$\Delta G_\mathrm{r}$ (Hydro and Homo pathways)'))
@@ -1147,13 +1418,17 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None, log_sc
     pathway_model, _, run_log = model_run
     keys = _run_log_keys(run_log)
     pathways = ('Fe3', 'Aceto')
+    if not all(pathway in enabled_pathways() for pathway in pathways):
+        return []
     figures = []
 
     microbe_keys = tuple(PATHWAY_MICROBE_POOL[pathway] for pathway in pathways)
     if all(name in keys for name in microbe_keys):
         figures.append(('Fe3_Aceto_microbes', plot_pathway_pair(
             checkpoint,
-            [(pathway, *run_log[PATHWAY_MICROBE_POOL[pathway]])
+            [(pathway, run_log[PATHWAY_MICROBE_POOL[pathway]][0],
+              litre_pool_values(run_log, PATHWAY_MICROBE_POOL[pathway],
+                                run_log[PATHWAY_MICROBE_POOL[pathway]][1]))
              for pathway in pathways],
             r'$\mathrm{living\ microbes}$',
             rf'$\mathrm{{microbial\ biomass\ [{MICROBIAL_BIOMASS_UNIT}]}}$',
@@ -1182,15 +1457,16 @@ def fe3_aceto_diagnostic_figures(checkpoint, model_run, *, suptitle=None, log_sc
     if acetate_curves:
         acetate_pool = None
         if 'Acetate' in keys:
-            acetate_pool = (*run_log['Acetate'],
+            acetate_pool = (run_log['Acetate'][0],
+                            litre_pool_values(run_log, 'Acetate', run_log['Acetate'][1]),
                             r'$\mathrm{total\ Acetate\ pool}$')
         figures.append(('Fe3_Aceto_Acetate_consumption', plot_pathway_pair(
             checkpoint, acetate_curves,
             r'$\mathrm{Acetate\ consumption}$',
-            r'$\mathrm{Acetate\ consumption\ [\mu mol/g\ dry\ weight/d]}$',
+            rf'$\mathrm{{Acetate\ consumption\ [{plot.REACTION_RATE_UNIT}]}}$',
             suptitle=suptitle,
             secondary_curve=acetate_pool,
-            secondary_ylabel=r'$\mathrm{total\ Acetate\ [\mu mol/g\ dry\ weight]}$',
+            secondary_ylabel=rf'$\mathrm{{total\ Acetate\ [{plot.SUBSTANCE_UNIT}]}}$',
             log_scale = log_scale)))
 
     mm_keys = tuple(f'{pathway}_MM' for pathway in pathways)
@@ -1241,6 +1517,15 @@ def sample_y_limits(sample, relative_padding=0.05):
     return limits
 
 
+def sample_time_limits(sample):
+    """Return one padded time range spanning every displayed measurement."""
+    times = []
+    for replica in sample.replicas:
+        time, _ = replica.CO2()
+        times.append(time)
+    return plot.time_limits(times)
+
+
 def fit_replicas(checkpoint, dataset):
     """Return the sample, validation replica, and fitted replicas for a plot."""
     sample_number, validation_number = checkpoint.replica
@@ -1260,16 +1545,22 @@ def create_fit_figure():
     ))
 
 
-def plot_fit_measurements(checkpoint, dataset, axes):
-    """Draw the fit/validation measurements and return their legend handles."""
+def plot_fit_measurements(checkpoint, dataset, axes, pools=('CO2', 'CH4')):
+    """Draw selected fit/validation measurements and return legend handles.
+
+    ``pools`` lets an interactive viewer render either gas on its own while
+    preserving the marker and legend conventions of the standard fit figure.
+    """
     _, validation_replica, fitted_replicas = fit_replicas(checkpoint, dataset)
     markersize = 3
     markers = cycle(('^', 's', 'D', 'v', 'P', 'X'))
     handles = []
     for fitted_replica in fitted_replicas:
         marker = next(markers)
-        plot.plot_replica_pools(
-            fitted_replica, axes, marker=marker, ms=markersize, mfc='none')
+        for pool in pools:
+            plot.plot_pool_data(
+                fitted_replica, pool, axes[pool], marker=marker, ms=markersize,
+                mfc='none')
         handles.append(Line2D(
             [], [], color='k', marker=marker, linestyle='None',
             markerfacecolor='none', markersize=markersize,
@@ -1277,8 +1568,9 @@ def plot_fit_measurements(checkpoint, dataset, axes):
         ))
 
     if checkpoint.fit_mode == 'split':
-        plot.plot_replica_pools(
-            validation_replica, axes, marker='o', ms=markersize)
+        for pool in pools:
+            plot.plot_pool_data(
+                validation_replica, pool, axes[pool], marker='o', ms=markersize)
         handles.append(Line2D(
             [], [], color='k', marker='o', linestyle='None', markersize=markersize,
             label=f'validation replica {validation_replica.replica_number}',
@@ -1301,45 +1593,29 @@ def fit_score_label(checkpoint, objective, validation_objective, run_log,
     return ' '.join((model_label, r2_text))
 
 
-def fit_uses_log_scale(checkpoint, pool):
-    """Return the display scale requested by a checkpoint's loss setup.
+def format_fit_axes(checkpoint, sample, axes, *, y_limits=None, x_limits=None):
+    """Apply data-defined scales and limits to a CO2/CH4 fit plot.
 
-    The conventional fit view is linear CO2 and logarithmic CH4.  A loss
-    transform containing ``log`` explicitly requests logarithmic display;
-    ``linear`` explicitly requests linear display.  Normalisation alone does
-    not override the conventional display scale.
+    The fit display is independent of the objective's loss transform: CO2 is
+    always linear and CH4 is always logarithmic.  Limits deliberately come
+    only from measured replicas, so an implausible model trajectory cannot
+    expand or compress the measurement scale.
     """
-    transforms = (checkpoint.run_config.get('objective', {})
-                  .get('transform', {}).get(pool, ()))
-    transforms = {str(transform).casefold() for transform in transforms}
-    if 'log' in transforms:
-        return True
-    if 'linear' in transforms:
-        return False
-    return pool == 'CH4'
-
-
-def format_fit_axes(checkpoint, sample, axes):
-    """Apply the standard fit-plot scales, limits, and axes style.
-
-    Fit plots conventionally display CH4 logarithmically.  A failed simulation can
-    briefly produce a non-positive CH4 value, which makes ``format_ax``
-    decline its safe automatic log formatting; retain a log CH4 axis in that
-    case and use the positive measured-data limits when available.
-    """
-    y_limits = sample_y_limits(sample)
+    del checkpoint  # Kept in the signature for existing callers.
+    if y_limits is None:
+        y_limits = sample_y_limits(sample)
+    if x_limits is None:
+        x_limits = sample_time_limits(sample)
     for pool, axis in axes.items():
-        log_requested = fit_uses_log_scale(checkpoint, pool)
-        log_applied = plot.format_ax(
-            axis, log_scale=log_requested,
-        )
-        if log_requested and not log_applied:
+        plot.format_ax(axis)
+        if pool == 'CH4':
             axis.set_yscale('log')
-            if pool in y_limits:
-                axis.set_ylim(y_limits[pool])
-            continue
-        if pool in y_limits and not log_applied:
-            axis.set_ylim(y_limits[pool])
+        else:
+            axis.set_yscale('linear')
+        if pool in y_limits:
+            lower, upper = y_limits[pool]
+            axis.set_ylim(lower if pool == 'CH4' else min(0., lower), upper)
+        plot.format_time_axis(axis, x_limits)
 
 
 def finish_fit_figure(figure, suptitle):
@@ -1385,7 +1661,7 @@ def plot_fit(checkpoint, dataset, model_run=None):
 
 
 def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
-                           *, overwrite=True):
+                           *, x_limits=None, overwrite=True):
     """Save the non-fit plots shared by single, split, and multi fits.
 
     ``target(number, quantity)`` supplies the filename while this function
@@ -1394,6 +1670,8 @@ def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
     paths = []
 
     def save(figure, path):
+        for axis in figure.axes:
+            plot.format_time_axis(axis, x_limits)
         if overwrite or not Path(path).exists():
             figure.savefig(path, dpi=300)
             paths.append(path)
@@ -1406,18 +1684,29 @@ def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
             pathway_plot_quantities(
                 run_log, include_pathway=True, pathway_model=pathway_model),
             start=1):
-        pathway = quantity[:-2] if quantity.endswith('_v') else None
+        if not plot_enabled('quantities', pathway_context):
+            continue
+        if quantity in MODELLED_GAS_POOLS and not plot_enabled('gas_pools'):
+            continue
+        pathway = (pathway_context if quantity.startswith('M_')
+                   else quantity[:-2] if quantity.endswith('_v') else None)
         capacity_pathway = (
             pathway_context if quantity.startswith('M_')
             and pathway_context is not None
             and pathway_uses_capacity_parameter(run_log, pathway_context)
             else None
         )
+        if (capacity_pathway is not None and
+                not plot_enabled('pathway_capacity', capacity_pathway)):
+            continue
         for log_scale in (False, True):
             figure, axis = plot_quantity(
                 quantity, time, values, checkpoint,
-                v_max=v_max_values.get(pathway), suptitle=suptitle,
-                capacity_pathway=capacity_pathway, 
+                v_max=(v_max_values.get(pathway)
+                       if quantity.endswith('_v') or capacity_pathway is not None
+                       else None),
+                suptitle=suptitle, capacity_pathway=capacity_pathway,
+                pathway=pathway_context,
                 log_scale = log_scale)
             if log_scale and axis.get_yscale() != 'log':
                 plt.close(figure)
@@ -1429,45 +1718,61 @@ def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
             save(figure, path)
             last_number = number
 
-    for number, (pathway, time, actual_rate, maximum_rate) in enumerate(
-            pathway_reaction_rate_curves(run_log, v_max_values),
-            start=last_number + 1):
-        quantity = f'{pathway}_reaction_rate'
-        figure, _ = plot_reaction_rate(
-            pathway, time, actual_rate, maximum_rate, checkpoint,
-            suptitle=suptitle)
-        path = target(number, quantity)
-        save(figure, path)
-
-    for number, (quantity, (figure, _)) in enumerate(
-            pathway_limitation_factor_figures(
-                checkpoint, run_log, suptitle=suptitle), start=80):
-        path = target(number, quantity)
-        save(figure, path)
-
-    for log_scale in (False, True):
-        for number, (quantity, (figure, _)) in enumerate(
-                pathway_delta_g_figures(
-                    checkpoint, run_log, suptitle=suptitle,
-                    log_scale=log_scale), start=88):
-            if log_scale and figure.axes[0].get_yscale() != 'log':
+    rate_pathways = enabled_pathways()
+    if (plot_enabled('reaction_rate_signature') and rate_pathways and
+            any(pathway in rate_pathways
+                for pathway, *_ in pathway_reaction_rate_curves(run_log, v_max_values))):
+        # The joint pathway-activity signature replaces the former six separate
+        # reaction-rate panels.  Keep both scales: the linear view exposes the
+        # dominant pathway, while the log view retains the low-activity curves.
+        for log_scale in (False, True):
+            figure, axis = reaction_rate_signature_figure(
+                checkpoint, run_log, suptitle=suptitle, log_scale=log_scale,
+                pathways=rate_pathways)
+            if log_scale and axis.get_yscale() != 'log':
                 plt.close(figure)
                 continue
-            path = target(number, quantity + ('_log' if log_scale else ''))
-            save(figure, path)
+            quantity = 'reaction_rate_signature' + ('_log' if log_scale else '')
+            save(figure, target(last_number + 1, quantity))
 
-    for log_scale in (False, True):
+    if plot_enabled('limitation_factors'):
         for number, (quantity, (figure, _)) in enumerate(
-                fe3_aceto_diagnostic_figures(
-                    checkpoint, model_run, suptitle=suptitle,
-                    log_scale=log_scale), start=90):
-            if log_scale and figure.axes[0].get_yscale() != 'log':
+                pathway_limitation_factor_figures(
+                    checkpoint, run_log, suptitle=suptitle), start=80):
+            pathway = quantity.removesuffix('_limitation_factors')
+            if not plot_enabled('limitation_factors', pathway):
                 plt.close(figure)
                 continue
-            path = target(number, quantity + ('_log' if log_scale else ''))
+            path = target(number, quantity)
             save(figure, path)
 
+    if plot_enabled('pathway_delta_g'):
+        for log_scale in (False, True):
+            for number, (quantity, (figure, _)) in enumerate(
+                    pathway_delta_g_figures(
+                        checkpoint, run_log, suptitle=suptitle,
+                        log_scale=log_scale), start=88):
+                if log_scale and figure.axes[0].get_yscale() != 'log':
+                    plt.close(figure)
+                    continue
+                path = target(number, quantity + ('_log' if log_scale else ''))
+                save(figure, path)
+
+    if plot_enabled('fe3_aceto_diagnostics'):
+        for log_scale in (False, True):
+            for number, (quantity, (figure, _)) in enumerate(
+                    fe3_aceto_diagnostic_figures(
+                        checkpoint, model_run, suptitle=suptitle,
+                        log_scale=log_scale), start=90):
+                if log_scale and figure.axes[0].get_yscale() != 'log':
+                    plt.close(figure)
+                    continue
+                path = target(number, quantity + ('_log' if log_scale else ''))
+                save(figure, path)
+
     for log_scale in (False, True):
+        if not plot_enabled('ch4_pathway_production'):
+            break
         ch4_production = ch4_pathway_production_figure(
             checkpoint, run_log, suptitle=suptitle, log_scale=log_scale)
         if ch4_production is None:
@@ -1481,6 +1786,8 @@ def _save_diagnostic_plots(checkpoint, model_run, directory, target, suptitle,
         save(figure, path)
 
     for log_scale in (False, True):
+        if not plot_enabled('co2_pathway_production'):
+            break
         co2_production = co2_pathway_production_figure(
             checkpoint, pathway_model, run_log, suptitle=suptitle,
             log_scale=log_scale)
@@ -1528,7 +1835,6 @@ def plot_multi_checkpoint(checkpoint, dataset):
     for record in checkpoint.multi_replica_results:
         replica, model_run = multi_replica_model_run(checkpoint, record, dataset)
         plot_checkpoint = ReplicaPlotCheckpoint(checkpoint, replica)
-        figure, _ = plot_fit(plot_checkpoint, dataset, model_run=model_run)
         suptitle = ' | '.join((
             f'joint multi fit ({replica_names})',
             f'sample {replica.sample.sample_name}',
@@ -1538,10 +1844,12 @@ def plot_multi_checkpoint(checkpoint, dataset):
         finish_fit_figure(figure, suptitle)
         directory, filename = multi_plot_target(checkpoint, replica)
         os.makedirs(directory, exist_ok=True)
-        path = os.path.join(directory, filename)
-        figure.savefig(path, dpi=300)
-        plt.close(figure)
-        paths.append(path)
+        if plot_enabled('fit'):
+            figure, _ = plot_fit(plot_checkpoint, dataset, model_run=model_run)
+            path = os.path.join(directory, filename)
+            figure.savefig(path, dpi=300)
+            plt.close(figure)
+            paths.append(path)
 
         def target(number, quantity):
             _, diagnostic_filename = multi_plot_target(
@@ -1549,5 +1857,6 @@ def plot_multi_checkpoint(checkpoint, dataset):
             return os.path.join(directory, diagnostic_filename)
 
         paths.extend(_save_diagnostic_plots(
-            plot_checkpoint, model_run, directory, target, suptitle))
+            plot_checkpoint, model_run, directory, target, suptitle,
+            x_limits=sample_time_limits(replica.sample)))
     return paths

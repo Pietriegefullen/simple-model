@@ -6,6 +6,7 @@ BUNDLES = {
     "0.4": "model_v0_4.model",
     "0.4.1": "model_v0_4.model",
     "0.4.2": "model_v0_4.model",
+    "0.4.3": "model_v0_4_3.model", # using C_ATOMS_BIOMASS
 }
 
 def current_version():
@@ -42,6 +43,17 @@ def envelope_converted_model_parameters(version, normalized=True):
     except AttributeError as error:
         raise ValueError(
             f'Model version {version!r} has no converted-envelope parameter catalogue.'
+        ) from error
+
+
+def hypothesis_model_parameters(version, normalized=True):
+    """Return the versioned parameter catalogue for the hypothesis fit."""
+    model_class = implementation(version).Model
+    try:
+        return model_class.hypothesis_model_parameters(normalized)
+    except AttributeError as error:
+        raise ValueError(
+            f'Model version {version!r} has no hypothesis parameter catalogue.'
         ) from error
 
 def pathway_by_name(version, name):

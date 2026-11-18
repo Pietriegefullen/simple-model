@@ -162,6 +162,12 @@ class CMAStateCheckpoint:
             self._target_directory = os.path.join(CP_ROOT, '_'.join(map(str, plain)))
         return self._target_directory
 
+    def state_file_name(self):
+        """Keep optimizer state isolated for timestamped fresh runs."""
+        if self.run_config.get('run_started_at') is None:
+            return self.FILE_NAME
+        return f'.cma-es-state-{self.run_id}.json'
+
     @contextmanager
     def _locked_directory(self):
         save_dir = self.target_directory()
@@ -184,7 +190,7 @@ class CMAStateCheckpoint:
             'state': encoded_state,
         }
         with self._locked_directory() as save_dir:
-            destination = os.path.join(save_dir, self.FILE_NAME)
+            destination = os.path.join(save_dir, self.state_file_name())
             descriptor, temporary_file = tempfile.mkstemp(
                 dir=save_dir, prefix='.cma-es-state-', text=True)
             try:
@@ -198,7 +204,7 @@ class CMAStateCheckpoint:
     def load(self):
         """Return a compatible saved state, or ``None`` when none is usable."""
         with self._locked_directory() as save_dir:
-            source = os.path.join(save_dir, self.FILE_NAME)
+            source = os.path.join(save_dir, self.state_file_name())
             try:
                 with open(source) as handle:
                     document = json.load(handle)
@@ -217,7 +223,7 @@ class CMAStateCheckpoint:
         """Discard this run's saved CMA state before a deliberate fresh run."""
         with self._locked_directory() as save_dir:
             try:
-                os.remove(os.path.join(save_dir, self.FILE_NAME))
+                os.remove(os.path.join(save_dir, self.state_file_name()))
             except FileNotFoundError:
                 pass
 
@@ -348,6 +354,17 @@ class CheckpointCallback(Callback):
             checkpoints.append((loss, entry.path))
         return sorted(checkpoints)
 
+    def current_run_checkpoints(self, save_dir):
+        """Return checkpoints created by this timestamped optimizer invocation."""
+        checkpoints = self.checkpoints(save_dir)
+        # Checkpoints created before timestamped run IDs retain their legacy
+        # shared-directory continuation behaviour.
+        if self.run_config.get('run_started_at') is None:
+            return checkpoints
+        marker = '_' + self.run_id + '_'
+        return [(loss, path) for loss, path in checkpoints
+                if marker in os.path.basename(path)]
+
     @contextmanager
     def locked_directory(self):
         save_dir = self.target_directory()
@@ -364,7 +381,11 @@ class CheckpointCallback(Callback):
         if self.keep_only_n is None:
             return
         if checkpoints is None:
-            checkpoints = self.checkpoints(save_dir)
+            checkpoints = self.current_run_checkpoints(save_dir)
+        elif self.run_config.get('run_started_at') is not None:
+            marker = '_' + self.run_id + '_'
+            checkpoints = [(loss, path) for loss, path in checkpoints
+                           if marker in os.path.basename(path)]
         for _, checkpoint_file in checkpoints[self.keep_only_n:]:
             os.remove(checkpoint_file)
 
@@ -402,7 +423,7 @@ class CheckpointCallback(Callback):
         post-optimisation lookup.
         """
         with self.locked_directory() as save_dir:
-            all_checkpoints = self.checkpoints(save_dir)
+            all_checkpoints = self.current_run_checkpoints(save_dir)
             if self._existing_checkpoint_paths is None:
                 checkpoints = self.prepare_existing_checkpoints(all_checkpoints)
             elif self.ignore_existing or self.overwrite_existing:
@@ -524,7 +545,8 @@ class CheckpointCallback(Callback):
             self._current_run_best_loss = last_loss
 
         with self.locked_directory() as save_dir:
-            checkpoints = self.prepare_existing_checkpoints(self.checkpoints(save_dir))
+            checkpoints = self.prepare_existing_checkpoints(
+                self.current_run_checkpoints(save_dir))
             if self.existing_checkpoint_is_better():
                 return
 
@@ -570,7 +592,7 @@ class CheckpointCallback(Callback):
                     os.remove(temporary_file)
 
             self.cleanup(save_dir, self.prepare_existing_checkpoints(
-                self.checkpoints(save_dir)))
+                self.current_run_checkpoints(save_dir)))
 
         if self.verbose:
             print(f'\nSaved checkpoint {checkpoint_file}')

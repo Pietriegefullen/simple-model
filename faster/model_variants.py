@@ -23,6 +23,12 @@ MODEL_ID_TO_VARIANT = {
     '3T3P': 'A', # v_max variable
     '3CXX': 'A', # v_max == 1
 
+    # model version 0.4.2
+    'UQ5A': 'A', # v_max variable
+
+    # model version 0.4.3
+    'NO3D': 'A' # M_* == 1.0
+
 }
 
 

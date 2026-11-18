@@ -84,6 +84,13 @@ class SharedParameterParsingTest(unittest.TestCase):
         self.assertEqual(shared['Hydro_v_max'].lower(), 0.003)
         self.assertEqual(shared['Hydro_v_max'].upper(), 1.0)
 
+    def test_hypothesis_template_uses_hypothesis_parameter_values(self):
+        template = fit_replicas.build_parameter_template(
+            fit_replicas.current_version(), fit_replicas.PATHWAYS, True,
+            hypothesis=True).parameters()
+
+        self.assertEqual(template['Hydro_v_max'].value, 0.01)
+
     def test_fix_default_glob_excludes_shared_parameters(self):
         reference = parameters.ModelParameters({
             'Hydrolysis_v_max': parameters.Parameter(
@@ -325,6 +332,20 @@ class LocalR2ThresholdTest(unittest.TestCase):
               self.assertRaises(SystemExit)):
             fit_replicas.parse_args([
                 '--shared', 'Hydro_v_max', '--default', '--converted-envelope'])
+
+    def test_hypothesis_is_mutually_exclusive_with_default(self):
+        args = fit_replicas.parse_args(['--shared', 'Hydro_v_max', '--hypothesis'])
+
+        self.assertTrue(args.hypothesis)
+        with (redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()),
+              self.assertRaises(SystemExit)):
+            fit_replicas.parse_args([
+                '--shared', 'Hydro_v_max', '--default', '--hypothesis'])
+
+    def test_bounds_is_a_parameter_source(self):
+        args = fit_replicas.parse_args(['--shared', 'Hydro_v_max', '--bounds', 'ABCD'])
+
+        self.assertEqual(args.bounds, 'ABCD')
 
 
 class InnerCheckpointRecoveryTest(unittest.TestCase):

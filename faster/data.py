@@ -868,23 +868,29 @@ def save_data(d):
         json.dump(d.get_config(), df, indent = 4) 
 
 if __name__ == '__main__':
-    d = get_data_before_day()
+    #d = get_data_before_day()
+    d = load_knoblauch()
 
-    f_L = []
-    f_m = []
-    for sample in d.samples:
-        print(sample)
-        continue
-        for replica in sample.replicas:
-            print(replica)
-            water_content_ml = replica.water_content
-            dry_weight_gdw = replica.dry_weight
-            sample_volume = replica.sample_volume
-            f_L.append(water_content_ml/dry_weight_gdw*1e-3)
-            f_m.append(sample_volume*1e-6/dry_weight_gdw)
-    1/0
     import matplotlib.pyplot as plt
     import numpy as np
+
+    doc = []
+    for sample in d.samples:
+        print(sample)
+        sample.plot()
+        plt.show()
+        continue
+
+        for replica in sample.replicas:
+            print(replica)
+            L_per_gdw = (replica.water_content*1e-3)/replica.dry_weight # L/gdw
+            doc_per_gdw = replica.initial_DOC()
+            doc.append(doc_per_gdw/L_per_gdw)
+
+    plt.boxplot(doc)
+    print(np.min(doc), np.mean(doc), np.max(doc))
+    plt.show()
+
     print('L')
     print(np.min(f_L), np.max(f_L))
     print('m')
