@@ -278,11 +278,11 @@ class Model():
          Parameter('Fe3',            150, [100, 100_000], scale = 'log', normalize = normalize),
         
         # if biomass is variable, it must be in micromol per liter
-         Parameter('M_Ferm',        1., scale = 'log',  normalize = normalize),
-         Parameter('M_Hydro',       1., scale = 'log', normalize = normalize),
-         Parameter('M_Fe3',         1., scale = 'log', normalize = normalize),
-         Parameter('M_Homo',        1., scale = 'log', normalize = normalize),
-         Parameter('M_Ac',          1., scale = 'log', normalize = normalize),
+         Parameter('M_Ferm',        1., [.002, 400],  scale = 'log',  normalize = normalize),
+         Parameter('M_Hydro',       10., [5, 600],  scale = 'log', normalize = normalize),
+         Parameter('M_Fe3',         1., [0.0002, 5_000], scale = 'log', normalize = normalize),
+         Parameter('M_Homo',        1., [0.002, 1_000], scale = 'log', normalize = normalize),
+         Parameter('M_Ac',          10., [4, 2_000], scale = 'log', normalize = normalize),
          
          Parameter('Hydro_thermodynamics', True, {True}, scale = 'linear', normalize = False),
          Parameter('Homo_thermodynamics', True, {True}, scale = 'linear', normalize = False),

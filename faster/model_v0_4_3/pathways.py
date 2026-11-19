@@ -136,6 +136,7 @@ class Pathway():
         deltaG_rmin = GIBBS_MINIMUM
         thermodynamic_factor = 1 - np.exp(np.minimum(0.,deltaG_r - deltaG_rmin)/(R*T))
 
+
         #self.log('thermodynamic_factor', t, thermodynamic_factor)
         return thermodynamic_factor
 

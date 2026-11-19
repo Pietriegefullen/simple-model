@@ -877,16 +877,18 @@ if __name__ == '__main__':
     doc = []
     for sample in d.samples:
         print(sample)
-        sample.plot()
-        plt.show()
+        #sample.plot()
+        #plt.show()
         continue
 
         for replica in sample.replicas:
             print(replica)
+            continue
             L_per_gdw = (replica.water_content*1e-3)/replica.dry_weight # L/gdw
             doc_per_gdw = replica.initial_DOC()
             doc.append(doc_per_gdw/L_per_gdw)
 
+    1/0
     plt.boxplot(doc)
     print(np.min(doc), np.mean(doc), np.max(doc))
     plt.show()
