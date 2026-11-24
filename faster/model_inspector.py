@@ -117,6 +117,27 @@ def apply_plot_y_scale(figure, log_y):
         plot.format_ax(axis, log_scale=log_y)
 
 
+def apply_plot_options(figure, show_legend=True, y_min='', y_max=''):
+    """Apply legend visibility and optional bounds to every plot axis."""
+    lower = float(y_min) if str(y_min).strip() else None
+    upper = float(y_max) if str(y_max).strip() else None
+    if any(value is not None and not math.isfinite(value) for value in (lower, upper)):
+        raise ValueError('Y limits must be finite numbers.')
+    if lower is not None and upper is not None and lower >= upper:
+        raise ValueError('Y min must be smaller than Y max.')
+    for axis in figure.axes:
+        if axis.get_yscale() == 'log' and any(
+                value is not None and value <= 0 for value in (lower, upper)):
+            raise ValueError('Y limits must be positive for a logarithmic axis.')
+        if lower is not None or upper is not None:
+            axis.set_ylim(bottom=lower, top=upper)
+        legend = axis.get_legend()
+        if legend is not None:
+            legend.set_visible(show_legend)
+    for legend in figure.legends:
+        legend.set_visible(show_legend)
+
+
 def load_checkpoint(identifier):
     """Load one checkpoint identified by a path or a unique partial CP ID.
 
@@ -275,6 +296,8 @@ def filter_checkpoints(checkpoints, filters, best_per_run=False):
     ``checkpoints`` is already loss-sorted by :meth:`reload_catalogue`.
     Keeping that order means filtering does not need another full sort.  IDs
     are deliberately accessed only for active ID filters or best-per-run.
+    Within each field, ``|`` separates alternative substrings; fields are
+    combined with AND.  Whitespace and empty alternatives are ignored.
     """
     failures = [checkpoint for checkpoint in checkpoints if is_failed_checkpoint(checkpoint)]
     candidates = [checkpoint for checkpoint in checkpoints if not is_failed_checkpoint(checkpoint)]
@@ -286,11 +309,18 @@ def filter_checkpoints(checkpoints, filters, best_per_run=False):
                 best_by_run[checkpoint.run_id] = checkpoint
         candidates = list(best_by_run.values())
 
+    alternatives = {
+        name: [part.strip().casefold() for part in requested.split('|')
+               if part.strip()]
+        for name, requested in filters.items()
+    }
     matches = []
     for checkpoint in candidates:
-        for name, requested in filters.items():
-            if requested and requested not in str(
-                    checkpoint_filter_value(checkpoint, name)).casefold():
+        for name, requested in alternatives.items():
+            if not requested:
+                continue
+            value = str(checkpoint_filter_value(checkpoint, name)).casefold()
+            if not any(part in value for part in requested):
                 break
         else:
             matches.append(checkpoint)
@@ -398,6 +428,9 @@ class ModelInspector(ttk.Frame):
         self.controls: dict[str, ParameterControl] = {}
         self.plot_names: list[str] = ["fit_CO2", "fit_CH4"]
         self.current_plot = tk.StringVar(value="fit_CO2")
+        self.show_legend = tk.BooleanVar(value=True)
+        self.y_min = tk.StringVar(value='')
+        self.y_max = tk.StringVar(value='')
         self.log_y = tk.BooleanVar(value=False)
         # A newly loaded checkpoint is already one of the comparison curves.
         # Turn this on automatically as soon as a value is edited.
@@ -531,6 +564,10 @@ class ModelInspector(ttk.Frame):
                         command=self.refresh_main_plot).grid(row=1, column=0, sticky="w", pady=(3, 0))
         ttk.Checkbutton(toolbar, text="Include manual values", variable=self.include_manual,
                         command=self.refresh_main_plot).grid(row=1, column=1, sticky="w", pady=(3, 0))
+        options = ttk.Frame(toolbar)
+        options.grid(row=5, column=0, columnspan=2, sticky="ew")
+        self._plot_option_controls(options, self.show_legend, self.y_min,
+                                   self.y_max, self.refresh_main_plot)
         ttk.Button(toolbar, text="Reset plot", command=self.reset_plot).grid(
             row=2, column=0, columnspan=2, sticky="ew", pady=(3, 0))
         ttk.Button(toolbar, text="Detach / compare", command=self.detach_plot).grid(
@@ -880,6 +917,16 @@ class ModelInspector(ttk.Frame):
             self.dataset = data.get_data_before_day()
         return plot_checkpoint.comparison_plot_names(results, split_fit=True)
 
+    def _plot_option_controls(self, parent, legend, lower, upper, redraw):
+        ttk.Checkbutton(parent, text="Legend", variable=legend,
+                        command=redraw).pack(side="left")
+        for label, variable in (("Y min", lower), ("Y max", upper)):
+            ttk.Label(parent, text=label).pack(side="left", padx=(6, 2))
+            entry = ttk.Entry(parent, textvariable=variable, width=9)
+            entry.pack(side="left")
+            entry.bind("<Return>", lambda _: redraw())
+        ttk.Button(parent, text="Apply", command=redraw).pack(side="left", padx=4)
+
     def _apply_y_scale(self, figure, log_y=None):
         log_y = self.log_y.get() if log_y is None else log_y
         apply_plot_y_scale(figure, log_y)
@@ -898,11 +945,15 @@ class ModelInspector(ttk.Frame):
             self.dataset = data.get_data_before_day()
         figure, _ = plot_checkpoint.comparison_figure(results, self.dataset, name)
         self._apply_y_scale(figure, log_y)
+        apply_plot_options(figure, self.show_legend.get(), self.y_min.get(), self.y_max.get())
         return figure, name
 
     def reset_plot(self):
         """Restore the initial CO2 fit view and its linear y-axis."""
         self.current_plot.set('fit_CO2')
+        self.show_legend.set(True)
+        self.y_min.set('')
+        self.y_max.set('')
         self.log_y.set(False)
         self.refresh_main_plot()
 
@@ -943,6 +994,11 @@ class ModelInspector(ttk.Frame):
             picker.pack(side="left", padx=4)
             detached_log_y = tk.BooleanVar(value=self.log_y.get())
             ttk.Checkbutton(controls, text="Log y", variable=detached_log_y).pack(side="left")
+            detached_legend = tk.BooleanVar(value=self.show_legend.get())
+            detached_min = tk.StringVar(value=self.y_min.get())
+            detached_max = tk.StringVar(value=self.y_max.get())
+            option_controls = ttk.Frame(window, padding=6)
+            option_controls.pack(fill="x")
             canvas_host = ttk.Frame(window)
             canvas_host.pack(fill="both", expand=True)
             state = {"pane": None}
@@ -955,6 +1011,8 @@ class ModelInspector(ttk.Frame):
                 figure, _ = plot_checkpoint.comparison_figure(
                     frozen_results, self.dataset, selected_name)
                 self._apply_y_scale(figure, detached_log_y.get())
+                apply_plot_options(figure, detached_legend.get(),
+                                   detached_min.get(), detached_max.get())
                 figure.suptitle(f"{selected_name} | {identity}", fontsize=10)
                 if state["pane"] is not None:
                     state["pane"].destroy()
@@ -963,8 +1021,16 @@ class ModelInspector(ttk.Frame):
             def selected_plot(*_):
                 detached_log_y.set(plot_name.get() == 'fit_CH4')
 
+            def safe_redraw(*_):
+                try:
+                    redraw()
+                except ValueError as error:
+                    messagebox.showerror("Invalid plot range", str(error), parent=window)
+
+            self._plot_option_controls(option_controls, detached_legend,
+                                       detached_min, detached_max, safe_redraw)
             picker.bind("<<ComboboxSelected>>", selected_plot)
-            detached_log_y.trace_add("write", redraw)
+            detached_log_y.trace_add("write", safe_redraw)
             redraw()
             self._detached.append((window, state))
             window.protocol("WM_DELETE_WINDOW", lambda: self._close_detached(window, state))

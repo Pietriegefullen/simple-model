@@ -27,7 +27,8 @@ MODEL_ID_TO_VARIANT = {
     'UQ5A': 'A', # v_max variable
 
     # model version 0.4.3
-    'NO3D': 'A' # M_* == 1.0
+    'NO3D': 'A', # 
+    'XHXK': 'G', # M_* == 1, *_CUE == 0
 
 }
 

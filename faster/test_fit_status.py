@@ -1,4 +1,6 @@
 import sys
+import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -51,6 +53,31 @@ class _Dataset:
 
 
 class FitStatusTest(unittest.TestCase):
+    def test_filename_filters_skip_opening_unrelated_checkpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            names = ['model-KEEP_1000_4_single_run-X_cp-A',
+                     'model-DROP_1000_4_single_run-X_cp-B',
+                     'model-KEEP_1000_4_multi_run-X_cp-C']
+            payload = {'parameters': {}, 'total_loss': .1, 'run_config': {}}
+            for name in names:
+                (root / name).write_text(json.dumps(payload))
+            legacy = root / 'model-DROP_1000_4_single' / 'cma_restart_minima'
+            legacy.mkdir(parents=True)
+            (legacy / 'restart-000-large.json').write_text(json.dumps(payload))
+            opened = []
+            original_open = Path.open
+
+            def tracked_open(path, *args, **kwargs):
+                opened.append(path.name)
+                return original_open(path, *args, **kwargs)
+
+            with mock.patch.object(Path, 'open', tracked_open):
+                results = list(fit_status.checkpoint_files(
+                    root, model_ids=['KEEP'], fit_modes=['single']))
+            self.assertEqual(opened, [names[0]])
+            self.assertEqual(len(results), 1)
+
     def setUp(self):
         self.dataset = _Dataset()
         self.objective = {
@@ -245,14 +272,14 @@ class FitStatusTest(unittest.TestCase):
             }
 
         root = Path('unused')
-        best_root = root / 'joint_polish' / 'cp-BEST'
-        other_root = root / 'joint_polish' / 'cp-OTHER'
+        best_root = root / 'joint_polish' / 'cp-BEST-AAAA'
+        other_root = root / 'joint_polish' / 'cp-OTHR-AAAA'
 
-        def files(directory):
+        def files(directory, **kwargs):
             directory = Path(directory)
             if directory == root:
-                return [(Path('outer_cp-BEST'), outer(.1, 'BEST')),
-                        (Path('outer_cp-OTHER'), outer(.2, 'OTHER')),
+                return [(Path('outer_cp-BEST-AAAA'), outer(.1, 'BEST')),
+                        (Path('outer_cp-OTHR-AAAA'), outer(.2, 'OTHER')),
                         (Path('single-fit'), polished(.4))]
             if directory == best_root:
                 return [(Path('best-polish-1'), polished(.3)),

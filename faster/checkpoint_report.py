@@ -226,11 +226,13 @@ def collect_all_with_failures(results_directory=RESULTS_DIRECTORY, verbose=True)
     failures = []
     for root, _, files in os.walk(results_directory):
         for filename in files:
+            legacy_restart = (
+                Path(root).name == 'cma_restart_minima'
+                and fnmatchcase(filename, 'restart-[0-9][0-9][0-9]-*.json'))
             # Persisted checkpoints are deliberately extensionless.  Report
-            # artefacts can contain checkpoint-like IDs, so accept only a
-            # regular extensionless filename instead of maintaining a list
-            # of output extensions to exclude.
-            if filename.startswith('.') or Path(filename).suffix:
+            # artefacts can contain checkpoint-like IDs.  The exception is
+            # the older JSON layout for retained CMA restart minima.
+            if filename.startswith('.') or (Path(filename).suffix and not legacy_restart):
                 continue
 
             if verbose:
@@ -238,11 +240,13 @@ def collect_all_with_failures(results_directory=RESULTS_DIRECTORY, verbose=True)
 
             # Results directories also contain report artefacts (for example
             # sensitivity.csv and parameter_influence.png).  A persisted
-            # checkpoint always has its generated ``cp-...`` identifier as a
-            # filename component, so do not attempt to parse unrelated files
-            # as parameter checkpoints.
+            # checkpoint has its generated ``cp-...`` identifier as a filename
+            # component, except for legacy restart minima whose ID is derived
+            # from their contents below.
             checkpoint_ids = [part for part in filename.split('_')
                               if part.startswith('cp-')]
+            if legacy_restart:
+                checkpoint_ids = [Path(filename).stem]
             if not checkpoint_ids:
                 continue
 
@@ -255,6 +259,8 @@ def collect_all_with_failures(results_directory=RESULTS_DIRECTORY, verbose=True)
                 loaded_parameters = parameters.ModelParameters(contents['parameters'])
                 loss = float(contents['total_loss'])
                 run_config = contents['run_config']
+                if legacy_restart:
+                    checkpoint_ids = [hashing.build_checkpoint_id(contents)]
             except Exception as error:
                 failures.append(CheckpointLoadFailure(
                     file_path, checkpoint_ids[0], str(error),

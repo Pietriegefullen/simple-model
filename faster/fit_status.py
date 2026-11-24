@@ -50,11 +50,26 @@ class FitResult:
     local_minima: int = 1
 
 
-def checkpoint_files(results_directory):
+def checkpoint_files(results_directory, model_ids=None, fit_modes=None, exclude_polish=False):
     """Yield parseable annotated checkpoint files below *results_directory*."""
     for path in Path(results_directory).rglob('*'):
         if not path.is_file() or path.name.startswith('.'):
             continue
+        if exclude_polish and 'joint_polish' in path.parts:
+            continue
+        # Canonical names embed the model and fit mode.  Legacy restart
+        # names inherit these fields from their containing run directory.
+        name = path.name
+        if path.parent.name == 'cma_restart_minima':
+            name = path.parent.parent.name
+        model_match = re.search(r'(?:^|_)(model-[^_]+)(?=_|$)', name)
+        mode_match = re.search(r'(?:^|_)(single|split|multi)(?=_|$)', name)
+        if model_ids is not None and model_match and not any(
+                partial in model_match.group(1) for partial in model_ids):
+            continue
+        if fit_modes is not None and mode_match and mode_match.group(1) not in fit_modes:
+            continue
+        # Unknown/renamed files fall back to payload checks for compatibility.
         try:
             with path.open() as handle:
                 checkpoint = json.load(handle)
@@ -129,7 +144,7 @@ def checkpoint_identifier(path):
     return None if match is None else match.group(1)
 
 
-def best_results(results_directory, dataset, model_ids=None):
+def best_results(results_directory, dataset, model_ids=None, fit_modes=None):
     """Return the highest total R² for every mode/variant/sample/replica.
 
     The cache key includes the complete objective and split configuration: two
@@ -145,14 +160,13 @@ def best_results(results_directory, dataset, model_ids=None):
     restart_minima = defaultdict(set)
     best_multi = {}
     errors = []
-    print('scanning results')
-    count = 0
-    for path, checkpoint in checkpoint_files(results_directory):
-        count+=1
-        #print(f'{count:6d}', end = '')
+    for path, checkpoint in checkpoint_files(
+            results_directory, model_ids=model_ids, fit_modes=fit_modes):
         try:
             run_config = checkpoint['run_config']
             chosen = run_config['chosen']
+            if fit_modes is not None and chosen['fit_mode'] not in fit_modes:
+                continue
             objective_config = run_config['objective']
             model_id = hashing.build_model_id(run_config['model'])
             if model_ids is not None and not any(
@@ -230,7 +244,7 @@ def polished_results(results_directory, dataset, model_ids=None,
     root = Path(results_directory)
     best_outer = {}
     errors = []
-    for path, checkpoint in checkpoint_files(root):
+    for path, checkpoint in checkpoint_files(root, model_ids=model_ids, fit_modes=('multi',)):
         try:
             run_config = checkpoint['run_config']
             chosen = run_config['chosen']
@@ -268,7 +282,7 @@ def polished_results(results_directory, dataset, model_ids=None,
         if not polished_root.is_dir():
             errors.append(f'{polished_root}: no polished replicas for best global checkpoint')
             continue
-        for path, checkpoint in checkpoint_files(polished_root):
+        for path, checkpoint in checkpoint_files(polished_root, fit_modes=('single',)):
             try:
                 run_config = checkpoint['run_config']
                 chosen = run_config['chosen']
@@ -298,7 +312,9 @@ def polished_results(results_directory, dataset, model_ids=None,
     # A polishing checkpoint is itself saved as a ``single`` fit, so exclude
     # the joint_polish subtree when finding the independent baseline.
     singles = {}
-    for path, checkpoint in checkpoint_files(root):
+    for path, checkpoint in checkpoint_files(
+            root, model_ids=single_model_ids if single_model_ids is not None else selected_model_ids,
+            fit_modes=('single',), exclude_polish=True):
         try:
             if 'joint_polish' in path.parts:
                 continue
@@ -503,7 +519,7 @@ def main():
             args.results, dataset, args.model_ids, args.single_model_ids,
             include_scope=True)
     else:
-        results, errors = best_results(args.results, dataset, args.model_ids)
+        results, errors = best_results(args.results, dataset, args.model_ids, args.fit_modes)
     color = args.color == 'always' or (args.color == 'auto' and sys.stdout.isatty())
     if args.polished:
         report = format_polished_comparison(

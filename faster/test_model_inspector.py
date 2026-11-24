@@ -1,4 +1,5 @@
 import unittest
+import json
 import tempfile
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +12,39 @@ import model_inspector
 
 
 class CheckpointFilenameMetadataTest(unittest.TestCase):
+    def test_best_per_run_includes_legacy_and_canonical_restart_minima(self):
+        payload = {
+            'parameters': {}, 'total_loss': .25,
+            'run_config': {
+                'model': {'version': '0.4'},
+                'chosen': {'sample': '1351', 'validation_replica': '4',
+                           'fit_mode': 'single'},
+                'objective': {},
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'cp-ORDINARY').write_text(json.dumps(payload))
+            legacy = root / 'cma_restart_minima'
+            legacy.mkdir()
+            payload.update(total_loss=.1, cma_restart={'index': 0, 'kind': 'large'})
+            (legacy / 'restart-000-large.json').write_text(json.dumps(payload))
+            payload.update(total_loss=.2, cma_restart={'index': 1, 'kind': 'small'})
+            (root / 'cp-RESTART_restart-001-small').write_text(json.dumps(payload))
+            # Unrelated JSON reports must still be excluded.
+            (root / 'report.json').write_text('not checkpoint data')
+
+            checkpoints, failures = checkpoint_report.collect_all_with_failures(
+                directory, verbose=False)
+
+        self.assertEqual(failures, [])
+        self.assertEqual(len(checkpoints), 3)
+        best = model_inspector.filter_checkpoints(checkpoints, {}, best_per_run=True)
+        self.assertEqual(len(best), 1)
+        self.assertEqual(best[0].loss, .1)
+        self.assertEqual(best[0].metadata['cma_restart']['index'], 0)
+        self.assertTrue(best[0].id.startswith('cp-'))
+
     def test_extracts_catalogue_metadata_from_canonical_filename(self):
         metadata = checkpoint_report.checkpoint_filename_metadata(
             '/results/loss-ABCD_model-EFGH_1351_4_split_loss-1_run-IJK_cp-LMN')
@@ -100,6 +134,25 @@ class InspectorFilterTest(unittest.TestCase):
 
         self.assertEqual(ordered, [newer, older])
 
+    def test_filter_accepts_or_alternatives_with_optional_spaces(self):
+        checkpoints = [self.Checkpoint(sample) for sample in ('1354', '1352', '1351')]
+        for requested in ('1354|1352', '1354 | 1352', '|1354||1352|'):
+            with self.subTest(requested=requested):
+                self.assertEqual(model_inspector.filter_checkpoints(
+                    checkpoints, {'sample': requested}), checkpoints[:2])
+
+    def test_or_filters_still_require_each_active_field_to_match(self):
+        checkpoints = [self.Checkpoint(sample) for sample in ('1354', '1352', '1351')]
+        checkpoints[1].fit_mode = 'split'
+        self.assertEqual(model_inspector.filter_checkpoints(
+            checkpoints, {'sample': '1354 | 1352', 'fit_mode': 'SPLIT | multi'}),
+            [checkpoints[1]])
+
+    def test_empty_or_filter_does_not_access_unused_ids(self):
+        checkpoint = self.Checkpoint('1354')
+        self.assertEqual(model_inspector.filter_checkpoints(
+            [checkpoint], {'run_id': ' | '}), [checkpoint])
+
     def test_broken_checkpoint_remains_visible_despite_filters(self):
         failed = model_inspector.FailedCheckpoint(
             '/results/cp-BAD', 'cp-BAD', 'invalid JSON',
@@ -171,6 +224,27 @@ class ParameterOrderingTest(unittest.TestCase):
 
 
 class PlotScaleTest(unittest.TestCase):
+    def test_plot_options_hide_legends_and_set_limits(self):
+        figure = Figure()
+        axis = figure.add_subplot()
+        axis.plot([0, 1], [1, 2], label='curve')
+        axis.legend()
+        model_inspector.apply_plot_options(figure, False, '0', '3')
+        self.assertFalse(axis.get_legend().get_visible())
+        self.assertEqual(axis.get_ylim(), (0., 3.))
+        model_inspector.apply_plot_options(figure, True)
+        self.assertTrue(axis.get_legend().get_visible())
+
+    def test_plot_options_reject_invalid_limits(self):
+        figure = Figure()
+        axis = figure.add_subplot()
+        for lower, upper in [('3', '1'), ('nan', ''), ('abc', '')]:
+            with self.subTest(lower=lower), self.assertRaises(ValueError):
+                model_inspector.apply_plot_options(figure, y_min=lower, y_max=upper)
+        axis.set_yscale('log')
+        with self.assertRaises(ValueError):
+            model_inspector.apply_plot_options(figure, y_min='0')
+
     def test_log_y_applies_to_every_axis_with_positive_data(self):
         figure = Figure()
         first = figure.add_subplot(121)
