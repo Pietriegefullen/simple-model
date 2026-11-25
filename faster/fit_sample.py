@@ -9,6 +9,8 @@ import parameter_bounds
 import checkpoint
 import hashing
 import numpy as np
+import user_input
+from checkpoint_io import load_checkpoint_document as _requested_checkpoint
 from model_factory import (build_model, current_version,
                            envelope_converted_model_parameters,
                            hypothesis_model_parameters)
@@ -20,21 +22,6 @@ class ExistingFitGoodEnough(Exception):
     def __init__(self, r2):
         self.r2 = float(r2)
         super().__init__(f'Existing fit has R2 {self.r2:.3f}')
-
-
-def _requested_checkpoint(path):
-    """Load an annotated checkpoint selected explicitly on the command line."""
-    try:
-        contents = parameters.load_file(path)
-    except (OSError, ValueError) as error:
-        raise ValueError(f'Could not read checkpoint {path}: {error}') from error
-    required = {'parameters', 'total_loss', 'run_config'}
-    if not isinstance(contents, dict) or not required.issubset(contents):
-        present = set(contents) if isinstance(contents, dict) else set()
-        raise ValueError(
-            f'{path} is not an annotated checkpoint; missing '
-            + ', '.join(sorted(required - present)))
-    return contents
 
 
 def checkpoint_compatibility_warnings(checkpoint_data, chosen, model_config):
@@ -206,7 +193,8 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
         ignore_existing_checkpoints = False,
         checkpoint_confirmation = None, 
         call_limit = None,
-        skip_existing_r2 = None):
+        skip_existing_r2 = None,
+        fixed_arguments=()):
     # get sample from dataset
     dataset = data.get_data_before_day()
     sample = dataset[chosen['sample']]
@@ -218,6 +206,12 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
         model_version = current_version()
     pathway_model = build_model(model_version, chosen['pathways'], chosen['normalized_parameters'])
     pathway_model.use_gas_limits = bool(chosen.get('gas_limits', False))
+    if fixed_arguments:
+        overrides = dict(chosen['parameter_override'])
+        for group in fixed_arguments:
+            overrides.update(user_input.parse_override(
+                group, pathway_model.parameters().as_dict(), model_version=model_version))
+        chosen = dict(chosen, parameter_override=overrides)
 
     requested_checkpoint_path = init_config.get('file')
     if requested_checkpoint_path is not None:
@@ -376,8 +370,6 @@ def fit(chosen, objective_config, algo_config, init_config, model_version,
     return pathway_model, total_objective, run_log
 
 if __name__ == '__main__':
-    import user_input
-    
     args = user_input.parse_args_fit()
     algorithm_name = ('Powell' if args.local else
                       {'de': 'differential_evolution',
@@ -397,7 +389,7 @@ if __name__ == '__main__':
                                          'Aceto',
                                          'Homo',
                                          'Fe3'],
-            'parameter_override':       args.override,  # e.g. 'Homo_thermodynamics': False
+            'parameter_override':       {},
             'fix_v_max_except':         args.fix_v_max_except,
             'fix_v_max_value':          args.fix_v_max_value,
             'converted_envelope':        args.converted_envelope,
@@ -437,11 +429,16 @@ if __name__ == '__main__':
         # from the selected checkpoint.
         init_config = {'file': args.checkpoint, 'range': 'default'}
     else:
-        fresh_parameters = (args.default or args.converted_envelope or args.hypothesis or args.estimate
-                            or args.bounds is not None)
+        default_parameters = (args.default or args.converted_envelope or args.hypothesis
+                              or args.bounds is not None)
+        if not default_parameters and not args.estimate and args.best is None:
+            # A checkpoint used by --p supplies only the requested constants.
+            # The implicit legacy start may pull fitted values from another version.
+            default_parameters = any(user_input.checkpoint_override_selector(group) is not None
+                                     for group in args.p or ())
+        fresh_parameters = default_parameters or args.estimate
         init_config = {
-                'default':                  (args.default or args.converted_envelope or args.hypothesis
-                                             or args.bounds is not None),
+                'default':                  default_parameters,
                 'estimate':                 args.estimate,
                 'best_N':                   None if fresh_parameters else args.best,
                 'sample':                   None if fresh_parameters else chosen['sample'],
@@ -455,6 +452,7 @@ if __name__ == '__main__':
         chosen['pathways'].remove(omitted_pathway)
     
     fit(chosen, objective_config, algo_config, init_config, model_version = None,
+        fixed_arguments=args.p,
         store_checkpoints = not args.dry,
         overwrite_existing_checkpoints = args.overwrite_checkpoints,
         # Catalogue-based starts and ``--estimate`` are fresh searches from declared

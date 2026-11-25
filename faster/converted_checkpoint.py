@@ -11,6 +11,7 @@ from model_factory import build_model
 
 FORMAT = 'litre-normalized-v1'
 REPLAY_MODEL_VERSION = '0.4.2'
+REFIT_MODEL_VERSION = '0.4.3'
 REPLAY_PATHWAYS = ('Hydrolysis', 'Fermentation', 'Hydro', 'Aceto', 'Homo', 'Fe3')
 
 
@@ -69,9 +70,8 @@ def replica_for_conversion(conversion, dataset):
 def replay(checkpoint, dataset, parameter_values=None, *, gas_limits=True):
     """Evaluate a converted checkpoint with its declared target model.
 
-    Converted parameters are already expressed in the v0.4.2 litre-based
-    system, so they must not be replayed through ``fit_sample.run`` using the
-    source checkpoint's historical configuration.
+    Converted parameter values use the declared litre-based model. The
+    historical run configuration describes the source fit.
     """
     metadata = checkpoint.metadata or {}
     spec = replay_spec(metadata)

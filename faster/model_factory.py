@@ -7,6 +7,7 @@ BUNDLES = {
     "0.4.1": "model_v0_4.model",
     "0.4.2": "model_v0_4.model",
     "0.4.3": "model_v0_4_3.model", # using C_ATOMS_BIOMASS
+    "0.4.4": "model_v0_4_4.model", # using H2 (aq)
 }
 
 def current_version():

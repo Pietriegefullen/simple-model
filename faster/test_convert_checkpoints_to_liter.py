@@ -40,10 +40,10 @@ class ConversionTest(unittest.TestCase):
             'Hydro_Km_H2': 2., 'M_Hydro': CONSTANTS.MOLAR_MASS_BIOMASS})
         self.assertEqual(expanded[1][2]['M_Hydro'], CONSTANTS.MOLAR_MASS_BIOMASS * 2)
 
-    def test_envelopes_are_compared_to_v04_default_bounds(self):
+    def test_envelopes_are_compared_to_v043_default_bounds(self):
         rows = conversion.envelope_rows({'Hydro_Km_H2': [13., 200.], 'death_rate': [.1]})
         by_name = {row['parameter']: row for row in rows}
-        self.assertEqual(by_name['Hydro_Km_H2']['comparison'], 'inside_default_bounds')
+        self.assertEqual(by_name['Hydro_Km_H2']['comparison'], 'overlaps_default_bounds')
         self.assertEqual(by_name['death_rate']['comparison'], 'outside_default_bounds')
 
     def test_declared_numeric_ranges_are_converted(self):
@@ -63,12 +63,12 @@ class ConversionTest(unittest.TestCase):
             2. * CONSTANTS.MOLAR_MASS_BIOMASS])
         self.assertEqual(converted['Hydro_CUE']['range'], [.1, .2])
 
-    def test_converted_document_declares_its_v042_replay_contract(self):
+    def test_converted_document_declares_its_v043_replay_contract(self):
         document = {
             'parameters': {'death_rate': .01},
             'run_config': {
                 'model': {'version': '0.3'},
-                'chosen': {'fit_mode': 'single', 'sample': '1351',
+                'chosen': {'fit_mode': 'single', 'sample': '1351', 'pathways': ['Hydro'],
                            'validation_replica': '4'},
             },
         }
@@ -81,9 +81,32 @@ class ConversionTest(unittest.TestCase):
         self.assertEqual(converted['converted_checkpoint'], {
             'format': 'litre-normalized-v1',
             'source_model_version': '0.3',
-            'replay_model_version': '0.4.2',
-            'pathways': ['Hydrolysis', 'Fermentation', 'Hydro', 'Aceto', 'Homo', 'Fe3'],
+            'replay_model_version': '0.4.3',
+            'pathways': ['Hydro'],
             'normalized_parameters': False,
+        })
+
+    def test_split_converts_for_each_training_replica_using_its_measurements(self):
+        document = {
+            'parameters': {'Ferm_Km': 2., 'DOC': 999.},
+            'run_config': {
+                'model': {'version': '0.3'},
+                'chosen': {'fit_mode': 'split', 'sample': 1351, 'validation_replica': 4},
+            },
+        }
+        replicas = {
+            ('1351', '4'): mock.Mock(dry_weight=1., water_content=100.),
+            ('1351', '5'): mock.Mock(dry_weight=2., water_content=100.),
+            ('1351', '6'): mock.Mock(dry_weight=2., water_content=50.),
+        }
+        replicas['1351', '5'].initial_DOC.return_value = 4.
+        replicas['1351', '6'].initial_DOC.return_value = 5.
+        converted = {replica: doc['parameters'] for doc, _, replica in
+                     conversion.converted_documents(document, 'source', replicas)}
+
+        self.assertEqual(converted, {
+            '5': {'Ferm_Km': 40., 'DOC': 80.},
+            '6': {'Ferm_Km': 80., 'DOC': 200.},
         })
 
     def test_only_lowest_loss_checkpoint_is_kept_per_run(self):

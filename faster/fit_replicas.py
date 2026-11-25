@@ -212,7 +212,7 @@ def select_default_fixed_parameters(reference, requested, shared_names=()):
     return {name: reference[name].value for name in names if name not in shared_names}
 
 
-def parse_fixed_parameters(requested, shared_names=(), available_names=None):
+def parse_fixed_parameters(requested, shared_names=(), available_names=None, *, model_version=None):
     """Parse ``--p`` pairs, allowing shared parameters to escape globs.
 
     A wildcard is normally a convenient way to set a family of constants.  If
@@ -220,21 +220,10 @@ def parse_fixed_parameters(requested, shared_names=(), available_names=None):
     variable instead.  Directly naming a shared parameter with ``--p`` is
     still rejected by the caller because that is an unambiguous conflict.
     """
-    fixed = {}
-    direct_shared = set()
     shared_names = set(shared_names)
-    if requested is None:
-        return fixed, direct_shared
-    for name, value in zip(requested[::2], requested[1::2]):
-        pair = user_input.parse_override([name, value], available_names)
-        shared_matches = set(pair) & shared_names
-        if '*' in name:
-            for shared_name in shared_matches:
-                del pair[shared_name]
-        else:
-            direct_shared.update(shared_matches)
-        fixed.update(pair)
-    return fixed, direct_shared
+    fixed = user_input.parse_override(
+        requested, available_names, model_version=model_version, exclude_globs=shared_names)
+    return fixed, set(fixed) & shared_names
 
 
 def replica_identifier(replica):
@@ -1156,8 +1145,8 @@ def parse_args(argv=None):
                                   help='Use the hypothesis model parameter catalogue.')
     parameter_source.add_argument('--bounds', metavar='ID',
                                   help='Use bounds stored by parameter_envelope.py (full or partial ID).')
-    parser.add_argument('--p', nargs='+', dest='fixed',
-                        help='Fixed parameter/value pairs, as in fit_sample.')
+    parser.add_argument('--p', nargs='+', action='append', dest='fixed_arguments',
+                        help='Fix NAME VALUE pairs, or use PATTERN [PATTERN ...] CHECKPOINT.')
     parser.add_argument('--fix-default', nargs='+', metavar='PARAMETER',
                         help=('Fix matching parameter names or globs at their model defaults; '
                               'parameters selected by --shared remain free.'))
@@ -1285,8 +1274,6 @@ def parse_args(argv=None):
     for name in ('outer_cma_restarts', 'local_cma_restarts'):
         if getattr(args, name) < 0:
             parser.error('--' + name.replace('_', '-') + ' cannot be negative.')
-    args.fixed_arguments = args.fixed
-    args.fixed = user_input.parse_override(args.fixed)
     return args
 
 
@@ -1306,10 +1293,13 @@ def run(args):
         parameter_bounds.apply_bounds(reference, bounds_document)
 
     shared_names = expand_parameter_names(args.shared, reference.as_dict())
-    args.fixed, overlap = parse_fixed_parameters(
-        args.fixed_arguments, shared_names, reference.as_dict())
-    if overlap:
-        raise ValueError('--shared and --p cannot both name ' + ', '.join(sorted(overlap)))
+    args.fixed = {}
+    for group in args.fixed_arguments or ():
+        fixed, overlap = parse_fixed_parameters(
+            group, shared_names, reference.as_dict(), model_version=version)
+        if overlap:
+            raise ValueError('--shared and --p cannot both name ' + ', '.join(sorted(overlap)))
+        args.fixed.update(fixed)
     unavailable = set(shared_names) & REPLICA_PROVIDED_PARAMETERS
     if unavailable:
         raise ValueError('Replica-provided parameters cannot be shared: '

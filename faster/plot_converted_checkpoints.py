@@ -27,9 +27,6 @@ import plot_checkpoint
 from USER_VARIABLES import PLOT_DIRECTORY
 
 
-CURRENT_PATHWAYS = converted_checkpoint.REPLAY_PATHWAYS
-
-
 def load_converted_checkpoint(path):
     """Load and minimally validate a converted checkpoint JSON document."""
     path = Path(path)
@@ -99,7 +96,7 @@ def save_plots(source, document, dataset, output_root, *, overwrite=False,
         'sample': sample,
         'validation_replica': replica_number,
         'fit_mode': 'single',
-        'pathways': list(CURRENT_PATHWAYS),
+        'pathways': list(converted_checkpoint.replay_spec(metadata)[1]),
         'normalized_parameters': False,
     })
     checkpoint = report.Checkpoint(

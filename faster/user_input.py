@@ -1,7 +1,12 @@
 import argparse
 import fnmatch
+from pathlib import Path
 
 import numpy as np
+
+from checkpoint_io import load_checkpoint_document, resolve_checkpoint
+from converted_checkpoint import metadata_for_document, replay_spec
+from USER_VARIABLES import CONVERTED_CHECKPOINTS_DIRECTORY
 
 def numeric(value):
     numbers = '0123456789'
@@ -56,10 +61,12 @@ def parse_args_fit(argv=None):
         '--fix-v-max-value', type=float, metavar='VALUE',
         help='value to assign to each *v_max parameter fixed by --fix-v-max-except')
     parser.add_argument('--omit', nargs = '+', default = [])
-    parser.add_argument('--single', action = 'store_true', default = None)
-    parser.add_argument('--split', action = 'store_true', default = None)
+    fit_mode = parser.add_mutually_exclusive_group()
+    fit_mode.add_argument('--single', action='store_true')
+    fit_mode.add_argument('--split', action='store_true')
     parser.add_argument('--t', nargs = 2)
-    parser.add_argument('--p', nargs = '+')
+    parser.add_argument('--p', nargs='+', action='append', metavar='TOKEN',
+                        help='Fix NAME VALUE pairs, or use PATTERN [PATTERN ...] CHECKPOINT.')
     parser.add_argument('--local', action = 'store_true')
     parser.add_argument('--algorithm', choices=('de', 'cma-es'), default='de',
                         help='Global optimiser; DE is the default.')
@@ -88,13 +95,8 @@ def parse_args_fit(argv=None):
     
     args = parser.parse_args(argv)
 
-    if args.single is None and args.split is None:
-        args.split = True
-
-    if not args.single is None and not args.split is None:
-        raise Exception('Specify either "split" or "single", not both.')
-
-    args.single = not args.split if not args.split is None else args.single
+    if not (args.single or args.split):
+        parser.error('Specify --single, or use --split for a split fit.')
     
     t_start, t_end = None, None
     if not args.t is None:
@@ -108,7 +110,6 @@ def parse_args_fit(argv=None):
     setattr(args, 't_start', t_start)
     setattr(args, 't_end', t_end)
    
-    setattr(args, 'override', parse_override(args.p))
     setattr(args, 'workers', int(args.workers))
 
     if args.local and args.algorithm != 'de':
@@ -131,28 +132,77 @@ def parse_args_fit(argv=None):
 
     return args
 
-def parse_override(inp, parameter_names=None):
-    """Parse ``--p`` pairs, expanding globs against an explicit catalogue.
+def fixed_literal(token):
+    """Parse a numeric or boolean literal, leaving checkpoint selectors as text."""
+    if token.casefold() in ('true', 'false'):
+        return token.casefold() == 'true'
+    try:
+        return int(token)
+    except ValueError:
+        try:
+            return float(token)
+        except ValueError:
+            return token
 
-    Parameter defaults are model-version-specific.  Callers which know the
-    model therefore pass its parameter names here; argument parsing itself
-    preserves globs until that catalogue is available.
-    """
-    if inp is None:
+
+def checkpoint_override_selector(tokens):
+    last = fixed_literal(tokens[-1])
+    return last if isinstance(last, str) else None
+
+
+def checkpoint_parameter_values(selector, model_version):
+    converted_root = Path(CONVERTED_CHECKPOINTS_DIRECTORY) / f'v{model_version}'
+    source = resolve_checkpoint(selector, additional_roots=(converted_root,))
+    document = load_checkpoint_document(source)
+    metadata = metadata_for_document(document)
+    if metadata is None:
+        version = str(document['run_config']['model']['version'])
+    else:
+        spec = replay_spec(metadata)
+        if spec is None or spec[2]:
+            raise ValueError(f'{source} does not declare physical checkpoint parameter values.')
+        version = spec[0]
+    if model_version is not None and version != model_version:
+        message = f'{source} supplies v{version} values, but the fit uses v{model_version}.'
+        if version == '0.3':
+            message += ' Run convert_checkpoints_to_liter.py and use the converted checkpoint ID.'
+        raise ValueError(message)
+    return source, document['parameters']
+
+
+def parse_override(inp, parameter_names=None, *, model_version=None, exclude_globs=()):
+    """Resolve one ``--p`` group to physical values for the target model."""
+    if not inp:
         return {}
-    if len(inp) % 2:
-        raise ValueError('--p requires PARAMETER VALUE pairs.')
-    keys = inp[::2]
-    values = inp[1::2]
-    parsed = {}
+    selector = checkpoint_override_selector(inp)
+    from_checkpoint = selector is not None
+    if len(inp) < 2 or (not from_checkpoint and len(inp) % 2):
+        raise ValueError('--p requires NAME VALUE pairs or one or more patterns followed by a checkpoint.')
+    pairs = ((pattern, None) for pattern in inp[:-1]) if from_checkpoint else (
+        (pattern, fixed_literal(value)) for pattern, value in zip(inp[::2], inp[1::2]))
     names = None if parameter_names is None else tuple(parameter_names)
-    for key, value in zip(keys, values):
-        value = parse(value)
-        if '*' in key and names is not None:
-            matches = [name for name in names if fnmatch.fnmatchcase(name, key)]
+    parsed = {}
+    for pattern, value in pairs:
+        matches = [pattern]
+        if names is not None:
+            matches = [name for name in names if fnmatch.fnmatchcase(name, pattern)]
             if not matches:
-                raise ValueError(f'--p pattern {key!r} matches no model parameter.')
-            parsed.update({name: value for name in matches})
-        else:
-            parsed[key] = value
+                raise ValueError(f'--p pattern {pattern!r} matches no model parameter.')
+            if any(character in pattern for character in '*?['):
+                matches = [name for name in matches if name not in exclude_globs]
+        if isinstance(value, str):
+            raise ValueError(f'--p expected a numeric or boolean value for {pattern!r}.')
+        parsed.update(dict.fromkeys(matches, value))
+
+    if from_checkpoint and parsed:
+        source, values = checkpoint_parameter_values(selector, model_version)
+        missing = sorted(name for name in parsed if name not in values)
+        if missing:
+            raise ValueError(f'Checkpoint {source} has no saved value for: ' + ', '.join(missing))
+        parsed = {name: values[name] for name in parsed}
+        invalid = sorted(name for name, value in parsed.items()
+                         if not isinstance(value, (int, float)) or not np.isfinite(value))
+        if invalid:
+            raise ValueError(f'Checkpoint {source} has non-finite or non-numeric values for: '
+                             + ', '.join(invalid))
     return parsed

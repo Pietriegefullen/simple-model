@@ -1,4 +1,4 @@
-"""Convert saved checkpoints from per-g-dry-weight to per-litre units.
+"""Convert v0.3 checkpoints to the per-litre units used by v0.4.3.
 
 The historical checkpoints store microbial pools (``M_*``) in mg/gdw and
 other numeric pool, kinetic, and rate parameters in micromol/gdw (or the
@@ -9,19 +9,17 @@ One conversion factor is needed for each measured replica::
 
     gdw / L = dry_weight_g / (water_content_ml * 1e-3)
 
-Microbial pools also divide by ``MOLAR_MASS_BIOMASS`` (mg/micromol).  A joint
-fit is consequently expanded to one converted file per saved replica: its
-shared values are merged with the replica's local result before conversion.
-This avoids assigning one litre-based value to a parameter that was shared
-only in the old per-gdw representation.
+Microbial pools also divide by ``MOLAR_MASS_BIOMASS`` (mg/micromol). A joint
+fit is expanded to one file per saved replica after merging shared and local
+values. For a split fit, each training replica gets its own conversion.
 
 Run from the repository root, for example::
 
-    python faster/convert_checkpoints_to_liter.py model-3T3P
+    python faster/convert_checkpoints_to_liter.py C3XX
 
-The default output directory is ``converted_checkpoints/<model-id>/``.  It is
-outside ``results/`` so converted files are never accidentally reused as
-optimisation inputs.
+The default output directory is ``converted_checkpoints/v0.4.3/<model-id>/``.
+The fit configuration and loss describe the source fit. Converted values
+can be picked individually for a new fit with ``--p PATTERN CHECKPOINT``.
 """
 
 from __future__ import annotations
@@ -30,14 +28,19 @@ import argparse
 import copy
 import csv
 import json
+import math
+import os
 from collections import defaultdict
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import CONSTANTS
 import data
-from converted_checkpoint import FORMAT, REPLAY_MODEL_VERSION, REPLAY_PATHWAYS
-from model_v0_4.model import Model
-from USER_VARIABLES import PROJECT_DIRECTORY, RESULTS_DIRECTORY
+import hashing
+from checkpoint_io import checkpoint_id, load_checkpoint_document, resolve_checkpoint
+from converted_checkpoint import FORMAT, REFIT_MODEL_VERSION
+from model_v0_4_3.model import Model
+from USER_VARIABLES import CONVERTED_CHECKPOINTS_DIRECTORY, RESULTS_DIRECTORY
 
 
 # Dimensionless, categorical, and inverse-time parameters do not acquire a
@@ -65,8 +68,8 @@ def uses_biomass_basis(name):
 
 def conversion_factor(dry_weight_g, water_content_ml, name):
     """Return the old-unit to litre-unit multiplier for one parameter."""
-    if dry_weight_g <= 0 or water_content_ml <= 0:
-        raise ValueError('Replica dry weight and water content must both be positive.')
+    if any(not math.isfinite(value) or value <= 0 for value in (dry_weight_g, water_content_ml)):
+        raise ValueError('Replica dry weight and water content must both be positive and finite.')
     gdw_per_litre = dry_weight_g / (water_content_ml * 1e-3)
     if uses_biomass_basis(name):
         return gdw_per_litre / CONSTANTS.MOLAR_MASS_BIOMASS
@@ -136,8 +139,6 @@ def replica_data_by_id(dataset):
 
 def checkpoint_model_id(document):
     """Read the canonical generated model ID without trusting a filename."""
-    # Import lazily to keep the conversion helpers usable in small unit tests.
-    import hashing
     return hashing.build_model_id(document['run_config']['model'])
 
 
@@ -150,8 +151,12 @@ def matching_checkpoints(results_directory, model_id):
         try:
             with path.open() as handle:
                 document = json.load(handle)
+            if (document['run_config']['model']['version'] != '0.3'
+                    or 'unit_conversion' in document
+                    or not {'parameters', 'total_loss'} <= document.keys()):
+                continue
             found_model_id = checkpoint_model_id(document)
-        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        except (OSError, KeyError, TypeError, ValueError):
             continue
         if selector in found_model_id.casefold().removeprefix('model-'):
             yield path, document, found_model_id
@@ -165,7 +170,6 @@ def best_checkpoint_per_run(checkpoints):
     ranks snapshots within that run.  A lexical path tie-break makes output
     deterministic if two files have exactly the same loss.
     """
-    import hashing
     best = {}
     for path, document, model_id in checkpoints:
         try:
@@ -173,6 +177,8 @@ def best_checkpoint_per_run(checkpoints):
             loss = float(document['total_loss'])
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError(f'Checkpoint {path} has no usable run ID or loss.') from error
+        if not math.isfinite(loss):
+            continue
         candidate = (loss, str(path), path, document, model_id)
         previous = best.get(run_id)
         if previous is None or candidate[:2] < previous[:2]:
@@ -181,10 +187,27 @@ def best_checkpoint_per_run(checkpoints):
             for candidate in sorted(best.values(), key=lambda item: item[1])]
 
 
-def expanded_solutions(document):
+def expanded_solutions(document, replicas=None):
     """Yield ``(sample, replica, parameters, source_kind)`` for a checkpoint."""
     chosen = document['run_config']['chosen']
-    if chosen.get('fit_mode') != 'multi':
+    fit_mode = chosen.get('fit_mode')
+    if fit_mode == 'split':
+        sample = str(chosen['sample'])
+        held_out = str(chosen['validation_replica'])
+        if not replicas or (sample, held_out) not in replicas:
+            raise ValueError(f'No experiment data for held-out replica {sample}/{held_out}.')
+        training = [(replica_id, replica) for (sample_id, replica_id), replica in replicas.items()
+                    if sample_id == sample and replica_id != held_out]
+        if not training:
+            raise ValueError(f'No training replicas for split checkpoint {sample}/{held_out}.')
+        for replica_id, replica in training:
+            values = document['parameters'].copy()
+            for name in ('TOC', 'DOC', 'H2O'):
+                if name in values:
+                    values[name] = float(getattr(replica, f'initial_{name}')())
+            yield sample, replica_id, values, 'split_training_replica'
+        return
+    if fit_mode != 'multi':
         yield (str(chosen['sample']), str(chosen['validation_replica']),
                document['parameters'], 'checkpoint')
         return
@@ -195,7 +218,7 @@ def expanded_solutions(document):
         raise ValueError('Joint checkpoint has no saved per-replica results.')
     for record in records:
         if not isinstance(record, dict) or not isinstance(record.get('parameters'), dict):
-            continue
+            raise ValueError('Joint checkpoint has a replica result without parameters.')
         sample = str(record.get('sample'))
         replica = str(record.get('replica_number', record.get('replica')))
         if sample == 'None' or replica == 'None':
@@ -207,7 +230,7 @@ def expanded_solutions(document):
 
 def converted_documents(document, source_path, replicas):
     """Yield converted document copies and their sample/replica identities."""
-    for sample, replica_number, values, source_kind in expanded_solutions(document):
+    for sample, replica_number, values, source_kind in expanded_solutions(document, replicas):
         replica = replicas.get((sample, replica_number))
         if replica is None:
             raise ValueError(f'No experiment data for checkpoint replica {sample}/{replica_number}.')
@@ -223,14 +246,14 @@ def converted_documents(document, source_path, replicas):
         # represents exactly one replica-specific, litre-based solution.
         if source_kind == 'joint_replica':
             converted.pop('replicas', None)
-        # The retained run_config records the source fit, whose model is often
-        # v0.3.  Converted parameter values instead require this explicit
-        # v0.4.2 replay contract; consumers must not infer it from run_config.
+        source_model = document['run_config']['model']
+        source_pathways = document['run_config']['chosen'].get(
+            'pathways', [name for name in source_model if name != 'version'])
         converted['converted_checkpoint'] = {
             'format': FORMAT,
-            'source_model_version': converted['run_config']['model'].get('version'),
-            'replay_model_version': REPLAY_MODEL_VERSION,
-            'pathways': list(REPLAY_PATHWAYS),
+            'source_model_version': source_model['version'],
+            'replay_model_version': REFIT_MODEL_VERSION,
+            'pathways': list(source_pathways),
             'normalized_parameters': False,
         }
         converted['unit_conversion'] = {
@@ -299,37 +322,78 @@ def write_envelope_report(rows, output_directory):
         writer.writerows(rows)
 
 
+def write_converted_checkpoint(document, source, source_document, output_directory, sample, replica):
+    source_cp = checkpoint_id(source) or hashing.build_checkpoint_id(source_document).removeprefix('cp-')
+    chosen = source_document['run_config']['chosen']
+    run_id = hashing.build_run_id(source_document['run_config'])
+    conversion = document['unit_conversion']
+    conversion['source_checkpoint_id'] = source_cp
+    conversion['source_run_id'] = run_id
+    converted_id = hashing.build_checkpoint_id({
+        **document,
+        'unit_conversion': {key: value for key, value in conversion.items()
+                            if key != 'source_checkpoint'},
+    })
+    destination = (output_directory / f'sample-{sample}-replica-{replica}'
+                   / f"{chosen['fit_mode']}_{run_id}_from-{source_cp}_{converted_id}.json")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(document, indent=2, sort_keys=True) + '\n'
+    with TemporaryDirectory(dir=destination.parent) as staging:
+        candidate = Path(staging) / destination.name
+        candidate.write_text(payload)
+        try:
+            os.link(candidate, destination)
+        except FileExistsError:
+            if destination.read_text() != payload:
+                raise FileExistsError(f'Converted checkpoint already exists with different contents: {destination}')
+    return destination
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('model_id', help='Full model ID or an unambiguous model-ID substring.')
     parser.add_argument('--results', type=Path, default=Path(RESULTS_DIRECTORY),
                         help='Checkpoint root to scan (default: results/).')
     parser.add_argument('--output-dir', type=Path,
-                        help='Destination (default: converted_checkpoints/<model-id>/).')
+                        help=f'Destination (default: converted_checkpoints/v{REFIT_MODEL_VERSION}/<model-id>/).')
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument('--checkpoint', action='append',
+                           help='Convert this source path or unique ID. Repeat to select multiple sources.')
+    selection.add_argument('--all', action='store_true',
+                           help='Convert every matching checkpoint instead of the lowest-loss checkpoint per run.')
     args = parser.parse_args(argv)
 
-    discovered = list(matching_checkpoints(args.results, args.model_id))
-    matches = best_checkpoint_per_run(discovered)
+    if args.checkpoint:
+        discovered = []
+        for identifier in args.checkpoint:
+            source = resolve_checkpoint(identifier, args.results)
+            document = load_checkpoint_document(source)
+            if document['run_config']['model']['version'] != '0.3' or 'unit_conversion' in document:
+                parser.error(f'{source} is not a native v0.3 checkpoint.')
+            source_model_id = checkpoint_model_id(document)
+            if args.model_id.casefold().removeprefix('model-') not in source_model_id.casefold():
+                parser.error(f'{source} belongs to {source_model_id}, which does not match {args.model_id!r}.')
+            discovered.append((source, document, source_model_id))
+    else:
+        discovered = list(matching_checkpoints(args.results, args.model_id))
+    matches = discovered if args.all or args.checkpoint else best_checkpoint_per_run(discovered)
     if not matches:
         parser.error(f'No checkpoints match model ID {args.model_id!r} under {args.results}.')
     model_ids = {model_id for _, _, model_id in matches}
     if len(model_ids) != 1:
         parser.error('Model-ID selector is ambiguous: ' + ', '.join(sorted(model_ids)))
     model_id = next(iter(model_ids))
-    output_directory = args.output_dir or Path(PROJECT_DIRECTORY) / 'converted_checkpoints' / model_id
+    output_directory = (args.output_dir or Path(CONVERTED_CHECKPOINTS_DIRECTORY)
+                        / f'v{REFIT_MODEL_VERSION}' / model_id)
     output_directory.mkdir(parents=True, exist_ok=True)
 
     replicas = replica_data_by_id(data.get_data_before_day())
     values_by_parameter = defaultdict(list)
     written = 0
     for source_path, document, _ in matches:
-        for converted, sample, replica_number in converted_documents(document, source_path, replicas):
-            suffix = f'__liter__{sample}_{replica_number}'
-            destination = output_directory / (source_path.name + suffix)
-            if destination.exists():
-                raise FileExistsError(f'Refusing to overwrite existing converted checkpoint: {destination}')
-            with destination.open('w') as handle:
-                json.dump(converted, handle, indent=2, sort_keys=True)
+        for converted, sample, replica_number in converted_documents(document, source_path.resolve(), replicas):
+            write_converted_checkpoint(
+                converted, source_path, document, output_directory, sample, replica_number)
             for name, value in converted['parameters'].items():
                 if isinstance(value, (int, float)) and not isinstance(value, bool):
                     values_by_parameter[name].append(value)
@@ -337,7 +401,7 @@ def main(argv=None):
 
     rows = envelope_rows(values_by_parameter)
     write_envelope_report(rows, output_directory)
-    print(f'Converted {written} replica-specific checkpoint(s) from {len(matches)} best checkpoint(s), '
+    print(f'Converted {written} replica-specific checkpoint(s) from {len(matches)} selected checkpoint(s), '
           f'selected from {len(discovered)} matching source checkpoint(s).')
     print(f'Output: {output_directory}')
     print(f'Envelope comparison: {output_directory / "parameter_envelopes.csv"}')
